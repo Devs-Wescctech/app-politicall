@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { type PoliticalAlliance, type PoliticalParty, type InsertPoliticalAlliance, insertPoliticalAllianceSchema } from "@shared/schema";
+import { type PoliticalAlliance, type PoliticalParty, type InsertPoliticalAlliance, insertPoliticalAllianceSchema, type Contact } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, Trash2, Mail, MessageCircle, Edit } from "lucide-react";
+import { Plus, Trash2, Mail, MessageCircle, Edit, UserPlus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -51,6 +51,10 @@ export default function Alliances() {
     queryKey: ["/api/parties"],
   });
 
+  const { data: contacts } = useQuery<Contact[]>({
+    queryKey: ["/api/contacts"],
+  });
+
   const form = useForm<InsertPoliticalAlliance>({
     resolver: zodResolver(insertPoliticalAllianceSchema),
     defaultValues: {
@@ -62,6 +66,17 @@ export default function Alliances() {
       notes: "",
     },
   });
+
+  const handleImportContact = (contactId: string) => {
+    const contact = contacts?.find((c) => c.id === contactId);
+    if (contact) {
+      form.setValue("allyName", contact.name);
+      form.setValue("phone", contact.phone || "");
+      form.setValue("email", contact.email || "");
+      form.setValue("notes", contact.notes || "");
+      toast({ title: "Dados importados do contato!" });
+    }
+  };
 
   const createMutation = useMutation({
     mutationFn: (data: InsertPoliticalAlliance) => apiRequest("POST", "/api/alliances", data),
@@ -204,6 +219,33 @@ export default function Alliances() {
                       </FormItem>
                     )}
                   />
+                  
+                  <div className="flex items-center gap-4">
+                    <div className="flex-1 border-t" />
+                    <span className="text-xs text-muted-foreground">ou</span>
+                    <div className="flex-1 border-t" />
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium">Importar de Contatos</label>
+                    <Select onValueChange={handleImportContact}>
+                      <SelectTrigger data-testid="select-import-contact" className="mt-2">
+                        <SelectValue placeholder="Selecione um contato" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {contacts?.map((contact) => (
+                          <SelectItem key={contact.id} value={contact.id}>
+                            {contact.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="flex items-center gap-4">
+                    <div className="flex-1 border-t" />
+                  </div>
+
                   <FormField
                     control={form.control}
                     name="allyName"
