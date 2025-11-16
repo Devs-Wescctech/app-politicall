@@ -42,14 +42,38 @@ export default function AiAttendance() {
     resolver: zodResolver(insertAiConfigurationSchema),
     defaultValues: {
       mode: config?.mode || "compliance",
-      facebookToken: "",
+      // Facebook
+      facebookAppId: "",
+      facebookAppSecret: "",
+      facebookPageAccessToken: "",
       facebookPageId: "",
-      instagramToken: "",
-      instagramAccountId: "",
-      twitterToken: "",
-      twitterTokenSecret: "",
-      whatsappToken: "",
-      whatsappPhoneId: "",
+      facebookWebhookVerifyToken: "",
+      facebookPageName: "",
+      // Instagram
+      instagramAppId: "",
+      instagramAppSecret: "",
+      instagramAccessToken: "",
+      instagramBusinessAccountId: "",
+      instagramFacebookPageId: "",
+      instagramUsername: "",
+      // Twitter/X
+      twitterApiKey: "",
+      twitterApiSecretKey: "",
+      twitterBearerToken: "",
+      twitterAccessToken: "",
+      twitterAccessTokenSecret: "",
+      twitterClientId: "",
+      twitterClientSecret: "",
+      twitterUsername: "",
+      // WhatsApp
+      whatsappPhoneNumberId: "",
+      whatsappBusinessAccountId: "",
+      whatsappAccessToken: "",
+      whatsappAppId: "",
+      whatsappAppSecret: "",
+      whatsappWebhookVerifyToken: "",
+      whatsappPhoneNumber: "",
+      whatsappBusinessName: "",
     },
   });
 
@@ -81,13 +105,13 @@ export default function AiAttendance() {
     if (!config) return false;
     switch (platform) {
       case "facebook":
-        return !!(config.facebookToken && config.facebookPageId);
+        return !!(config.facebookAppId && config.facebookPageId);
       case "instagram":
-        return !!(config.instagramToken && config.instagramAccountId);
+        return !!(config.instagramAppId && config.instagramBusinessAccountId);
       case "twitter":
-        return !!(config.twitterToken && config.twitterTokenSecret);
+        return !!(config.twitterApiKey && config.twitterAccessToken);
       case "whatsapp":
-        return !!(config.whatsappToken && config.whatsappPhoneId);
+        return !!(config.whatsappAppId && config.whatsappPhoneNumberId);
       default:
         return false;
     }
@@ -268,20 +292,37 @@ export default function AiAttendance() {
               <div className="overflow-y-auto px-6 py-4 space-y-4">
               {selectedPlatform === "facebook" && (
                 <>
+                  <div className="text-sm font-semibold text-muted-foreground mb-2">Credenciais do Aplicativo</div>
                   <FormField
                     control={form.control}
-                    name="facebookToken"
+                    name="facebookAppId"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Token de Acesso</FormLabel>
+                        <FormLabel>App ID</FormLabel>
                         <FormControl>
-                          <Input placeholder="Token da API do Facebook" type="password" data-testid="input-facebook-token" {...field} />
+                          <Input placeholder="ID do aplicativo do Facebook" data-testid="input-facebook-app-id" {...field} />
                         </FormControl>
-                        <FormDescription>Token de acesso da API do Facebook Graph</FormDescription>
+                        <FormDescription>Encontre em developers.facebook.com</FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
+                  <FormField
+                    control={form.control}
+                    name="facebookAppSecret"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>App Secret</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Secret do aplicativo" type="password" data-testid="input-facebook-app-secret" {...field} />
+                        </FormControl>
+                        <FormDescription>Chave secreta do aplicativo</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <div className="text-sm font-semibold text-muted-foreground mb-2 mt-4">Configuração da Página</div>
                   <FormField
                     control={form.control}
                     name="facebookPageId"
@@ -289,8 +330,52 @@ export default function AiAttendance() {
                       <FormItem>
                         <FormLabel>ID da Página</FormLabel>
                         <FormControl>
-                          <Input placeholder="ID da sua página" data-testid="input-facebook-page-id" {...field} />
+                          <Input placeholder="ID da sua página do Facebook" data-testid="input-facebook-page-id" {...field} />
                         </FormControl>
+                        <FormDescription>Encontre nas configurações da página</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="facebookPageName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Nome da Página</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Nome da página do Facebook" data-testid="input-facebook-page-name" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="facebookPageAccessToken"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Page Access Token</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Token de acesso da página" type="password" data-testid="input-facebook-page-token" {...field} />
+                        </FormControl>
+                        <FormDescription>Token com permissões da página</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <div className="text-sm font-semibold text-muted-foreground mb-2 mt-4">Webhook</div>
+                  <FormField
+                    control={form.control}
+                    name="facebookWebhookVerifyToken"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Webhook Verify Token</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Token de verificação do webhook" data-testid="input-facebook-webhook-token" {...field} />
+                        </FormControl>
+                        <FormDescription>String aleatória para verificar webhook</FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -299,29 +384,88 @@ export default function AiAttendance() {
               )}
               {selectedPlatform === "instagram" && (
                 <>
+                  <div className="text-sm font-semibold text-muted-foreground mb-2">Credenciais do Aplicativo</div>
                   <FormField
                     control={form.control}
-                    name="instagramToken"
+                    name="instagramAppId"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Token de Acesso</FormLabel>
+                        <FormLabel>App ID</FormLabel>
                         <FormControl>
-                          <Input placeholder="Token da API do Instagram" type="password" data-testid="input-instagram-token" {...field} />
+                          <Input placeholder="ID do aplicativo do Instagram" data-testid="input-instagram-app-id" {...field} />
                         </FormControl>
-                        <FormDescription>Token de acesso da Instagram Graph API</FormDescription>
+                        <FormDescription>Mesmo App ID do Facebook</FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
                   <FormField
                     control={form.control}
-                    name="instagramAccountId"
+                    name="instagramAppSecret"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>ID da Conta</FormLabel>
+                        <FormLabel>App Secret</FormLabel>
                         <FormControl>
-                          <Input placeholder="ID da sua conta comercial" data-testid="input-instagram-account-id" {...field} />
+                          <Input placeholder="Secret do aplicativo" type="password" data-testid="input-instagram-app-secret" {...field} />
                         </FormControl>
+                        <FormDescription>Mesmo App Secret do Facebook</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <div className="text-sm font-semibold text-muted-foreground mb-2 mt-4">Configuração da Conta</div>
+                  <FormField
+                    control={form.control}
+                    name="instagramBusinessAccountId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>ID da Conta Business</FormLabel>
+                        <FormControl>
+                          <Input placeholder="ID da sua conta comercial do Instagram" data-testid="input-instagram-business-id" {...field} />
+                        </FormControl>
+                        <FormDescription>ID da conta comercial/profissional</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="instagramUsername"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Nome de Usuário</FormLabel>
+                        <FormControl>
+                          <Input placeholder="@seuperfil" data-testid="input-instagram-username" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="instagramFacebookPageId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>ID da Página do Facebook</FormLabel>
+                        <FormControl>
+                          <Input placeholder="ID da página vinculada" data-testid="input-instagram-fb-page-id" {...field} />
+                        </FormControl>
+                        <FormDescription>Página do Facebook conectada ao Instagram</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="instagramAccessToken"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Access Token</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Token de acesso do Instagram" type="password" data-testid="input-instagram-access-token" {...field} />
+                        </FormControl>
+                        <FormDescription>Token com permissões do Instagram</FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -330,28 +474,114 @@ export default function AiAttendance() {
               )}
               {selectedPlatform === "twitter" && (
                 <>
+                  <div className="text-sm font-semibold text-muted-foreground mb-2">Credenciais da API</div>
                   <FormField
                     control={form.control}
-                    name="twitterToken"
+                    name="twitterApiKey"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Access Token</FormLabel>
+                        <FormLabel>API Key</FormLabel>
                         <FormControl>
-                          <Input placeholder="Token de acesso do X" type="password" data-testid="input-twitter-token" {...field} />
+                          <Input placeholder="Chave da API do X" data-testid="input-twitter-api-key" {...field} />
                         </FormControl>
-                        <FormDescription>Access Token da API v2 do X (Twitter)</FormDescription>
+                        <FormDescription>Consumer Key da aplicação</FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
                   <FormField
                     control={form.control}
-                    name="twitterTokenSecret"
+                    name="twitterApiSecretKey"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>API Secret Key</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Secret da API" type="password" data-testid="input-twitter-api-secret" {...field} />
+                        </FormControl>
+                        <FormDescription>Consumer Secret da aplicação</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="twitterBearerToken"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Bearer Token</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Bearer token para autenticação" type="password" data-testid="input-twitter-bearer" {...field} />
+                        </FormControl>
+                        <FormDescription>Token para acesso somente leitura</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <div className="text-sm font-semibold text-muted-foreground mb-2 mt-4">Tokens de Acesso</div>
+                  <FormField
+                    control={form.control}
+                    name="twitterAccessToken"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Access Token</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Token de acesso do usuário" type="password" data-testid="input-twitter-access-token" {...field} />
+                        </FormControl>
+                        <FormDescription>Token para operações da conta</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="twitterAccessTokenSecret"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Access Token Secret</FormLabel>
                         <FormControl>
-                          <Input placeholder="Secret do token" type="password" data-testid="input-twitter-secret" {...field} />
+                          <Input placeholder="Secret do access token" type="password" data-testid="input-twitter-access-secret" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <div className="text-sm font-semibold text-muted-foreground mb-2 mt-4">OAuth 2.0 (Opcional)</div>
+                  <FormField
+                    control={form.control}
+                    name="twitterClientId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Client ID</FormLabel>
+                        <FormControl>
+                          <Input placeholder="ID do cliente OAuth 2.0" data-testid="input-twitter-client-id" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="twitterClientSecret"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Client Secret</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Secret do cliente OAuth 2.0" type="password" data-testid="input-twitter-client-secret" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="twitterUsername"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Nome de Usuário</FormLabel>
+                        <FormControl>
+                          <Input placeholder="@seuperfil" data-testid="input-twitter-username" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -361,29 +591,118 @@ export default function AiAttendance() {
               )}
               {selectedPlatform === "whatsapp" && (
                 <>
+                  <div className="text-sm font-semibold text-muted-foreground mb-2">Credenciais do Aplicativo</div>
                   <FormField
                     control={form.control}
-                    name="whatsappToken"
+                    name="whatsappAppId"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Token de Acesso</FormLabel>
+                        <FormLabel>App ID</FormLabel>
                         <FormControl>
-                          <Input placeholder="Token da API do WhatsApp Business" type="password" data-testid="input-whatsapp-token" {...field} />
+                          <Input placeholder="ID do aplicativo do WhatsApp" data-testid="input-whatsapp-app-id" {...field} />
                         </FormControl>
-                        <FormDescription>Token da WhatsApp Business API</FormDescription>
+                        <FormDescription>ID do app no Meta for Developers</FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
                   <FormField
                     control={form.control}
-                    name="whatsappPhoneId"
+                    name="whatsappAppSecret"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>ID do Telefone</FormLabel>
+                        <FormLabel>App Secret</FormLabel>
                         <FormControl>
-                          <Input placeholder="ID do número de telefone" data-testid="input-whatsapp-phone-id" {...field} />
+                          <Input placeholder="Secret do aplicativo" type="password" data-testid="input-whatsapp-app-secret" {...field} />
                         </FormControl>
+                        <FormDescription>Chave secreta do aplicativo</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="whatsappAccessToken"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Access Token</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Token de acesso do WhatsApp" type="password" data-testid="input-whatsapp-access-token" {...field} />
+                        </FormControl>
+                        <FormDescription>Token permanente ou temporário</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <div className="text-sm font-semibold text-muted-foreground mb-2 mt-4">Configuração da Conta Business</div>
+                  <FormField
+                    control={form.control}
+                    name="whatsappBusinessAccountId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Business Account ID</FormLabel>
+                        <FormControl>
+                          <Input placeholder="ID da conta business" data-testid="input-whatsapp-business-account-id" {...field} />
+                        </FormControl>
+                        <FormDescription>WhatsApp Business Account ID</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="whatsappPhoneNumberId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Phone Number ID</FormLabel>
+                        <FormControl>
+                          <Input placeholder="ID do número de telefone" data-testid="input-whatsapp-phone-number-id" {...field} />
+                        </FormControl>
+                        <FormDescription>ID do número no WhatsApp Business</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="whatsappPhoneNumber"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Número de Telefone</FormLabel>
+                        <FormControl>
+                          <Input placeholder="+55 11 99999-9999" data-testid="input-whatsapp-phone" {...field} />
+                        </FormControl>
+                        <FormDescription>Número registrado no WhatsApp Business</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="whatsappBusinessName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Nome do Negócio</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Nome da empresa/político" data-testid="input-whatsapp-business-name" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <div className="text-sm font-semibold text-muted-foreground mb-2 mt-4">Webhook</div>
+                  <FormField
+                    control={form.control}
+                    name="whatsappWebhookVerifyToken"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Webhook Verify Token</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Token de verificação do webhook" data-testid="input-whatsapp-webhook-token" {...field} />
+                        </FormControl>
+                        <FormDescription>String para verificar webhook</FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
