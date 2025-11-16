@@ -372,7 +372,7 @@ export default function Demands() {
             onDrop={(e) => handleDrop(e, status)}
           >
             <CardHeader>
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-3">
                 <CardTitle className="text-base">{STATUS_CONFIG[status as keyof typeof STATUS_CONFIG].label}</CardTitle>
                 <Badge variant="secondary">{statusDemands.length}</Badge>
               </div>
