@@ -238,8 +238,6 @@ export default function Contacts() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Nome</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Telefone</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
@@ -248,8 +246,6 @@ export default function Contacts() {
                   filteredContacts.map((contact) => (
                     <TableRow key={contact.id} data-testid={`row-contact-${contact.id}`}>
                       <TableCell className="font-medium">{contact.name}</TableCell>
-                      <TableCell>{contact.email || "-"}</TableCell>
-                      <TableCell>{contact.phone || "-"}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
                           {contact.email && (
@@ -299,7 +295,7 @@ export default function Contacts() {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={2} className="text-center text-muted-foreground py-8">
                       {searchQuery ? "Nenhum contato encontrado" : "Nenhum contato cadastrado"}
                     </TableCell>
                   </TableRow>
