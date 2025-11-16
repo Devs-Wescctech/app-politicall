@@ -220,7 +220,7 @@ export default function Contacts() {
                 placeholder="Buscar contatos..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
+                className="pl-10 rounded-full"
                 data-testid="input-search-contacts"
               />
             </div>
