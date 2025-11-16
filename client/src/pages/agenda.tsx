@@ -14,7 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, Calendar as CalendarIcon, List, Clock, Trash2, Pencil } from "lucide-react";
+import { Plus, Calendar as CalendarIcon, List, Clock, Trash2, Pencil, MapPin } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -487,8 +487,16 @@ export default function Agenda() {
                             </div>
                             {event.description && <p className="text-sm text-muted-foreground">{event.description}</p>}
                             <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap">
-                              <span>🕐 {format(new Date(event.startDate), "HH:mm")}hrs - {format(new Date(event.endDate), "HH:mm")}hrs</span>
-                              {event.location && <span>📍 {event.location}</span>}
+                              <span className="flex items-center gap-1">
+                                <Clock className="h-3 w-3" />
+                                {format(new Date(event.startDate), "HH:mm")}hrs - {format(new Date(event.endDate), "HH:mm")}hrs
+                              </span>
+                              {event.location && (
+                                <span className="flex items-center gap-1">
+                                  <MapPin className="h-3 w-3" />
+                                  {event.location}
+                                </span>
+                              )}
                             </div>
                           </div>
                           <div className="flex gap-2">
@@ -587,7 +595,12 @@ export default function Agenda() {
                             {format(new Date(event.startDate), "dd/MM/yyyy HH:mm")}hrs - {format(new Date(event.endDate), "HH:mm")}hrs
                           </p>
                           {event.description && <p className="text-sm">{event.description}</p>}
-                          {event.location && <p className="text-sm text-muted-foreground">📍 {event.location}</p>}
+                          {event.location && (
+                            <p className="text-sm text-muted-foreground flex items-center gap-1">
+                              <MapPin className="h-3 w-3" />
+                              {event.location}
+                            </p>
+                          )}
                         </div>
                         <div className="flex gap-2">
                           <Button variant="ghost" size="icon" onClick={() => handleEdit(event)}>
