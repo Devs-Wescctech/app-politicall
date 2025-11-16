@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, Trash2, Mail, MessageCircle, Edit, UserPlus, Users, TrendingUp } from "lucide-react";
+import { Plus, Trash2, Mail, MessageCircle, Edit, UserPlus, Users, TrendingUp, Send, Copy } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -270,6 +270,45 @@ export default function Alliances() {
       .join(' ');
   };
 
+  const handleBulkEmail = () => {
+    const emailAddresses = getFilteredAlliances()
+      .filter(a => a.email)
+      .map(a => a.email)
+      .join(',');
+    
+    if (!emailAddresses) {
+      toast({ title: "Nenhum aliado com email", variant: "destructive" });
+      return;
+    }
+    
+    window.location.href = `mailto:?bcc=${emailAddresses}`;
+  };
+
+  const handleCopyWhatsAppNumbers = () => {
+    const phones = getFilteredAlliances()
+      .filter(a => a.phone)
+      .map(a => {
+        const cleanPhone = a.phone!.replace(/\D/g, '');
+        const internationalPhone = cleanPhone.startsWith('55') ? cleanPhone : `55${cleanPhone}`;
+        return `+${internationalPhone}`;
+      })
+      .join('\n');
+    
+    if (!phones) {
+      toast({ title: "Nenhum aliado com telefone", variant: "destructive" });
+      return;
+    }
+
+    navigator.clipboard.writeText(phones).then(() => {
+      toast({ 
+        title: "Números copiados!", 
+        description: `${phones.split('\n').length} números formatados para WhatsApp Business API`
+      });
+    }).catch(() => {
+      toast({ title: "Erro ao copiar números", variant: "destructive" });
+    });
+  };
+
   return (
     <div className="p-4 sm:p-6 md:p-8 space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
@@ -331,6 +370,28 @@ export default function Alliances() {
               Limpar Filtros
             </Button>
           )}
+
+          <Button 
+            variant="outline"
+            onClick={handleBulkEmail}
+            data-testid="button-bulk-email"
+            title="Enviar email em massa"
+            className="rounded-full"
+          >
+            <Send className="w-4 h-4 mr-2" />
+            Email em Massa
+          </Button>
+          
+          <Button 
+            variant="outline"
+            onClick={handleCopyWhatsAppNumbers}
+            data-testid="button-copy-whatsapp"
+            title="Copiar números para WhatsApp Business"
+            className="rounded-full"
+          >
+            <Copy className="w-4 h-4 mr-2" />
+            Copiar WhatsApp
+          </Button>
 
           <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
             <DialogTrigger asChild>

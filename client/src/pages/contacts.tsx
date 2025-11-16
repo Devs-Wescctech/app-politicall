@@ -148,7 +148,8 @@ export default function Contacts() {
       ?.filter(c => c.phone)
       .map(c => {
         const cleanPhone = c.phone!.replace(/\D/g, '');
-        return `+55${cleanPhone}`;
+        const internationalPhone = cleanPhone.startsWith('55') ? cleanPhone : `55${cleanPhone}`;
+        return `+${internationalPhone}`;
       })
       .join('\n');
     
