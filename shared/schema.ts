@@ -135,6 +135,10 @@ export const aiConfigurations = pgTable("ai_configurations", {
   whatsappWebhookVerifyToken: text("whatsapp_webhook_verify_token"),
   whatsappPhoneNumber: text("whatsapp_phone_number"),
   whatsappBusinessName: text("whatsapp_business_name"),
+  // OpenAI API Key configuration
+  openaiApiKey: text("openai_api_key"),
+  openaiApiKeyLast4: text("openai_api_key_last4"),
+  openaiApiKeyUpdatedAt: timestamp("openai_api_key_updated_at"),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 

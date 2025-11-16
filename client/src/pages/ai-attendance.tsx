@@ -51,6 +51,8 @@ export default function AiAttendance() {
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
   const [editingTraining, setEditingTraining] = useState<AiTrainingExample | null>(null);
   const [editingTemplate, setEditingTemplate] = useState<AiResponseTemplate | null>(null);
+  const [apiKey, setApiKey] = useState("");
+  const [isTestingKey, setIsTestingKey] = useState(false);
   const { toast } = useToast();
 
   // Queries
@@ -227,6 +229,34 @@ export default function AiAttendance() {
     },
   });
 
+  // OpenAI API Key Mutations
+  const saveApiKeyMutation = useMutation({
+    mutationFn: (apiKey: string) => apiRequest("POST", "/api/ai-config/openai-key", { apiKey }),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/ai-config"] });
+      toast({ title: data.message || "Chave API configurada com sucesso!" });
+      setApiKey("");
+      setIsTestingKey(false);
+    },
+    onError: (error: any) => {
+      const errorMessage = error?.response?.data?.error || error.message || "Erro ao configurar chave API";
+      toast({ title: errorMessage, variant: "destructive" });
+      setIsTestingKey(false);
+    },
+  });
+
+  const deleteApiKeyMutation = useMutation({
+    mutationFn: () => apiRequest("DELETE", "/api/ai-config/openai-key"),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/ai-config"] });
+      toast({ title: data.message || "Chave API removida com sucesso!" });
+      setApiKey("");
+    },
+    onError: (error: any) => {
+      toast({ title: "Erro ao remover chave API", variant: "destructive" });
+    },
+  });
+
   // Handlers
   const handleSavePlatform = (data: any) => {
     updateConfigMutation.mutate(data);
@@ -394,16 +424,105 @@ export default function AiAttendance() {
         </TabsContent>
 
         <TabsContent value="personalizacao">
-          <Card>
-            <CardHeader>
-              <CardTitle>Configuração de Personalidade da IA</CardTitle>
-              <CardDescription>
-                Configure as instruções e características da IA para respostas personalizadas
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Form {...personalizationForm}>
-                <form onSubmit={personalizationForm.handleSubmit(handleSavePersonalization)} className="space-y-6">
+          <div className="space-y-6">
+            {/* API Configuration Section */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Configuração da API OpenAI</CardTitle>
+                <CardDescription>
+                  Configure sua própria chave de API da OpenAI para personalizar o assistente
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium">Status da API</p>
+                    <p className="text-sm text-muted-foreground">
+                      {config?.hasCustomKey ? (
+                        <>API Personalizada (****{config.openaiApiKeyLast4})</>
+                      ) : (
+                        <>Usando Replit AI</>
+                      )}
+                    </p>
+                  </div>
+                  {config?.hasCustomKey && (
+                    <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                      <CheckCircle2 className="w-3 h-3 mr-1" />
+                      Configurada
+                    </Badge>
+                  )}
+                </div>
+                
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label htmlFor="api-key-input" className="text-sm font-medium">
+                      Chave da API
+                    </label>
+                    <Input
+                      id="api-key-input"
+                      type="password"
+                      value={apiKey}
+                      onChange={(e) => setApiKey(e.target.value)}
+                      placeholder="sk-..."
+                      className="font-mono"
+                      data-testid="input-api-key"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Sua chave API será criptografada antes de ser armazenada
+                    </p>
+                  </div>
+                  
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={() => {
+                        setIsTestingKey(true);
+                        saveApiKeyMutation.mutate(apiKey);
+                      }}
+                      disabled={!apiKey || saveApiKeyMutation.isPending || isTestingKey}
+                      className="rounded-full"
+                      data-testid="button-save-api-key"
+                    >
+                      {saveApiKeyMutation.isPending ? (
+                        <>
+                          <Settings className="w-4 h-4 mr-2 animate-spin" />
+                          Testando...
+                        </>
+                      ) : (
+                        <>
+                          <Save className="w-4 h-4 mr-2" />
+                          Salvar Chave
+                        </>
+                      )}
+                    </Button>
+                    
+                    {config?.hasCustomKey && (
+                      <Button
+                        onClick={() => deleteApiKeyMutation.mutate()}
+                        disabled={deleteApiKeyMutation.isPending}
+                        variant="destructive"
+                        className="rounded-full"
+                        data-testid="button-remove-api-key"
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Remover Chave
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Existing Personality Configuration */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Configuração de Personalidade da IA</CardTitle>
+                <CardDescription>
+                  Configure as instruções e características da IA para respostas personalizadas
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Form {...personalizationForm}>
+                  <form onSubmit={personalizationForm.handleSubmit(handleSavePersonalization)} className="space-y-6">
                   <FormField
                     control={personalizationForm.control}
                     name="systemPrompt"
@@ -507,6 +626,7 @@ export default function AiAttendance() {
               </Form>
             </CardContent>
           </Card>
+          </div>
         </TabsContent>
 
         <TabsContent value="treinamento">

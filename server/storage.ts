@@ -14,6 +14,7 @@ import {
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, count } from "drizzle-orm";
+import { encryptApiKey, decryptApiKey } from "./crypto";
 
 export interface IStorage {
   // Users
@@ -61,6 +62,9 @@ export interface IStorage {
   // AI Configuration
   getAiConfig(userId: string): Promise<AiConfiguration | undefined>;
   upsertAiConfig(config: InsertAiConfiguration & { userId: string }): Promise<AiConfiguration>;
+  setOpenAiApiKey(userId: string, apiKey: string): Promise<void>;
+  getDecryptedApiKey(userId: string): Promise<string | null>;
+  deleteOpenAiApiKey(userId: string): Promise<void>;
 
   // AI Conversations
   getAiConversations(userId: string): Promise<AiConversation[]>;
@@ -335,6 +339,67 @@ export class DatabaseStorage implements IStorage {
     } else {
       const [newConfig] = await db.insert(aiConfigurations).values(config).returning();
       return newConfig;
+    }
+  }
+
+  async setOpenAiApiKey(userId: string, apiKey: string): Promise<void> {
+    // Encrypt the API key
+    const encryptedKey = encryptApiKey(apiKey);
+    
+    // Get last 4 characters for display
+    const last4 = apiKey.length >= 4 ? apiKey.slice(-4) : apiKey;
+    
+    // Update or insert configuration
+    const existing = await this.getAiConfig(userId);
+    
+    if (existing) {
+      await db.update(aiConfigurations)
+        .set({ 
+          openaiApiKey: encryptedKey,
+          openaiApiKeyLast4: last4,
+          openaiApiKeyUpdatedAt: new Date(),
+          updatedAt: new Date()
+        })
+        .where(eq(aiConfigurations.userId, userId));
+    } else {
+      await db.insert(aiConfigurations)
+        .values({
+          userId,
+          mode: 'compliance',
+          openaiApiKey: encryptedKey,
+          openaiApiKeyLast4: last4,
+          openaiApiKeyUpdatedAt: new Date()
+        });
+    }
+  }
+
+  async getDecryptedApiKey(userId: string): Promise<string | null> {
+    const config = await this.getAiConfig(userId);
+    
+    if (!config || !config.openaiApiKey) {
+      return null;
+    }
+    
+    try {
+      return decryptApiKey(config.openaiApiKey);
+    } catch (error) {
+      console.error('Error decrypting API key:', error);
+      return null;
+    }
+  }
+
+  async deleteOpenAiApiKey(userId: string): Promise<void> {
+    const existing = await this.getAiConfig(userId);
+    
+    if (existing) {
+      await db.update(aiConfigurations)
+        .set({ 
+          openaiApiKey: null,
+          openaiApiKeyLast4: null,
+          openaiApiKeyUpdatedAt: null,
+          updatedAt: new Date()
+        })
+        .where(eq(aiConfigurations.userId, userId));
     }
   }
 

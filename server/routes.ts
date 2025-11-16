@@ -565,7 +565,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/ai-config", authenticateToken, async (req: AuthRequest, res) => {
     try {
       const config = await storage.getAiConfig(req.userId!);
-      res.json(config || { mode: "compliance" });
+      
+      // Include API key status but never the actual key
+      const response = config ? {
+        ...config,
+        openaiApiKey: undefined, // Never send the actual key
+        hasCustomKey: !!config.openaiApiKey,
+        openaiApiKeyLast4: config.openaiApiKeyLast4 || null
+      } : { 
+        mode: "compliance",
+        hasCustomKey: false,
+        openaiApiKeyLast4: null
+      };
+      
+      res.json(response);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -594,6 +607,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(config);
     } catch (error: any) {
       res.status(400).json({ error: error.message });
+    }
+  });
+
+  // OpenAI API Key Management
+  app.post("/api/ai-config/openai-key", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const { apiKey } = req.body;
+      
+      if (!apiKey || typeof apiKey !== 'string') {
+        return res.status(400).json({ error: "Chave API inválida" });
+      }
+      
+      // Basic validation - OpenAI keys start with "sk-"
+      if (!apiKey.startsWith('sk-')) {
+        return res.status(400).json({ error: "Chave API inválida" });
+      }
+      
+      // Test the API key by making a simple request
+      try {
+        const OpenAI = (await import("openai")).default;
+        const testClient = new OpenAI({ apiKey });
+        await testClient.models.list();
+      } catch (testError: any) {
+        if (testError.status === 401) {
+          return res.status(400).json({ error: "Chave API inválida" });
+        }
+        if (testError.status === 429) {
+          return res.status(400).json({ error: "Limite de requisições excedido" });
+        }
+        return res.status(400).json({ error: "Erro ao validar chave API" });
+      }
+      
+      // Store the encrypted API key
+      await storage.setOpenAiApiKey(req.userId!, apiKey);
+      
+      // Get updated config to return
+      const config = await storage.getAiConfig(req.userId!);
+      
+      res.json({ 
+        success: true,
+        message: "Chave API configurada com sucesso",
+        openaiApiKeyLast4: config?.openaiApiKeyLast4
+      });
+    } catch (error: any) {
+      console.error("Error setting OpenAI API key:", error);
+      res.status(500).json({ error: "Erro ao configurar chave API" });
+    }
+  });
+
+  app.delete("/api/ai-config/openai-key", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      await storage.deleteOpenAiApiKey(req.userId!);
+      res.json({ success: true, message: "Chave API removida com sucesso" });
+    } catch (error: any) {
+      res.status(500).json({ error: "Erro ao remover chave API" });
     }
   });
 
@@ -703,7 +771,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const config = await storage.getAiConfig(req.userId!);
       const mode = config?.mode || "compliance";
 
-      const aiResponse = await generateAiResponse(userMessage, postContent, mode);
+      const aiResponse = await generateAiResponse(userMessage, postContent, mode, req.userId!, {
+        systemPrompt: config?.systemPrompt,
+        personalityTraits: config?.personalityTraits,
+        politicalInfo: config?.politicalInfo,
+        responseGuidelines: config?.responseGuidelines
+      });
 
       // Save conversation
       await storage.createAiConversation({

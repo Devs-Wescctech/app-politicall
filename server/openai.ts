@@ -1,5 +1,6 @@
 // OpenAI integration using blueprint javascript_openai_ai_integrations
 import OpenAI from "openai";
+import { storage } from "./storage";
 
 // Validate AI Integration environment variables
 const aiBaseUrl = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
@@ -9,20 +10,66 @@ if (!aiBaseUrl || !aiApiKey) {
   console.warn("AI Integrations not configured. Set AI_INTEGRATIONS_OPENAI_BASE_URL and AI_INTEGRATIONS_OPENAI_API_KEY to enable AI features.");
 }
 
-const openai = aiBaseUrl && aiApiKey ? new OpenAI({
+const defaultOpenai = aiBaseUrl && aiApiKey ? new OpenAI({
   baseURL: aiBaseUrl,
   apiKey: aiApiKey
 }) : null;
 
-export async function generateAiResponse(userMessage: string, postContent: string | null, mode: string): Promise<string> {
-  if (!openai) {
+export async function generateAiResponse(
+  userMessage: string, 
+  postContent: string | null, 
+  mode: string,
+  userId: string,
+  aiConfig?: {
+    systemPrompt?: string | null;
+    personalityTraits?: string | null;
+    politicalInfo?: string | null;
+    responseGuidelines?: string | null;
+  }
+): Promise<string> {
+  // Check for custom API key first
+  let openai: OpenAI | null = null;
+  const customApiKey = await storage.getDecryptedApiKey(userId);
+  
+  if (customApiKey) {
+    // Use custom API key
+    openai = new OpenAI({
+      apiKey: customApiKey
+    });
+  } else if (defaultOpenai) {
+    // Use Replit AI Integration
+    openai = defaultOpenai;
+  } else {
     throw new Error("AI_INTEGRATION_NOT_CONFIGURED");
   }
 
   try {
-    const systemPrompt = mode === "compliance" 
-      ? "Você é um assistente de atendimento político seguindo as normas do TSE. Forneça respostas institucionais, objetivas e dentro das regras eleitorais. Encaminhe para canais oficiais quando necessário."
-      : "Você é um assistente político que responde de forma profissional e alinhada com os valores do político. Mantenha um tom respeitoso e construtivo.";
+    // Build system prompt from user's configuration
+    let systemPrompt = "";
+    
+    // Use custom system prompt if provided, otherwise use defaults
+    if (aiConfig?.systemPrompt) {
+      systemPrompt = aiConfig.systemPrompt;
+    } else {
+      systemPrompt = mode === "compliance" 
+        ? "Você é um assistente de atendimento político seguindo as normas do TSE. Forneça respostas institucionais, objetivas e dentro das regras eleitorais. Encaminhe para canais oficiais quando necessário."
+        : "Você é um assistente político que responde de forma profissional e alinhada com os valores do político. Mantenha um tom respeitoso e construtivo.";
+    }
+    
+    // Add personality traits if configured
+    if (aiConfig?.personalityTraits) {
+      systemPrompt += `\n\nTraços de personalidade: ${aiConfig.personalityTraits}`;
+    }
+    
+    // Add political information if configured
+    if (aiConfig?.politicalInfo) {
+      systemPrompt += `\n\nInformações políticas: ${aiConfig.politicalInfo}`;
+    }
+    
+    // Add response guidelines if configured  
+    if (aiConfig?.responseGuidelines) {
+      systemPrompt += `\n\nDiretrizes de resposta: ${aiConfig.responseGuidelines}`;
+    }
 
     const contextMessage = postContent 
       ? `Contexto da publicação: "${postContent}"\n\nPergunta do usuário: ${userMessage}`
