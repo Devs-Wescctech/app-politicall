@@ -197,8 +197,8 @@ export default function Demands() {
   };
 
   return (
-    <div className="p-4 sm:p-6 md:p-8 space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="h-full flex flex-col p-4 sm:p-6 md:p-8 overflow-hidden">
+      <div className="flex items-center justify-between mb-6 shrink-0">
         <div>
           <h1 className="text-3xl font-bold">Demandas do Gabinete</h1>
           <p className="text-muted-foreground mt-2">Gerencie as demandas com pipeline visual</p>
@@ -361,11 +361,12 @@ export default function Demands() {
         </Dialog>
       </div>
 
-      <div className="flex gap-4 pb-4 overflow-x-auto">
-        {Object.entries(groupedDemands).map(([status, statusDemands]) => (
-          <Card 
-            key={status} 
-            className={`flex-shrink-0 w-[350px] transition-colors ${dragOverColumn === status ? 'ring-2 ring-primary' : ''}`}
+      <div className="flex-1 overflow-x-auto overflow-y-hidden">
+        <div className="flex gap-4 pb-4 min-h-full">
+          {Object.entries(groupedDemands).map(([status, statusDemands]) => (
+            <Card 
+              key={status} 
+              className={`flex-shrink-0 w-[350px] transition-colors ${dragOverColumn === status ? 'ring-2 ring-primary' : ''}`}
             onDragOver={handleDragOver}
             onDragEnter={() => handleDragEnter(status)}
             onDragLeave={handleDragLeave}
@@ -468,7 +469,8 @@ export default function Demands() {
               )}
             </CardContent>
           </Card>
-        ))}
+          ))}
+        </div>
       </div>
 
       <Sheet open={!!selectedDemand} onOpenChange={(open) => !open && setSelectedDemand(null)}>
