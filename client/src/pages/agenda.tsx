@@ -238,10 +238,10 @@ export default function Agenda() {
         <h1 className="text-3xl font-bold">Agenda</h1>
         <div className="flex gap-4">
           <Tabs value={view} onValueChange={(v) => setView(v as any)}>
-            <TabsList>
-              <TabsTrigger value="list"><List className="h-4 w-4 mr-2" />Lista</TabsTrigger>
-              <TabsTrigger value="calendar"><CalendarIcon className="h-4 w-4 mr-2" />Calendário</TabsTrigger>
-              <TabsTrigger value="timeline"><Clock className="h-4 w-4 mr-2" />Timeline</TabsTrigger>
+            <TabsList className="rounded-full">
+              <TabsTrigger value="list" className="rounded-full"><List className="h-4 w-4 mr-2" />Lista</TabsTrigger>
+              <TabsTrigger value="calendar" className="rounded-full"><CalendarIcon className="h-4 w-4 mr-2" />Calendário</TabsTrigger>
+              <TabsTrigger value="timeline" className="rounded-full"><Clock className="h-4 w-4 mr-2" />Timeline</TabsTrigger>
             </TabsList>
           </Tabs>
           <Dialog open={isDialogOpen} onOpenChange={(open) => {
