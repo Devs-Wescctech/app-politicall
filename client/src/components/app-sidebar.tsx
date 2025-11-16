@@ -110,16 +110,14 @@ export function AppSidebar() {
                   const isActive = location === item.url;
                   return (
                     <SidebarMenuItem key={item.title} className="border-b border-muted-foreground/40 pb-2">
-                      <SidebarMenuButton asChild>
-                        <Link 
-                          href={item.url} 
-                          data-testid={`link-${item.url.slice(1)}`}
-                          className={isActive ? "text-primary shadow-md" : ""}
-                        >
-                          <item.icon className="w-4 h-4" />
-                          <span>{item.title}</span>
-                        </Link>
-                      </SidebarMenuButton>
+                      <Link 
+                        href={item.url} 
+                        data-testid={`link-${item.url.slice(1)}`}
+                        className={`flex items-center gap-2 py-2 px-2 ${isActive ? "text-primary" : ""}`}
+                      >
+                        <item.icon className="w-4 h-4" />
+                        <span>{item.title}</span>
+                      </Link>
                     </SidebarMenuItem>
                   );
                 })}
