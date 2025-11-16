@@ -58,6 +58,7 @@ export default function Alliances() {
   const [isEditMode, setIsEditMode] = useState(false);
   const [stateFilter, setStateFilter] = useState<string>("");
   const [cityFilter, setCityFilter] = useState<string>("");
+  const [filterKey, setFilterKey] = useState(0);
   const { toast } = useToast();
 
   const { data: alliances, isLoading: loadingAlliances } = useQuery<AllianceWithParty[]>({
@@ -277,10 +278,15 @@ export default function Alliances() {
           <p className="text-muted-foreground mt-2">Clique em um partido para ver seus aliados</p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
-          <Select value={stateFilter || undefined} onValueChange={(value) => {
-            setStateFilter(value);
-            setCityFilter("");
-          }}>
+          <Select 
+            key={`state-${filterKey}`}
+            value={stateFilter || undefined} 
+            onValueChange={(value) => {
+              setStateFilter(value);
+              setCityFilter("");
+              setFilterKey(prev => prev + 1);
+            }}
+          >
             <SelectTrigger className="w-[180px] rounded-full" data-testid="select-filter-state">
               <SelectValue placeholder="Filtrar por Estado" />
             </SelectTrigger>
@@ -293,7 +299,11 @@ export default function Alliances() {
             </SelectContent>
           </Select>
           
-          <Select value={cityFilter || undefined} onValueChange={setCityFilter}>
+          <Select 
+            key={`city-${filterKey}`}
+            value={cityFilter || undefined} 
+            onValueChange={setCityFilter}
+          >
             <SelectTrigger className="w-[180px] rounded-full" data-testid="select-filter-city">
               <SelectValue placeholder="Filtrar por Cidade" />
             </SelectTrigger>
@@ -313,6 +323,7 @@ export default function Alliances() {
               onClick={() => {
                 setStateFilter("");
                 setCityFilter("");
+                setFilterKey(prev => prev + 1);
               }}
               className="rounded-full"
               data-testid="button-clear-filters"
