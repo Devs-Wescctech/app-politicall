@@ -380,7 +380,8 @@ export default function Demands() {
                 [...Array(3)].map((_, i) => <Skeleton key={i} className="h-24 w-full" />)
               ) : statusDemands.length > 0 ? (
                 statusDemands.map((demand) => {
-                  const dueDateStatus = getDueDateStatus(demand.dueDate?.toISOString(), demand.status);
+                  const dueDateStr = typeof demand.dueDate === 'string' ? demand.dueDate : demand.dueDate?.toISOString();
+                  const dueDateStatus = getDueDateStatus(dueDateStr, demand.status);
                   return (
                     <Card
                       key={demand.id}
@@ -493,7 +494,8 @@ export default function Demands() {
                       <div className="flex items-center gap-2 mt-2">
                         <p className="text-sm">{format(new Date(selectedDemand.dueDate), "PPP", { locale: ptBR })}</p>
                         {(() => {
-                          const dueDateStatus = getDueDateStatus(selectedDemand.dueDate?.toISOString(), selectedDemand.status);
+                          const dueDateStr = typeof selectedDemand.dueDate === 'string' ? selectedDemand.dueDate : selectedDemand.dueDate?.toISOString();
+                          const dueDateStatus = getDueDateStatus(dueDateStr, selectedDemand.status);
                           return dueDateStatus ? (
                             <Badge className={dueDateStatus.color}>
                               {dueDateStatus.label}
