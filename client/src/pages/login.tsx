@@ -10,6 +10,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useToast } from "@/hooks/use-toast";
 import { setAuthToken, setAuthUser } from "@/lib/auth";
 import { apiRequest } from "@/lib/queryClient";
+import logoUrl from "@assets/logo pol_1763308638963.png";
 
 export default function Login() {
   const [, setLocation] = useLocation();
@@ -32,7 +33,7 @@ export default function Login() {
       setAuthUser(response.user);
       toast({
         title: "Login realizado com sucesso!",
-        description: "Bem-vindo ao Politicall",
+        description: "Bem-vindo à plataforma",
       });
       setLocation("/dashboard");
     } catch (error: any) {
@@ -49,8 +50,10 @@ export default function Login() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 to-background p-4">
       <Card className="w-full max-w-md">
-        <CardHeader className="space-y-2 text-center">
-          <CardTitle className="text-3xl font-bold text-primary">Politicall</CardTitle>
+        <CardHeader className="space-y-4 text-center">
+          <div className="flex justify-center">
+            <img src={logoUrl} alt="Logo" className="h-12" />
+          </div>
           <CardDescription className="text-base">
             Entre na sua conta para acessar a plataforma
           </CardDescription>

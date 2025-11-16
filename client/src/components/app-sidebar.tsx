@@ -26,6 +26,7 @@ import { Button } from "@/components/ui/button";
 import { removeAuthToken } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrentUser } from "@/hooks/use-current-user";
+import logoUrl from "@assets/logo pol_1763308638963.png";
 
 const menuItems = [
   {
@@ -102,8 +103,8 @@ export function AppSidebar() {
     <Sidebar>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel className="text-xl font-bold text-primary mb-4">
-            Politicall
+          <SidebarGroupLabel className="mb-4 px-2">
+            <img src={logoUrl} alt="Logo" className="h-8 w-auto" />
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>

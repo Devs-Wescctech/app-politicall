@@ -48,7 +48,7 @@ export default function Settings() {
               <Separator />
               <div>
                 <label className="text-sm font-medium text-muted-foreground">Plataforma</label>
-                <p className="text-base mt-1">Politicall - Gestão Política Completa</p>
+                <p className="text-base mt-1">Gestão Política Completa</p>
               </div>
               <Separator />
               <div>

@@ -11,6 +11,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { NotificationBell } from "@/components/notification-bell";
 import { isAuthenticated } from "@/lib/auth";
+import logoUrl from "@assets/logo pol_1763308638963.png";
 
 import NotFound from "@/pages/not-found";
 import Login from "@/pages/login";
@@ -107,7 +108,7 @@ function App() {
                 <div className="flex flex-col flex-1 overflow-hidden">
                   <header className="flex items-center justify-between p-4 border-b bg-background">
                     <SidebarTrigger data-testid="button-sidebar-toggle" />
-                    <div className="text-xl font-bold text-primary">Politicall</div>
+                    <img src={logoUrl} alt="Logo" className="h-8" />
                     <div className="flex items-center gap-2">
                       <NotificationBell />
                       <ThemeToggle />
