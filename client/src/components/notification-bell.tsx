@@ -202,18 +202,21 @@ export function NotificationBell() {
         <Button 
           variant="ghost" 
           size="icon" 
-          className="relative rounded-full hover:bg-[#40E0D0]/10" 
+          className="relative rounded-full hover:bg-[#40E0D0]/10 h-8 w-8" 
           data-testid="button-notification-bell"
         >
           <Bell className="h-5 w-5" />
           {unreadCount > 0 && (
-            <Badge 
-              variant="destructive" 
-              className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center rounded-full text-xs"
+            <span 
+              className="absolute top-0 right-0 translate-x-1/3 -translate-y-1/3 
+                         flex h-[18px] w-[18px] items-center justify-center 
+                         rounded-full bg-[#FF0000] text-[10px] font-bold text-white
+                         pointer-events-none animate-pulse
+                         shadow-[0_0_0_2px_rgba(255,255,255,1)] dark:shadow-[0_0_0_2px_rgba(0,0,0,1)]"
               data-testid="badge-unread-count"
             >
-              {unreadCount > 99 ? "99+" : unreadCount}
-            </Badge>
+              {unreadCount > 9 ? "9+" : unreadCount}
+            </span>
           )}
         </Button>
       </PopoverTrigger>
