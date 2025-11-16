@@ -106,16 +106,23 @@ export function AppSidebar() {
             <SidebarMenu className="gap-2">
               {menuItems
                 .filter(item => !item.adminOnly || isAdmin)
-                .map((item) => (
-                  <SidebarMenuItem key={item.title} className="border-b border-muted-foreground/40 pb-2">
-                    <SidebarMenuButton asChild isActive={location === item.url}>
-                      <Link href={item.url} data-testid={`link-${item.url.slice(1)}`}>
-                        <item.icon className="w-4 h-4" />
-                        <span>{item.title}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
+                .map((item) => {
+                  const isActive = location === item.url;
+                  return (
+                    <SidebarMenuItem key={item.title} className="border-b border-muted-foreground/40 pb-2">
+                      <SidebarMenuButton asChild>
+                        <Link 
+                          href={item.url} 
+                          data-testid={`link-${item.url.slice(1)}`}
+                          className={isActive ? "text-primary shadow-md" : ""}
+                        >
+                          <item.icon className="w-4 h-4" />
+                          <span>{item.title}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
