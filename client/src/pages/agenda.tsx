@@ -119,6 +119,8 @@ export default function Agenda() {
 
   const handleSubmit = async (data: EventFormData) => {
     try {
+      console.log("Dados do formulário:", data);
+      
       // Combinar data e hora para criar objetos Date
       const [startDay, startMonth, startYear] = data.startDateStr.split('/');
       const [startHour, startMin] = data.startTimeStr.split(':');
@@ -127,6 +129,8 @@ export default function Agenda() {
       const [endDay, endMonth, endYear] = data.endDateStr.split('/');
       const [endHour, endMin] = data.endTimeStr.split(':');
       const endDate = new Date(Number(endYear), Number(endMonth) - 1, Number(endDay), Number(endHour), Number(endMin));
+
+      console.log("Datas criadas:", { startDate, endDate });
 
       // Verificar se as datas são válidas
       if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
@@ -140,14 +144,16 @@ export default function Agenda() {
 
       const eventData: InsertEvent = {
         title: data.title,
-        description: data.description || "",
-        startDate,
-        endDate,
-        category: data.category || "meeting",
-        location: data.location || "",
-        reminder: data.reminder || false,
-        reminderMinutes: data.reminderMinutes || 30,
+        description: data.description || null,
+        startDate: startDate.toISOString() as any,  // Enviar como ISO string
+        endDate: endDate.toISOString() as any,      // Enviar como ISO string
+        category: data.category || null,
+        location: data.location || null,
+        reminder: data.reminder || null,
+        reminderMinutes: data.reminderMinutes || null,
       };
+
+      console.log("Dados a enviar:", eventData);
 
       if (editingEvent) {
         updateMutation.mutate({ id: editingEvent.id, data: eventData });
