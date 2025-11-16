@@ -1,11 +1,12 @@
-import { useState } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { type Event, type InsertEvent, insertEventSchema } from "@shared/schema";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { type Event, type InsertEvent, insertEventSchema } from "@shared/schema";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { z } from "zod";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { useState } from "react";
+import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
@@ -17,7 +18,7 @@ import { Plus, Calendar as CalendarIcon, List, Clock, Trash2, Pencil } from "luc
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Skeleton } from "@/components/ui/skeleton";
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, startOfWeek, endOfWeek, addMonths, subMonths } from "date-fns";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, startOfWeek, endOfWeek, addMonths, subMonths, parse } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -28,6 +29,28 @@ const CATEGORY_CONFIG = {
   deadline: { label: "Prazo", color: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200", borderColor: "#ef4444" },
   personal: { label: "Pessoal", color: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200", borderColor: "#22c55e" },
 };
+
+// Tipo para o formulário com campos string separados
+interface EventFormData {
+  title: string;
+  description?: string | null;
+  startDateStr: string;
+  startTimeStr: string;
+  endDateStr: string;
+  endTimeStr: string;
+  category?: string | null;
+  location?: string | null;
+  reminder?: boolean | null;
+  reminderMinutes?: number | null;
+}
+
+// Schema de validação personalizado para o formulário
+const eventFormSchema = insertEventSchema.omit({ startDate: true, endDate: true }).extend({
+  startDateStr: z.string().min(10, "Data obrigatória"),
+  startTimeStr: z.string().min(5, "Hora obrigatória"),
+  endDateStr: z.string().min(10, "Data obrigatória"),
+  endTimeStr: z.string().min(5, "Hora obrigatória"),
+});
 
 export default function Agenda() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -40,13 +63,15 @@ export default function Agenda() {
     queryKey: ["/api/events"],
   });
 
-  const form = useForm<InsertEvent>({
-    resolver: zodResolver(insertEventSchema),
+  const form = useForm<EventFormData>({
+    resolver: zodResolver(eventFormSchema),
     defaultValues: {
       title: "",
       description: "",
-      startDate: new Date(),
-      endDate: new Date(),
+      startDateStr: "",
+      startTimeStr: "",
+      endDateStr: "",
+      endTimeStr: "",
       category: "meeting",
       location: "",
       reminder: false,
@@ -62,6 +87,14 @@ export default function Agenda() {
       setIsDialogOpen(false);
       form.reset();
     },
+    onError: (error) => {
+      console.error("Erro ao criar evento:", error);
+      toast({ 
+        title: "Erro ao criar evento", 
+        description: "Por favor, verifique os campos e tente novamente",
+        variant: "destructive" 
+      });
+    }
   });
 
   const updateMutation = useMutation({
@@ -84,11 +117,50 @@ export default function Agenda() {
     },
   });
 
-  const handleSubmit = (data: InsertEvent) => {
-    if (editingEvent) {
-      updateMutation.mutate({ id: editingEvent.id, data });
-    } else {
-      createMutation.mutate(data);
+  const handleSubmit = async (data: EventFormData) => {
+    try {
+      // Combinar data e hora para criar objetos Date
+      const [startDay, startMonth, startYear] = data.startDateStr.split('/');
+      const [startHour, startMin] = data.startTimeStr.split(':');
+      const startDate = new Date(Number(startYear), Number(startMonth) - 1, Number(startDay), Number(startHour), Number(startMin));
+
+      const [endDay, endMonth, endYear] = data.endDateStr.split('/');
+      const [endHour, endMin] = data.endTimeStr.split(':');
+      const endDate = new Date(Number(endYear), Number(endMonth) - 1, Number(endDay), Number(endHour), Number(endMin));
+
+      // Verificar se as datas são válidas
+      if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+        toast({ 
+          title: "Datas inválidas", 
+          description: "Por favor, verifique as datas e horas informadas",
+          variant: "destructive" 
+        });
+        return;
+      }
+
+      const eventData: InsertEvent = {
+        title: data.title,
+        description: data.description || "",
+        startDate,
+        endDate,
+        category: data.category || "meeting",
+        location: data.location || "",
+        reminder: data.reminder || false,
+        reminderMinutes: data.reminderMinutes || 30,
+      };
+
+      if (editingEvent) {
+        updateMutation.mutate({ id: editingEvent.id, data: eventData });
+      } else {
+        createMutation.mutate(eventData);
+      }
+    } catch (error) {
+      console.error("Erro ao processar formulário:", error);
+      toast({ 
+        title: "Erro ao processar dados", 
+        description: "Por favor, verifique os campos e tente novamente",
+        variant: "destructive" 
+      });
     }
   };
 
@@ -96,57 +168,59 @@ export default function Agenda() {
     setEditingEvent(event);
     form.reset({
       title: event.title,
-      description: event.description || "",
-      startDate: event.startDate,
-      endDate: event.endDate,
-      category: event.category || "meeting",
-      location: event.location || "",
-      reminder: event.reminder || false,
-      reminderMinutes: event.reminderMinutes || 30,
+      description: event.description,
+      startDateStr: format(new Date(event.startDate), "dd/MM/yyyy"),
+      startTimeStr: format(new Date(event.startDate), "HH:mm"),
+      endDateStr: format(new Date(event.endDate), "dd/MM/yyyy"),
+      endTimeStr: format(new Date(event.endDate), "HH:mm"),
+      category: event.category,
+      location: event.location,
+      reminder: event.reminder,
+      reminderMinutes: event.reminderMinutes,
     });
     setIsDialogOpen(true);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm("Tem certeza que deseja excluir este evento?")) {
       deleteMutation.mutate(id);
     }
   };
 
+  const formatDateInput = (value: string) => {
+    const numbers = value.replace(/\D/g, '');
+    if (numbers.length <= 2) return numbers;
+    if (numbers.length <= 4) return `${numbers.slice(0, 2)}/${numbers.slice(2)}`;
+    return `${numbers.slice(0, 2)}/${numbers.slice(2, 4)}/${numbers.slice(4, 8)}`;
+  };
+
+  const formatTimeInput = (value: string) => {
+    const numbers = value.replace(/\D/g, '');
+    if (numbers.length <= 2) return numbers;
+    return `${numbers.slice(0, 2)}:${numbers.slice(2, 4)}`;
+  };
+
   const groupedEvents = events?.reduce((acc, event) => {
-    const dateKey = format(new Date(event.startDate), "yyyy-MM-dd");
-    if (!acc[dateKey]) acc[dateKey] = [];
-    acc[dateKey].push(event);
+    const date = format(new Date(event.startDate), "yyyy-MM-dd");
+    if (!acc[date]) acc[date] = [];
+    acc[date].push(event);
     return acc;
   }, {} as Record<string, Event[]>);
 
-  const calendarDays = eachDayOfInterval({
-    start: startOfWeek(startOfMonth(currentMonth), { locale: ptBR }),
-    end: endOfWeek(endOfMonth(currentMonth), { locale: ptBR }),
-  });
+  const calendarStart = startOfWeek(startOfMonth(currentMonth), { weekStartsOn: 0 });
+  const calendarEnd = endOfWeek(endOfMonth(currentMonth), { weekStartsOn: 0 });
+  const calendarDays = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
 
   return (
-    <div className="p-4 sm:p-6 md:p-8 space-y-6">
-      <div className="flex items-center justify-between flex-wrap gap-4">
-        <div>
-          <h1 className="text-3xl font-bold">Agenda</h1>
-          <p className="text-muted-foreground mt-2">Gerencie seus eventos e compromissos</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <Tabs value={view} onValueChange={(v) => setView(v as any)} className="w-auto">
+    <div className="container mx-auto p-6">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold">Agenda</h1>
+        <div className="flex gap-4">
+          <Tabs value={view} onValueChange={(v) => setView(v as any)}>
             <TabsList>
-              <TabsTrigger value="list" data-testid="tab-list">
-                <List className="h-4 w-4 mr-2" />
-                Lista
-              </TabsTrigger>
-              <TabsTrigger value="calendar" data-testid="tab-calendar">
-                <CalendarIcon className="h-4 w-4 mr-2" />
-                Calendário
-              </TabsTrigger>
-              <TabsTrigger value="timeline" data-testid="tab-timeline">
-                <Clock className="h-4 w-4 mr-2" />
-                Timeline
-              </TabsTrigger>
+              <TabsTrigger value="list"><List className="h-4 w-4 mr-2" />Lista</TabsTrigger>
+              <TabsTrigger value="calendar"><CalendarIcon className="h-4 w-4 mr-2" />Calendário</TabsTrigger>
+              <TabsTrigger value="timeline"><Clock className="h-4 w-4 mr-2" />Timeline</TabsTrigger>
             </TabsList>
           </Tabs>
           <Dialog open={isDialogOpen} onOpenChange={(open) => {
@@ -156,8 +230,8 @@ export default function Agenda() {
               form.reset();
             }
           }}>
-            <Button onClick={() => setIsDialogOpen(true)} data-testid="button-add-event">
-              <Plus className="w-4 h-4 mr-2" />
+            <Button onClick={() => setIsDialogOpen(true)} data-testid="button-new-event">
+              <Plus className="h-4 w-4 mr-2" />
               Novo Evento
             </Button>
             <DialogContent className="max-w-md max-h-[90vh] flex flex-col p-0">
@@ -193,27 +267,25 @@ export default function Agenda() {
                       </FormItem>
                     )}
                   />
+                  
                   {/* Data Início e Fim */}
                   <div className="grid grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
-                      name="startDate"
+                      name="startDateStr"
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Data Início *</FormLabel>
                           <FormControl>
                             <Input 
-                              type="datetime-local"
+                              placeholder="DD/MM/AAAA"
                               data-testid="input-start-date"
                               {...field}
-                              value={field.value instanceof Date ? 
-                                format(field.value, "yyyy-MM-dd'T'HH:mm") : 
-                                field.value || ""
-                              }
                               onChange={(e) => {
-                                const date = new Date(e.target.value);
-                                field.onChange(date);
+                                const formatted = formatDateInput(e.target.value);
+                                field.onChange(formatted);
                               }}
+                              maxLength={10}
                             />
                           </FormControl>
                           <FormMessage />
@@ -222,23 +294,20 @@ export default function Agenda() {
                     />
                     <FormField
                       control={form.control}
-                      name="endDate"
+                      name="endDateStr"
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Data Fim *</FormLabel>
                           <FormControl>
                             <Input 
-                              type="datetime-local"
+                              placeholder="DD/MM/AAAA"
                               data-testid="input-end-date"
                               {...field}
-                              value={field.value instanceof Date ? 
-                                format(field.value, "yyyy-MM-dd'T'HH:mm") : 
-                                field.value || ""
-                              }
                               onChange={(e) => {
-                                const date = new Date(e.target.value);
-                                field.onChange(date);
+                                const formatted = formatDateInput(e.target.value);
+                                field.onChange(formatted);
                               }}
+                              maxLength={10}
                             />
                           </FormControl>
                           <FormMessage />
@@ -246,6 +315,55 @@ export default function Agenda() {
                       )}
                     />
                   </div>
+                  
+                  {/* Horário Início e Fim */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="startTimeStr"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Horário Início *</FormLabel>
+                          <FormControl>
+                            <Input 
+                              placeholder="HH:MM"
+                              data-testid="input-start-time"
+                              {...field}
+                              onChange={(e) => {
+                                const formatted = formatTimeInput(e.target.value);
+                                field.onChange(formatted);
+                              }}
+                              maxLength={5}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="endTimeStr"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Horário Fim *</FormLabel>
+                          <FormControl>
+                            <Input 
+                              placeholder="HH:MM"
+                              data-testid="input-end-time"
+                              {...field}
+                              onChange={(e) => {
+                                const formatted = formatTimeInput(e.target.value);
+                                field.onChange(formatted);
+                              }}
+                              maxLength={5}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  
                   <FormField
                     control={form.control}
                     name="category"
