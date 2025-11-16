@@ -65,6 +65,8 @@ export default function Demands() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedDemand, setSelectedDemand] = useState<Demand | null>(null);
   const [commentText, setCommentText] = useState("");
+  const [priorityFilter, setPriorityFilter] = useState<string>("all");
+  const [dueDateFilter, setDueDateFilter] = useState<string>("all");
   const { toast } = useToast();
 
   const { data: demands, isLoading } = useQuery<Demand[]>({
@@ -189,11 +191,37 @@ export default function Demands() {
     setDragOverColumn(null);
   };
 
+  // Filtragem das demandas
+  const filteredDemands = demands?.filter((demand) => {
+    // Filtro de prioridade
+    if (priorityFilter !== "all" && demand.priority !== priorityFilter) {
+      return false;
+    }
+
+    // Filtro de status de vencimento
+    if (dueDateFilter !== "all") {
+      const dueDateStr = typeof demand.dueDate === 'string' ? demand.dueDate : demand.dueDate?.toISOString();
+      const dueDateStatus = getDueDateStatus(dueDateStr, demand.status);
+      
+      if (dueDateFilter === "overdue" && dueDateStatus?.status !== "overdue") {
+        return false;
+      }
+      if (dueDateFilter === "warning" && dueDateStatus?.status !== "warning") {
+        return false;
+      }
+      if (dueDateFilter === "ontime" && (!dueDateStatus || dueDateStatus.status === "overdue" || dueDateStatus.status === "warning")) {
+        return false;
+      }
+    }
+
+    return true;
+  });
+
   const groupedDemands = {
-    pending: demands?.filter((d) => d.status === "pending") || [],
-    in_progress: demands?.filter((d) => d.status === "in_progress") || [],
-    completed: demands?.filter((d) => d.status === "completed") || [],
-    cancelled: demands?.filter((d) => d.status === "cancelled") || [],
+    pending: filteredDemands?.filter((d) => d.status === "pending") || [],
+    in_progress: filteredDemands?.filter((d) => d.status === "in_progress") || [],
+    completed: filteredDemands?.filter((d) => d.status === "completed") || [],
+    cancelled: filteredDemands?.filter((d) => d.status === "cancelled") || [],
   };
 
   return (
@@ -203,11 +231,39 @@ export default function Demands() {
           <h1 className="text-3xl font-bold">Demandas do Gabinete</h1>
           <p className="text-muted-foreground mt-2">Gerencie as demandas com pipeline visual</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <Button onClick={() => setIsDialogOpen(true)} data-testid="button-add-demand">
-            <Plus className="w-4 h-4 mr-2" />
-            Nova Demanda
-          </Button>
+        <div className="flex items-center gap-3">
+          {/* Filtro de Prioridade */}
+          <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+            <SelectTrigger className="w-[150px]" data-testid="filter-priority">
+              <SelectValue placeholder="Prioridade" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas</SelectItem>
+              <SelectItem value="low">Baixa</SelectItem>
+              <SelectItem value="medium">Média</SelectItem>
+              <SelectItem value="high">Alta</SelectItem>
+              <SelectItem value="urgent">Urgente</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* Filtro de Status de Vencimento */}
+          <Select value={dueDateFilter} onValueChange={setDueDateFilter}>
+            <SelectTrigger className="w-[150px]" data-testid="filter-duedate">
+              <SelectValue placeholder="Vencimento" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas</SelectItem>
+              <SelectItem value="ontime">Em dia</SelectItem>
+              <SelectItem value="warning">Vencendo hoje</SelectItem>
+              <SelectItem value="overdue">Atrasadas</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <Button onClick={() => setIsDialogOpen(true)} data-testid="button-add-demand">
+              <Plus className="w-4 h-4 mr-2" />
+              Nova Demanda
+            </Button>
           <DialogContent className="max-w-md max-h-[90vh] flex flex-col p-0">
             <DialogHeader className="px-6 pt-6 pb-4 border-b">
               <DialogTitle>Nova Demanda</DialogTitle>
@@ -359,6 +415,7 @@ export default function Demands() {
             </Form>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       <div className="flex-1 overflow-x-auto overflow-y-hidden">
