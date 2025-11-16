@@ -327,6 +327,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.patch("/api/alliances/:id", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const validatedData = insertPoliticalAllianceSchema.partial().parse(req.body);
+      const alliance = await storage.updateAlliance(req.params.id, validatedData);
+      res.json(alliance);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
   app.delete("/api/alliances/:id", authenticateToken, async (req: AuthRequest, res) => {
     try {
       await storage.deleteAlliance(req.params.id);

@@ -34,6 +34,7 @@ export interface IStorage {
   // Political Alliances
   getAlliances(userId: string): Promise<PoliticalAlliance[]>;
   createAlliance(alliance: InsertPoliticalAlliance & { userId: string }): Promise<PoliticalAlliance>;
+  updateAlliance(id: string, alliance: Partial<InsertPoliticalAlliance>): Promise<PoliticalAlliance>;
   deleteAlliance(id: string): Promise<void>;
 
   // Demands
@@ -145,6 +146,11 @@ export class DatabaseStorage implements IStorage {
   async createAlliance(alliance: InsertPoliticalAlliance & { userId: string }): Promise<PoliticalAlliance> {
     const [newAlliance] = await db.insert(politicalAlliances).values(alliance).returning();
     return newAlliance;
+  }
+
+  async updateAlliance(id: string, alliance: Partial<InsertPoliticalAlliance>): Promise<PoliticalAlliance> {
+    const [updated] = await db.update(politicalAlliances).set(alliance).where(eq(politicalAlliances.id, id)).returning();
+    return updated;
   }
 
   async deleteAlliance(id: string): Promise<void> {
