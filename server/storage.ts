@@ -45,7 +45,7 @@ export interface IStorage {
   deleteDemand(id: string): Promise<void>;
 
   // Demand Comments
-  getDemandComments(demandId: string): Promise<DemandComment[]>;
+  getDemandComments(demandId: string): Promise<(DemandComment & { userName: string })[]>;
   createDemandComment(comment: InsertDemandComment & { userId: string }): Promise<DemandComment>;
 
   // Events
@@ -193,8 +193,25 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Demand Comments
-  async getDemandComments(demandId: string): Promise<DemandComment[]> {
-    return await db.select().from(demandComments).where(eq(demandComments.demandId, demandId)).orderBy(desc(demandComments.createdAt));
+  async getDemandComments(demandId: string): Promise<(DemandComment & { userName: string })[]> {
+    const results = await db
+      .select({
+        id: demandComments.id,
+        demandId: demandComments.demandId,
+        userId: demandComments.userId,
+        comment: demandComments.comment,
+        createdAt: demandComments.createdAt,
+        userName: users.name,
+      })
+      .from(demandComments)
+      .leftJoin(users, eq(demandComments.userId, users.id))
+      .where(eq(demandComments.demandId, demandId))
+      .orderBy(desc(demandComments.createdAt));
+    
+    return results.map((r) => ({
+      ...r,
+      userName: r.userName || "Usuário Desconhecido"
+    }));
   }
 
   async createDemandComment(comment: InsertDemandComment & { userId: string }): Promise<DemandComment> {

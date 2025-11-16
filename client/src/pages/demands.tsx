@@ -508,9 +508,12 @@ export default function Demands() {
                 </TabsContent>
                 <TabsContent value="comments" className="space-y-4 mt-4">
                   <div className="space-y-3">
-                    {comments?.map((comment) => (
+                    {comments?.map((comment: any) => (
                       <Card key={comment.id} className="p-3">
-                        <p className="text-sm">{comment.comment}</p>
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="text-sm font-medium">{comment.userName}</p>
+                        </div>
+                        <p className="text-sm mt-1">{comment.comment}</p>
                         <p className="text-xs text-muted-foreground mt-2">
                           {format(new Date(comment.createdAt), "PPP 'às' HH:mm", { locale: ptBR })}
                         </p>
