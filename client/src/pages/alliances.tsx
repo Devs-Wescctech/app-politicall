@@ -406,16 +406,17 @@ export default function Alliances() {
                 <div className="text-2xl font-bold" data-testid="text-dominant-ideology">
                   {getDominantIdeology()}
                 </div>
-                <Badge 
-                  className={`mt-2 ${IDEOLOGY_BADGES[getDominantIdeology()! as keyof typeof IDEOLOGY_BADGES]}`}
-                >
-                  Maioria dos aliados
-                </Badge>
+                <p className="text-xs text-muted-foreground mt-1">
+                  maioria dos aliados
+                </p>
               </>
             ) : (
-              <div className="text-sm text-muted-foreground">
-                Nenhum aliado cadastrado ainda
-              </div>
+              <>
+                <div className="text-2xl font-bold">-</div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  nenhum aliado cadastrado
+                </p>
+              </>
             )}
           </CardContent>
         </Card>
