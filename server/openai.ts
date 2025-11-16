@@ -40,6 +40,30 @@ export async function generateAiResponse(userMessage: string, postContent: strin
     return response.choices[0]?.message?.content || "Desculpe, não pude gerar uma resposta no momento.";
   } catch (error: any) {
     console.error("Error generating AI response:", error);
-    throw new Error("Erro ao gerar resposta da IA");
+    
+    // Structured error handling for different OpenAI failures
+    if (error.status === 401) {
+      const apiError = new Error("AI_INVALID_API_KEY") as any;
+      apiError.status = 401;
+      throw apiError;
+    }
+    
+    if (error.status === 429) {
+      const apiError = new Error("AI_RATE_LIMIT") as any;
+      apiError.status = 429;
+      throw apiError;
+    }
+    
+    if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
+      const apiError = new Error("AI_NETWORK_ERROR") as any;
+      apiError.status = 503;
+      throw apiError;
+    }
+
+    // Generic AI error
+    const apiError = new Error("AI_GENERATION_ERROR") as any;
+    apiError.status = 500;
+    apiError.originalMessage = error.message;
+    throw apiError;
   }
 }

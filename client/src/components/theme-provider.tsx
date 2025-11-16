@@ -23,16 +23,17 @@ export function ThemeProvider({
   children,
   defaultTheme = "light",
 }: ThemeProviderProps) {
-  const [theme, setTheme] = useState<Theme>(defaultTheme);
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const storedTheme = localStorage.getItem("theme") as Theme;
-      if (storedTheme) {
-        setTheme(storedTheme);
+  const [theme, setTheme] = useState<Theme>(() => {
+    try {
+      if (typeof window !== "undefined") {
+        const storedTheme = localStorage.getItem("theme") as Theme;
+        return storedTheme || defaultTheme;
       }
+    } catch {
+      // SSR or browser without localStorage
     }
-  }, []);
+    return defaultTheme;
+  });
 
   useEffect(() => {
     if (typeof window !== "undefined") {

@@ -137,7 +137,26 @@ export default function Demands() {
     const demand = demands?.find(d => d.id === demandId);
     
     if (demand && demand.status !== newStatus) {
-      updateMutation.mutate({ id: demandId, data: { status: newStatus } });
+      // Save previous state
+      const previousDemands = queryClient.getQueryData<Demand[]>(["/api/demands"]);
+      
+      // Optimistic update
+      queryClient.setQueryData(["/api/demands"], (old: Demand[] | undefined) => {
+        if (!old) return old;
+        return old.map(d => 
+          d.id === demandId ? { ...d, status: newStatus } : d
+        );
+      });
+
+      updateMutation.mutate(
+        { id: demandId, data: { status: newStatus } },
+        {
+          onError: () => {
+            // Restore exact previous state
+            queryClient.setQueryData(["/api/demands"], previousDemands);
+          }
+        }
+      );
     }
     setDraggedDemand(null);
     setDragOverColumn(null);

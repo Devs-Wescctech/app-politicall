@@ -422,7 +422,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { userMessage, postContent, platform } = req.body;
       
       if (!userMessage) {
-        return res.status(400).json({ error: "Mensagem do usuário é obrigatória" });
+        return res.status(400).json({ error: "Mensagem do usuário é obrigatória", code: "INVALID_INPUT" });
       }
 
       const config = await storage.getAiConfig(req.userId!);
@@ -444,11 +444,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       if (error.message === "AI_INTEGRATION_NOT_CONFIGURED") {
         return res.status(503).json({ 
-          error: "Serviço de IA não configurado. Configure as variáveis AI_INTEGRATIONS_OPENAI_BASE_URL e AI_INTEGRATIONS_OPENAI_API_KEY.",
+          error: "Serviço de IA não configurado. Configure as variáveis de ambiente da integração OpenAI.",
           code: "AI_NOT_CONFIGURED"
         });
       }
-      res.status(500).json({ error: error.message });
+      
+      if (error.message === "AI_INVALID_API_KEY") {
+        return res.status(401).json({
+          error: "Chave de API da IA inválida. Verifique a configuração da integração.",
+          code: "AI_INVALID_API_KEY"
+        });
+      }
+      
+      if (error.message === "AI_RATE_LIMIT") {
+        return res.status(429).json({
+          error: "Limite de taxa da IA excedido. Tente novamente em alguns instantes.",
+          code: "AI_RATE_LIMIT"
+        });
+      }
+      
+      if (error.message === "AI_NETWORK_ERROR") {
+        return res.status(503).json({
+          error: "Erro de rede ao conectar com o serviço de IA. Tente novamente.",
+          code: "AI_NETWORK_ERROR"
+        });
+      }
+      
+      if (error.message === "AI_GENERATION_ERROR") {
+        return res.status(500).json({
+          error: "Erro ao gerar resposta da IA. Tente novamente.",
+          code: "AI_GENERATION_ERROR",
+          details: error.originalMessage
+        });
+      }
+      
+      // Fallback for any unexpected errors - still structured
+      const status = error.status || 500;
+      res.status(status).json({ 
+        error: "Erro ao processar requisição de IA.",
+        code: "AI_GENERATION_ERROR",
+        details: error.message || "Unknown error"
+      });
     }
   });
 
