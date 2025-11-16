@@ -236,6 +236,15 @@ export const insertDemandSchema = createInsertSchema(demands).omit({
   userId: true,
   createdAt: true,
   updatedAt: true,
+}).extend({
+  title: z.string({ required_error: "Título é obrigatório" }).min(1, "Título é obrigatório"),
+  description: z.string().nullable().optional(),
+  status: z.string().default("pending"),
+  priority: z.string().default("medium"),
+  assignee: z.string().nullable().optional(),
+  collaborators: z.array(z.string()).nullable().optional(),
+  dueDate: z.string().nullable().optional(),
+  recurrence: z.string().nullable().optional(),
 });
 
 export const insertDemandCommentSchema = createInsertSchema(demandComments).omit({
