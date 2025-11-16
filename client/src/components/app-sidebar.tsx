@@ -109,7 +109,7 @@ export function AppSidebar() {
                 .map((item) => {
                   const isActive = location === item.url;
                   return (
-                    <SidebarMenuItem key={item.title} className="border-b border-muted-foreground/20 pb-2">
+                    <SidebarMenuItem key={item.title} className="border-b border-muted-foreground/20 pb-2 mx-4">
                       <Link 
                         href={item.url} 
                         data-testid={`link-${item.url.slice(1)}`}
