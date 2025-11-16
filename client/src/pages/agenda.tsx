@@ -584,6 +584,10 @@ export default function Agenda() {
                             {event.description && <p className="text-sm text-muted-foreground">{event.description}</p>}
                             <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap">
                               <span className="flex items-center gap-1">
+                                <CalendarIcon className="h-3 w-3" />
+                                {format(new Date(event.startDate), "dd/MM/yyyy")}
+                              </span>
+                              <span className="flex items-center gap-1">
                                 <Clock className="h-3 w-3" />
                                 {format(new Date(event.startDate), "HH:mm")}hrs - {format(new Date(event.endDate), "HH:mm")}hrs
                               </span>
