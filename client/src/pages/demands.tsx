@@ -67,6 +67,12 @@ export default function Demands() {
   const [commentText, setCommentText] = useState("");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
   const [dueDateFilter, setDueDateFilter] = useState<string>("all");
+  const [visibleCounts, setVisibleCounts] = useState<Record<string, number>>({
+    pending: 5,
+    in_progress: 5,
+    completed: 5,
+    cancelled: 5
+  });
   const { toast } = useToast();
 
   const { data: demands, isLoading } = useQuery<Demand[]>({
@@ -222,6 +228,13 @@ export default function Demands() {
     in_progress: filteredDemands?.filter((d) => d.status === "in_progress") || [],
     completed: filteredDemands?.filter((d) => d.status === "completed") || [],
     cancelled: filteredDemands?.filter((d) => d.status === "cancelled") || [],
+  };
+
+  const handleShowMore = (status: string) => {
+    setVisibleCounts(prev => ({
+      ...prev,
+      [status]: prev[status] + 5
+    }));
   };
 
   return (
@@ -429,7 +442,7 @@ export default function Demands() {
             onDragLeave={handleDragLeave}
             onDrop={(e) => handleDrop(e, status)}
           >
-            <CardHeader className="p-4">
+            <CardHeader className="p-4 sticky top-0 bg-card z-10 border-b">
               <div className="flex flex-row items-center justify-between gap-3">
                 <CardTitle className="text-base font-medium">
                   {STATUS_CONFIG[status as keyof typeof STATUS_CONFIG].label}
@@ -439,11 +452,12 @@ export default function Demands() {
                 </Badge>
               </div>
             </CardHeader>
-            <CardContent className="p-4 pt-0 space-y-3 min-h-[300px]">
+            <CardContent className="p-4 pt-0 space-y-3 overflow-y-auto max-h-[600px]">
               {isLoading ? (
                 [...Array(3)].map((_, i) => <Skeleton key={i} className="h-24 w-full" />)
               ) : statusDemands.length > 0 ? (
-                statusDemands.map((demand) => {
+                <>
+                  {statusDemands.slice(0, visibleCounts[status] || 5).map((demand) => {
                   const dueDateStr = typeof demand.dueDate === 'string' ? demand.dueDate : demand.dueDate?.toISOString();
                   const dueDateStatus = getDueDateStatus(dueDateStr, demand.status);
                   return (
@@ -520,7 +534,17 @@ export default function Demands() {
                       </div>
                     </Card>
                   );
-                })
+                  })}
+                  {statusDemands.length > (visibleCounts[status] || 5) && (
+                    <Button 
+                      variant="outline" 
+                      className="w-full" 
+                      onClick={() => handleShowMore(status)}
+                    >
+                      Ver mais ({statusDemands.length - (visibleCounts[status] || 5)} restantes)
+                    </Button>
+                  )}
+                </>
               ) : (
                 <p className="text-sm text-muted-foreground text-center py-4">Nenhuma demanda</p>
               )}
