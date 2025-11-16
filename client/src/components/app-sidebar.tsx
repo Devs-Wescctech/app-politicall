@@ -103,11 +103,11 @@ export function AppSidebar() {
             <img src={logoUrl} alt="Logo" className="h-8 w-auto" />
           </SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu className="gap-2">
+            <SidebarMenu className="gap-3">
               {menuItems
                 .filter(item => !item.adminOnly || isAdmin)
                 .map((item) => (
-                  <SidebarMenuItem key={item.title} className="border-b border-border pb-2">
+                  <SidebarMenuItem key={item.title} className="border-b-2 border-border/50 dark:border-border pb-3">
                     <SidebarMenuButton asChild isActive={location === item.url}>
                       <Link href={item.url} data-testid={`link-${item.url.slice(1)}`}>
                         <item.icon className="w-4 h-4" />
