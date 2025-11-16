@@ -362,10 +362,10 @@ export default function Demands() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 overflow-x-auto">
-        {Object.entries(groupedDemands).map(([status, statusDemands]) => (
+        {Object.entries(groupedDemands).map(([status, statusDemands], index) => (
           <Card 
             key={status} 
-            className={`min-w-[300px] transition-colors ${dragOverColumn === status ? 'ring-2 ring-primary' : ''}`}
+            className={`min-w-[300px] transition-colors ${dragOverColumn === status ? 'ring-2 ring-primary' : ''} ${index > 0 ? 'md:border-l-2' : ''}`}
             onDragOver={handleDragOver}
             onDragEnter={() => handleDragEnter(status)}
             onDragLeave={handleDragLeave}
