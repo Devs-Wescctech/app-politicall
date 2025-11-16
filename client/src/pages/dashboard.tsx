@@ -83,7 +83,7 @@ export default function Dashboard() {
   ];
 
   return (
-    <div className="p-8 space-y-8">
+    <div className="p-4 sm:p-6 md:p-8 space-y-6 md:space-y-8">
       <div>
         <h1 className="text-3xl font-bold" data-testid="heading-dashboard">Dashboard</h1>
         <p className="text-muted-foreground mt-2">Visão geral da sua gestão política</p>

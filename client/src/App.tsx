@@ -102,9 +102,9 @@ function App() {
       <ThemeProvider defaultTheme="light">
         <TooltipProvider>
           <SidebarProvider style={style as React.CSSProperties}>
-            <div className="flex h-screen w-full">
+            <div className="flex min-h-screen w-full">
               {isAuthenticated() && <AppSidebar />}
-              <div className="flex flex-col flex-1 overflow-hidden">
+              <div className="flex flex-col flex-1">
                 {isAuthenticated() && (
                   <header className="flex items-center justify-between p-4 border-b bg-background">
                     <SidebarTrigger data-testid="button-sidebar-toggle" />
