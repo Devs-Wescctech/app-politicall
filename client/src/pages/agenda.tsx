@@ -74,6 +74,14 @@ const BORDER_COLORS = [
   { label: "Cinza", value: "#737373" },
 ];
 
+// Configuração de recorrência
+const RECURRENCE_CONFIG = {
+  none: { label: "Não se repete" },
+  daily: { label: "Diária" },
+  weekly: { label: "Semanal" },
+  monthly: { label: "Mensal" },
+};
+
 // Tipo para o formulário com campos string separados
 interface EventFormData {
   title: string;
@@ -85,6 +93,7 @@ interface EventFormData {
   category?: string | null;
   borderColor?: string | null;
   location?: string | null;
+  recurrence?: string | null;
   reminder?: boolean | null;
   reminderMinutes?: number | null;
 }
@@ -126,6 +135,7 @@ export default function Agenda() {
       category: "meeting",
       borderColor: BORDER_COLORS[0].value,
       location: "",
+      recurrence: "none",
       reminder: false,
       reminderMinutes: 30,
     },
@@ -217,6 +227,7 @@ export default function Agenda() {
         category: data.category || null,
         borderColor: data.borderColor || null,
         location: data.location || null,
+        recurrence: data.recurrence || null,
         reminder: data.reminder || null,
         reminderMinutes: data.reminderMinutes || null,
       };
@@ -250,6 +261,7 @@ export default function Agenda() {
       category: event.category,
       borderColor: event.borderColor || BORDER_COLORS[0].value,
       location: event.location,
+      recurrence: event.recurrence || "none",
       reminder: event.reminder,
       reminderMinutes: event.reminderMinutes,
     });
@@ -497,6 +509,28 @@ export default function Agenda() {
                         <FormControl>
                           <Input placeholder="Local do evento" data-testid="input-location" {...field} value={field.value || ""} />
                         </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="recurrence"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Recorrência</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value || "none"}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-recurrence">
+                              <SelectValue />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {Object.entries(RECURRENCE_CONFIG).map(([key, config]) => (
+                              <SelectItem key={key} value={key}>{config.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                         <FormMessage />
                       </FormItem>
                     )}
