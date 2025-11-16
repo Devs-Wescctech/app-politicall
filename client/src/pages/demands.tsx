@@ -371,9 +371,11 @@ export default function Demands() {
             onDragLeave={handleDragLeave}
             onDrop={(e) => handleDrop(e, status)}
           >
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-              <CardTitle className="text-base flex-1">{STATUS_CONFIG[status as keyof typeof STATUS_CONFIG].label}</CardTitle>
-              <Badge variant="secondary" className="ml-2 shrink-0">{statusDemands.length}</Badge>
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-3">
+                <CardTitle className="text-base">{STATUS_CONFIG[status as keyof typeof STATUS_CONFIG].label}</CardTitle>
+                <Badge variant="secondary">{statusDemands.length}</Badge>
+              </div>
             </CardHeader>
             <CardContent className="space-y-3 min-h-[200px]">
               {isLoading ? (
