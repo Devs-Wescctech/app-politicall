@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -13,7 +14,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, Calendar as CalendarIcon, MessageSquare, Clock, User, CalendarDays, RefreshCw, Play, Check, X } from "lucide-react";
+import { Plus, Calendar as CalendarIcon, MessageSquare, Clock, User, CalendarDays, RefreshCw, Play, Check, X, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -67,6 +68,8 @@ export default function Demands() {
   const [commentText, setCommentText] = useState("");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
   const [dueDateFilter, setDueDateFilter] = useState<string>("all");
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [demandToDelete, setDemandToDelete] = useState<string | null>(null);
   const [visibleCounts, setVisibleCounts] = useState<Record<string, number>>({
     pending: 5,
     in_progress: 5,
@@ -114,6 +117,23 @@ export default function Demands() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/demands"] });
       toast({ title: "Demanda atualizada!" });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) =>
+      apiRequest("DELETE", `/api/demands/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/demands"] });
+      toast({ title: "Demanda excluída com sucesso!" });
+      setDeleteConfirmOpen(false);
+      setDemandToDelete(null);
+    },
+    onError: () => {
+      toast({ 
+        title: "Erro ao excluir demanda",
+        variant: "destructive"
+      });
     },
   });
 
@@ -271,6 +291,18 @@ export default function Demands() {
         }
       }
     );
+  };
+
+  const handleDeleteClick = (e: React.MouseEvent, demandId: string) => {
+    e.stopPropagation(); // Previne abrir o sheet ao clicar no botão
+    setDemandToDelete(demandId);
+    setDeleteConfirmOpen(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (demandToDelete) {
+      deleteMutation.mutate(demandToDelete);
+    }
   };
 
   return (
@@ -607,6 +639,22 @@ export default function Demands() {
                             </Button>
                           </div>
                         )}
+
+                        {/* Botão Excluir para demandas canceladas */}
+                        {demand.status === "cancelled" && (
+                          <div className="pt-2">
+                            <Button
+                              size="sm"
+                              className="w-full"
+                              variant="destructive"
+                              onClick={(e) => handleDeleteClick(e, demand.id)}
+                              data-testid={`button-delete-${demand.id}`}
+                            >
+                              <Trash2 className="h-3 w-3 mr-1" />
+                              Excluir
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     </Card>
                   );
@@ -735,6 +783,24 @@ export default function Demands() {
           )}
         </SheetContent>
       </Sheet>
+
+      {/* Modal de confirmação de exclusão */}
+      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir esta demanda? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
