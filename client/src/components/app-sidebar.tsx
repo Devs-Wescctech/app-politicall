@@ -92,11 +92,7 @@ export function AppSidebar() {
 
   const handleLogout = () => {
     removeAuthToken();
-    setLocation("/login");
-    toast({
-      title: "Logout realizado",
-      description: "Até logo!",
-    });
+    window.location.href = "/login";
   };
 
   return (
