@@ -1,15 +1,544 @@
-import type { Express } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
+import { insertUserSchema, loginSchema, insertContactSchema, insertPoliticalAllianceSchema, insertDemandSchema, insertDemandCommentSchema, insertEventSchema, insertAiConfigurationSchema, insertMarketingCampaignSchema } from "@shared/schema";
+import { db } from "./db";
+import { politicalParties, politicalAlliances } from "@shared/schema";
+import { sql, eq } from "drizzle-orm";
+import { generateAiResponse } from "./openai";
+
+if (!process.env.SESSION_SECRET) {
+  throw new Error("SESSION_SECRET must be set in environment variables");
+}
+const JWT_SECRET = process.env.SESSION_SECRET;
+
+// Middleware to verify JWT token
+interface AuthRequest extends Request {
+  userId?: string;
+}
+
+async function authenticateToken(req: AuthRequest, res: Response, next: NextFunction) {
+  const authHeader = req.headers.authorization;
+  const token = authHeader && authHeader.split(" ")[1];
+
+  if (!token) {
+    return res.status(401).json({ error: "Token não fornecido" });
+  }
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET) as { userId: string };
+    req.userId = decoded.userId;
+    next();
+  } catch (error) {
+    return res.status(403).json({ error: "Token inválido" });
+  }
+}
+
+// Seed political parties data - All 29 Brazilian political parties from 2025
+async function seedPoliticalParties() {
+  const parties = [
+    // Esquerda
+    { name: "Partido dos Trabalhadores", acronym: "PT", ideology: "Esquerda", description: "Partido de esquerda, fundado em 1980" },
+    { name: "Partido Socialismo e Liberdade", acronym: "PSOL", ideology: "Esquerda", description: "Partido de esquerda socialista" },
+    { name: "Partido Comunista do Brasil", acronym: "PCdoB", ideology: "Esquerda", description: "Partido comunista brasileiro" },
+    { name: "Partido Verde", acronym: "PV", ideology: "Esquerda", description: "Partido com foco em questões ambientais" },
+    { name: "Rede Sustentabilidade", acronym: "REDE", ideology: "Esquerda", description: "Partido com foco em sustentabilidade" },
+    { name: "Partido Socialista dos Trabalhadores Unificado", acronym: "PSTU", ideology: "Esquerda", description: "Partido trotskista" },
+    { name: "Partido da Causa Operária", acronym: "PCO", ideology: "Esquerda", description: "Partido comunista revolucionário" },
+    { name: "Unidade Popular", acronym: "UP", ideology: "Esquerda", description: "Partido de esquerda" },
+    
+    // Centro-Esquerda
+    { name: "Partido Socialista Brasileiro", acronym: "PSB", ideology: "Centro-Esquerda", description: "Partido socialista democrático" },
+    { name: "Partido Democrático Trabalhista", acronym: "PDT", ideology: "Centro-Esquerda", description: "Partido trabalhista" },
+    
+    // Centro
+    { name: "Partido da Social Democracia Brasileira", acronym: "PSDB", ideology: "Centro", description: "Partido social-democrata" },
+    { name: "Movimento Democrático Brasileiro", acronym: "MDB", ideology: "Centro", description: "Um dos maiores partidos do Brasil" },
+    { name: "Cidadania", acronym: "CIDADANIA", ideology: "Centro", description: "Partido de centro" },
+    { name: "Avante", acronym: "AVANTE", ideology: "Centro", description: "Partido de centro" },
+    { name: "Solidariedade", acronym: "SOLIDARIEDADE", ideology: "Centro", description: "Partido de centro" },
+    { name: "Partido Mobilização Nacional", acronym: "PMN", ideology: "Centro", description: "Partido de centro" },
+    { name: "Democracia Cristã", acronym: "DC", ideology: "Centro", description: "Partido democrata-cristão" },
+    { name: "Partido da Mulher Brasileira", acronym: "PMB", ideology: "Centro", description: "Partido com foco em questões femininas" },
+    
+    // Centro-Direita
+    { name: "Partido Social Democrático", acronym: "PSD", ideology: "Centro-Direita", description: "Partido de centro-direita" },
+    { name: "Podemos", acronym: "PODE", ideology: "Centro-Direita", description: "Partido de centro-direita" },
+    { name: "Agir", acronym: "AGIR", ideology: "Centro-Direita", description: "Partido de centro-direita" },
+    { name: "Partido Renovador Trabalhista Brasileiro", acronym: "PRTB", ideology: "Centro-Direita", description: "Partido trabalhista de centro-direita" },
+    { name: "Mobiliza", acronym: "MOBILIZA", ideology: "Centro-Direita", description: "Partido de centro-direita" },
+    { name: "Partido Renovação Democrática", acronym: "PRD", ideology: "Centro-Direita", description: "Partido de renovação" },
+    
+    // Direita
+    { name: "Progressistas", acronym: "PP", ideology: "Direita", description: "Partido conservador" },
+    { name: "Republicanos", acronym: "REPUBLICANOS", ideology: "Direita", description: "Partido conservador evangélico" },
+    { name: "Partido Liberal", acronym: "PL", ideology: "Direita", description: "Partido liberal-conservador" },
+    { name: "União Brasil", acronym: "UNIÃO", ideology: "Direita", description: "Fusão de DEM e PSL" },
+    { name: "Novo", acronym: "NOVO", ideology: "Direita", description: "Partido liberal de direita" },
+  ];
+
+  try {
+    const existingParties = await storage.getAllParties();
+    if (existingParties.length === 0) {
+      for (const party of parties) {
+        await storage.createParty(party);
+      }
+      console.log("✓ Political parties seeded successfully");
+    }
+  } catch (error) {
+    console.error("Error seeding political parties:", error);
+  }
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // put application routes here
-  // prefix all routes with /api
+  // Seed political parties on startup
+  await seedPoliticalParties();
 
-  // use storage to perform CRUD operations on the storage interface
-  // e.g. storage.insertUser(user) or storage.getUserByUsername(username)
+  // ==================== AUTHENTICATION ====================
+  
+  // Register
+  app.post("/api/auth/register", async (req, res) => {
+    try {
+      const validatedData = insertUserSchema.parse(req.body);
+      
+      // Check if user already exists
+      const existingUser = await storage.getUserByEmail(validatedData.email);
+      if (existingUser) {
+        return res.status(400).json({ error: "Email já cadastrado" });
+      }
+
+      // Hash password
+      const hashedPassword = await bcrypt.hash(validatedData.password, 10);
+      
+      // Create user
+      const user = await storage.createUser({
+        ...validatedData,
+        password: hashedPassword,
+      });
+
+      // Generate JWT token
+      const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: "30d" });
+
+      res.json({
+        token,
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+        },
+      });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message || "Erro ao criar conta" });
+    }
+  });
+
+  // Login
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const validatedData = loginSchema.parse(req.body);
+      
+      const user = await storage.getUserByEmail(validatedData.email);
+      if (!user) {
+        return res.status(401).json({ error: "Email ou senha incorretos" });
+      }
+
+      const validPassword = await bcrypt.compare(validatedData.password, user.password);
+      if (!validPassword) {
+        return res.status(401).json({ error: "Email ou senha incorretos" });
+      }
+
+      const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: "30d" });
+
+      res.json({
+        token,
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+        },
+      });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message || "Erro ao fazer login" });
+    }
+  });
+
+  // ==================== CONTACTS ====================
+  
+  app.get("/api/contacts", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const contacts = await storage.getContacts(req.userId!);
+      res.json(contacts);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/contacts", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const validatedData = insertContactSchema.parse(req.body);
+      const contact = await storage.createContact({
+        ...validatedData,
+        userId: req.userId!,
+      });
+      res.json(contact);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.patch("/api/contacts/:id", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const validatedData = insertContactSchema.partial().parse(req.body);
+      const contact = await storage.updateContact(req.params.id, validatedData);
+      res.json(contact);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/contacts/:id", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      await storage.deleteContact(req.params.id);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // ==================== POLITICAL PARTIES & ALLIANCES ====================
+  
+  app.get("/api/parties", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const parties = await storage.getAllParties();
+      res.json(parties);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/alliances", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const alliances = await storage.getAlliances(req.userId!);
+      
+      // Join with party data
+      const parties = await storage.getAllParties();
+      const partiesMap = new Map(parties.map(p => [p.id, p]));
+      
+      const alliancesWithParty = alliances.map(alliance => ({
+        ...alliance,
+        party: partiesMap.get(alliance.partyId),
+      }));
+      
+      res.json(alliancesWithParty);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/alliances", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const validatedData = insertPoliticalAllianceSchema.parse(req.body);
+      const alliance = await storage.createAlliance({
+        ...validatedData,
+        userId: req.userId!,
+      });
+      res.json(alliance);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/alliances/:id", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      await storage.deleteAlliance(req.params.id);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // ==================== DEMANDS ====================
+  
+  app.get("/api/demands", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const demands = await storage.getDemands(req.userId!);
+      res.json(demands);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/demands", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const validatedData = insertDemandSchema.parse(req.body);
+      const demand = await storage.createDemand({
+        ...validatedData,
+        userId: req.userId!,
+      });
+      res.json(demand);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.patch("/api/demands/:id", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const validatedData = insertDemandSchema.partial().parse(req.body);
+      const demand = await storage.updateDemand(req.params.id, validatedData);
+      res.json(demand);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/demands/:id", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      await storage.deleteDemand(req.params.id);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // Demand comments
+  app.get("/api/demands/:id/comments", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const comments = await storage.getDemandComments(req.params.id);
+      res.json(comments);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/demands/:id/comments", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const validatedData = insertDemandCommentSchema.parse(req.body);
+      const comment = await storage.createDemandComment({
+        ...validatedData,
+        demandId: req.params.id,
+        userId: req.userId!,
+      });
+      res.json(comment);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // ==================== EVENTS ====================
+  
+  app.get("/api/events", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const events = await storage.getEvents(req.userId!);
+      res.json(events);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/events", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const validatedData = insertEventSchema.parse(req.body);
+      const event = await storage.createEvent({
+        ...validatedData,
+        userId: req.userId!,
+      });
+      res.json(event);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.patch("/api/events/:id", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const validatedData = insertEventSchema.partial().parse(req.body);
+      const event = await storage.updateEvent(req.params.id, validatedData);
+      res.json(event);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/events/:id", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      await storage.deleteEvent(req.params.id);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // ==================== AI CONFIGURATION ====================
+  
+  app.get("/api/ai-config", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const config = await storage.getAiConfig(req.userId!);
+      res.json(config || { mode: "compliance" });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/ai-config", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const validatedData = insertAiConfigurationSchema.parse(req.body);
+      const config = await storage.upsertAiConfig({
+        ...validatedData,
+        userId: req.userId!,
+      });
+      res.json(config);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.patch("/api/ai-config/mode", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const { mode } = req.body;
+      const config = await storage.upsertAiConfig({
+        mode,
+        userId: req.userId!,
+      });
+      res.json(config);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // AI Conversations
+  app.get("/api/ai-conversations", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const conversations = await storage.getAiConversations(req.userId!);
+      res.json(conversations);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Generate AI response
+  app.post("/api/ai-conversations/generate", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const { userMessage, postContent, platform } = req.body;
+      
+      if (!userMessage) {
+        return res.status(400).json({ error: "Mensagem do usuário é obrigatória" });
+      }
+
+      const config = await storage.getAiConfig(req.userId!);
+      const mode = config?.mode || "compliance";
+
+      const aiResponse = await generateAiResponse(userMessage, postContent, mode);
+
+      // Save conversation
+      await storage.createAiConversation({
+        userId: req.userId!,
+        platform: platform || "test",
+        postContent: postContent || null,
+        userMessage,
+        aiResponse,
+        mode,
+      });
+
+      res.json({ response: aiResponse });
+    } catch (error: any) {
+      if (error.message === "AI_INTEGRATION_NOT_CONFIGURED") {
+        return res.status(503).json({ 
+          error: "Serviço de IA não configurado. Configure as variáveis AI_INTEGRATIONS_OPENAI_BASE_URL e AI_INTEGRATIONS_OPENAI_API_KEY.",
+          code: "AI_NOT_CONFIGURED"
+        });
+      }
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ==================== MARKETING CAMPAIGNS ====================
+  
+  app.get("/api/campaigns", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const campaigns = await storage.getCampaigns(req.userId!);
+      res.json(campaigns);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/campaigns", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const validatedData = insertMarketingCampaignSchema.parse(req.body);
+      const campaign = await storage.createCampaign({
+        ...validatedData,
+        userId: req.userId!,
+      });
+      res.json(campaign);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/campaigns/:id/send", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const campaign = await storage.getCampaign(req.params.id);
+      if (!campaign) {
+        return res.status(404).json({ error: "Campanha não encontrada" });
+      }
+
+      // Update campaign status
+      await storage.updateCampaign(req.params.id, {
+        status: "sent",
+        sentAt: new Date().toISOString(),
+      });
+
+      res.json({ success: true, message: "Campanha enviada com sucesso" });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // ==================== DASHBOARD STATS ====================
+  
+  app.get("/api/dashboard/stats", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const contacts = await storage.getContacts(req.userId!);
+      const alliances = await storage.getAlliances(req.userId!);
+      const demands = await storage.getDemands(req.userId!);
+      const events = await storage.getEvents(req.userId!);
+      const parties = await storage.getAllParties();
+
+      // Calculate ideology distribution
+      const partiesMap = new Map(parties.map(p => [p.id, p]));
+      const ideologyDistribution: Record<string, number> = {};
+      
+      alliances.forEach(alliance => {
+        const party = partiesMap.get(alliance.partyId);
+        if (party) {
+          ideologyDistribution[party.ideology] = (ideologyDistribution[party.ideology] || 0) + 1;
+        }
+      });
+
+      const ideologyDistributionArray = Object.entries(ideologyDistribution).map(([ideology, count]) => ({
+        ideology,
+        count,
+      }));
+
+      const now = new Date();
+      const pendingDemands = demands.filter(d => d.status === "pending").length;
+      const upcomingEvents = events.filter(e => new Date(e.startDate) > now).length;
+
+      res.json({
+        totalContacts: contacts.length,
+        totalAlliances: alliances.length,
+        totalDemands: demands.length,
+        pendingDemands,
+        totalEvents: events.length,
+        upcomingEvents,
+        ideologyDistribution: ideologyDistributionArray,
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
 
   const httpServer = createServer(app);
-
   return httpServer;
 }
