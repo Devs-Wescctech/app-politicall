@@ -8,12 +8,21 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Plus, Search, Pencil, Trash2, Mail, MessageCircle, Send, Copy } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Skeleton } from "@/components/ui/skeleton";
+
+const BRAZILIAN_STATES = [
+  "Acre", "Alagoas", "Amapá", "Amazonas", "Bahia", "Ceará", "Distrito Federal",
+  "Espírito Santo", "Goiás", "Maranhão", "Mato Grosso", "Mato Grosso do Sul",
+  "Minas Gerais", "Pará", "Paraíba", "Paraná", "Pernambuco", "Piauí",
+  "Rio de Janeiro", "Rio Grande do Norte", "Rio Grande do Sul", "Rondônia",
+  "Roraima", "Santa Catarina", "São Paulo", "Sergipe", "Tocantins"
+];
 
 export default function Contacts() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -31,10 +40,27 @@ export default function Contacts() {
       name: "",
       email: "",
       phone: "",
-      address: "",
+      state: "",
+      city: "",
       notes: "",
     },
   });
+
+  const getUniqueCities = () => {
+    if (!contacts) return [];
+    const cities = contacts
+      .map((c) => c.city)
+      .filter((city): city is string => Boolean(city));
+    return Array.from(new Set(cities)).sort();
+  };
+
+  const capitalizeWords = (str: string) => {
+    return str
+      .toLowerCase()
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  };
 
   const createMutation = useMutation({
     mutationFn: (data: InsertContact) => apiRequest("POST", "/api/contacts", data),
@@ -89,7 +115,8 @@ export default function Contacts() {
       name: contact.name,
       email: contact.email || "",
       phone: contact.phone || "",
-      address: contact.address || "",
+      state: contact.state || "",
+      city: contact.city || "",
       notes: contact.notes || "",
     });
     setIsDialogOpen(true);
@@ -228,13 +255,52 @@ export default function Contacts() {
                 />
                 <FormField
                   control={form.control}
-                  name="address"
+                  name="state"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Endereço</FormLabel>
+                      <FormLabel>Estado</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value || undefined}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-contact-state">
+                            <SelectValue placeholder="Selecione o estado" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {BRAZILIAN_STATES.map((state) => (
+                            <SelectItem key={state} value={state}>
+                              {state}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="city"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Cidade</FormLabel>
                       <FormControl>
-                        <Input placeholder="Endereço completo" data-testid="input-contact-address" {...field} value={field.value || ""} />
+                        <Input
+                          placeholder="Nome da cidade"
+                          data-testid="input-contact-city"
+                          list="contact-cities-list"
+                          {...field}
+                          value={field.value || ""}
+                          onChange={(e) => {
+                            const formatted = capitalizeWords(e.target.value);
+                            field.onChange(formatted);
+                          }}
+                        />
                       </FormControl>
+                      <datalist id="contact-cities-list">
+                        {getUniqueCities().map((city) => (
+                          <option key={city} value={city} />
+                        ))}
+                      </datalist>
                       <FormMessage />
                     </FormItem>
                   )}
