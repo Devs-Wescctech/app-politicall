@@ -10,7 +10,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Textarea } from "@/components/ui/textarea";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, Search, Pencil, Trash2 } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, Mail, MessageCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -155,7 +155,7 @@ export default function Contacts() {
                     <FormItem>
                       <FormLabel>Email</FormLabel>
                       <FormControl>
-                        <Input type="email" placeholder="email@exemplo.com" data-testid="input-contact-email" {...field} />
+                        <Input type="email" placeholder="email@exemplo.com" data-testid="input-contact-email" {...field} value={field.value || ""} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -168,7 +168,7 @@ export default function Contacts() {
                     <FormItem>
                       <FormLabel>Telefone</FormLabel>
                       <FormControl>
-                        <Input placeholder="(00) 00000-0000" data-testid="input-contact-phone" {...field} />
+                        <Input placeholder="(00) 00000-0000" data-testid="input-contact-phone" {...field} value={field.value || ""} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -181,7 +181,7 @@ export default function Contacts() {
                     <FormItem>
                       <FormLabel>Endereço</FormLabel>
                       <FormControl>
-                        <Input placeholder="Endereço completo" data-testid="input-contact-address" {...field} />
+                        <Input placeholder="Endereço completo" data-testid="input-contact-address" {...field} value={field.value || ""} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -194,7 +194,7 @@ export default function Contacts() {
                     <FormItem>
                       <FormLabel>Observações</FormLabel>
                       <FormControl>
-                        <Textarea placeholder="Notas adicionais" data-testid="input-contact-notes" {...field} />
+                        <Textarea placeholder="Notas adicionais" data-testid="input-contact-notes" {...field} value={field.value || ""} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -252,6 +252,31 @@ export default function Contacts() {
                       <TableCell>{contact.phone || "-"}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
+                          {contact.email && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => window.location.href = `mailto:${contact.email}`}
+                              data-testid={`button-email-${contact.id}`}
+                              title="Enviar email"
+                            >
+                              <Mail className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {contact.phone && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => {
+                                const cleanPhone = contact.phone!.replace(/\D/g, '');
+                                window.open(`https://wa.me/55${cleanPhone}`, '_blank');
+                              }}
+                              data-testid={`button-whatsapp-${contact.id}`}
+                              title="Abrir WhatsApp"
+                            >
+                              <MessageCircle className="h-4 w-4" />
+                            </Button>
+                          )}
                           <Button
                             variant="ghost"
                             size="icon"
