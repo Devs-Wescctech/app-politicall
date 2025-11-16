@@ -513,23 +513,22 @@ export default function Demands() {
 
                           {/* Data de Vencimento e Status */}
                           {demand.dueDate && (
-                            <div className="space-y-1">
-                              <div className="flex items-center gap-2">
-                                <CalendarDays className="h-3 w-3 text-muted-foreground" />
-                                <span className="text-xs text-muted-foreground">
-                                  {format(new Date(demand.dueDate), "dd/MM/yyyy", { locale: ptBR })}
-                                </span>
-                              </div>
-                              {dueDateStatus && (
-                                <div className="ml-5">
-                                  <span 
-                                    className={`${dueDateStatus.color} text-xs font-medium`} 
-                                    data-testid={`badge-due-status-${dueDateStatus.status}`}
-                                  >
-                                    {dueDateStatus.label}
-                                  </span>
-                                </div>
-                              )}
+                            <div className="flex items-center gap-2">
+                              <CalendarDays className="h-3 w-3 text-muted-foreground" />
+                              <span className="text-xs text-muted-foreground">
+                                {format(new Date(demand.dueDate), "dd/MM/yyyy", { locale: ptBR })}
+                                {dueDateStatus && (
+                                  <>
+                                    {" - "}
+                                    <span 
+                                      className={dueDateStatus.color}
+                                      data-testid={`badge-due-status-${dueDateStatus.status}`}
+                                    >
+                                      {dueDateStatus.label}
+                                    </span>
+                                  </>
+                                )}
+                              </span>
                             </div>
                           )}
 
@@ -637,18 +636,21 @@ export default function Demands() {
                   {selectedDemand.dueDate && (
                     <div>
                       <label className="text-sm font-medium">Data de vencimento</label>
-                      <div className="flex items-center gap-2 mt-2">
-                        <p className="text-sm">{format(new Date(selectedDemand.dueDate), "PPP", { locale: ptBR })}</p>
+                      <p className="text-sm mt-2">
+                        {format(new Date(selectedDemand.dueDate), "dd/MM/yyyy", { locale: ptBR })}
                         {(() => {
                           const dueDateStr = typeof selectedDemand.dueDate === 'string' ? selectedDemand.dueDate : selectedDemand.dueDate?.toISOString();
                           const dueDateStatus = getDueDateStatus(dueDateStr, selectedDemand.status);
                           return dueDateStatus ? (
-                            <span className={`${dueDateStatus.color} font-medium`}>
-                              {dueDateStatus.label}
-                            </span>
+                            <>
+                              {" - "}
+                              <span className={dueDateStatus.color}>
+                                {dueDateStatus.label}
+                              </span>
+                            </>
                           ) : null;
                         })()}
-                      </div>
+                      </p>
                     </div>
                   )}
                 </TabsContent>
