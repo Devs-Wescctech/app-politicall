@@ -1,130 +1,215 @@
-import { Bell, Check, X, CheckCheck } from "lucide-react";
+import { useState } from "react";
+import { Bell, Check, X, CheckCheck, AlertCircle, Info, CheckCircle, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import type { Notification } from "@shared/schema";
+import { Card } from "@/components/ui/card";
 
 export function NotificationBell() {
   const { toast } = useToast();
-
-  const { data: unreadData } = useQuery<{ count: number }>({
-    queryKey: ["/api/notifications/unread-count"],
-    refetchInterval: 30000, // Refetch every 30 seconds
-  });
+  const [optimisticDeletes, setOptimisticDeletes] = useState<Set<string>>(new Set());
 
   const { data: notifications, isLoading, isError } = useQuery<Notification[]>({
     queryKey: ["/api/notifications"],
     refetchInterval: 30000,
   });
 
+  const { data: unreadData } = useQuery<{ count: number }>({
+    queryKey: ["/api/notifications/unread-count"],
+    refetchInterval: 30000,
+  });
+
+  const unreadCount = unreadData?.count || 0;
+
   const markAsReadMutation = useMutation({
-    mutationFn: async (id: number) => {
-      await apiRequest(`/api/notifications/${id}/read`, {
-        method: "PATCH",
-      });
+    mutationFn: async (id: string) => {
+      await apiRequest("PATCH", `/api/notifications/${id}/read`);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread-count"] });
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: ["/api/notifications"] });
+      const previousNotifications = queryClient.getQueryData<Notification[]>(["/api/notifications"]);
+      
+      queryClient.setQueryData<Notification[]>(["/api/notifications"], (old) => 
+        old?.map(n => n.id === id ? { ...n, read: true } : n) || []
+      );
+      
+      queryClient.setQueryData<{ count: number }>(["/api/notifications/unread-count"], (old) => ({
+        count: Math.max(0, (old?.count || 0) - 1)
+      }));
+
+      return { previousNotifications };
     },
-    onError: () => {
+    onError: (_err, _id, context) => {
+      queryClient.setQueryData(["/api/notifications"], context?.previousNotifications);
       toast({
         title: "Erro",
-        description: "Não foi possível marcar a notificação como lida",
+        description: "Não foi possível marcar como lida",
         variant: "destructive",
       });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread-count"] });
     },
   });
 
   const deleteMutation = useMutation({
-    mutationFn: async (id: number) => {
-      await apiRequest(`/api/notifications/${id}`, {
-        method: "DELETE",
-      });
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/notifications/${id}`);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread-count"] });
-      toast({
-        title: "Sucesso",
-        description: "Notificação excluída",
-      });
+    onMutate: async (id) => {
+      setOptimisticDeletes(prev => new Set(prev).add(id));
+      
+      await queryClient.cancelQueries({ queryKey: ["/api/notifications"] });
+      const previousNotifications = queryClient.getQueryData<Notification[]>(["/api/notifications"]);
+      
+      queryClient.setQueryData<Notification[]>(["/api/notifications"], (old) => 
+        old?.filter(n => n.id !== id) || []
+      );
+
+      const wasUnread = previousNotifications?.find(n => n.id === id && !n.read);
+      if (wasUnread) {
+        queryClient.setQueryData<{ count: number }>(["/api/notifications/unread-count"], (old) => ({
+          count: Math.max(0, (old?.count || 0) - 1)
+        }));
+      }
+
+      return { previousNotifications };
     },
-    onError: () => {
+    onError: (_err, id, context) => {
+      setOptimisticDeletes(prev => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+      queryClient.setQueryData(["/api/notifications"], context?.previousNotifications);
       toast({
         title: "Erro",
         description: "Não foi possível excluir a notificação",
         variant: "destructive",
       });
     },
+    onSuccess: (_data, id) => {
+      setOptimisticDeletes(prev => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+      toast({
+        title: "Excluída!",
+        description: "Notificação removida com sucesso",
+      });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread-count"] });
+    },
   });
 
   const markAllAsReadMutation = useMutation({
     mutationFn: async () => {
-      await apiRequest("/api/notifications/mark-all-read", {
-        method: "PATCH",
-      });
+      await apiRequest("PATCH", "/api/notifications/mark-all-read");
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread-count"] });
-      toast({
-        title: "Sucesso",
-        description: "Todas as notificações foram marcadas como lidas",
-      });
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ["/api/notifications"] });
+      const previousNotifications = queryClient.getQueryData<Notification[]>(["/api/notifications"]);
+      
+      queryClient.setQueryData<Notification[]>(["/api/notifications"], (old) => 
+        old?.map(n => ({ ...n, read: true })) || []
+      );
+      
+      queryClient.setQueryData<{ count: number }>(["/api/notifications/unread-count"], () => ({
+        count: 0
+      }));
+
+      return { previousNotifications };
     },
-    onError: () => {
+    onError: (_err, _vars, context) => {
+      queryClient.setQueryData(["/api/notifications"], context?.previousNotifications);
       toast({
         title: "Erro",
-        description: "Não foi possível marcar todas as notificações como lidas",
+        description: "Não foi possível marcar todas como lidas",
         variant: "destructive",
       });
     },
+    onSuccess: () => {
+      toast({
+        title: "Sucesso!",
+        description: "Todas as notificações foram marcadas como lidas",
+      });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread-count"] });
+    },
   });
 
-  const unreadCount = unreadData?.count || 0;
+  const visibleNotifications = notifications?.filter(n => !optimisticDeletes.has(n.id)) || [];
 
-  const getPriorityColor = (priority: string) => {
+  const getPriorityColor = (priority?: string) => {
     switch (priority) {
       case "urgent":
-        return "border-l-destructive";
+        return "border-red-500 bg-red-50 dark:bg-red-950/20";
       case "high":
-        return "border-l-orange-500";
+        return "border-orange-500 bg-orange-50 dark:bg-orange-950/20";
       case "normal":
-        return "border-l-primary";
+        return "border-[#40E0D0] bg-[#40E0D0]/5";
       case "low":
-        return "border-l-muted-foreground";
+        return "border-gray-300 bg-gray-50 dark:bg-gray-950/20";
       default:
-        return "border-l-muted-foreground";
+        return "border-gray-200";
+    }
+  };
+
+  const getTypeIcon = (type: string) => {
+    switch (type) {
+      case "error":
+        return <AlertCircle className="h-4 w-4 text-red-500" />;
+      case "warning":
+        return <AlertTriangle className="h-4 w-4 text-orange-500" />;
+      case "success":
+        return <CheckCircle className="h-4 w-4 text-green-500" />;
+      case "info":
+      default:
+        return <Info className="h-4 w-4 text-[#40E0D0]" />;
+    }
+  };
+
+  const getTypeLabel = (type: string) => {
+    switch (type) {
+      case "info": return "Informação";
+      case "success": return "Sucesso";
+      case "warning": return "Aviso";
+      case "error": return "Erro";
+      case "demand": return "Demanda";
+      case "event": return "Evento";
+      case "comment": return "Comentário";
+      case "system": return "Sistema";
+      default: return type;
     }
   };
 
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="relative"
-          data-testid="button-notifications"
-          aria-label={`Notificações${unreadCount > 0 ? ` (${unreadCount} não lidas)` : ""}`}
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className="relative rounded-full hover:bg-[#40E0D0]/10" 
+          data-testid="button-notification-bell"
         >
           <Bell className="h-5 w-5" />
           {unreadCount > 0 && (
-            <Badge
-              variant="destructive"
-              className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs"
+            <Badge 
+              variant="destructive" 
+              className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center rounded-full text-xs"
               data-testid="badge-unread-count"
             >
               {unreadCount > 99 ? "99+" : unreadCount}
@@ -132,109 +217,128 @@ export function NotificationBell() {
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-96 p-0" align="end">
-        <div className="flex items-center justify-between p-4 border-b">
-          <h3 className="font-semibold text-sm">Notificações</h3>
-          <div className="flex items-center gap-2">
+      
+      <PopoverContent className="w-[450px] p-0" align="end">
+        <div className="border-b bg-gradient-to-r from-[#40E0D0]/10 to-[#48D1CC]/10 p-4">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="font-semibold text-lg">Notificações</h3>
             {unreadCount > 0 && (
-              <>
-                <span className="text-xs text-muted-foreground">
-                  {unreadCount} não {unreadCount === 1 ? "lida" : "lidas"}
-                </span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => markAllAsReadMutation.mutate()}
-                  disabled={markAllAsReadMutation.isPending}
-                  data-testid="button-mark-all-read"
-                >
-                  <CheckCheck className="h-4 w-4 mr-1" />
-                  Marcar todas como lidas
-                </Button>
-              </>
+              <Badge className="bg-[#40E0D0] text-white rounded-full">
+                {unreadCount} nova{unreadCount !== 1 ? "s" : ""}
+              </Badge>
             )}
           </div>
+          
+          {unreadCount > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => markAllAsReadMutation.mutate()}
+              disabled={markAllAsReadMutation.isPending}
+              className="w-full rounded-full border-[#40E0D0] text-[#40E0D0] hover:bg-[#40E0D0]/10"
+              data-testid="button-mark-all-read"
+            >
+              <CheckCheck className="h-4 w-4 mr-2" />
+              Marcar todas como lidas
+            </Button>
+          )}
         </div>
 
-        <ScrollArea className="h-[400px]">
+        <ScrollArea className="h-[450px]">
           {isLoading ? (
-            <div className="p-8 text-center text-sm text-muted-foreground">
-              Carregando...
+            <div className="p-12 text-center text-sm text-muted-foreground">
+              <div className="animate-pulse">Carregando notificações...</div>
             </div>
           ) : isError ? (
-            <div className="p-8 text-center text-sm text-destructive" data-testid="text-error-notifications">
-              Erro ao carregar notificações. Tente novamente mais tarde.
+            <div className="p-12 text-center">
+              <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-3" />
+              <p className="text-sm text-destructive">
+                Erro ao carregar notificações
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Tente novamente mais tarde
+              </p>
             </div>
-          ) : !notifications || notifications.length === 0 ? (
-            <div className="p-8 text-center text-sm text-muted-foreground" data-testid="text-no-notifications">
-              Nenhuma notificação
+          ) : visibleNotifications.length === 0 ? (
+            <div className="p-12 text-center">
+              <Bell className="h-12 w-12 text-[#40E0D0] mx-auto mb-3 opacity-50" />
+              <p className="text-sm text-muted-foreground">
+                Nenhuma notificação no momento
+              </p>
             </div>
           ) : (
-            <div className="divide-y">
-              {notifications.map((notification) => (
-                <div
+            <div className="p-3 space-y-3">
+              {visibleNotifications.map((notification) => (
+                <Card
                   key={notification.id}
-                  className={`p-4 border-l-4 ${getPriorityColor(notification.priority)} ${
-                    !notification.read ? "bg-muted/30" : ""
-                  }`}
+                  className={`border-2 transition-all duration-200 ${
+                    optimisticDeletes.has(notification.id) ? "opacity-50 scale-95" : ""
+                  } ${getPriorityColor(notification.priority)}`}
                   data-testid={`notification-${notification.id}`}
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <Badge variant="outline" className="text-xs">
-                          {notification.type === "info" && "Informação"}
-                          {notification.type === "success" && "Sucesso"}
-                          {notification.type === "warning" && "Aviso"}
-                          {notification.type === "error" && "Erro"}
-                          {notification.type === "demand" && "Demanda"}
-                          {notification.type === "event" && "Evento"}
-                          {notification.type === "comment" && "Comentário"}
-                          {notification.type === "system" && "Sistema"}
+                  <div className="p-4">
+                    <div className="flex items-start justify-between gap-3 mb-3">
+                      <div className="flex items-center gap-2">
+                        {getTypeIcon(notification.type)}
+                        <Badge 
+                          variant="secondary" 
+                          className="text-xs rounded-full"
+                        >
+                          {getTypeLabel(notification.type)}
                         </Badge>
                         {!notification.read && (
-                          <Badge variant="destructive" className="text-xs">
+                          <Badge 
+                            className="bg-[#40E0D0] text-white text-xs rounded-full animate-pulse"
+                          >
                             Nova
                           </Badge>
                         )}
                       </div>
-                      <p className="text-sm font-medium mb-1">{notification.title}</p>
-                      <p className="text-xs text-muted-foreground mb-2">
-                        {notification.message}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {formatDistanceToNow(new Date(notification.createdAt), {
-                          addSuffix: true,
-                          locale: ptBR,
-                        })}
-                      </p>
-                    </div>
-                    <div className="flex gap-1">
-                      {!notification.read && (
+                      
+                      <div className="flex items-center gap-1">
+                        {!notification.read && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => markAsReadMutation.mutate(notification.id)}
+                            disabled={markAsReadMutation.isPending}
+                            className="rounded-full h-8 w-8 p-0 hover:bg-[#40E0D0]/10"
+                            data-testid={`button-mark-read-${notification.id}`}
+                            aria-label="Marcar como lida"
+                          >
+                            <Check className="h-4 w-4 text-[#40E0D0]" />
+                          </Button>
+                        )}
+                        
                         <Button
                           variant="ghost"
-                          size="icon"
-                          onClick={() => markAsReadMutation.mutate(notification.id)}
-                          disabled={markAsReadMutation.isPending}
-                          data-testid={`button-mark-read-${notification.id}`}
-                          aria-label="Marcar como lida"
+                          size="sm"
+                          onClick={() => deleteMutation.mutate(notification.id)}
+                          disabled={deleteMutation.isPending || optimisticDeletes.has(notification.id)}
+                          className="rounded-full h-8 w-8 p-0 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-950"
+                          data-testid={`button-delete-${notification.id}`}
+                          aria-label="Excluir notificação"
                         >
-                          <Check className="h-4 w-4" />
+                          <X className="h-4 w-4" />
                         </Button>
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => deleteMutation.mutate(notification.id)}
-                        disabled={deleteMutation.isPending}
-                        data-testid={`button-delete-${notification.id}`}
-                        aria-label="Excluir notificação"
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
+                      </div>
                     </div>
+                    
+                    <h4 className="font-semibold text-sm mb-1">
+                      {notification.title}
+                    </h4>
+                    <p className="text-xs text-muted-foreground mb-2 leading-relaxed">
+                      {notification.message}
+                    </p>
+                    
+                    <p className="text-xs text-muted-foreground/70">
+                      {formatDistanceToNow(new Date(notification.createdAt), {
+                        addSuffix: true,
+                        locale: ptBR,
+                      })}
+                    </p>
                   </div>
-                </div>
+                </Card>
               ))}
             </div>
           )}
