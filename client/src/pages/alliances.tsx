@@ -222,6 +222,22 @@ export default function Alliances() {
     return dominantIdeology || null;
   };
 
+  const getUniqueCities = () => {
+    if (!alliances) return [];
+    const cities = alliances
+      .map((a) => a.city)
+      .filter((city): city is string => Boolean(city));
+    return Array.from(new Set(cities)).sort();
+  };
+
+  const capitalizeWords = (str: string) => {
+    return str
+      .toLowerCase()
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  };
+
   return (
     <div className="p-4 sm:p-6 md:p-8 space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
@@ -369,8 +385,22 @@ export default function Alliances() {
                       <FormItem>
                         <FormLabel>Cidade</FormLabel>
                         <FormControl>
-                          <Input placeholder="Nome da cidade" data-testid="input-city" {...field} />
+                          <Input
+                            placeholder="Nome da cidade"
+                            data-testid="input-city"
+                            list="cities-list"
+                            {...field}
+                            onChange={(e) => {
+                              const formatted = capitalizeWords(e.target.value);
+                              field.onChange(formatted);
+                            }}
+                          />
                         </FormControl>
+                        <datalist id="cities-list">
+                          {getUniqueCities().map((city) => (
+                            <option key={city} value={city} />
+                          ))}
+                        </datalist>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -772,8 +802,22 @@ export default function Alliances() {
                     <FormItem>
                       <FormLabel>Cidade</FormLabel>
                       <FormControl>
-                        <Input placeholder="Nome da cidade" data-testid="input-edit-city" {...field} />
+                        <Input
+                          placeholder="Nome da cidade"
+                          data-testid="input-edit-city"
+                          list="cities-list-edit"
+                          {...field}
+                          onChange={(e) => {
+                            const formatted = capitalizeWords(e.target.value);
+                            field.onChange(formatted);
+                          }}
+                        />
                       </FormControl>
+                      <datalist id="cities-list-edit">
+                        {getUniqueCities().map((city) => (
+                          <option key={city} value={city} />
+                        ))}
+                      </datalist>
                       <FormMessage />
                     </FormItem>
                   )}
