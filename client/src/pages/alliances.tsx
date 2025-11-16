@@ -604,10 +604,11 @@ export default function Alliances() {
             })
             .map((party) => {
               const count = getPartyAllianceCount(party.id);
+              const isInactive = count === 0;
               return (
                 <Card
                   key={party.id}
-                  className="cursor-pointer hover-elevate transition-all"
+                  className={`cursor-pointer hover-elevate transition-all ${isInactive ? 'opacity-40' : ''}`}
                   onClick={() => handlePartyClick(party)}
                   data-testid={`party-card-${party.acronym}`}
                   style={{ borderTop: `4px solid ${IDEOLOGY_COLORS[party.ideology as keyof typeof IDEOLOGY_COLORS]}` }}
@@ -615,7 +616,11 @@ export default function Alliances() {
                   <CardContent className="p-4 flex flex-col items-center justify-center text-center min-h-[120px] relative">
                     <div className="absolute top-2 right-2">
                       <div
-                        className="rounded-full bg-primary text-primary-foreground w-8 h-8 flex items-center justify-center text-sm font-bold"
+                        className={`rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold ${
+                          isInactive 
+                            ? 'bg-muted text-muted-foreground' 
+                            : 'bg-primary text-primary-foreground'
+                        }`}
                         data-testid={`party-count-${party.acronym}`}
                       >
                         {count}
