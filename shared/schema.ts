@@ -129,6 +129,19 @@ export const marketingCampaigns = pgTable("marketing_campaigns", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Notifications - In-app notifications for important events
+export const notifications = pgTable("notifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  type: text("type").notNull(), // demand_urgent, demand_comment, event_reminder, campaign_sent, etc
+  title: text("title").notNull(),
+  message: text("message").notNull(),
+  priority: text("priority").notNull().default("medium"), // low, medium, high
+  isRead: boolean("is_read").notNull().default(false),
+  link: text("link"), // Optional link to navigate when clicked
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   contacts: many(contacts),
@@ -136,6 +149,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   demands: many(demands),
   events: many(events),
   campaigns: many(marketingCampaigns),
+  notifications: many(notifications),
 }));
 
 export const contactsRelations = relations(contacts, ({ one }) => ({
@@ -244,6 +258,12 @@ export const insertMarketingCampaignSchema = createInsertSchema(marketingCampaig
   createdAt: true,
 });
 
+export const insertNotificationSchema = createInsertSchema(notifications).omit({
+  id: true,
+  userId: true,
+  createdAt: true,
+});
+
 // TypeScript types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -273,3 +293,6 @@ export type AiConversation = typeof aiConversations.$inferSelect;
 
 export type MarketingCampaign = typeof marketingCampaigns.$inferSelect;
 export type InsertMarketingCampaign = z.infer<typeof insertMarketingCampaignSchema>;
+
+export type Notification = typeof notifications.$inferSelect;
+export type InsertNotification = z.infer<typeof insertNotificationSchema>;
