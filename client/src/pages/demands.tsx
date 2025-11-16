@@ -361,21 +361,27 @@ export default function Demands() {
         </Dialog>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 overflow-x-auto">
-        {Object.entries(groupedDemands).map(([status, statusDemands], index) => (
+      <div className="flex gap-4 pb-4 overflow-x-auto">
+        {Object.entries(groupedDemands).map(([status, statusDemands]) => (
           <Card 
             key={status} 
-            className={`min-w-[300px] transition-colors ${dragOverColumn === status ? 'ring-2 ring-primary' : ''} ${index > 0 ? 'md:border-l-2' : ''}`}
+            className={`flex-shrink-0 w-[350px] transition-colors ${dragOverColumn === status ? 'ring-2 ring-primary' : ''}`}
             onDragOver={handleDragOver}
             onDragEnter={() => handleDragEnter(status)}
             onDragLeave={handleDragLeave}
             onDrop={(e) => handleDrop(e, status)}
           >
-            <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0 p-4">
-              <CardTitle className="text-base flex-1 min-w-0 truncate">{STATUS_CONFIG[status as keyof typeof STATUS_CONFIG].label}</CardTitle>
-              <Badge variant="secondary" className="shrink-0">{statusDemands.length}</Badge>
+            <CardHeader className="p-4">
+              <div className="flex flex-row items-center justify-between gap-3">
+                <CardTitle className="text-base font-medium">
+                  {STATUS_CONFIG[status as keyof typeof STATUS_CONFIG].label}
+                </CardTitle>
+                <Badge variant="secondary" className="px-2 py-1">
+                  {statusDemands.length}
+                </Badge>
+              </div>
             </CardHeader>
-            <CardContent className="space-y-3 min-h-[200px]">
+            <CardContent className="p-4 pt-0 space-y-3 min-h-[300px]">
               {isLoading ? (
                 [...Array(3)].map((_, i) => <Skeleton key={i} className="h-24 w-full" />)
               ) : statusDemands.length > 0 ? (
