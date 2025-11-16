@@ -32,6 +32,15 @@ const IDEOLOGY_BADGES = {
   'Direita': 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200',
 };
 
+const POLITICAL_POSITIONS = [
+  { category: 'Executivo Federal', positions: ['Presidente da República', 'Vice-Presidente da República', 'Ministro de Estado'] },
+  { category: 'Executivo Estadual', positions: ['Governador', 'Vice-Governador', 'Secretário Estadual'] },
+  { category: 'Executivo Municipal', positions: ['Prefeito', 'Vice-Prefeito', 'Secretário Municipal'] },
+  { category: 'Legislativo Federal', positions: ['Senador', 'Deputado Federal'] },
+  { category: 'Legislativo Estadual', positions: ['Deputado Estadual', 'Deputado Distrital'] },
+  { category: 'Legislativo Municipal', positions: ['Vereador'] },
+];
+
 interface AllianceWithParty extends PoliticalAlliance {
   party?: PoliticalParty;
 }
@@ -265,9 +274,27 @@ export default function Alliances() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Cargo</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Ex: Deputado Federal" data-testid="input-ally-position" {...field} />
-                        </FormControl>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-position">
+                              <SelectValue placeholder="Selecione o cargo" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {POLITICAL_POSITIONS.map((group) => (
+                              <div key={group.category}>
+                                <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+                                  {group.category}
+                                </div>
+                                {group.positions.map((position) => (
+                                  <SelectItem key={position} value={position}>
+                                    {position}
+                                  </SelectItem>
+                                ))}
+                              </div>
+                            ))}
+                          </SelectContent>
+                        </Select>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -547,9 +574,27 @@ export default function Alliances() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Cargo</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Ex: Deputado Federal" data-testid="input-edit-ally-position" {...field} />
-                      </FormControl>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-edit-position">
+                            <SelectValue placeholder="Selecione o cargo" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {POLITICAL_POSITIONS.map((group) => (
+                            <div key={group.category}>
+                              <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+                                {group.category}
+                              </div>
+                              {group.positions.map((position) => (
+                                <SelectItem key={position} value={position}>
+                                  {position}
+                                </SelectItem>
+                              ))}
+                            </div>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}
