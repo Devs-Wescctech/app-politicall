@@ -10,7 +10,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Textarea } from "@/components/ui/textarea";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, Search, Pencil, Trash2, Mail, MessageCircle } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, Mail, MessageCircle, Send, Copy } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -107,6 +107,39 @@ export default function Contacts() {
     contact.phone?.includes(searchQuery)
   );
 
+  const handleBulkEmail = () => {
+    const emailAddresses = contacts?.filter(c => c.email).map(c => c.email).join(',');
+    if (!emailAddresses) {
+      toast({ title: "Nenhum contato com email", variant: "destructive" });
+      return;
+    }
+    window.location.href = `mailto:?bcc=${emailAddresses}`;
+  };
+
+  const handleCopyWhatsAppNumbers = () => {
+    const phones = contacts
+      ?.filter(c => c.phone)
+      .map(c => {
+        const cleanPhone = c.phone!.replace(/\D/g, '');
+        return `+55${cleanPhone}`;
+      })
+      .join('\n');
+    
+    if (!phones) {
+      toast({ title: "Nenhum contato com telefone", variant: "destructive" });
+      return;
+    }
+
+    navigator.clipboard.writeText(phones).then(() => {
+      toast({ 
+        title: "Números copiados!", 
+        description: `${phones.split('\n').length} números formatados para WhatsApp Business API`
+      });
+    }).catch(() => {
+      toast({ title: "Erro ao copiar números", variant: "destructive" });
+    });
+  };
+
   return (
     <div className="p-8 space-y-6">
       <div className="flex items-center justify-between">
@@ -114,20 +147,39 @@ export default function Contacts() {
           <h1 className="text-3xl font-bold">Contatos</h1>
           <p className="text-muted-foreground mt-2">Gerencie seus contatos</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={(open) => {
-          setIsDialogOpen(open);
-          if (!open) {
-            setEditingContact(null);
-            form.reset();
-          }
-        }}>
-          <DialogTrigger asChild>
-            <Button data-testid="button-add-contact">
-              <Plus className="w-4 h-4 mr-2" />
-              Novo Contato
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-md">
+        <div className="flex gap-2">
+          <Button 
+            variant="outline"
+            onClick={handleBulkEmail}
+            data-testid="button-bulk-email"
+            title="Enviar email em massa"
+          >
+            <Send className="w-4 h-4 mr-2" />
+            Email em Massa
+          </Button>
+          <Button 
+            variant="outline"
+            onClick={handleCopyWhatsAppNumbers}
+            data-testid="button-copy-whatsapp"
+            title="Copiar números para WhatsApp Business"
+          >
+            <Copy className="w-4 h-4 mr-2" />
+            Copiar WhatsApp
+          </Button>
+          <Dialog open={isDialogOpen} onOpenChange={(open) => {
+            setIsDialogOpen(open);
+            if (!open) {
+              setEditingContact(null);
+              form.reset();
+            }
+          }}>
+            <DialogTrigger asChild>
+              <Button data-testid="button-add-contact">
+                <Plus className="w-4 h-4 mr-2" />
+                Novo Contato
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>
                 {editingContact ? "Editar Contato" : "Novo Contato"}
@@ -207,8 +259,9 @@ export default function Contacts() {
                 </DialogFooter>
               </form>
             </Form>
-          </DialogContent>
-        </Dialog>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       <Card>
