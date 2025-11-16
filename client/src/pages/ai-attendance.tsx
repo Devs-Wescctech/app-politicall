@@ -257,14 +257,15 @@ export default function AiAttendance() {
       </Card>
 
       <Dialog open={!!selectedPlatform} onOpenChange={(open) => !open && setSelectedPlatform(null)}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
+        <DialogContent className="max-w-md max-h-[90vh] flex flex-col p-0">
+          <DialogHeader className="px-6 pt-6 pb-4 border-b">
             <DialogTitle>
               Configurar {PLATFORMS.find((p) => p.id === selectedPlatform)?.name}
             </DialogTitle>
           </DialogHeader>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(handleSavePlatform)} className="space-y-4">
+            <form onSubmit={form.handleSubmit(handleSavePlatform)} className="flex flex-col flex-1 overflow-hidden">
+              <div className="overflow-y-auto px-6 py-4 space-y-4">
               {selectedPlatform === "facebook" && (
                 <>
                   <FormField
@@ -389,7 +390,8 @@ export default function AiAttendance() {
                   />
                 </>
               )}
-              <DialogFooter>
+              </div>
+              <DialogFooter className="px-6 py-4 border-t">
                 <Button type="submit" disabled={updateConfigMutation.isPending} data-testid="button-save-platform-config">
                   {updateConfigMutation.isPending ? "Salvando..." : "Salvar Configuração"}
                 </Button>

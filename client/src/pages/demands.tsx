@@ -84,6 +84,7 @@ export default function Demands() {
       status: "pending",
       priority: "medium",
       assignee: "",
+      collaborators: [],
       dueDate: undefined,
       recurrence: "none",
     },
@@ -207,12 +208,13 @@ export default function Demands() {
             <Plus className="w-4 h-4 mr-2" />
             Nova Demanda
           </Button>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
+          <DialogContent className="max-w-md max-h-[90vh] flex flex-col p-0">
+            <DialogHeader className="px-6 pt-6 pb-4 border-b">
               <DialogTitle>Nova Demanda</DialogTitle>
             </DialogHeader>
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+              <form onSubmit={form.handleSubmit(handleSubmit)} className="flex flex-col flex-1 overflow-hidden">
+                <div className="overflow-y-auto px-6 py-4 space-y-4">
                 <FormField
                   control={form.control}
                   name="title"
@@ -325,7 +327,30 @@ export default function Demands() {
                     </FormItem>
                   )}
                 />
-                <DialogFooter>
+                <FormField
+                  control={form.control}
+                  name="collaborators"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Colaboradores Envolvidos (Opcional)</FormLabel>
+                      <FormControl>
+                        <Input 
+                          placeholder="Digite os nomes separados por vírgula" 
+                          data-testid="input-collaborators"
+                          value={field.value?.join(", ") || ""}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            const collaborators = value.split(",").map(c => c.trim()).filter(c => c.length > 0);
+                            field.onChange(collaborators);
+                          }}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                </div>
+                <DialogFooter className="px-6 py-4 border-t">
                   <Button type="submit" disabled={createMutation.isPending} data-testid="button-save-demand">
                     {createMutation.isPending ? "Salvando..." : "Salvar"}
                   </Button>

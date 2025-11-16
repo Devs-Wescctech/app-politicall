@@ -160,12 +160,13 @@ export default function Agenda() {
               <Plus className="w-4 h-4 mr-2" />
               Novo Evento
             </Button>
-            <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
+            <DialogContent className="max-w-md max-h-[90vh] flex flex-col p-0">
+              <DialogHeader className="px-6 pt-6 pb-4 border-b">
                 <DialogTitle>{editingEvent ? "Editar Evento" : "Novo Evento"}</DialogTitle>
               </DialogHeader>
               <Form {...form}>
-                <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+                <form onSubmit={form.handleSubmit(handleSubmit)} className="flex flex-col flex-1 overflow-hidden">
+                  <div className="overflow-y-auto px-6 py-4 space-y-4">
                   <FormField
                     control={form.control}
                     name="title"
@@ -285,7 +286,8 @@ export default function Agenda() {
                       )}
                     />
                   )}
-                  <DialogFooter>
+                  </div>
+                  <DialogFooter className="px-6 py-4 border-t">
                     <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending} data-testid="button-save-event">
                       {(createMutation.isPending || updateMutation.isPending) ? "Salvando..." : "Salvar"}
                     </Button>

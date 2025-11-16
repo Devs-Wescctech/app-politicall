@@ -105,12 +105,13 @@ export default function Marketing() {
             <Plus className="w-4 h-4 mr-2" />
             Nova Campanha
           </Button>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
+          <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col p-0">
+            <DialogHeader className="px-6 pt-6 pb-4 border-b">
               <DialogTitle>Nova Campanha</DialogTitle>
             </DialogHeader>
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+              <form onSubmit={form.handleSubmit(handleSubmit)} className="flex flex-col flex-1 overflow-hidden">
+                <div className="overflow-y-auto px-6 py-4 space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
@@ -227,8 +228,8 @@ export default function Marketing() {
                     </FormItem>
                   )}
                 />
-
-                <DialogFooter className="gap-2">
+                </div>
+                <DialogFooter className="px-6 py-4 border-t gap-2">
                   <Button 
                     type="button" 
                     variant="outline" 
