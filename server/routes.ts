@@ -479,16 +479,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         const now = new Date();
         const eventStart = new Date(event.startDate);
-        const hoursUntilEvent = (eventStart.getTime() - now.getTime()) / (1000 * 60 * 60);
+        const timeDiffMs = eventStart.getTime() - now.getTime();
+        const minutesUntilEvent = timeDiffMs / (1000 * 60);
+        const hoursUntilEvent = minutesUntilEvent / 60;
 
-        if (hoursUntilEvent > 0 && hoursUntilEvent <= 24) {
-          const hours = Math.round(hoursUntilEvent);
+        // Only create notification if event is in the future and within 24 hours
+        if (minutesUntilEvent > 5 && hoursUntilEvent <= 24) {
+          let timeMessage: string;
+          let priority: "urgent" | "high" | "normal" = "normal";
+
+          if (minutesUntilEvent <= 30) {
+            // Less than 30 minutes
+            const minutes = Math.round(minutesUntilEvent);
+            timeMessage = `${minutes} minuto${minutes !== 1 ? 's' : ''}`;
+            priority = "urgent";
+          } else if (minutesUntilEvent <= 60) {
+            // Between 30 and 60 minutes
+            const minutes = Math.round(minutesUntilEvent);
+            timeMessage = `${minutes} minutos`;
+            priority = "urgent";
+          } else if (hoursUntilEvent <= 2) {
+            // Between 1 and 2 hours
+            const hours = Math.floor(hoursUntilEvent);
+            const remainingMinutes = Math.round((hoursUntilEvent - hours) * 60);
+            if (remainingMinutes > 0) {
+              timeMessage = `${hours} hora${hours !== 1 ? 's' : ''} e ${remainingMinutes} minuto${remainingMinutes !== 1 ? 's' : ''}`;
+            } else {
+              timeMessage = `${hours} hora${hours !== 1 ? 's' : ''}`;
+            }
+            priority = "high";
+          } else {
+            // More than 2 hours
+            const hours = Math.round(hoursUntilEvent);
+            timeMessage = `${hours} hora${hours !== 1 ? 's' : ''}`;
+            priority = hoursUntilEvent <= 6 ? "high" : "normal";
+          }
+
           await storage.createNotification({
             userId: req.userId!,
             type: "event",
             title: "Evento Próximo",
-            message: `O evento "${event.title}" está programado para daqui a ${hours} hora${hours !== 1 ? 's' : ''}`,
-            priority: hoursUntilEvent <= 2 ? "high" : "normal",
+            message: `O evento "${event.title}" está programado para daqui a ${timeMessage}`,
+            priority: priority,
             isRead: false,
             link: `/agenda`,
           });
