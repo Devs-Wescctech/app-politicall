@@ -555,7 +555,15 @@ export default function Agenda() {
                             <div className="flex items-center gap-3 flex-wrap">
                               <h4 className="font-semibold">{event.title}</h4>
                               {event.category && (
-                                <Badge className={CATEGORY_CONFIG[event.category as keyof typeof CATEGORY_CONFIG]?.color}>
+                                <Badge 
+                                  style={{ 
+                                    backgroundColor: (event.borderColor || CATEGORY_CONFIG[event.category as keyof typeof CATEGORY_CONFIG]?.borderColor || "#3b82f6") + "20",
+                                    borderColor: event.borderColor || CATEGORY_CONFIG[event.category as keyof typeof CATEGORY_CONFIG]?.borderColor || "#3b82f6",
+                                    borderWidth: "1px",
+                                    borderStyle: "solid",
+                                    color: event.borderColor || CATEGORY_CONFIG[event.category as keyof typeof CATEGORY_CONFIG]?.borderColor || "#3b82f6"
+                                  }}
+                                >
                                   {CATEGORY_CONFIG[event.category as keyof typeof CATEGORY_CONFIG]?.label}
                                 </Badge>
                               )}
@@ -674,7 +682,15 @@ export default function Agenda() {
                           <div className="flex items-center gap-3 flex-wrap">
                             <h4 className="font-semibold">{event.title}</h4>
                             {event.category && (
-                              <Badge className={CATEGORY_CONFIG[event.category as keyof typeof CATEGORY_CONFIG]?.color}>
+                              <Badge 
+                                style={{ 
+                                  backgroundColor: (event.borderColor || CATEGORY_CONFIG[event.category as keyof typeof CATEGORY_CONFIG]?.borderColor || "#3b82f6") + "20",
+                                  borderColor: event.borderColor || CATEGORY_CONFIG[event.category as keyof typeof CATEGORY_CONFIG]?.borderColor || "#3b82f6",
+                                  borderWidth: "1px",
+                                  borderStyle: "solid",
+                                  color: event.borderColor || CATEGORY_CONFIG[event.category as keyof typeof CATEGORY_CONFIG]?.borderColor || "#3b82f6"
+                                }}
+                              >
                                 {CATEGORY_CONFIG[event.category as keyof typeof CATEGORY_CONFIG]?.label}
                               </Badge>
                             )}
