@@ -561,35 +561,27 @@ export default function Demands() {
                           )}
                         </div>
 
-                        {/* Botões de ação para demandas pendentes */}
+                        {/* Botão Iniciar para demandas pendentes */}
                         {demand.status === "pending" && (
-                          <div className="pt-2 flex gap-2">
+                          <div className="pt-2">
                             <Button
                               size="sm"
-                              className="flex-1"
+                              className="w-full"
                               onClick={(e) => handleStartDemand(e, demand.id)}
                               data-testid={`button-start-${demand.id}`}
                             >
                               <Play className="h-3 w-3 mr-1" />
                               Iniciar
                             </Button>
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              onClick={(e) => handleCancelDemand(e, demand.id)}
-                              data-testid={`button-cancel-${demand.id}`}
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
                           </div>
                         )}
 
-                        {/* Botões de ação para demandas em andamento */}
+                        {/* Botão Concluir para demandas em andamento */}
                         {demand.status === "in_progress" && (
-                          <div className="pt-2 flex gap-2">
+                          <div className="pt-2">
                             <Button
                               size="sm"
-                              className="flex-1"
+                              className="w-full"
                               variant="default"
                               onClick={(e) => handleCompleteDemand(e, demand.id)}
                               data-testid={`button-complete-${demand.id}`}
@@ -597,13 +589,21 @@ export default function Demands() {
                               <Check className="h-3 w-3 mr-1" />
                               Concluir
                             </Button>
+                          </div>
+                        )}
+
+                        {/* Botão Cancelar para demandas concluídas */}
+                        {demand.status === "completed" && (
+                          <div className="pt-2">
                             <Button
                               size="sm"
+                              className="w-full"
                               variant="destructive"
                               onClick={(e) => handleCancelDemand(e, demand.id)}
                               data-testid={`button-cancel-${demand.id}`}
                             >
-                              <X className="h-4 w-4" />
+                              <X className="h-3 w-3 mr-1" />
+                              Cancelar
                             </Button>
                           </div>
                         )}
