@@ -515,8 +515,8 @@ export default function Alliances() {
       )}
 
       <Dialog open={!!selectedParty} onOpenChange={(open) => !open && setSelectedParty(null)}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
+        <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col p-0">
+          <DialogHeader className="px-6 pt-6 pb-4 border-b">
             <DialogTitle className="flex items-center gap-2">
               <span>{selectedParty?.acronym}</span>
               <Badge className={selectedParty ? IDEOLOGY_BADGES[selectedParty.ideology as keyof typeof IDEOLOGY_BADGES] : ""}>
@@ -525,103 +525,119 @@ export default function Alliances() {
             </DialogTitle>
             <p className="text-sm text-muted-foreground">{selectedParty?.name}</p>
           </DialogHeader>
-          <div className="space-y-3">
-            {selectedParty && getPartyAlliances(selectedParty.id).length > 0 ? (
-              getPartyAlliances(selectedParty.id).map((alliance) => (
-                <div
-                  key={alliance.id}
-                  className="p-4 border rounded-lg hover-elevate flex items-center justify-between gap-4"
-                  data-testid={`alliance-item-${alliance.id}`}
-                >
+          <div className="overflow-y-auto px-6 py-4 flex-1">
+            <div className="space-y-3">
+              {selectedParty && getPartyAlliances(selectedParty.id).length > 0 ? (
+                getPartyAlliances(selectedParty.id).map((alliance) => (
                   <div
-                    className="flex-1 cursor-pointer"
-                    onClick={() => handleAllianceClick(alliance)}
+                    key={alliance.id}
+                    className="p-4 border rounded-lg hover-elevate flex items-center justify-between gap-4"
+                    data-testid={`alliance-item-${alliance.id}`}
                   >
-                    <h4 className="font-semibold">{alliance.allyName}</h4>
-                    {alliance.position && (
-                      <p className="text-sm text-muted-foreground">{alliance.position}</p>
-                    )}
+                    <div
+                      className="flex-1 cursor-pointer"
+                      onClick={() => handleAllianceClick(alliance)}
+                    >
+                      <h4 className="font-semibold">{alliance.allyName}</h4>
+                      {alliance.position && (
+                        <p className="text-sm text-muted-foreground">{alliance.position}</p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {alliance.email && (
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleEmailClick(alliance.email!);
+                          }}
+                          data-testid={`button-email-${alliance.id}`}
+                          className="rounded-full"
+                        >
+                          <Mail className="w-4 h-4" />
+                        </Button>
+                      )}
+                      {alliance.phone && (
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleWhatsAppClick(alliance.phone!);
+                          }}
+                          data-testid={`button-whatsapp-${alliance.id}`}
+                          className="rounded-full"
+                        >
+                          <MessageCircle className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {alliance.email && (
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleEmailClick(alliance.email!);
-                        }}
-                        data-testid={`button-email-${alliance.id}`}
-                        className="rounded-full"
-                      >
-                        <Mail className="w-4 h-4" />
-                      </Button>
-                    )}
-                    {alliance.phone && (
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleWhatsAppClick(alliance.phone!);
-                        }}
-                        data-testid={`button-whatsapp-${alliance.id}`}
-                        className="rounded-full"
-                      >
-                        <MessageCircle className="w-4 h-4" />
-                      </Button>
-                    )}
-                  </div>
+                ))
+              ) : (
+                <div className="text-center py-12 text-muted-foreground">
+                  Nenhum aliado cadastrado neste partido.
                 </div>
-              ))
-            ) : (
-              <div className="text-center py-12 text-muted-foreground">
-                Nenhum aliado cadastrado neste partido.
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </DialogContent>
       </Dialog>
 
       <Dialog open={!!selectedAlliance && !isEditMode} onOpenChange={(open) => !open && setSelectedAlliance(null)}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
+        <DialogContent className="max-w-md max-h-[90vh] flex flex-col p-0">
+          <DialogHeader className="px-6 pt-6 pb-4 border-b">
             <DialogTitle>{selectedAlliance?.allyName}</DialogTitle>
             {selectedAlliance?.position && (
               <p className="text-sm text-muted-foreground">{selectedAlliance.position}</p>
             )}
           </DialogHeader>
-          <div className="space-y-4">
-            {selectedAlliance?.party && (
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Partido</label>
-                <div className="mt-1">
-                  <Badge className={IDEOLOGY_BADGES[selectedAlliance.party.ideology as keyof typeof IDEOLOGY_BADGES]}>
-                    {selectedAlliance.party.acronym} - {selectedAlliance.party.ideology}
-                  </Badge>
+          <div className="overflow-y-auto px-6 py-4 flex-1">
+            <div className="space-y-4">
+              {selectedAlliance?.party && (
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Partido</label>
+                  <div className="mt-1">
+                    <Badge className={IDEOLOGY_BADGES[selectedAlliance.party.ideology as keyof typeof IDEOLOGY_BADGES]}>
+                      {selectedAlliance.party.acronym} - {selectedAlliance.party.ideology}
+                    </Badge>
+                  </div>
                 </div>
-              </div>
-            )}
-            {selectedAlliance?.phone && (
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Telefone</label>
-                <p className="text-base mt-1">{selectedAlliance.phone}</p>
-              </div>
-            )}
-            {selectedAlliance?.email && (
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Email</label>
-                <p className="text-base mt-1">{selectedAlliance.email}</p>
-              </div>
-            )}
-            {selectedAlliance?.notes && (
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Observações</label>
-                <p className="text-base mt-1">{selectedAlliance.notes}</p>
-              </div>
-            )}
+              )}
+              {selectedAlliance?.state && (
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Estado</label>
+                  <p className="text-base mt-1">{selectedAlliance.state}</p>
+                </div>
+              )}
+              {selectedAlliance?.city && (
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Cidade</label>
+                  <p className="text-base mt-1">{selectedAlliance.city}</p>
+                </div>
+              )}
+              {selectedAlliance?.phone && (
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Telefone</label>
+                  <p className="text-base mt-1">{selectedAlliance.phone}</p>
+                </div>
+              )}
+              {selectedAlliance?.email && (
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Email</label>
+                  <p className="text-base mt-1">{selectedAlliance.email}</p>
+                </div>
+              )}
+              {selectedAlliance?.notes && (
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Observações</label>
+                  <p className="text-base mt-1">{selectedAlliance.notes}</p>
+                </div>
+              )}
+            </div>
           </div>
-          <DialogFooter className="flex gap-2">
+          <DialogFooter className="flex gap-2 px-6 py-4 border-t">
             <Button
               variant="outline"
               onClick={handleEditClick}
