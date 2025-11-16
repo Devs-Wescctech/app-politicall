@@ -173,102 +173,104 @@ export default function Alliances() {
               Nova Aliança
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
+          <DialogContent className="max-w-md max-h-[90vh] flex flex-col p-0">
+            <DialogHeader className="px-6 pt-6 pb-4 border-b">
               <DialogTitle>Nova Aliança</DialogTitle>
             </DialogHeader>
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="partyId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Partido *</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
+              <form onSubmit={form.handleSubmit(handleSubmit)} className="flex flex-col flex-1 overflow-hidden">
+                <div className="overflow-y-auto px-6 py-4 space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="partyId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Partido *</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-party">
+                              <SelectValue placeholder="Selecione o partido" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {parties?.map((party) => (
+                              <SelectItem key={party.id} value={party.id}>
+                                {party.acronym} - {party.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="allyName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Nome do Aliado *</FormLabel>
                         <FormControl>
-                          <SelectTrigger data-testid="select-party">
-                            <SelectValue placeholder="Selecione o partido" />
-                          </SelectTrigger>
+                          <Input placeholder="Nome completo" data-testid="input-ally-name" {...field} />
                         </FormControl>
-                        <SelectContent>
-                          {parties?.map((party) => (
-                            <SelectItem key={party.id} value={party.id}>
-                              {party.acronym} - {party.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="allyName"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Nome do Aliado *</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Nome completo" data-testid="input-ally-name" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="position"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Cargo</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Ex: Deputado Federal" data-testid="input-ally-position" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="phone"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Telefone</FormLabel>
-                      <FormControl>
-                        <Input placeholder="(00) 00000-0000" data-testid="input-ally-phone" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Email</FormLabel>
-                      <FormControl>
-                        <Input type="email" placeholder="email@exemplo.com" data-testid="input-ally-email" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="notes"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Observações</FormLabel>
-                      <FormControl>
-                        <Textarea placeholder="Notas adicionais" data-testid="input-ally-notes" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <DialogFooter>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="position"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Cargo</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Ex: Deputado Federal" data-testid="input-ally-position" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="phone"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Telefone</FormLabel>
+                        <FormControl>
+                          <Input placeholder="(00) 00000-0000" data-testid="input-ally-phone" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email</FormLabel>
+                        <FormControl>
+                          <Input type="email" placeholder="email@exemplo.com" data-testid="input-ally-email" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="notes"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Observações</FormLabel>
+                        <FormControl>
+                          <Textarea placeholder="Notas adicionais" data-testid="input-ally-notes" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <DialogFooter className="px-6 py-4 border-t">
                   <Button type="submit" disabled={createMutation.isPending} data-testid="button-save-alliance" className="rounded-full">
                     {createMutation.isPending ? "Salvando..." : "Salvar"}
                   </Button>
@@ -453,102 +455,104 @@ export default function Alliances() {
           form.reset();
         }
       }}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
+        <DialogContent className="max-w-md max-h-[90vh] flex flex-col p-0">
+          <DialogHeader className="px-6 pt-6 pb-4 border-b">
             <DialogTitle>Editar Aliado</DialogTitle>
           </DialogHeader>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-              <FormField
-                control={form.control}
-                name="partyId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Partido *</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
+            <form onSubmit={form.handleSubmit(handleSubmit)} className="flex flex-col flex-1 overflow-hidden">
+              <div className="overflow-y-auto px-6 py-4 space-y-4">
+                <FormField
+                  control={form.control}
+                  name="partyId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Partido *</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-edit-party">
+                            <SelectValue placeholder="Selecione o partido" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {parties?.map((party) => (
+                            <SelectItem key={party.id} value={party.id}>
+                              {party.acronym} - {party.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="allyName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Nome do Aliado *</FormLabel>
                       <FormControl>
-                        <SelectTrigger data-testid="select-edit-party">
-                          <SelectValue placeholder="Selecione o partido" />
-                        </SelectTrigger>
+                        <Input placeholder="Nome completo" data-testid="input-edit-ally-name" {...field} />
                       </FormControl>
-                      <SelectContent>
-                        {parties?.map((party) => (
-                          <SelectItem key={party.id} value={party.id}>
-                            {party.acronym} - {party.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="allyName"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Nome do Aliado *</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Nome completo" data-testid="input-edit-ally-name" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="position"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Cargo</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Ex: Deputado Federal" data-testid="input-edit-ally-position" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="phone"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Telefone</FormLabel>
-                    <FormControl>
-                      <Input placeholder="(00) 00000-0000" data-testid="input-edit-ally-phone" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl>
-                      <Input type="email" placeholder="email@exemplo.com" data-testid="input-edit-ally-email" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="notes"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Observações</FormLabel>
-                    <FormControl>
-                      <Textarea placeholder="Notas adicionais" data-testid="input-edit-ally-notes" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <DialogFooter>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="position"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Cargo</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Ex: Deputado Federal" data-testid="input-edit-ally-position" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="phone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Telefone</FormLabel>
+                      <FormControl>
+                        <Input placeholder="(00) 00000-0000" data-testid="input-edit-ally-phone" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email</FormLabel>
+                      <FormControl>
+                        <Input type="email" placeholder="email@exemplo.com" data-testid="input-edit-ally-email" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="notes"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Observações</FormLabel>
+                      <FormControl>
+                        <Textarea placeholder="Notas adicionais" data-testid="input-edit-ally-notes" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <DialogFooter className="px-6 py-4 border-t">
                 <Button type="submit" disabled={updateMutation.isPending} data-testid="button-update-alliance" className="rounded-full">
                   {updateMutation.isPending ? "Atualizando..." : "Atualizar"}
                 </Button>
