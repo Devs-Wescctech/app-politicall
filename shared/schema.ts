@@ -85,6 +85,7 @@ export const events = pgTable("events", {
   startDate: timestamp("start_date").notNull(),
   endDate: timestamp("end_date").notNull(),
   category: text("category"), // meeting, event, deadline, personal
+  borderColor: text("border_color"), // cor customizada da borda do card
   location: text("location"),
   reminder: boolean("reminder").default(false),
   reminderMinutes: integer("reminder_minutes"), // minutes before event

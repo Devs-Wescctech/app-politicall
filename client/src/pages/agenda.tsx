@@ -50,6 +50,30 @@ const CATEGORY_CONFIG = {
   manifestacao: { label: "Manifestação", color: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200", borderColor: "#ea580c" },
 };
 
+// Cores disponíveis para a borda
+const BORDER_COLORS = [
+  { label: "Azul", value: "#3b82f6" },
+  { label: "Roxo", value: "#9333ea" },
+  { label: "Vermelho", value: "#ef4444" },
+  { label: "Verde", value: "#22c55e" },
+  { label: "Laranja", value: "#f97316" },
+  { label: "Indigo", value: "#6366f1" },
+  { label: "Teal", value: "#14b8a6" },
+  { label: "Ciano", value: "#06b6d4" },
+  { label: "Rosa", value: "#f43f5e" },
+  { label: "Âmbar", value: "#f59e0b" },
+  { label: "Violeta", value: "#8b5cf6" },
+  { label: "Lima", value: "#84cc16" },
+  { label: "Pink", value: "#ec4899" },
+  { label: "Fúcsia", value: "#d946ef" },
+  { label: "Céu", value: "#0ea5e9" },
+  { label: "Esmeralda", value: "#10b981" },
+  { label: "Amarelo", value: "#eab308" },
+  { label: "Ardósia", value: "#64748b" },
+  { label: "Zinco", value: "#71717a" },
+  { label: "Cinza", value: "#737373" },
+];
+
 // Tipo para o formulário com campos string separados
 interface EventFormData {
   title: string;
@@ -59,6 +83,7 @@ interface EventFormData {
   endDateStr: string;
   endTimeStr: string;
   category?: string | null;
+  borderColor?: string | null;
   location?: string | null;
   reminder?: boolean | null;
   reminderMinutes?: number | null;
@@ -93,6 +118,7 @@ export default function Agenda() {
       endDateStr: "",
       endTimeStr: "",
       category: "meeting",
+      borderColor: BORDER_COLORS[0].value,
       location: "",
       reminder: false,
       reminderMinutes: 30,
@@ -183,6 +209,7 @@ export default function Agenda() {
         startDate: startDate,  // Enviar como objeto Date
         endDate: endDate,      // Enviar como objeto Date
         category: data.category || null,
+        borderColor: data.borderColor || null,
         location: data.location || null,
         reminder: data.reminder || null,
         reminderMinutes: data.reminderMinutes || null,
@@ -215,6 +242,7 @@ export default function Agenda() {
       endDateStr: format(new Date(event.endDate), "dd/MM/yyyy"),
       endTimeStr: format(new Date(event.endDate), "HH:mm"),
       category: event.category,
+      borderColor: event.borderColor || BORDER_COLORS[0].value,
       location: event.location,
       reminder: event.reminder,
       reminderMinutes: event.reminderMinutes,
@@ -429,6 +457,33 @@ export default function Agenda() {
                   />
                   <FormField
                     control={form.control}
+                    name="borderColor"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Cor da Borda</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value || BORDER_COLORS[0].value}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-border-color">
+                              <SelectValue />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {BORDER_COLORS.map((color) => (
+                              <SelectItem key={color.value} value={color.value}>
+                                <div className="flex items-center gap-2">
+                                  <div className="w-4 h-4 rounded border" style={{ backgroundColor: color.value }} />
+                                  {color.label}
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
                     name="location"
                     render={({ field }) => (
                       <FormItem>
@@ -493,7 +548,7 @@ export default function Agenda() {
                 <h3 className="text-lg font-semibold mb-3">{format(new Date(date), "EEEE, dd 'de' MMMM 'de' yyyy", { locale: ptBR })}</h3>
                 <div className="space-y-3">
                   {dayEvents.map((event) => (
-                    <Card key={event.id} className="border-l-4" style={{ borderLeftColor: CATEGORY_CONFIG[event.category as keyof typeof CATEGORY_CONFIG]?.borderColor || "#3b82f6" }} data-testid={`event-${event.id}`}>
+                    <Card key={event.id} className="border-l-4" style={{ borderLeftColor: event.borderColor || CATEGORY_CONFIG[event.category as keyof typeof CATEGORY_CONFIG]?.borderColor || "#3b82f6" }} data-testid={`event-${event.id}`}>
                       <CardContent className="p-4">
                         <div className="flex items-start justify-between gap-4">
                           <div className="flex-1 space-y-2">
@@ -582,7 +637,7 @@ export default function Agenda() {
                         <div
                           key={event.id}
                           className="text-xs p-1 rounded truncate cursor-pointer hover-elevate"
-                          style={{ backgroundColor: CATEGORY_CONFIG[event.category as keyof typeof CATEGORY_CONFIG]?.borderColor + "20" }}
+                          style={{ backgroundColor: (event.borderColor || CATEGORY_CONFIG[event.category as keyof typeof CATEGORY_CONFIG]?.borderColor || "#3b82f6") + "20" }}
                           onClick={() => handleEdit(event)}
                         >
                           {event.title}
