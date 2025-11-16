@@ -531,7 +531,17 @@ export default function Agenda() {
               <Button variant="outline" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} data-testid="button-prev-month">
                 ←
               </Button>
-              <CardTitle>{format(currentMonth, "MMMM 'de' yyyy", { locale: ptBR })}</CardTitle>
+              <div className="flex items-center gap-2">
+                <CardTitle>{format(currentMonth, "MMMM 'de' yyyy", { locale: ptBR })}</CardTitle>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setCurrentMonth(new Date())} 
+                  data-testid="button-today"
+                >
+                  Hoje
+                </Button>
+              </div>
               <Button variant="outline" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} data-testid="button-next-month">
                 →
               </Button>
