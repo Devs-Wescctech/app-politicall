@@ -221,7 +221,64 @@ export class DatabaseStorage implements IStorage {
 
   // Events
   async getEvents(userId: string): Promise<Event[]> {
-    return await db.select().from(events).where(eq(events.userId, userId)).orderBy(events.startDate);
+    const baseEvents = await db.select().from(events).where(eq(events.userId, userId)).orderBy(events.startDate);
+    
+    // Expandir eventos recorrentes
+    const expandedEvents: Event[] = [];
+    const today = new Date();
+    const maxDate = new Date();
+    maxDate.setMonth(maxDate.getMonth() + 3); // Gerar eventos até 3 meses no futuro
+    
+    for (const event of baseEvents) {
+      // Adicionar o evento original
+      expandedEvents.push(event);
+      
+      // Se tem recorrência, gerar ocorrências
+      if (event.recurrence && event.recurrence !== 'none') {
+        const startDate = new Date(event.startDate);
+        const endDate = new Date(event.endDate);
+        const duration = endDate.getTime() - startDate.getTime();
+        
+        let currentDate = new Date(startDate);
+        let occurrenceCount = 0;
+        const maxOccurrences = 90; // Limitar a 90 ocorrências para evitar loops infinitos
+        
+        while (currentDate <= maxDate && occurrenceCount < maxOccurrences) {
+          // Avançar para a próxima ocorrência
+          switch (event.recurrence) {
+            case 'daily':
+              currentDate.setDate(currentDate.getDate() + 1);
+              break;
+            case 'weekly':
+              currentDate.setDate(currentDate.getDate() + 7);
+              break;
+            case 'monthly':
+              currentDate.setMonth(currentDate.getMonth() + 1);
+              break;
+          }
+          
+          if (currentDate <= maxDate) {
+            const occurrenceStart = new Date(currentDate);
+            const occurrenceEnd = new Date(currentDate.getTime() + duration);
+            
+            // Criar uma ocorrência do evento (com um ID único baseado no original + índice)
+            expandedEvents.push({
+              ...event,
+              id: `${event.id}_recurrence_${occurrenceCount}`,
+              startDate: occurrenceStart,
+              endDate: occurrenceEnd,
+            });
+            
+            occurrenceCount++;
+          }
+        }
+      }
+    }
+    
+    // Ordenar todos os eventos por data de início
+    return expandedEvents.sort((a, b) => 
+      new Date(a.startDate).getTime() - new Date(b.startDate).getTime()
+    );
   }
 
   async getEvent(id: string): Promise<Event | undefined> {

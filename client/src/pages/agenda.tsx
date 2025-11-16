@@ -250,27 +250,41 @@ export default function Agenda() {
   };
 
   const handleEdit = (event: Event) => {
-    setEditingEvent(event);
+    // Se é uma ocorrência de evento recorrente, extrair o ID original
+    const originalId = event.id.includes('_recurrence_') 
+      ? event.id.split('_recurrence_')[0]
+      : event.id;
+      
+    // Buscar o evento original para edição
+    const originalEvent = event.id.includes('_recurrence_') 
+      ? events?.find(e => e.id === originalId) || event
+      : event;
+      
+    setEditingEvent({...originalEvent, id: originalId});
     form.reset({
-      title: event.title,
-      description: event.description,
-      startDateStr: format(new Date(event.startDate), "dd/MM/yyyy"),
-      startTimeStr: format(new Date(event.startDate), "HH:mm"),
-      endDateStr: format(new Date(event.endDate), "dd/MM/yyyy"),
-      endTimeStr: format(new Date(event.endDate), "HH:mm"),
-      category: event.category,
-      borderColor: event.borderColor || BORDER_COLORS[0].value,
-      location: event.location,
-      recurrence: event.recurrence || "none",
-      reminder: event.reminder,
-      reminderMinutes: event.reminderMinutes,
+      title: originalEvent.title,
+      description: originalEvent.description,
+      startDateStr: format(new Date(originalEvent.startDate), "dd/MM/yyyy"),
+      startTimeStr: format(new Date(originalEvent.startDate), "HH:mm"),
+      endDateStr: format(new Date(originalEvent.endDate), "dd/MM/yyyy"),
+      endTimeStr: format(new Date(originalEvent.endDate), "HH:mm"),
+      category: originalEvent.category,
+      borderColor: originalEvent.borderColor || BORDER_COLORS[0].value,
+      location: originalEvent.location,
+      recurrence: originalEvent.recurrence || "none",
+      reminder: originalEvent.reminder,
+      reminderMinutes: originalEvent.reminderMinutes,
     });
     setIsDialogOpen(true);
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm("Tem certeza que deseja excluir este evento?")) {
-      deleteMutation.mutate(id);
+    if (confirm("Tem certeza que deseja excluir este evento? Se for um evento recorrente, todas as repetições serão excluídas.")) {
+      // Se é uma ocorrência de evento recorrente, usar o ID original
+      const originalId = id.includes('_recurrence_') 
+        ? id.split('_recurrence_')[0]
+        : id;
+      deleteMutation.mutate(originalId);
     }
   };
 
