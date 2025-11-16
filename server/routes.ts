@@ -374,7 +374,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             title: "Demanda Urgente Criada",
             message: `A demanda "${demand.title}" foi criada com prioridade URGENTE`,
             priority: "urgent",
-            read: false,
+            isRead: false,
             link: `/demands/${demand.id}`,
           });
         } catch (notificationError) {
@@ -436,7 +436,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             title: "Novo Comentário",
             message: `Novo comentário adicionado na demanda "${demand.title}"`,
             priority: "normal",
-            read: false,
+            isRead: false,
             link: `/demands/${demand.id}`,
           });
         }
@@ -489,7 +489,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             title: "Evento Próximo",
             message: `O evento "${event.title}" está programado para daqui a ${hours} hora${hours !== 1 ? 's' : ''}`,
             priority: hoursUntilEvent <= 2 ? "high" : "normal",
-            read: false,
+            isRead: false,
             link: `/agenda`,
           });
         }
@@ -681,7 +681,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Update campaign status
       await storage.updateCampaign(req.params.id, {
         status: "sent",
-        sentAt: new Date().toISOString(),
+        sentAt: new Date(),
       });
 
       res.json({ success: true, message: "Campanha enviada com sucesso" });

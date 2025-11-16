@@ -67,7 +67,7 @@ export interface IStorage {
   getCampaigns(userId: string): Promise<MarketingCampaign[]>;
   getCampaign(id: string): Promise<MarketingCampaign | undefined>;
   createCampaign(campaign: InsertMarketingCampaign & { userId: string }): Promise<MarketingCampaign>;
-  updateCampaign(id: string, campaign: Partial<InsertMarketingCampaign>): Promise<MarketingCampaign>;
+  updateCampaign(id: string, campaign: Partial<InsertMarketingCampaign> & { sentAt?: Date }): Promise<MarketingCampaign>;
 
   // Notifications
   getNotifications(userId: string, limit?: number): Promise<Notification[]>;
@@ -289,7 +289,7 @@ export class DatabaseStorage implements IStorage {
     return newCampaign;
   }
 
-  async updateCampaign(id: string, campaign: Partial<InsertMarketingCampaign>): Promise<MarketingCampaign> {
+  async updateCampaign(id: string, campaign: Partial<InsertMarketingCampaign> & { sentAt?: Date }): Promise<MarketingCampaign> {
     const [updated] = await db.update(marketingCampaigns).set(campaign).where(eq(marketingCampaigns.id, id)).returning();
     return updated;
   }

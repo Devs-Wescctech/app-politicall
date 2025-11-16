@@ -636,8 +636,11 @@ export default function Agenda() {
                       {dayEvents.slice(0, 3).map((event) => (
                         <div
                           key={event.id}
-                          className="text-xs p-1 rounded truncate cursor-pointer hover-elevate"
-                          style={{ backgroundColor: (event.borderColor || CATEGORY_CONFIG[event.category as keyof typeof CATEGORY_CONFIG]?.borderColor || "#3b82f6") + "20" }}
+                          className="text-xs p-1 rounded truncate cursor-pointer hover-elevate border-l-4"
+                          style={{ 
+                            backgroundColor: (event.borderColor || CATEGORY_CONFIG[event.category as keyof typeof CATEGORY_CONFIG]?.borderColor || "#3b82f6") + "20",
+                            borderLeftColor: event.borderColor || CATEGORY_CONFIG[event.category as keyof typeof CATEGORY_CONFIG]?.borderColor || "#3b82f6"
+                          }}
                           onClick={() => handleEdit(event)}
                         >
                           {event.title}
