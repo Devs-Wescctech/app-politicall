@@ -15,6 +15,7 @@ import { Card } from "@/components/ui/card";
 export function NotificationBell() {
   const { toast } = useToast();
   const [optimisticDeletes, setOptimisticDeletes] = useState<Set<string>>(new Set());
+  const [open, setOpen] = useState(false);
 
   const { data: notifications, isLoading, isError } = useQuery<Notification[]>({
     queryKey: ["/api/notifications"],
@@ -197,7 +198,7 @@ export function NotificationBell() {
   };
 
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button 
           variant="ghost" 
@@ -225,11 +226,22 @@ export function NotificationBell() {
         <div className="border-b bg-gradient-to-r from-[#40E0D0]/10 to-[#48D1CC]/10 p-4">
           <div className="flex items-center justify-between mb-2">
             <h3 className="font-semibold text-lg">Notificações</h3>
-            {unreadCount > 0 && (
-              <Badge className="bg-[#40E0D0] text-white rounded-full">
-                {unreadCount} nova{unreadCount !== 1 ? "s" : ""}
-              </Badge>
-            )}
+            <div className="flex items-center gap-2">
+              {unreadCount > 0 && (
+                <Badge className="bg-[#40E0D0] text-white rounded-full">
+                  {unreadCount} nova{unreadCount !== 1 ? "s" : ""}
+                </Badge>
+              )}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 rounded-full hover:bg-[#40E0D0]/10"
+                data-testid="button-close-notifications"
+                onClick={() => setOpen(false)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
           
           {unreadCount > 0 && (
