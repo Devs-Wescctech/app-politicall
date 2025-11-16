@@ -98,6 +98,11 @@ export const aiConfigurations = pgTable("ai_configurations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   mode: text("mode").notNull().default("compliance"), // compliance, formal
+  // AI Personality and Training
+  systemPrompt: text("system_prompt"),
+  personalityTraits: text("personality_traits"),
+  politicalInfo: text("political_info"),
+  responseGuidelines: text("response_guidelines"),
   // Facebook complete integration
   facebookAppId: text("facebook_app_id"),
   facebookAppSecret: text("facebook_app_secret"),
@@ -142,6 +147,29 @@ export const aiConversations = pgTable("ai_conversations", {
   userMessage: text("user_message").notNull(),
   aiResponse: text("ai_response").notNull(),
   mode: text("mode").notNull(), // compliance, formal
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// AI Training Examples - Questions and answers for training
+export const aiTrainingExamples = pgTable("ai_training_examples", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  question: text("question").notNull(),
+  answer: text("answer").notNull(),
+  category: text("category"), // proposals, biography, contact, general
+  active: boolean("active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// AI Response Templates - Pre-defined responses
+export const aiResponseTemplates = pgTable("ai_response_templates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  trigger: text("trigger").notNull(), // keywords that trigger this template
+  response: text("response").notNull(),
+  platform: text("platform"), // null = all platforms
+  active: boolean("active").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -291,6 +319,18 @@ export const insertAiConfigurationSchema = createInsertSchema(aiConfigurations).
   updatedAt: true,
 });
 
+export const insertAiTrainingExampleSchema = createInsertSchema(aiTrainingExamples).omit({
+  id: true,
+  userId: true,
+  createdAt: true,
+});
+
+export const insertAiResponseTemplateSchema = createInsertSchema(aiResponseTemplates).omit({
+  id: true,
+  userId: true,
+  createdAt: true,
+});
+
 export const insertMarketingCampaignSchema = createInsertSchema(marketingCampaigns).omit({
   id: true,
   userId: true,
@@ -330,6 +370,12 @@ export type AiConfiguration = typeof aiConfigurations.$inferSelect;
 export type InsertAiConfiguration = z.infer<typeof insertAiConfigurationSchema>;
 
 export type AiConversation = typeof aiConversations.$inferSelect;
+
+export type AiTrainingExample = typeof aiTrainingExamples.$inferSelect;
+export type InsertAiTrainingExample = z.infer<typeof insertAiTrainingExampleSchema>;
+
+export type AiResponseTemplate = typeof aiResponseTemplates.$inferSelect;
+export type InsertAiResponseTemplate = z.infer<typeof insertAiResponseTemplateSchema>;
 
 export type MarketingCampaign = typeof marketingCampaigns.$inferSelect;
 export type InsertMarketingCampaign = z.infer<typeof insertMarketingCampaignSchema>;
