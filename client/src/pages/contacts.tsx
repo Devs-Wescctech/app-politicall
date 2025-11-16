@@ -277,6 +277,13 @@ export default function Contacts() {
                 data-testid="input-search-contacts"
               />
             </div>
+            <div className="text-sm text-muted-foreground" data-testid="text-contact-count">
+              {searchQuery && filteredContacts ? (
+                <span>{filteredContacts.length} de {contacts?.length || 0} contatos</span>
+              ) : (
+                <span>{contacts?.length || 0} contatos</span>
+              )}
+            </div>
           </div>
         </CardHeader>
         <CardContent>
