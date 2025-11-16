@@ -358,33 +358,40 @@ export default function Alliances() {
         </div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-          {parties?.map((party) => {
-            const count = getPartyAllianceCount(party.id);
-            return (
-              <Card
-                key={party.id}
-                className="cursor-pointer hover-elevate transition-all"
-                onClick={() => handlePartyClick(party)}
-                data-testid={`party-card-${party.acronym}`}
-                style={{ borderTop: `4px solid ${IDEOLOGY_COLORS[party.ideology as keyof typeof IDEOLOGY_COLORS]}` }}
-              >
-                <CardContent className="p-4 flex flex-col items-center justify-center text-center min-h-[120px] relative">
-                  <div className="absolute top-2 right-2">
-                    <div
-                      className="rounded-full bg-primary text-primary-foreground w-8 h-8 flex items-center justify-center text-sm font-bold"
-                      data-testid={`party-count-${party.acronym}`}
-                    >
-                      {count}
+          {parties
+            ?.slice()
+            .sort((a, b) => {
+              const countA = getPartyAllianceCount(a.id);
+              const countB = getPartyAllianceCount(b.id);
+              return countB - countA;
+            })
+            .map((party) => {
+              const count = getPartyAllianceCount(party.id);
+              return (
+                <Card
+                  key={party.id}
+                  className="cursor-pointer hover-elevate transition-all"
+                  onClick={() => handlePartyClick(party)}
+                  data-testid={`party-card-${party.acronym}`}
+                  style={{ borderTop: `4px solid ${IDEOLOGY_COLORS[party.ideology as keyof typeof IDEOLOGY_COLORS]}` }}
+                >
+                  <CardContent className="p-4 flex flex-col items-center justify-center text-center min-h-[120px] relative">
+                    <div className="absolute top-2 right-2">
+                      <div
+                        className="rounded-full bg-primary text-primary-foreground w-8 h-8 flex items-center justify-center text-sm font-bold"
+                        data-testid={`party-count-${party.acronym}`}
+                      >
+                        {count}
+                      </div>
                     </div>
-                  </div>
-                  <h3 className="font-bold text-lg mb-1 truncate max-w-full">
-                    {party.acronym.length > 4 ? `${party.acronym.substring(0, 4)}...` : party.acronym}
-                  </h3>
-                  <p className="text-xs text-muted-foreground line-clamp-2">{party.name}</p>
-                </CardContent>
-              </Card>
-            );
-          })}
+                    <h3 className="font-bold text-lg mb-1 truncate max-w-full">
+                      {party.acronym.length > 4 ? `${party.acronym.substring(0, 4)}...` : party.acronym}
+                    </h3>
+                    <p className="text-xs text-muted-foreground line-clamp-2">{party.name}</p>
+                  </CardContent>
+                </Card>
+              );
+            })}
         </div>
       )}
 
