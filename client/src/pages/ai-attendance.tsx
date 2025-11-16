@@ -439,9 +439,9 @@ export default function AiAttendance() {
                     <p className="text-sm font-medium">Status da API</p>
                     <p className="text-sm text-muted-foreground">
                       {config?.hasCustomKey ? (
-                        <>API Personalizada (****{config.openaiApiKeyLast4})</>
+                        <>OpenAI - Chave Própria (****{config.openaiApiKeyLast4})</>
                       ) : (
-                        <>Usando Replit AI</>
+                        <>OpenAI - via Replit (Créditos)</>
                       )}
                     </p>
                   </div>
