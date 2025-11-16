@@ -289,14 +289,7 @@ export default function Agenda() {
   return (
     <div className="container mx-auto p-6">
       <div className="flex justify-between items-center mb-6">
-        <div className="flex items-center gap-4">
-          <h1 className="text-3xl font-bold">Agenda</h1>
-          {futureEvents && events && futureEvents.length < events.length && (
-            <Badge variant="secondary" className="text-xs">
-              {events.length - futureEvents.length} evento{events.length - futureEvents.length !== 1 ? 's' : ''} passado{events.length - futureEvents.length !== 1 ? 's' : ''} oculto{events.length - futureEvents.length !== 1 ? 's' : ''}
-            </Badge>
-          )}
-        </div>
+        <h1 className="text-3xl font-bold">Agenda</h1>
         <div className="flex gap-4">
           <Tabs value={view} onValueChange={(v) => setView(v as any)}>
             <TabsList className="rounded-full">
