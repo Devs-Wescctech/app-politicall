@@ -13,7 +13,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, Calendar as CalendarIcon, MessageSquare, Clock, User, CalendarDays, RefreshCw, Play } from "lucide-react";
+import { Plus, Calendar as CalendarIcon, MessageSquare, Clock, User, CalendarDays, RefreshCw, Play, Check } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -244,6 +244,18 @@ export default function Demands() {
       {
         onSuccess: () => {
           toast({ title: "Demanda iniciada!" });
+        }
+      }
+    );
+  };
+
+  const handleCompleteDemand = (e: React.MouseEvent, demandId: string) => {
+    e.stopPropagation(); // Previne abrir o sheet ao clicar no botão
+    updateMutation.mutate(
+      { id: demandId, data: { status: "completed" } },
+      {
+        onSuccess: () => {
+          toast({ title: "Demanda concluída!" });
         }
       }
     );
@@ -548,6 +560,22 @@ export default function Demands() {
                             >
                               <Play className="h-3 w-3 mr-1" />
                               Iniciar
+                            </Button>
+                          </div>
+                        )}
+
+                        {/* Botão Concluir para demandas em andamento */}
+                        {demand.status === "in_progress" && (
+                          <div className="pt-2">
+                            <Button
+                              size="sm"
+                              className="w-full"
+                              variant="default"
+                              onClick={(e) => handleCompleteDemand(e, demand.id)}
+                              data-testid={`button-complete-${demand.id}`}
+                            >
+                              <Check className="h-3 w-3 mr-1" />
+                              Concluir
                             </Button>
                           </div>
                         )}
