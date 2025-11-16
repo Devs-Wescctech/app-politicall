@@ -494,12 +494,6 @@ export default function Demands() {
                           </Badge>
                         </div>
 
-                        {/* Descrição */}
-                        {demand.description && (
-                          <p className="text-xs text-muted-foreground line-clamp-2">
-                            {demand.description}
-                          </p>
-                        )}
 
                         {/* Metadados - Layout em Grid */}
                         <div className="space-y-2">
