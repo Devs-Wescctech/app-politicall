@@ -42,6 +42,8 @@ export const politicalAlliances = pgTable("political_alliances", {
   partyId: varchar("party_id").notNull().references(() => politicalParties.id, { onDelete: "cascade" }),
   allyName: text("ally_name").notNull(),
   position: text("position"),
+  state: text("state"),
+  city: text("city"),
   phone: text("phone"),
   email: text("email"),
   notes: text("notes"),

@@ -41,6 +41,12 @@ const POLITICAL_POSITIONS = [
   { category: 'Legislativo Municipal', positions: ['Vereador'] },
 ];
 
+const BRAZILIAN_STATES = [
+  'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA',
+  'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN',
+  'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'
+];
+
 interface AllianceWithParty extends PoliticalAlliance {
   party?: PoliticalParty;
 }
@@ -70,6 +76,8 @@ export default function Alliances() {
       partyId: "",
       allyName: "",
       position: "",
+      state: "",
+      city: "",
       phone: "",
       email: "",
       notes: "",
@@ -157,6 +165,8 @@ export default function Alliances() {
         partyId: selectedAlliance.partyId,
         allyName: selectedAlliance.allyName,
         position: selectedAlliance.position || "",
+        state: selectedAlliance.state || "",
+        city: selectedAlliance.city || "",
         phone: selectedAlliance.phone || "",
         email: selectedAlliance.email || "",
         notes: selectedAlliance.notes || "",
@@ -324,6 +334,43 @@ export default function Alliances() {
                             ))}
                           </SelectContent>
                         </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="state"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Estado</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-state">
+                              <SelectValue placeholder="Selecione o estado" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {BRAZILIAN_STATES.map((state) => (
+                              <SelectItem key={state} value={state}>
+                                {state}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="city"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Cidade</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Nome da cidade" data-testid="input-city" {...field} />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -674,6 +721,43 @@ export default function Alliances() {
                           ))}
                         </SelectContent>
                       </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="state"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Estado</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-edit-state">
+                            <SelectValue placeholder="Selecione o estado" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {BRAZILIAN_STATES.map((state) => (
+                            <SelectItem key={state} value={state}>
+                              {state}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="city"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Cidade</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Nome da cidade" data-testid="input-edit-city" {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
