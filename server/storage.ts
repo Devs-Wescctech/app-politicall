@@ -1,12 +1,15 @@
 // Storage implementation using blueprint javascript_database
 import { 
   users, contacts, politicalParties, politicalAlliances, demands, demandComments, events,
-  aiConfigurations, aiConversations, marketingCampaigns, notifications,
+  aiConfigurations, aiConversations, aiTrainingExamples, aiResponseTemplates, 
+  marketingCampaigns, notifications,
   type User, type InsertUser, type Contact, type InsertContact,
   type PoliticalParty, type PoliticalAlliance, type InsertPoliticalAlliance,
   type Demand, type InsertDemand, type DemandComment, type InsertDemandComment,
   type Event, type InsertEvent, type AiConfiguration, type InsertAiConfiguration,
-  type AiConversation, type MarketingCampaign, type InsertMarketingCampaign,
+  type AiConversation, type AiTrainingExample, type InsertAiTrainingExample,
+  type AiResponseTemplate, type InsertAiResponseTemplate,
+  type MarketingCampaign, type InsertMarketingCampaign,
   type Notification, type InsertNotification
 } from "@shared/schema";
 import { db } from "./db";
@@ -62,6 +65,20 @@ export interface IStorage {
   // AI Conversations
   getAiConversations(userId: string): Promise<AiConversation[]>;
   createAiConversation(conversation: Omit<AiConversation, "id" | "createdAt">): Promise<AiConversation>;
+
+  // AI Training Examples
+  getTrainingExamples(userId: string): Promise<AiTrainingExample[]>;
+  getTrainingExample(id: string): Promise<AiTrainingExample | undefined>;
+  createTrainingExample(example: InsertAiTrainingExample & { userId: string }): Promise<AiTrainingExample>;
+  updateTrainingExample(id: string, example: Partial<InsertAiTrainingExample>): Promise<AiTrainingExample>;
+  deleteTrainingExample(id: string): Promise<void>;
+
+  // AI Response Templates
+  getResponseTemplates(userId: string): Promise<AiResponseTemplate[]>;
+  getResponseTemplate(id: string): Promise<AiResponseTemplate | undefined>;
+  createResponseTemplate(template: InsertAiResponseTemplate & { userId: string }): Promise<AiResponseTemplate>;
+  updateResponseTemplate(id: string, template: Partial<InsertAiResponseTemplate>): Promise<AiResponseTemplate>;
+  deleteResponseTemplate(id: string): Promise<void>;
 
   // Marketing Campaigns
   getCampaigns(userId: string): Promise<MarketingCampaign[]>;
@@ -329,6 +346,54 @@ export class DatabaseStorage implements IStorage {
   async createAiConversation(conversation: Omit<AiConversation, "id" | "createdAt">): Promise<AiConversation> {
     const [newConversation] = await db.insert(aiConversations).values(conversation).returning();
     return newConversation;
+  }
+
+  // AI Training Examples
+  async getTrainingExamples(userId: string): Promise<AiTrainingExample[]> {
+    return await db.select().from(aiTrainingExamples).where(eq(aiTrainingExamples.userId, userId)).orderBy(desc(aiTrainingExamples.createdAt));
+  }
+
+  async getTrainingExample(id: string): Promise<AiTrainingExample | undefined> {
+    const [example] = await db.select().from(aiTrainingExamples).where(eq(aiTrainingExamples.id, id));
+    return example || undefined;
+  }
+
+  async createTrainingExample(example: InsertAiTrainingExample & { userId: string }): Promise<AiTrainingExample> {
+    const [newExample] = await db.insert(aiTrainingExamples).values(example).returning();
+    return newExample;
+  }
+
+  async updateTrainingExample(id: string, example: Partial<InsertAiTrainingExample>): Promise<AiTrainingExample> {
+    const [updated] = await db.update(aiTrainingExamples).set(example).where(eq(aiTrainingExamples.id, id)).returning();
+    return updated;
+  }
+
+  async deleteTrainingExample(id: string): Promise<void> {
+    await db.delete(aiTrainingExamples).where(eq(aiTrainingExamples.id, id));
+  }
+
+  // AI Response Templates
+  async getResponseTemplates(userId: string): Promise<AiResponseTemplate[]> {
+    return await db.select().from(aiResponseTemplates).where(eq(aiResponseTemplates.userId, userId)).orderBy(desc(aiResponseTemplates.createdAt));
+  }
+
+  async getResponseTemplate(id: string): Promise<AiResponseTemplate | undefined> {
+    const [template] = await db.select().from(aiResponseTemplates).where(eq(aiResponseTemplates.id, id));
+    return template || undefined;
+  }
+
+  async createResponseTemplate(template: InsertAiResponseTemplate & { userId: string }): Promise<AiResponseTemplate> {
+    const [newTemplate] = await db.insert(aiResponseTemplates).values(template).returning();
+    return newTemplate;
+  }
+
+  async updateResponseTemplate(id: string, template: Partial<InsertAiResponseTemplate>): Promise<AiResponseTemplate> {
+    const [updated] = await db.update(aiResponseTemplates).set(template).where(eq(aiResponseTemplates.id, id)).returning();
+    return updated;
+  }
+
+  async deleteResponseTemplate(id: string): Promise<void> {
+    await db.delete(aiResponseTemplates).where(eq(aiResponseTemplates.id, id));
   }
 
   // Marketing Campaigns

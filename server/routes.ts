@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import { insertUserSchema, loginSchema, insertContactSchema, insertPoliticalAllianceSchema, insertDemandSchema, insertDemandCommentSchema, insertEventSchema, insertAiConfigurationSchema, insertMarketingCampaignSchema, insertNotificationSchema } from "@shared/schema";
+import { insertUserSchema, loginSchema, insertContactSchema, insertPoliticalAllianceSchema, insertDemandSchema, insertDemandCommentSchema, insertEventSchema, insertAiConfigurationSchema, insertAiTrainingExampleSchema, insertAiResponseTemplateSchema, insertMarketingCampaignSchema, insertNotificationSchema } from "@shared/schema";
 import { db } from "./db";
 import { politicalParties, politicalAlliances } from "@shared/schema";
 import { sql, eq } from "drizzle-orm";
@@ -604,6 +604,90 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(conversations);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
+    }
+  });
+
+  // AI Training Examples
+  app.get("/api/ai-training-examples", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const examples = await storage.getTrainingExamples(req.userId!);
+      res.json(examples);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/ai-training-examples", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const validatedData = insertAiTrainingExampleSchema.parse(req.body);
+      const example = await storage.createTrainingExample({
+        ...validatedData,
+        userId: req.userId!,
+      });
+      res.json(example);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.patch("/api/ai-training-examples/:id", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const validatedData = insertAiTrainingExampleSchema.partial().parse(req.body);
+      const example = await storage.updateTrainingExample(req.params.id, validatedData);
+      res.json(example);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/ai-training-examples/:id", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      await storage.deleteTrainingExample(req.params.id);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // AI Response Templates
+  app.get("/api/ai-response-templates", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const templates = await storage.getResponseTemplates(req.userId!);
+      res.json(templates);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/ai-response-templates", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const validatedData = insertAiResponseTemplateSchema.parse(req.body);
+      const template = await storage.createResponseTemplate({
+        ...validatedData,
+        userId: req.userId!,
+      });
+      res.json(template);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.patch("/api/ai-response-templates/:id", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const validatedData = insertAiResponseTemplateSchema.partial().parse(req.body);
+      const template = await storage.updateResponseTemplate(req.params.id, validatedData);
+      res.json(template);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/ai-response-templates/:id", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      await storage.deleteResponseTemplate(req.params.id);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
     }
   });
 
