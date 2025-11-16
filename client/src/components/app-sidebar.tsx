@@ -26,7 +26,7 @@ import { Button } from "@/components/ui/button";
 import { removeAuthToken } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrentUser } from "@/hooks/use-current-user";
-import logoUrl from "@assets/logo pol_1763308638963.png";
+import logoUrl from "@assets/icon politicall_1763309153389.png";
 
 const menuItems = [
   {
