@@ -45,8 +45,8 @@ export default function Agenda() {
     defaultValues: {
       title: "",
       description: "",
-      startDate: new Date().toISOString(),
-      endDate: new Date().toISOString(),
+      startDate: new Date(),
+      endDate: new Date(),
       category: "meeting",
       location: "",
       reminder: false,
@@ -187,38 +187,165 @@ export default function Agenda() {
                       <FormItem>
                         <FormLabel>Descrição</FormLabel>
                         <FormControl>
-                          <Textarea placeholder="Detalhes do evento" data-testid="input-event-description" {...field} />
+                          <Textarea placeholder="Detalhes do evento" data-testid="input-event-description" {...field} value={field.value || ""} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
+                  {/* Data Início e Fim */}
                   <div className="grid grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
                       name="startDate"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Data/Hora Início *</FormLabel>
-                          <FormControl>
-                            <Input type="datetime-local" data-testid="input-start-date" {...field} value={field.value ? new Date(field.value).toISOString().slice(0, 16) : ""} onChange={(e) => field.onChange(new Date(e.target.value).toISOString())} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
+                      render={({ field }) => {
+                        const dateValue = field.value ? format(field.value, "dd/MM/yyyy") : "";
+                        return (
+                          <FormItem>
+                            <FormLabel>Data Início *</FormLabel>
+                            <FormControl>
+                              <Input 
+                                placeholder="DD/MM/AAAA"
+                                data-testid="input-start-date" 
+                                value={dateValue}
+                                onChange={(e) => {
+                                  let value = e.target.value.replace(/\D/g, '');
+                                  if (value.length >= 3 && value.length <= 4) {
+                                    value = value.slice(0, 2) + '/' + value.slice(2);
+                                  } else if (value.length >= 5) {
+                                    value = value.slice(0, 2) + '/' + value.slice(2, 4) + '/' + value.slice(4, 8);
+                                  }
+                                  e.target.value = value;
+                                  
+                                  if (value.length === 10) {
+                                    const [day, month, year] = value.split('/');
+                                    const date = new Date(Number(year), Number(month) - 1, Number(day));
+                                    if (field.value) {
+                                      date.setHours(field.value.getHours(), field.value.getMinutes());
+                                    }
+                                    field.onChange(date);
+                                  }
+                                }}
+                                maxLength={10}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        );
+                      }}
                     />
                     <FormField
                       control={form.control}
                       name="endDate"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Data/Hora Fim *</FormLabel>
-                          <FormControl>
-                            <Input type="datetime-local" data-testid="input-end-date" {...field} value={field.value ? new Date(field.value).toISOString().slice(0, 16) : ""} onChange={(e) => field.onChange(new Date(e.target.value).toISOString())} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
+                      render={({ field }) => {
+                        const dateValue = field.value ? format(field.value, "dd/MM/yyyy") : "";
+                        return (
+                          <FormItem>
+                            <FormLabel>Data Fim *</FormLabel>
+                            <FormControl>
+                              <Input 
+                                placeholder="DD/MM/AAAA"
+                                data-testid="input-end-date" 
+                                value={dateValue}
+                                onChange={(e) => {
+                                  let value = e.target.value.replace(/\D/g, '');
+                                  if (value.length >= 3 && value.length <= 4) {
+                                    value = value.slice(0, 2) + '/' + value.slice(2);
+                                  } else if (value.length >= 5) {
+                                    value = value.slice(0, 2) + '/' + value.slice(2, 4) + '/' + value.slice(4, 8);
+                                  }
+                                  e.target.value = value;
+                                  
+                                  if (value.length === 10) {
+                                    const [day, month, year] = value.split('/');
+                                    const date = new Date(Number(year), Number(month) - 1, Number(day));
+                                    if (field.value) {
+                                      date.setHours(field.value.getHours(), field.value.getMinutes());
+                                    }
+                                    field.onChange(date);
+                                  }
+                                }}
+                                maxLength={10}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        );
+                      }}
+                    />
+                  </div>
+                  
+                  {/* Horário Início e Fim */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="startDate"
+                      render={({ field }) => {
+                        const timeValue = field.value ? format(field.value, "HH:mm") : "";
+                        return (
+                          <FormItem>
+                            <FormLabel>Horário Início *</FormLabel>
+                            <FormControl>
+                              <Input 
+                                placeholder="HH:MM"
+                                data-testid="input-start-time" 
+                                value={timeValue}
+                                onChange={(e) => {
+                                  let value = e.target.value.replace(/\D/g, '');
+                                  if (value.length >= 3) {
+                                    value = value.slice(0, 2) + ':' + value.slice(2, 4);
+                                  }
+                                  e.target.value = value;
+                                  
+                                  if (value.length === 5) {
+                                    const [hours, minutes] = value.split(':');
+                                    const date = field.value ? new Date(field.value) : new Date();
+                                    date.setHours(Number(hours), Number(minutes));
+                                    field.onChange(date);
+                                  }
+                                }}
+                                maxLength={5}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        );
+                      }}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="endDate"
+                      render={({ field }) => {
+                        const timeValue = field.value ? format(field.value, "HH:mm") : "";
+                        return (
+                          <FormItem>
+                            <FormLabel>Horário Fim *</FormLabel>
+                            <FormControl>
+                              <Input 
+                                placeholder="HH:MM"
+                                data-testid="input-end-time" 
+                                value={timeValue}
+                                onChange={(e) => {
+                                  let value = e.target.value.replace(/\D/g, '');
+                                  if (value.length >= 3) {
+                                    value = value.slice(0, 2) + ':' + value.slice(2, 4);
+                                  }
+                                  e.target.value = value;
+                                  
+                                  if (value.length === 5) {
+                                    const [hours, minutes] = value.split(':');
+                                    const date = field.value ? new Date(field.value) : new Date();
+                                    date.setHours(Number(hours), Number(minutes));
+                                    field.onChange(date);
+                                  }
+                                }}
+                                maxLength={5}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        );
+                      }}
                     />
                   </div>
                   <FormField
@@ -250,7 +377,7 @@ export default function Agenda() {
                       <FormItem>
                         <FormLabel>Local</FormLabel>
                         <FormControl>
-                          <Input placeholder="Local do evento" data-testid="input-location" {...field} />
+                          <Input placeholder="Local do evento" data-testid="input-location" {...field} value={field.value || ""} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -266,7 +393,7 @@ export default function Agenda() {
                           <div className="text-sm text-muted-foreground">Receber notificação antes do evento</div>
                         </div>
                         <FormControl>
-                          <Switch checked={field.value} onCheckedChange={field.onChange} data-testid="switch-reminder" />
+                          <Switch checked={field.value || false} onCheckedChange={field.onChange} data-testid="switch-reminder" />
                         </FormControl>
                       </FormItem>
                     )}
@@ -279,7 +406,7 @@ export default function Agenda() {
                         <FormItem>
                           <FormLabel>Minutos antes</FormLabel>
                           <FormControl>
-                            <Input type="number" min="5" data-testid="input-reminder-minutes" {...field} onChange={(e) => field.onChange(parseInt(e.target.value))} />
+                            <Input type="number" min="5" data-testid="input-reminder-minutes" {...field} value={field.value || ""} onChange={(e) => field.onChange(parseInt(e.target.value))} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
