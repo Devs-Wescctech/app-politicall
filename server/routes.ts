@@ -26,24 +26,32 @@ async function authenticateToken(req: AuthRequest, res: Response, next: NextFunc
   const authHeader = req.headers.authorization;
   const token = authHeader && authHeader.split(" ")[1];
 
+  console.log("🔐 Auth Header:", authHeader ? `${authHeader.substring(0, 20)}...` : "missing");
+  console.log("🔑 Token extracted:", token ? `${token.substring(0, 20)}...` : "missing");
+
   if (!token) {
+    console.log("❌ No token provided");
     return res.status(401).json({ error: "Token não fornecido" });
   }
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET) as { userId: string; role: string };
+    console.log("✅ Token decoded, userId:", decoded.userId);
     req.userId = decoded.userId;
     
     // Fetch current role from database (authoritative source)
     // This ensures role changes take effect immediately without requiring new login
     const user = await storage.getUser(decoded.userId);
     if (!user) {
+      console.log("❌ User not found in database:", decoded.userId);
       return res.status(403).json({ error: "Usuário não encontrado" });
     }
     
+    console.log("✅ User authenticated:", user.email, "role:", user.role);
     req.userRole = user.role;
     next();
   } catch (error) {
+    console.log("❌ Token verification failed:", error instanceof Error ? error.message : "unknown error");
     return res.status(403).json({ error: "Token inválido" });
   }
 }

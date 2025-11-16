@@ -29,9 +29,10 @@ export default function Register() {
   async function onSubmit(data: InsertUser) {
     setIsLoading(true);
     try {
-      const response = await apiRequest<{ token: string; user: any }>("POST", "/api/auth/register", data);
-      setAuthToken(response.token);
-      setAuthUser(response.user);
+      const response = await apiRequest("POST", "/api/auth/register", data);
+      const result = await response.json();
+      setAuthToken(result.token);
+      setAuthUser(result.user);
       toast({
         title: "Conta criada com sucesso!",
         description: "Bem-vindo à plataforma",

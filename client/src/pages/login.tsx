@@ -28,9 +28,10 @@ export default function Login() {
   async function onSubmit(data: LoginUser) {
     setIsLoading(true);
     try {
-      const response = await apiRequest<{ token: string; user: any }>("POST", "/api/auth/login", data);
-      setAuthToken(response.token);
-      setAuthUser(response.user);
+      const response = await apiRequest("POST", "/api/auth/login", data);
+      const result = await response.json();
+      setAuthToken(result.token);
+      setAuthUser(result.user);
       toast({
         title: "Login realizado com sucesso!",
         description: "Bem-vindo à plataforma",
