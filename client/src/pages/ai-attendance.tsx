@@ -441,7 +441,7 @@ export default function AiAttendance() {
                       {config?.hasCustomKey ? (
                         <>OpenAI - Chave Própria (****{config.openaiApiKeyLast4})</>
                       ) : (
-                        <>OpenAI - via Replit (Créditos)</>
+                        <>OpenAI</>
                       )}
                     </p>
                   </div>
