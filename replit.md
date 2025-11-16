@@ -214,3 +214,40 @@ All triggers wrapped in try/catch to ensure notification failures don't block pr
 - Cron job for time-based notifications (event reminders 1 hour before, overdue demands)
 - Email/SMS notification delivery via external services
 - Notification history/archive page with search and filtering
+
+### Modal Standardization
+Standardized all modal dialogs system-wide for consistent UX and improved accessibility:
+
+**Standard Modal Structure:**
+```tsx
+<DialogContent className="max-w-md max-h-[90vh] flex flex-col p-0">
+  <DialogHeader className="px-6 pt-6 pb-4 border-b">
+    {/* Fixed header with title */}
+  </DialogHeader>
+  <Form>
+    <form className="flex flex-col flex-1 overflow-hidden">
+      <div className="overflow-y-auto px-6 py-4 space-y-4">
+        {/* Scrollable content area */}
+      </div>
+      <DialogFooter className="px-6 py-4 border-t">
+        {/* Fixed footer with action buttons */}
+      </DialogFooter>
+    </form>
+  </Form>
+</DialogContent>
+```
+
+**Standardized Pages:**
+- Demands modal (create/edit demand with collaborators field)
+- Contacts modal (create/edit contact)
+- Alliances modals (add party, create contact, create alliance)
+- Agenda modal (create/edit event)
+- Marketing modal (create campaign)
+- AI Attendance modal (platform configuration)
+
+**Benefits:**
+- Consistent padding and spacing (px-6 pt-6 pb-4 for header, px-6 py-4 for footer)
+- Scrollable content area prevents modal overflow on small screens
+- Fixed header and footer remain visible during scroll for better UX
+- max-h-[90vh] ensures modal never exceeds viewport height
+- Visual separation via borders between sections
