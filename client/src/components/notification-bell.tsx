@@ -37,7 +37,7 @@ export function NotificationBell() {
       const previousNotifications = queryClient.getQueryData<Notification[]>(["/api/notifications"]);
       
       queryClient.setQueryData<Notification[]>(["/api/notifications"], (old) => 
-        old?.map(n => n.id === id ? { ...n, read: true } : n) || []
+        old?.map(n => n.id === id ? { ...n, isRead: true } : n) || []
       );
       
       queryClient.setQueryData<{ count: number }>(["/api/notifications/unread-count"], (old) => ({
@@ -74,7 +74,7 @@ export function NotificationBell() {
         old?.filter(n => n.id !== id) || []
       );
 
-      const wasUnread = previousNotifications?.find(n => n.id === id && !n.read);
+      const wasUnread = previousNotifications?.find(n => n.id === id && !n.isRead);
       if (wasUnread) {
         queryClient.setQueryData<{ count: number }>(["/api/notifications/unread-count"], (old) => ({
           count: Math.max(0, (old?.count || 0) - 1)
@@ -122,7 +122,7 @@ export function NotificationBell() {
       const previousNotifications = queryClient.getQueryData<Notification[]>(["/api/notifications"]);
       
       queryClient.setQueryData<Notification[]>(["/api/notifications"], (old) => 
-        old?.map(n => ({ ...n, read: true })) || []
+        old?.map(n => ({ ...n, isRead: true })) || []
       );
       
       queryClient.setQueryData<{ count: number }>(["/api/notifications/unread-count"], () => ({
@@ -286,7 +286,7 @@ export function NotificationBell() {
                         >
                           {getTypeLabel(notification.type)}
                         </Badge>
-                        {!notification.read && (
+                        {!notification.isRead && (
                           <Badge 
                             className="bg-[#40E0D0] text-white text-xs rounded-full animate-pulse"
                           >
@@ -296,7 +296,7 @@ export function NotificationBell() {
                       </div>
                       
                       <div className="flex items-center gap-1">
-                        {!notification.read && (
+                        {!notification.isRead && (
                           <Button
                             variant="ghost"
                             size="sm"
