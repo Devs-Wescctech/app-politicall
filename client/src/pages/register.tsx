@@ -33,18 +33,13 @@ export default function Register() {
       const result = await response.json();
       setAuthToken(result.token);
       setAuthUser(result.user);
-      toast({
-        title: "Conta criada com sucesso!",
-        description: "Bem-vindo à plataforma",
-      });
-      setLocation("/dashboard");
+      window.location.href = "/dashboard";
     } catch (error: any) {
       toast({
         title: "Erro ao criar conta",
         description: error.message || "Tente novamente",
         variant: "destructive",
       });
-    } finally {
       setIsLoading(false);
     }
   }

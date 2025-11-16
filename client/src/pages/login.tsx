@@ -32,18 +32,13 @@ export default function Login() {
       const result = await response.json();
       setAuthToken(result.token);
       setAuthUser(result.user);
-      toast({
-        title: "Login realizado com sucesso!",
-        description: "Bem-vindo à plataforma",
-      });
-      setLocation("/dashboard");
+      window.location.href = "/dashboard";
     } catch (error: any) {
       toast({
         title: "Erro ao fazer login",
         description: error.message || "Verifique suas credenciais e tente novamente",
         variant: "destructive",
       });
-    } finally {
       setIsLoading(false);
     }
   }

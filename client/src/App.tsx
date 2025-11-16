@@ -101,11 +101,11 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider defaultTheme="light">
         <TooltipProvider>
-          {isAuthenticated() ? (
-            <SidebarProvider style={style as React.CSSProperties}>
-              <div className="flex h-screen w-full">
-                <AppSidebar />
-                <div className="flex flex-col flex-1 overflow-hidden">
+          <SidebarProvider style={style as React.CSSProperties}>
+            <div className="flex h-screen w-full">
+              {isAuthenticated() && <AppSidebar />}
+              <div className="flex flex-col flex-1 overflow-hidden">
+                {isAuthenticated() && (
                   <header className="flex items-center justify-between p-4 border-b bg-background">
                     <SidebarTrigger data-testid="button-sidebar-toggle" />
                     <img src={logoUrl} alt="Logo" className="h-8" />
@@ -114,15 +114,13 @@ function App() {
                       <ThemeToggle />
                     </div>
                   </header>
-                  <main className="flex-1 overflow-y-auto">
-                    <Router />
-                  </main>
-                </div>
+                )}
+                <main className="flex-1 overflow-y-auto">
+                  <Router />
+                </main>
               </div>
-            </SidebarProvider>
-          ) : (
-            <Router />
-          )}
+            </div>
+          </SidebarProvider>
           <Toaster />
         </TooltipProvider>
       </ThemeProvider>
