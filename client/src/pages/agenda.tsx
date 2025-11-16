@@ -80,7 +80,15 @@ export default function Agenda() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: InsertEvent) => apiRequest("POST", "/api/events", data),
+    mutationFn: async (data: InsertEvent) => {
+      // Converter as Dates para ISO strings antes de enviar
+      const payload = {
+        ...data,
+        startDate: data.startDate instanceof Date ? data.startDate.toISOString() : data.startDate,
+        endDate: data.endDate instanceof Date ? data.endDate.toISOString() : data.endDate,
+      };
+      return apiRequest("POST", "/api/events", payload);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/events"] });
       toast({ title: "Evento criado com sucesso!" });
@@ -98,8 +106,15 @@ export default function Agenda() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: InsertEvent }) =>
-      apiRequest("PATCH", `/api/events/${id}`, data),
+    mutationFn: async ({ id, data }: { id: string; data: InsertEvent }) => {
+      // Converter as Dates para ISO strings antes de enviar
+      const payload = {
+        ...data,
+        startDate: data.startDate instanceof Date ? data.startDate.toISOString() : data.startDate,
+        endDate: data.endDate instanceof Date ? data.endDate.toISOString() : data.endDate,
+      };
+      return apiRequest("PATCH", `/api/events/${id}`, payload);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/events"] });
       toast({ title: "Evento atualizado!" });
