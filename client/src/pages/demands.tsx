@@ -235,7 +235,7 @@ export default function Demands() {
                     <FormItem>
                       <FormLabel>Descrição</FormLabel>
                       <FormControl>
-                        <Textarea placeholder="Detalhes da demanda" data-testid="input-demand-description" {...field} />
+                        <Textarea placeholder="Detalhes da demanda" data-testid="input-demand-description" {...field} value={field.value || ""} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -271,7 +271,7 @@ export default function Demands() {
                       <FormItem>
                         <FormLabel>Responsável</FormLabel>
                         <FormControl>
-                          <Input placeholder="Nome" data-testid="input-assignee" {...field} />
+                          <Input placeholder="Nome" data-testid="input-assignee" {...field} value={field.value || ""} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -284,7 +284,7 @@ export default function Demands() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Recorrência</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value || "none"}>
                         <FormControl>
                           <SelectTrigger data-testid="select-recurrence">
                             <SelectValue />
@@ -380,7 +380,7 @@ export default function Demands() {
                 [...Array(3)].map((_, i) => <Skeleton key={i} className="h-24 w-full" />)
               ) : statusDemands.length > 0 ? (
                 statusDemands.map((demand) => {
-                  const dueDateStatus = getDueDateStatus(demand.dueDate, demand.status);
+                  const dueDateStatus = getDueDateStatus(demand.dueDate?.toISOString(), demand.status);
                   return (
                     <Card
                       key={demand.id}
@@ -493,7 +493,7 @@ export default function Demands() {
                       <div className="flex items-center gap-2 mt-2">
                         <p className="text-sm">{format(new Date(selectedDemand.dueDate), "PPP", { locale: ptBR })}</p>
                         {(() => {
-                          const dueDateStatus = getDueDateStatus(selectedDemand.dueDate, selectedDemand.status);
+                          const dueDateStatus = getDueDateStatus(selectedDemand.dueDate?.toISOString(), selectedDemand.status);
                           return dueDateStatus ? (
                             <Badge className={dueDateStatus.color}>
                               {dueDateStatus.label}
