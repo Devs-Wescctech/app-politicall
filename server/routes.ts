@@ -8,6 +8,8 @@ import { db } from "./db";
 import { politicalParties, politicalAlliances } from "@shared/schema";
 import { sql, eq } from "drizzle-orm";
 import { generateAiResponse } from "./openai";
+import { requireRole } from "./authorization";
+import { z } from "zod";
 
 if (!process.env.SESSION_SECRET) {
   throw new Error("SESSION_SECRET must be set in environment variables");
@@ -17,6 +19,7 @@ const JWT_SECRET = process.env.SESSION_SECRET;
 // Middleware to verify JWT token
 interface AuthRequest extends Request {
   userId?: string;
+  userRole?: string;
 }
 
 async function authenticateToken(req: AuthRequest, res: Response, next: NextFunction) {
@@ -28,8 +31,17 @@ async function authenticateToken(req: AuthRequest, res: Response, next: NextFunc
   }
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as { userId: string };
+    const decoded = jwt.verify(token, JWT_SECRET) as { userId: string; role: string };
     req.userId = decoded.userId;
+    
+    // Fetch current role from database (authoritative source)
+    // This ensures role changes take effect immediately without requiring new login
+    const user = await storage.getUser(decoded.userId);
+    if (!user) {
+      return res.status(403).json({ error: "Usuário não encontrado" });
+    }
+    
+    req.userRole = user.role;
     next();
   } catch (error) {
     return res.status(403).json({ error: "Token inválido" });
@@ -119,7 +131,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       // Generate JWT token
-      const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: "30d" });
+      const token = jwt.sign({ userId: user.id, role: user.role }, JWT_SECRET, { expiresIn: "30d" });
 
       res.json({
         token,
@@ -127,6 +139,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           id: user.id,
           email: user.email,
           name: user.name,
+          role: user.role,
         },
       });
     } catch (error: any) {
@@ -149,7 +162,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Email ou senha incorretos" });
       }
 
-      const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: "30d" });
+      const token = jwt.sign({ userId: user.id, role: user.role }, JWT_SECRET, { expiresIn: "30d" });
 
       res.json({
         token,
@@ -157,10 +170,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
           id: user.id,
           email: user.email,
           name: user.name,
+          role: user.role,
         },
       });
     } catch (error: any) {
       res.status(400).json({ error: error.message || "Erro ao fazer login" });
+    }
+  });
+
+  // Get current authenticated user (with fresh role from database)
+  app.get("/api/auth/me", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const user = await storage.getUser(req.userId!);
+      if (!user) {
+        return res.status(404).json({ error: "Usuário não encontrado" });
+      }
+      const { password, ...sanitizedUser } = user;
+      res.json(sanitizedUser);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ==================== USER MANAGEMENT (Admin Only) ====================
+  
+  // List all users (admin only)
+  app.get("/api/users", authenticateToken, requireRole("admin"), async (req: AuthRequest, res) => {
+    try {
+      const allUsers = await storage.getAllUsers();
+      // Don't send passwords to frontend
+      const sanitizedUsers = allUsers.map(({ password, ...user }) => user);
+      res.json(sanitizedUsers);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Update user role (admin only)
+  app.patch("/api/users/:id", authenticateToken, requireRole("admin"), async (req: AuthRequest, res) => {
+    try {
+      // Validate role if provided
+      const updateSchema = z.object({
+        role: z.enum(["admin", "coordenador", "assessor"]).optional(),
+        name: z.string().min(2).optional(),
+        email: z.string().email().optional(),
+      });
+      
+      const validatedData = updateSchema.parse(req.body);
+      
+      // Get current user to compare email
+      const currentUser = await storage.getUser(req.params.id);
+      if (!currentUser) {
+        return res.status(404).json({ error: "Usuário não encontrado" });
+      }
+      
+      // Check if email is being changed to one that already exists
+      if (validatedData.email && validatedData.email !== currentUser.email) {
+        const existingUser = await storage.getUserByEmail(validatedData.email);
+        if (existingUser) {
+          return res.status(400).json({ error: "Email já está em uso por outro usuário" });
+        }
+      }
+      
+      const updated = await storage.updateUser(req.params.id, validatedData);
+      // CRITICAL: Never send password hash to client
+      const { password, ...sanitizedUser } = updated;
+      res.json(sanitizedUser);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
     }
   });
 

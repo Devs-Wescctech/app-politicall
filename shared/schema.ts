@@ -10,6 +10,7 @@ export const users = pgTable("users", {
   email: text("email").notNull().unique(),
   password: text("password").notNull(),
   name: text("name").notNull(),
+  role: text("role").notNull().default("assessor"), // admin, coordenador, assessor
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -186,10 +187,12 @@ export const insertUserSchema = createInsertSchema(users).pick({
   email: true,
   password: true,
   name: true,
+  role: true,
 }).extend({
   email: z.string().email("Email inválido"),
   password: z.string().min(6, "Senha deve ter no mínimo 6 caracteres"),
   name: z.string().min(2, "Nome deve ter no mínimo 2 caracteres"),
+  role: z.enum(["admin", "coordenador", "assessor"]).optional(),
 });
 
 export const loginSchema = z.object({

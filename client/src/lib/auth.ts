@@ -34,3 +34,17 @@ export function getAuthUser(): User | null {
 export function isAuthenticated(): boolean {
   return !!getAuthToken();
 }
+
+export function getUserRole(): string {
+  const user = getAuthUser();
+  return user?.role || "assessor";
+}
+
+export function isAdmin(): boolean {
+  return getUserRole() === "admin";
+}
+
+export function isCoordinator(): boolean {
+  const role = getUserRole();
+  return role === "coordenador" || role === "admin";
+}

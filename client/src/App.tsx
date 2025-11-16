@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { ProtectedRoute } from "@/components/protected-route";
+import { AdminRoute } from "@/components/admin-route";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { isAuthenticated } from "@/lib/auth";
@@ -21,6 +22,7 @@ import Agenda from "@/pages/agenda";
 import AiAttendance from "@/pages/ai-attendance";
 import Marketing from "@/pages/marketing";
 import Settings from "@/pages/settings";
+import UsersManagement from "@/pages/users";
 
 function Router() {
   return (
@@ -73,6 +75,13 @@ function Router() {
       <Route path="/settings">
         <ProtectedRoute>
           <Settings />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/users">
+        <ProtectedRoute>
+          <AdminRoute>
+            <UsersManagement />
+          </AdminRoute>
         </ProtectedRoute>
       </Route>
       <Route component={NotFound} />
