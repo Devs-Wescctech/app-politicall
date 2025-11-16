@@ -215,7 +215,7 @@ export default function AiAttendance() {
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="all">
-            <TabsList>
+            <TabsList className="rounded-full">
               <TabsTrigger value="all">Todas</TabsTrigger>
               {PLATFORMS.map((platform) => (
                 <TabsTrigger key={platform.id} value={platform.id}>
