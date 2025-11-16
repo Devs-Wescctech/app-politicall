@@ -53,11 +53,11 @@ function getDueDateStatus(dueDate: string | null | undefined, status: string) {
   const diffInHours = (due.getTime() - now.getTime()) / (1000 * 60 * 60);
 
   if (diffInHours < 0) {
-    return { status: "overdue", label: "Atrasado", color: "bg-destructive text-destructive-foreground" };
+    return { status: "overdue", label: "Atrasado", color: "text-destructive" };
   } else if (diffInHours <= 24) {
-    return { status: "warning", label: "Prestes a vencer", color: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200" };
+    return { status: "warning", label: "Prestes a vencer", color: "text-orange-600 dark:text-orange-400" };
   } else {
-    return { status: "ok", label: "Em dia", color: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" };
+    return { status: "ok", label: "Em dia", color: "text-green-600 dark:text-green-400" };
   }
 }
 
@@ -522,12 +522,12 @@ export default function Demands() {
                               </div>
                               {dueDateStatus && (
                                 <div className="ml-5">
-                                  <Badge 
-                                    className={`${dueDateStatus.color} text-xs`} 
+                                  <span 
+                                    className={`${dueDateStatus.color} text-xs font-medium`} 
                                     data-testid={`badge-due-status-${dueDateStatus.status}`}
                                   >
                                     {dueDateStatus.label}
-                                  </Badge>
+                                  </span>
                                 </div>
                               )}
                             </div>
@@ -643,9 +643,9 @@ export default function Demands() {
                           const dueDateStr = typeof selectedDemand.dueDate === 'string' ? selectedDemand.dueDate : selectedDemand.dueDate?.toISOString();
                           const dueDateStatus = getDueDateStatus(dueDateStr, selectedDemand.status);
                           return dueDateStatus ? (
-                            <Badge className={dueDateStatus.color}>
+                            <span className={`${dueDateStatus.color} font-medium`}>
                               {dueDateStatus.label}
-                            </Badge>
+                            </span>
                           ) : null;
                         })()}
                       </div>
