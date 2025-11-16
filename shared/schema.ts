@@ -61,6 +61,7 @@ export const demands = pgTable("demands", {
   priority: text("priority").notNull().default("medium"), // low, medium, high, urgent
   assignee: text("assignee"),
   dueDate: timestamp("due_date"),
+  recurrence: text("recurrence").default("none"), // none, daily, weekly, monthly
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
