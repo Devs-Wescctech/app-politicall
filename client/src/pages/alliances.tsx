@@ -56,6 +56,8 @@ export default function Alliances() {
   const [selectedParty, setSelectedParty] = useState<PoliticalParty | null>(null);
   const [selectedAlliance, setSelectedAlliance] = useState<AllianceWithParty | null>(null);
   const [isEditMode, setIsEditMode] = useState(false);
+  const [stateFilter, setStateFilter] = useState<string>("");
+  const [cityFilter, setCityFilter] = useState<string>("");
   const { toast } = useToast();
 
   const { data: alliances, isLoading: loadingAlliances } = useQuery<AllianceWithParty[]>({
@@ -175,12 +177,21 @@ export default function Alliances() {
     }
   };
 
+  const getFilteredAlliances = () => {
+    if (!alliances) return [];
+    return alliances.filter((alliance) => {
+      const matchesState = !stateFilter || alliance.state === stateFilter;
+      const matchesCity = !cityFilter || alliance.city === cityFilter;
+      return matchesState && matchesCity;
+    });
+  };
+
   const getPartyAllianceCount = (partyId: string) => {
-    return alliances?.filter((a) => a.partyId === partyId).length || 0;
+    return getFilteredAlliances().filter((a) => a.partyId === partyId).length;
   };
 
   const getPartyAlliances = (partyId: string) => {
-    return alliances?.filter((a) => a.partyId === partyId) || [];
+    return getFilteredAlliances().filter((a) => a.partyId === partyId);
   };
 
   const handleEmailClick = (email: string) => {
@@ -194,15 +205,16 @@ export default function Alliances() {
   };
 
   const getTotalAlliances = () => {
-    return alliances?.length || 0;
+    return getFilteredAlliances().length;
   };
 
   const getDominantIdeology = () => {
-    if (!alliances || !parties || alliances.length === 0) return null;
+    const filtered = getFilteredAlliances();
+    if (!parties || filtered.length === 0) return null;
     
     const ideologyCounts: { [key: string]: number } = {};
     
-    alliances.forEach((alliance) => {
+    filtered.forEach((alliance) => {
       const party = parties.find((p) => p.id === alliance.partyId);
       if (party) {
         ideologyCounts[party.ideology] = (ideologyCounts[party.ideology] || 0) + 1;
@@ -230,6 +242,25 @@ export default function Alliances() {
     return Array.from(new Set(cities)).sort();
   };
 
+  const getFilteredCities = () => {
+    if (!alliances) return [];
+    const filtered = stateFilter 
+      ? alliances.filter((a) => a.state === stateFilter)
+      : alliances;
+    const cities = filtered
+      .map((a) => a.city)
+      .filter((city): city is string => Boolean(city));
+    return Array.from(new Set(cities)).sort();
+  };
+
+  const getUniqueStates = () => {
+    if (!alliances) return [];
+    const states = alliances
+      .map((a) => a.state)
+      .filter((state): state is string => Boolean(state));
+    return Array.from(new Set(states)).sort();
+  };
+
   const capitalizeWords = (str: string) => {
     return str
       .toLowerCase()
@@ -245,13 +276,45 @@ export default function Alliances() {
           <h1 className="text-3xl font-bold">Aliança Política</h1>
           <p className="text-muted-foreground mt-2">Clique em um partido para ver seus aliados</p>
         </div>
-        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-          <DialogTrigger asChild>
-            <Button data-testid="button-add-alliance" className="rounded-full">
-              <Plus className="w-4 h-4 mr-2" />
-              Nova Aliança
-            </Button>
-          </DialogTrigger>
+        <div className="flex items-center gap-3 flex-wrap">
+          <Select value={stateFilter} onValueChange={(value) => {
+            setStateFilter(value);
+            setCityFilter("");
+          }}>
+            <SelectTrigger className="w-[180px] rounded-full" data-testid="select-filter-state">
+              <SelectValue placeholder="Filtrar por Estado" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">Todos os Estados</SelectItem>
+              {getUniqueStates().map((state) => (
+                <SelectItem key={state} value={state}>
+                  {state}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          
+          <Select value={cityFilter} onValueChange={setCityFilter}>
+            <SelectTrigger className="w-[180px] rounded-full" data-testid="select-filter-city">
+              <SelectValue placeholder="Filtrar por Cidade" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">Todas as Cidades</SelectItem>
+              {getFilteredCities().map((city) => (
+                <SelectItem key={city} value={city}>
+                  {city}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+            <DialogTrigger asChild>
+              <Button data-testid="button-add-alliance" className="rounded-full">
+                <Plus className="w-4 h-4 mr-2" />
+                Nova Aliança
+              </Button>
+            </DialogTrigger>
           <DialogContent className="max-w-md max-h-[90vh] flex flex-col p-0">
             <DialogHeader className="px-6 pt-6 pb-4 border-b">
               <DialogTitle>Nova Aliança</DialogTitle>
@@ -454,6 +517,7 @@ export default function Alliances() {
             </Form>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
