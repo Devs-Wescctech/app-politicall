@@ -206,120 +206,124 @@ export default function Contacts() {
                 Novo Contato
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-md">
-            <DialogHeader>
+            <DialogContent className="max-w-md max-h-[90vh] flex flex-col p-0">
+            <DialogHeader className="px-6 pt-6 pb-4 border-b">
               <DialogTitle>
                 {editingContact ? "Editar Contato" : "Novo Contato"}
               </DialogTitle>
             </DialogHeader>
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Nome *</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Nome completo" data-testid="input-contact-name" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Email</FormLabel>
-                      <FormControl>
-                        <Input type="email" placeholder="email@exemplo.com" data-testid="input-contact-email" {...field} value={field.value || ""} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="phone"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Telefone</FormLabel>
-                      <FormControl>
-                        <Input placeholder="(00) 00000-0000" data-testid="input-contact-phone" {...field} value={field.value || ""} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="state"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Estado</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value || undefined}>
+              <form onSubmit={form.handleSubmit(handleSubmit)} className="flex flex-col flex-1 overflow-hidden">
+                <div className="overflow-y-auto px-6 py-4 space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Nome *</FormLabel>
                         <FormControl>
-                          <SelectTrigger data-testid="select-contact-state">
-                            <SelectValue placeholder="Selecione o estado" />
-                          </SelectTrigger>
+                          <Input placeholder="Nome completo" data-testid="input-contact-name" {...field} />
                         </FormControl>
-                        <SelectContent>
-                          {BRAZILIAN_STATES.map((state) => (
-                            <SelectItem key={state} value={state}>
-                              {state}
-                            </SelectItem>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email</FormLabel>
+                        <FormControl>
+                          <Input type="email" placeholder="email@exemplo.com" data-testid="input-contact-email" {...field} value={field.value || ""} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="phone"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Telefone</FormLabel>
+                        <FormControl>
+                          <Input placeholder="(00) 00000-0000" data-testid="input-contact-phone" {...field} value={field.value || ""} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="state"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Estado</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value || undefined}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-contact-state">
+                              <SelectValue placeholder="Selecione o estado" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {BRAZILIAN_STATES.map((state) => (
+                              <SelectItem key={state} value={state}>
+                                {state}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="city"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Cidade</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="Nome da cidade"
+                            data-testid="input-contact-city"
+                            list="contact-cities-list"
+                            value={field.value || ""}
+                            onBlur={field.onBlur}
+                            name={field.name}
+                            ref={field.ref}
+                            onChange={(e) => {
+                              const formatted = capitalizeWords(e.target.value);
+                              field.onChange(formatted);
+                            }}
+                          />
+                        </FormControl>
+                        <datalist id="contact-cities-list">
+                          {getUniqueCities().map((city) => (
+                            <option key={city} value={city} />
                           ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="city"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Cidade</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="Nome da cidade"
-                          data-testid="input-contact-city"
-                          list="contact-cities-list"
-                          {...field}
-                          value={field.value || ""}
-                          onChange={(e) => {
-                            const formatted = capitalizeWords(e.target.value);
-                            field.onChange(formatted);
-                          }}
-                        />
-                      </FormControl>
-                      <datalist id="contact-cities-list">
-                        {getUniqueCities().map((city) => (
-                          <option key={city} value={city} />
-                        ))}
-                      </datalist>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="notes"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Observações</FormLabel>
-                      <FormControl>
-                        <Textarea placeholder="Notas adicionais" data-testid="input-contact-notes" {...field} value={field.value || ""} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <DialogFooter>
-                  <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending} data-testid="button-save-contact">
+                        </datalist>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="notes"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Observações</FormLabel>
+                        <FormControl>
+                          <Textarea placeholder="Notas adicionais" data-testid="input-contact-notes" {...field} value={field.value || ""} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <DialogFooter className="px-6 py-4 border-t">
+                  <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending} data-testid="button-save-contact" className="rounded-full">
                     {(createMutation.isPending || updateMutation.isPending) ? "Salvando..." : "Salvar"}
                   </Button>
                 </DialogFooter>
