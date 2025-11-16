@@ -323,7 +323,7 @@ export default function Agenda() {
                             </div>
                             {event.description && <p className="text-sm text-muted-foreground">{event.description}</p>}
                             <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap">
-                              <span>🕐 {format(new Date(event.startDate), "HH:mm")} - {format(new Date(event.endDate), "HH:mm")}</span>
+                              <span>🕐 {format(new Date(event.startDate), "HH:mm")}hrs - {format(new Date(event.endDate), "HH:mm")}hrs</span>
                               {event.location && <span>📍 {event.location}</span>}
                             </div>
                           </div>
@@ -420,7 +420,7 @@ export default function Agenda() {
                             )}
                           </div>
                           <p className="text-sm text-muted-foreground">
-                            {format(new Date(event.startDate), "dd/MM/yyyy HH:mm")} - {format(new Date(event.endDate), "HH:mm")}
+                            {format(new Date(event.startDate), "dd/MM/yyyy HH:mm")}hrs - {format(new Date(event.endDate), "HH:mm")}hrs
                           </p>
                           {event.description && <p className="text-sm">{event.description}</p>}
                           {event.location && <p className="text-sm text-muted-foreground">📍 {event.location}</p>}
