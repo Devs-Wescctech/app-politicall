@@ -13,7 +13,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, Calendar as CalendarIcon, MessageSquare, Clock } from "lucide-react";
+import { Plus, Calendar as CalendarIcon, MessageSquare, Clock, User, CalendarDays, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -385,44 +385,74 @@ export default function Demands() {
                   return (
                     <Card
                       key={demand.id}
-                      className={`p-4 hover-elevate active-elevate-2 cursor-move ${draggedDemand === demand.id ? 'opacity-50' : ''}`}
+                      className={`hover-elevate active-elevate-2 cursor-move ${draggedDemand === demand.id ? 'opacity-50' : ''}`}
                       onClick={() => setSelectedDemand(demand)}
                       draggable={true}
                       onDragStart={(e) => handleDragStart(e, demand)}
                       onDragEnd={handleDragEnd}
                       data-testid={`card-demand-${demand.id}`}
                     >
-                      <div className="space-y-2">
+                      <div className="p-3 space-y-3">
+                        {/* Header - Título e Prioridade */}
                         <div className="flex items-start justify-between gap-2">
-                          <h4 className="font-medium text-sm leading-tight">{demand.title}</h4>
-                          <Badge className={PRIORITY_CONFIG[demand.priority as keyof typeof PRIORITY_CONFIG].color}>
+                          <h4 className="font-medium text-sm leading-tight flex-1">{demand.title}</h4>
+                          <Badge 
+                            className={`${PRIORITY_CONFIG[demand.priority as keyof typeof PRIORITY_CONFIG].color} shrink-0`}
+                            variant="secondary"
+                          >
                             {PRIORITY_CONFIG[demand.priority as keyof typeof PRIORITY_CONFIG].label}
                           </Badge>
                         </div>
+
+                        {/* Descrição */}
                         {demand.description && (
-                          <p className="text-xs text-muted-foreground line-clamp-2">{demand.description}</p>
+                          <p className="text-xs text-muted-foreground line-clamp-2">
+                            {demand.description}
+                          </p>
                         )}
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                            {demand.assignee && <span>👤 {demand.assignee}</span>}
-                            {demand.dueDate && (
-                              <span className="flex items-center gap-1">
-                                <Clock className="h-3 w-3" />
-                                {format(new Date(demand.dueDate), "dd/MM", { locale: ptBR })}
-                              </span>
-                            )}
-                          </div>
-                          {dueDateStatus && (
-                            <Badge className={`${dueDateStatus.color} text-xs`} data-testid={`badge-due-status-${dueDateStatus.status}`}>
-                              {dueDateStatus.label}
-                            </Badge>
+
+                        {/* Metadados - Layout em Grid */}
+                        <div className="space-y-2">
+                          {/* Responsável */}
+                          {demand.assignee && (
+                            <div className="flex items-center gap-2">
+                              <User className="h-3 w-3 text-muted-foreground" />
+                              <span className="text-xs text-muted-foreground">{demand.assignee}</span>
+                            </div>
                           )}
+
+                          {/* Data de Vencimento */}
+                          {demand.dueDate && (
+                            <div className="flex items-center gap-2">
+                              <CalendarDays className="h-3 w-3 text-muted-foreground" />
+                              <span className="text-xs text-muted-foreground">
+                                {format(new Date(demand.dueDate), "dd/MM/yyyy", { locale: ptBR })}
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Recorrência */}
                           {demand.recurrence && demand.recurrence !== "none" && (
-                            <Badge variant="outline" className="text-xs">
-                              {RECURRENCE_CONFIG[demand.recurrence as keyof typeof RECURRENCE_CONFIG].label}
-                            </Badge>
+                            <div className="flex items-center gap-2">
+                              <RefreshCw className="h-3 w-3 text-muted-foreground" />
+                              <span className="text-xs text-muted-foreground">
+                                {RECURRENCE_CONFIG[demand.recurrence as keyof typeof RECURRENCE_CONFIG].label}
+                              </span>
+                            </div>
                           )}
                         </div>
+
+                        {/* Status do Vencimento - Badge destacado */}
+                        {dueDateStatus && (
+                          <div className="pt-2 border-t">
+                            <Badge 
+                              className={`${dueDateStatus.color} text-xs w-full justify-center`} 
+                              data-testid={`badge-due-status-${dueDateStatus.status}`}
+                            >
+                              {dueDateStatus.label}
+                            </Badge>
+                          </div>
+                        )}
                       </div>
                     </Card>
                   );
