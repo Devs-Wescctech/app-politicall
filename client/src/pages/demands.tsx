@@ -36,6 +36,31 @@ const PRIORITY_CONFIG = {
   urgent: { label: "Urgente", color: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200" },
 };
 
+const RECURRENCE_CONFIG = {
+  none: { label: "Não se repete" },
+  daily: { label: "Diária" },
+  weekly: { label: "Semanal" },
+  monthly: { label: "Mensal" },
+};
+
+function getDueDateStatus(dueDate: string | null | undefined, status: string) {
+  if (!dueDate || status === "completed" || status === "cancelled") {
+    return null;
+  }
+
+  const now = new Date();
+  const due = new Date(dueDate);
+  const diffInHours = (due.getTime() - now.getTime()) / (1000 * 60 * 60);
+
+  if (diffInHours < 0) {
+    return { status: "overdue", label: "Atrasado", color: "bg-red-500 text-white" };
+  } else if (diffInHours <= 24) {
+    return { status: "warning", label: "Prestes a vencer", color: "bg-orange-500 text-white" };
+  } else {
+    return { status: "ok", label: "Em dia", color: "bg-green-500 text-white" };
+  }
+}
+
 export default function Demands() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedDemand, setSelectedDemand] = useState<Demand | null>(null);
@@ -60,6 +85,7 @@ export default function Demands() {
       priority: "medium",
       assignee: "",
       dueDate: undefined,
+      recurrence: "none",
     },
   });
 
@@ -250,6 +276,28 @@ export default function Demands() {
                     )}
                   />
                 </div>
+                <FormField
+                  control={form.control}
+                  name="recurrence"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Recorrência</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-recurrence">
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {Object.entries(RECURRENCE_CONFIG).map(([key, config]) => (
+                            <SelectItem key={key} value={key}>{config.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                 <FormField
                   control={form.control}
                   name="dueDate"
