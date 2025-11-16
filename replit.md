@@ -251,3 +251,29 @@ Standardized all modal dialogs system-wide for consistent UX and improved access
 - Fixed header and footer remain visible during scroll for better UX
 - max-h-[90vh] ensures modal never exceeds viewport height
 - Visual separation via borders between sections
+
+### Event Recurrence System
+Implemented full event recurrence functionality in agenda module:
+
+**Database Schema:**
+- Added recurrence field to events table (none/daily/weekly/monthly)
+- Migration successfully applied to support recurring events
+
+**Backend Logic (server/storage.ts):**
+- Modified getEvents() to expand recurring events dynamically
+- Generates occurrences up to 3 months in future based on recurrence pattern
+- Each occurrence has unique ID format: `${originalId}_recurrence_${index}`
+- Maintains all original event properties in generated occurrences
+
+**Frontend Implementation (client/src/pages/agenda.tsx):**
+- Added recurrence field to event creation/edit form
+- Positioned after location field in form layout
+- Smart handling of recurring event editing: extracts original event ID
+- Delete confirmation warns about removing all recurrences
+- Calendar, list, and timeline views display all generated occurrences
+
+**Technical Approach:**
+- Server-side expansion of recurring events (more efficient than storing duplicates)
+- Original event remains source of truth for all recurrences
+- Edit/delete operations target original event, affecting all future occurrences
+- Maximum 90 occurrences per event to prevent performance issues
