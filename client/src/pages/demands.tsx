@@ -53,11 +53,11 @@ function getDueDateStatus(dueDate: string | null | undefined, status: string) {
   const diffInHours = (due.getTime() - now.getTime()) / (1000 * 60 * 60);
 
   if (diffInHours < 0) {
-    return { status: "overdue", label: "Atrasado", color: "bg-red-500 text-white" };
+    return { status: "overdue", label: "Atrasado", color: "bg-destructive text-destructive-foreground" };
   } else if (diffInHours <= 24) {
-    return { status: "warning", label: "Prestes a vencer", color: "bg-orange-500 text-white" };
+    return { status: "warning", label: "Prestes a vencer", color: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200" };
   } else {
-    return { status: "ok", label: "Em dia", color: "bg-green-500 text-white" };
+    return { status: "ok", label: "Em dia", color: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" };
   }
 }
 
@@ -356,38 +356,53 @@ export default function Demands() {
               {isLoading ? (
                 [...Array(3)].map((_, i) => <Skeleton key={i} className="h-24 w-full" />)
               ) : statusDemands.length > 0 ? (
-                statusDemands.map((demand) => (
-                  <Card
-                    key={demand.id}
-                    className={`p-4 hover-elevate active-elevate-2 cursor-move ${draggedDemand === demand.id ? 'opacity-50' : ''}`}
-                    onClick={() => setSelectedDemand(demand)}
-                    draggable={true}
-                    onDragStart={(e) => handleDragStart(e, demand)}
-                    onDragEnd={handleDragEnd}
-                    data-testid={`card-demand-${demand.id}`}
-                  >
-                    <div className="space-y-2">
-                      <div className="flex items-start justify-between gap-2">
-                        <h4 className="font-medium text-sm leading-tight">{demand.title}</h4>
-                        <Badge className={PRIORITY_CONFIG[demand.priority as keyof typeof PRIORITY_CONFIG].color}>
-                          {PRIORITY_CONFIG[demand.priority as keyof typeof PRIORITY_CONFIG].label}
-                        </Badge>
-                      </div>
-                      {demand.description && (
-                        <p className="text-xs text-muted-foreground line-clamp-2">{demand.description}</p>
-                      )}
-                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                        {demand.assignee && <span>👤 {demand.assignee}</span>}
-                        {demand.dueDate && (
-                          <span className="flex items-center gap-1">
-                            <Clock className="h-3 w-3" />
-                            {format(new Date(demand.dueDate), "dd/MM", { locale: ptBR })}
-                          </span>
+                statusDemands.map((demand) => {
+                  const dueDateStatus = getDueDateStatus(demand.dueDate, demand.status);
+                  return (
+                    <Card
+                      key={demand.id}
+                      className={`p-4 hover-elevate active-elevate-2 cursor-move ${draggedDemand === demand.id ? 'opacity-50' : ''}`}
+                      onClick={() => setSelectedDemand(demand)}
+                      draggable={true}
+                      onDragStart={(e) => handleDragStart(e, demand)}
+                      onDragEnd={handleDragEnd}
+                      data-testid={`card-demand-${demand.id}`}
+                    >
+                      <div className="space-y-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <h4 className="font-medium text-sm leading-tight">{demand.title}</h4>
+                          <Badge className={PRIORITY_CONFIG[demand.priority as keyof typeof PRIORITY_CONFIG].color}>
+                            {PRIORITY_CONFIG[demand.priority as keyof typeof PRIORITY_CONFIG].label}
+                          </Badge>
+                        </div>
+                        {demand.description && (
+                          <p className="text-xs text-muted-foreground line-clamp-2">{demand.description}</p>
                         )}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                            {demand.assignee && <span>👤 {demand.assignee}</span>}
+                            {demand.dueDate && (
+                              <span className="flex items-center gap-1">
+                                <Clock className="h-3 w-3" />
+                                {format(new Date(demand.dueDate), "dd/MM", { locale: ptBR })}
+                              </span>
+                            )}
+                          </div>
+                          {dueDateStatus && (
+                            <Badge className={`${dueDateStatus.color} text-xs`} data-testid={`badge-due-status-${dueDateStatus.status}`}>
+                              {dueDateStatus.label}
+                            </Badge>
+                          )}
+                          {demand.recurrence && demand.recurrence !== "none" && (
+                            <Badge variant="outline" className="text-xs">
+                              {RECURRENCE_CONFIG[demand.recurrence as keyof typeof RECURRENCE_CONFIG].label}
+                            </Badge>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  </Card>
-                ))
+                    </Card>
+                  );
+                })
               ) : (
                 <p className="text-sm text-muted-foreground text-center py-4">Nenhuma demanda</p>
               )}
@@ -443,10 +458,26 @@ export default function Demands() {
                       <p className="text-sm mt-2">{selectedDemand.assignee}</p>
                     </div>
                   )}
+                  {selectedDemand.recurrence && selectedDemand.recurrence !== "none" && (
+                    <div>
+                      <label className="text-sm font-medium">Recorrência</label>
+                      <p className="text-sm mt-2">{RECURRENCE_CONFIG[selectedDemand.recurrence as keyof typeof RECURRENCE_CONFIG].label}</p>
+                    </div>
+                  )}
                   {selectedDemand.dueDate && (
                     <div>
                       <label className="text-sm font-medium">Data de vencimento</label>
-                      <p className="text-sm mt-2">{format(new Date(selectedDemand.dueDate), "PPP", { locale: ptBR })}</p>
+                      <div className="flex items-center gap-2 mt-2">
+                        <p className="text-sm">{format(new Date(selectedDemand.dueDate), "PPP", { locale: ptBR })}</p>
+                        {(() => {
+                          const dueDateStatus = getDueDateStatus(selectedDemand.dueDate, selectedDemand.status);
+                          return dueDateStatus ? (
+                            <Badge className={dueDateStatus.color}>
+                              {dueDateStatus.label}
+                            </Badge>
+                          ) : null;
+                        })()}
+                      </div>
                     </div>
                   )}
                 </TabsContent>
