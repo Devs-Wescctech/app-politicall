@@ -144,3 +144,73 @@ Implemented complete multi-user role-based access control:
 - Role caching (60s TTL) to reduce database load under high concurrency
 - Refresh token pattern to shorten access token lifetime
 - Audit logging for permission changes and admin actions
+
+### Notifications System
+Implemented comprehensive in-app notifications system for real-time user alerts:
+
+**Database Schema:**
+- Notifications table with fields: id, userId, type, title, message, priority, read, link, createdAt
+- Eight notification types: info, success, warning, error, demand, event, comment, system
+- Four priority levels: low, normal, high, urgent
+- Foreign key relationship to users table with cascading deletes
+
+**Backend API (server/routes.ts):**
+- POST /api/notifications - Create notification (authenticated users)
+- GET /api/notifications - List user's notifications (filtered by userId)
+- GET /api/notifications/unread-count - Count unread notifications for badge
+- PATCH /api/notifications/:id/read - Mark single notification as read
+- PATCH /api/notifications/mark-all-read - Mark all user notifications as read
+- DELETE /api/notifications/:id - Delete single notification
+- **Security:** All mutation endpoints verify ownership (id AND userId) before execution to prevent cross-user access
+
+**Frontend Components (client/src/components/notification-bell.tsx):**
+- NotificationBell component in header next to theme toggle
+- Bell icon with destructive badge showing unread count (99+ cap)
+- Auto-refresh every 30 seconds via TanStack Query polling
+- Popover panel displaying full notification list with:
+  - Color-coded priority borders (urgent=red, high=orange, normal=primary, low=muted)
+  - Type badges and "Nova" indicators for unread items
+  - Timestamp formatting in Portuguese (date-fns with ptBR locale)
+  - Individual action buttons: mark-as-read (Check icon), delete (X icon)
+  - Bulk action: "Marcar todas como lidas" button
+- Loading, error, and empty states
+- Full accessibility: aria-labels, data-testid attributes for testing
+- Cache invalidation after mutations keeps UI synchronized
+
+**Automatic Notification Triggers (Non-blocking):**
+All triggers wrapped in try/catch to ensure notification failures don't block primary operations:
+
+1. **Urgent Demands (POST /api/demands):**
+   - Triggered when demand.priority === "urgent"
+   - Self-notification to track high-priority tasks
+   - Priority: urgent, Type: demand
+
+2. **Demand Comments (POST /api/demands/:id/comments):**
+   - Triggered when comment added to demand
+   - Notifies demand owner (excludes self-comments)
+   - Priority: normal, Type: comment
+
+3. **Upcoming Events (POST /api/events):**
+   - Triggered when event created within 24 hours
+   - Priority escalates to "high" if event within 2 hours
+   - Message shows calculated hours until event
+   - Type: event
+
+**Error Handling Architecture:**
+- All notification creation calls isolated in dedicated try/catch blocks
+- Errors logged to console without affecting primary API responses
+- Users always receive successful response even if notification creation fails
+- Transparent degradation for notification subsystem failures
+
+**Data Flow:**
+- Notification queries use hierarchical cache keys: ["/api/notifications"], ["/api/notifications/unread-count"]
+- All mutations invalidate both queries to maintain consistency
+- 30-second polling interval balances freshness vs server load
+- Badge updates automatically reflect mark-as-read/delete operations
+
+**Future Enhancements:**
+- WebSocket integration for real-time push notifications (eliminate polling)
+- Notification preferences page (enable/disable categories, frequency)
+- Cron job for time-based notifications (event reminders 1 hour before, overdue demands)
+- Email/SMS notification delivery via external services
+- Notification history/archive page with search and filtering
