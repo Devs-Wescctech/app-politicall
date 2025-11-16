@@ -168,12 +168,23 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createDemand(demand: InsertDemand & { userId: string }): Promise<Demand> {
-    const [newDemand] = await db.insert(demands).values(demand).returning();
+    // Convert dueDate string to Date if it exists
+    const demandData = {
+      ...demand,
+      dueDate: demand.dueDate ? new Date(demand.dueDate) : null,
+    };
+    const [newDemand] = await db.insert(demands).values(demandData).returning();
     return newDemand;
   }
 
   async updateDemand(id: string, demand: Partial<InsertDemand>): Promise<Demand> {
-    const [updated] = await db.update(demands).set({ ...demand, updatedAt: new Date() }).where(eq(demands.id, id)).returning();
+    // Convert dueDate string to Date if it exists
+    const updateData = {
+      ...demand,
+      dueDate: demand.dueDate ? new Date(demand.dueDate) : demand.dueDate === null ? null : undefined,
+      updatedAt: new Date()
+    };
+    const [updated] = await db.update(demands).set(updateData).where(eq(demands.id, id)).returning();
     return updated;
   }
 
