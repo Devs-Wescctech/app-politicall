@@ -145,8 +145,8 @@ export default function Agenda() {
       const eventData: InsertEvent = {
         title: data.title,
         description: data.description || null,
-        startDate: startDate.toISOString() as any,  // Enviar como ISO string
-        endDate: endDate.toISOString() as any,      // Enviar como ISO string
+        startDate: startDate,  // Enviar como objeto Date
+        endDate: endDate,      // Enviar como objeto Date
         category: data.category || null,
         location: data.location || null,
         reminder: data.reminder || null,
