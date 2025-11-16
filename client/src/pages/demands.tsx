@@ -13,7 +13,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, Calendar as CalendarIcon, MessageSquare, Clock, User, CalendarDays, RefreshCw } from "lucide-react";
+import { Plus, Calendar as CalendarIcon, MessageSquare, Clock, User, CalendarDays, RefreshCw, Play } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -235,6 +235,18 @@ export default function Demands() {
       ...prev,
       [status]: prev[status] + 5
     }));
+  };
+
+  const handleStartDemand = (e: React.MouseEvent, demandId: string) => {
+    e.stopPropagation(); // Previne abrir o sheet ao clicar no botão
+    updateMutation.mutate(
+      { id: demandId, data: { status: "in_progress" } },
+      {
+        onSuccess: () => {
+          toast({ title: "Demanda iniciada!" });
+        }
+      }
+    );
   };
 
   return (
@@ -529,6 +541,21 @@ export default function Demands() {
                             >
                               {dueDateStatus.label}
                             </Badge>
+                          </div>
+                        )}
+
+                        {/* Botão Iniciar para demandas pendentes */}
+                        {demand.status === "pending" && (
+                          <div className="pt-2">
+                            <Button
+                              size="sm"
+                              className="w-full"
+                              onClick={(e) => handleStartDemand(e, demand.id)}
+                              data-testid={`button-start-${demand.id}`}
+                            >
+                              <Play className="h-3 w-3 mr-1" />
+                              Iniciar
+                            </Button>
                           </div>
                         )}
                       </div>
