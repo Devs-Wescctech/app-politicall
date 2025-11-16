@@ -1,15 +1,16 @@
 // Storage implementation using blueprint javascript_database
 import { 
   users, contacts, politicalParties, politicalAlliances, demands, demandComments, events,
-  aiConfigurations, aiConversations, marketingCampaigns,
+  aiConfigurations, aiConversations, marketingCampaigns, notifications,
   type User, type InsertUser, type Contact, type InsertContact,
   type PoliticalParty, type PoliticalAlliance, type InsertPoliticalAlliance,
   type Demand, type InsertDemand, type DemandComment, type InsertDemandComment,
   type Event, type InsertEvent, type AiConfiguration, type InsertAiConfiguration,
-  type AiConversation, type MarketingCampaign, type InsertMarketingCampaign
+  type AiConversation, type MarketingCampaign, type InsertMarketingCampaign,
+  type Notification, type InsertNotification
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and, count } from "drizzle-orm";
 
 export interface IStorage {
   // Users
@@ -66,6 +67,14 @@ export interface IStorage {
   getCampaign(id: string): Promise<MarketingCampaign | undefined>;
   createCampaign(campaign: InsertMarketingCampaign & { userId: string }): Promise<MarketingCampaign>;
   updateCampaign(id: string, campaign: Partial<InsertMarketingCampaign>): Promise<MarketingCampaign>;
+
+  // Notifications
+  getNotifications(userId: string, limit?: number): Promise<Notification[]>;
+  getUnreadCount(userId: string): Promise<number>;
+  createNotification(notification: InsertNotification & { userId: string }): Promise<Notification>;
+  markAsRead(id: string, userId: string): Promise<Notification | null>;
+  markAllAsRead(userId: string): Promise<void>;
+  deleteNotification(id: string, userId: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -249,6 +258,60 @@ export class DatabaseStorage implements IStorage {
   async updateCampaign(id: string, campaign: Partial<InsertMarketingCampaign>): Promise<MarketingCampaign> {
     const [updated] = await db.update(marketingCampaigns).set(campaign).where(eq(marketingCampaigns.id, id)).returning();
     return updated;
+  }
+
+  // Notifications
+  async getNotifications(userId: string, limit: number = 50): Promise<Notification[]> {
+    return await db.select()
+      .from(notifications)
+      .where(eq(notifications.userId, userId))
+      .orderBy(desc(notifications.createdAt))
+      .limit(limit);
+  }
+
+  async getUnreadCount(userId: string): Promise<number> {
+    const result = await db.select({ count: count() })
+      .from(notifications)
+      .where(and(
+        eq(notifications.userId, userId),
+        eq(notifications.isRead, false)
+      ));
+    return result[0]?.count || 0;
+  }
+
+  async createNotification(notification: InsertNotification & { userId: string }): Promise<Notification> {
+    const [newNotification] = await db.insert(notifications).values(notification).returning();
+    return newNotification;
+  }
+
+  async markAsRead(id: string, userId: string): Promise<Notification | null> {
+    const [updated] = await db.update(notifications)
+      .set({ isRead: true })
+      .where(and(
+        eq(notifications.id, id),
+        eq(notifications.userId, userId)
+      ))
+      .returning();
+    return updated || null;
+  }
+
+  async markAllAsRead(userId: string): Promise<void> {
+    await db.update(notifications)
+      .set({ isRead: true })
+      .where(and(
+        eq(notifications.userId, userId),
+        eq(notifications.isRead, false)
+      ));
+  }
+
+  async deleteNotification(id: string, userId: string): Promise<boolean> {
+    const result = await db.delete(notifications)
+      .where(and(
+        eq(notifications.id, id),
+        eq(notifications.userId, userId)
+      ))
+      .returning();
+    return result.length > 0;
   }
 }
 

@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import { insertUserSchema, loginSchema, insertContactSchema, insertPoliticalAllianceSchema, insertDemandSchema, insertDemandCommentSchema, insertEventSchema, insertAiConfigurationSchema, insertMarketingCampaignSchema } from "@shared/schema";
+import { insertUserSchema, loginSchema, insertContactSchema, insertPoliticalAllianceSchema, insertDemandSchema, insertDemandCommentSchema, insertEventSchema, insertAiConfigurationSchema, insertMarketingCampaignSchema, insertNotificationSchema } from "@shared/schema";
 import { db } from "./db";
 import { politicalParties, politicalAlliances } from "@shared/schema";
 import { sql, eq } from "drizzle-orm";
@@ -603,6 +603,79 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       res.json({ success: true, message: "Campanha enviada com sucesso" });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // ==================== NOTIFICATIONS ====================
+  
+  // Get user notifications
+  app.get("/api/notifications", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
+      const notifications = await storage.getNotifications(req.userId!, limit);
+      res.json(notifications);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get unread notifications count
+  app.get("/api/notifications/unread-count", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const count = await storage.getUnreadCount(req.userId!);
+      res.json({ count });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Create notification (internal use and for testing)
+  app.post("/api/notifications", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const validatedData = insertNotificationSchema.parse(req.body);
+      const notification = await storage.createNotification({
+        ...validatedData,
+        userId: req.userId!,
+      });
+      res.json(notification);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // Mark notification as read
+  app.patch("/api/notifications/:id/read", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const notification = await storage.markAsRead(req.params.id, req.userId!);
+      if (!notification) {
+        return res.status(404).json({ error: "Notificação não encontrada ou não pertence a você" });
+      }
+      res.json(notification);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // Mark all notifications as read
+  app.patch("/api/notifications/mark-all-read", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      await storage.markAllAsRead(req.userId!);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // Delete notification
+  app.delete("/api/notifications/:id", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const deleted = await storage.deleteNotification(req.params.id, req.userId!);
+      if (!deleted) {
+        return res.status(404).json({ error: "Notificação não encontrada ou não pertence a você" });
+      }
+      res.json({ success: true });
     } catch (error: any) {
       res.status(400).json({ error: error.message });
     }
