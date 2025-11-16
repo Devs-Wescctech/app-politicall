@@ -354,6 +354,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ...validatedData,
         userId: req.userId!,
       });
+
+      // Create notification for urgent demands (non-blocking)
+      if (demand.priority === "urgent") {
+        try {
+          await storage.createNotification({
+            userId: req.userId!,
+            type: "demand",
+            title: "Demanda Urgente Criada",
+            message: `A demanda "${demand.title}" foi criada com prioridade URGENTE`,
+            priority: "urgent",
+            read: false,
+            link: `/demands/${demand.id}`,
+          });
+        } catch (notificationError) {
+          console.error("Failed to create notification for urgent demand:", notificationError);
+        }
+      }
+
       res.json(demand);
     } catch (error: any) {
       res.status(400).json({ error: error.message });
@@ -397,6 +415,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         demandId: req.params.id,
         userId: req.userId!,
       });
+
+      // Notify demand owner about new comment (non-blocking)
+      try {
+        const demand = await storage.getDemand(req.params.id);
+        if (demand && demand.userId !== req.userId) {
+          await storage.createNotification({
+            userId: demand.userId,
+            type: "comment",
+            title: "Novo Comentário",
+            message: `Novo comentário adicionado na demanda "${demand.title}"`,
+            priority: "normal",
+            read: false,
+            link: `/demands/${demand.id}`,
+          });
+        }
+      } catch (notificationError) {
+        console.error("Failed to create notification for demand comment:", notificationError);
+      }
+
       res.json(comment);
     } catch (error: any) {
       res.status(400).json({ error: error.message });
@@ -421,6 +458,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ...validatedData,
         userId: req.userId!,
       });
+
+      // Notify about upcoming events (within 24 hours, non-blocking)
+      try {
+        const now = new Date();
+        const eventStart = new Date(event.startDate);
+        const hoursUntilEvent = (eventStart.getTime() - now.getTime()) / (1000 * 60 * 60);
+
+        if (hoursUntilEvent > 0 && hoursUntilEvent <= 24) {
+          const hours = Math.round(hoursUntilEvent);
+          await storage.createNotification({
+            userId: req.userId!,
+            type: "event",
+            title: "Evento Próximo",
+            message: `O evento "${event.title}" está programado para daqui a ${hours} hora${hours !== 1 ? 's' : ''}`,
+            priority: hoursUntilEvent <= 2 ? "high" : "normal",
+            read: false,
+            link: `/agenda`,
+          });
+        }
+      } catch (notificationError) {
+        console.error("Failed to create notification for upcoming event:", notificationError);
+      }
+
       res.json(event);
     } catch (error: any) {
       res.status(400).json({ error: error.message });
