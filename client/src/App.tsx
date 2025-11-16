@@ -9,6 +9,7 @@ import { ProtectedRoute } from "@/components/protected-route";
 import { AdminRoute } from "@/components/admin-route";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { NotificationBell } from "@/components/notification-bell";
 import { isAuthenticated } from "@/lib/auth";
 
 import NotFound from "@/pages/not-found";
@@ -107,7 +108,10 @@ function App() {
                   <header className="flex items-center justify-between p-4 border-b bg-background">
                     <SidebarTrigger data-testid="button-sidebar-toggle" />
                     <div className="text-xl font-bold text-primary">Politicall</div>
-                    <ThemeToggle />
+                    <div className="flex items-center gap-2">
+                      <NotificationBell />
+                      <ThemeToggle />
+                    </div>
                   </header>
                   <main className="flex-1 overflow-y-auto">
                     <Router />
