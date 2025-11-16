@@ -306,7 +306,9 @@ export default function Alliances() {
                       {count}
                     </div>
                   </div>
-                  <h3 className="font-bold text-lg mb-1">{party.acronym}</h3>
+                  <h3 className="font-bold text-lg mb-1 truncate max-w-full">
+                    {party.acronym.length > 4 ? `${party.acronym.substring(0, 4)}...` : party.acronym}
+                  </h3>
                   <p className="text-xs text-muted-foreground line-clamp-2">{party.name}</p>
                 </CardContent>
               </Card>
