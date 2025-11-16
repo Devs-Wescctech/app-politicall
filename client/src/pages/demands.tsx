@@ -511,13 +511,25 @@ export default function Demands() {
                             </div>
                           )}
 
-                          {/* Data de Vencimento */}
+                          {/* Data de Vencimento e Status */}
                           {demand.dueDate && (
-                            <div className="flex items-center gap-2">
-                              <CalendarDays className="h-3 w-3 text-muted-foreground" />
-                              <span className="text-xs text-muted-foreground">
-                                {format(new Date(demand.dueDate), "dd/MM/yyyy", { locale: ptBR })}
-                              </span>
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2">
+                                <CalendarDays className="h-3 w-3 text-muted-foreground" />
+                                <span className="text-xs text-muted-foreground">
+                                  {format(new Date(demand.dueDate), "dd/MM/yyyy", { locale: ptBR })}
+                                </span>
+                              </div>
+                              {dueDateStatus && (
+                                <div className="ml-5">
+                                  <Badge 
+                                    className={`${dueDateStatus.color} text-xs`} 
+                                    data-testid={`badge-due-status-${dueDateStatus.status}`}
+                                  >
+                                    {dueDateStatus.label}
+                                  </Badge>
+                                </div>
+                              )}
                             </div>
                           )}
 
@@ -531,18 +543,6 @@ export default function Demands() {
                             </div>
                           )}
                         </div>
-
-                        {/* Status do Vencimento - Badge destacado */}
-                        {dueDateStatus && (
-                          <div className="pt-2 border-t">
-                            <Badge 
-                              className={`${dueDateStatus.color} text-xs w-full justify-center`} 
-                              data-testid={`badge-due-status-${dueDateStatus.status}`}
-                            >
-                              {dueDateStatus.label}
-                            </Badge>
-                          </div>
-                        )}
 
                         {/* Botão Iniciar para demandas pendentes */}
                         {demand.status === "pending" && (
