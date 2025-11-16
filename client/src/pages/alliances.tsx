@@ -277,7 +277,7 @@ export default function Alliances() {
           <p className="text-muted-foreground mt-2">Clique em um partido para ver seus aliados</p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
-          <Select value={stateFilter} onValueChange={(value) => {
+          <Select value={stateFilter || undefined} onValueChange={(value) => {
             setStateFilter(value);
             setCityFilter("");
           }}>
@@ -285,7 +285,6 @@ export default function Alliances() {
               <SelectValue placeholder="Filtrar por Estado" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Todos os Estados</SelectItem>
               {getUniqueStates().map((state) => (
                 <SelectItem key={state} value={state}>
                   {state}
@@ -294,12 +293,11 @@ export default function Alliances() {
             </SelectContent>
           </Select>
           
-          <Select value={cityFilter} onValueChange={setCityFilter}>
+          <Select value={cityFilter || undefined} onValueChange={setCityFilter}>
             <SelectTrigger className="w-[180px] rounded-full" data-testid="select-filter-city">
               <SelectValue placeholder="Filtrar por Cidade" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Todas as Cidades</SelectItem>
               {getFilteredCities().map((city) => (
                 <SelectItem key={city} value={city}>
                   {city}
@@ -307,6 +305,21 @@ export default function Alliances() {
               ))}
             </SelectContent>
           </Select>
+
+          {(stateFilter || cityFilter) && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setStateFilter("");
+                setCityFilter("");
+              }}
+              className="rounded-full"
+              data-testid="button-clear-filters"
+            >
+              Limpar Filtros
+            </Button>
+          )}
 
           <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
             <DialogTrigger asChild>
