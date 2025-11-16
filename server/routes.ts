@@ -463,7 +463,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/events", authenticateToken, async (req: AuthRequest, res) => {
     try {
-      const validatedData = insertEventSchema.parse(req.body);
+      // Converter strings ISO para objetos Date antes da validação
+      const bodyWithDates = {
+        ...req.body,
+        startDate: req.body.startDate ? new Date(req.body.startDate) : undefined,
+        endDate: req.body.endDate ? new Date(req.body.endDate) : undefined,
+      };
+      const validatedData = insertEventSchema.parse(bodyWithDates);
       const event = await storage.createEvent({
         ...validatedData,
         userId: req.userId!,
@@ -499,7 +505,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch("/api/events/:id", authenticateToken, async (req: AuthRequest, res) => {
     try {
-      const validatedData = insertEventSchema.partial().parse(req.body);
+      // Converter strings ISO para objetos Date antes da validação
+      const bodyWithDates = {
+        ...req.body,
+        startDate: req.body.startDate ? new Date(req.body.startDate) : undefined,
+        endDate: req.body.endDate ? new Date(req.body.endDate) : undefined,
+      };
+      const validatedData = insertEventSchema.partial().parse(bodyWithDates);
       const event = await storage.updateEvent(req.params.id, validatedData);
       res.json(event);
     } catch (error: any) {
