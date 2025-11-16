@@ -199,7 +199,6 @@ export default function Agenda() {
                       control={form.control}
                       name="startDate"
                       render={({ field }) => {
-                        const dateValue = field.value ? format(field.value, "dd/MM/yyyy") : "";
                         return (
                           <FormItem>
                             <FormLabel>Data Início *</FormLabel>
@@ -207,18 +206,23 @@ export default function Agenda() {
                               <Input 
                                 placeholder="DD/MM/AAAA"
                                 data-testid="input-start-date" 
-                                value={dateValue}
+                                defaultValue={field.value ? format(field.value, "dd/MM/yyyy") : ""}
                                 onChange={(e) => {
-                                  let value = e.target.value.replace(/\D/g, '');
-                                  if (value.length >= 3 && value.length <= 4) {
-                                    value = value.slice(0, 2) + '/' + value.slice(2);
-                                  } else if (value.length >= 5) {
-                                    value = value.slice(0, 2) + '/' + value.slice(2, 4) + '/' + value.slice(4, 8);
-                                  }
-                                  e.target.value = value;
+                                  const input = e.target;
+                                  let value = input.value.replace(/\D/g, '');
                                   
-                                  if (value.length === 10) {
-                                    const [day, month, year] = value.split('/');
+                                  // Aplica formatação
+                                  if (value.length <= 2) {
+                                    input.value = value;
+                                  } else if (value.length <= 4) {
+                                    input.value = value.slice(0, 2) + '/' + value.slice(2);
+                                  } else if (value.length <= 8) {
+                                    input.value = value.slice(0, 2) + '/' + value.slice(2, 4) + '/' + value.slice(4, 8);
+                                  }
+                                  
+                                  // Se está completo, atualiza o campo
+                                  if (input.value.length === 10) {
+                                    const [day, month, year] = input.value.split('/');
                                     const date = new Date(Number(year), Number(month) - 1, Number(day));
                                     if (field.value) {
                                       date.setHours(field.value.getHours(), field.value.getMinutes());
@@ -238,7 +242,6 @@ export default function Agenda() {
                       control={form.control}
                       name="endDate"
                       render={({ field }) => {
-                        const dateValue = field.value ? format(field.value, "dd/MM/yyyy") : "";
                         return (
                           <FormItem>
                             <FormLabel>Data Fim *</FormLabel>
@@ -246,18 +249,23 @@ export default function Agenda() {
                               <Input 
                                 placeholder="DD/MM/AAAA"
                                 data-testid="input-end-date" 
-                                value={dateValue}
+                                defaultValue={field.value ? format(field.value, "dd/MM/yyyy") : ""}
                                 onChange={(e) => {
-                                  let value = e.target.value.replace(/\D/g, '');
-                                  if (value.length >= 3 && value.length <= 4) {
-                                    value = value.slice(0, 2) + '/' + value.slice(2);
-                                  } else if (value.length >= 5) {
-                                    value = value.slice(0, 2) + '/' + value.slice(2, 4) + '/' + value.slice(4, 8);
-                                  }
-                                  e.target.value = value;
+                                  const input = e.target;
+                                  let value = input.value.replace(/\D/g, '');
                                   
-                                  if (value.length === 10) {
-                                    const [day, month, year] = value.split('/');
+                                  // Aplica formatação
+                                  if (value.length <= 2) {
+                                    input.value = value;
+                                  } else if (value.length <= 4) {
+                                    input.value = value.slice(0, 2) + '/' + value.slice(2);
+                                  } else if (value.length <= 8) {
+                                    input.value = value.slice(0, 2) + '/' + value.slice(2, 4) + '/' + value.slice(4, 8);
+                                  }
+                                  
+                                  // Se está completo, atualiza o campo
+                                  if (input.value.length === 10) {
+                                    const [day, month, year] = input.value.split('/');
                                     const date = new Date(Number(year), Number(month) - 1, Number(day));
                                     if (field.value) {
                                       date.setHours(field.value.getHours(), field.value.getMinutes());
@@ -281,7 +289,6 @@ export default function Agenda() {
                       control={form.control}
                       name="startDate"
                       render={({ field }) => {
-                        const timeValue = field.value ? format(field.value, "HH:mm") : "";
                         return (
                           <FormItem>
                             <FormLabel>Horário Início *</FormLabel>
@@ -289,16 +296,21 @@ export default function Agenda() {
                               <Input 
                                 placeholder="HH:MM"
                                 data-testid="input-start-time" 
-                                value={timeValue}
+                                defaultValue={field.value ? format(field.value, "HH:mm") : ""}
                                 onChange={(e) => {
-                                  let value = e.target.value.replace(/\D/g, '');
-                                  if (value.length >= 3) {
-                                    value = value.slice(0, 2) + ':' + value.slice(2, 4);
-                                  }
-                                  e.target.value = value;
+                                  const input = e.target;
+                                  let value = input.value.replace(/\D/g, '');
                                   
-                                  if (value.length === 5) {
-                                    const [hours, minutes] = value.split(':');
+                                  // Aplica formatação
+                                  if (value.length <= 2) {
+                                    input.value = value;
+                                  } else if (value.length <= 4) {
+                                    input.value = value.slice(0, 2) + ':' + value.slice(2, 4);
+                                  }
+                                  
+                                  // Se está completo, atualiza o campo
+                                  if (input.value.length === 5) {
+                                    const [hours, minutes] = input.value.split(':');
                                     const date = field.value ? new Date(field.value) : new Date();
                                     date.setHours(Number(hours), Number(minutes));
                                     field.onChange(date);
@@ -316,7 +328,6 @@ export default function Agenda() {
                       control={form.control}
                       name="endDate"
                       render={({ field }) => {
-                        const timeValue = field.value ? format(field.value, "HH:mm") : "";
                         return (
                           <FormItem>
                             <FormLabel>Horário Fim *</FormLabel>
@@ -324,16 +335,21 @@ export default function Agenda() {
                               <Input 
                                 placeholder="HH:MM"
                                 data-testid="input-end-time" 
-                                value={timeValue}
+                                defaultValue={field.value ? format(field.value, "HH:mm") : ""}
                                 onChange={(e) => {
-                                  let value = e.target.value.replace(/\D/g, '');
-                                  if (value.length >= 3) {
-                                    value = value.slice(0, 2) + ':' + value.slice(2, 4);
-                                  }
-                                  e.target.value = value;
+                                  const input = e.target;
+                                  let value = input.value.replace(/\D/g, '');
                                   
-                                  if (value.length === 5) {
-                                    const [hours, minutes] = value.split(':');
+                                  // Aplica formatação
+                                  if (value.length <= 2) {
+                                    input.value = value;
+                                  } else if (value.length <= 4) {
+                                    input.value = value.slice(0, 2) + ':' + value.slice(2, 4);
+                                  }
+                                  
+                                  // Se está completo, atualiza o campo
+                                  if (input.value.length === 5) {
+                                    const [hours, minutes] = input.value.split(':');
                                     const date = field.value ? new Date(field.value) : new Date();
                                     date.setHours(Number(hours), Number(minutes));
                                     field.onChange(date);
