@@ -106,7 +106,13 @@ export default function Agenda() {
 
   const { data: events, isLoading } = useQuery<Event[]>({
     queryKey: ["/api/events"],
+    refetchInterval: 60000, // Atualizar a cada minuto para remover eventos passados
   });
+
+  // Filtrar eventos passados e ordenar por proximidade
+  const now = new Date();
+  const futureEvents = events?.filter(event => new Date(event.endDate) > now)
+    .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
 
   const form = useForm<EventFormData>({
     resolver: zodResolver(eventFormSchema),
@@ -269,7 +275,7 @@ export default function Agenda() {
     return `${numbers.slice(0, 2)}:${numbers.slice(2, 4)}`;
   };
 
-  const groupedEvents = events?.reduce((acc, event) => {
+  const groupedEvents = futureEvents?.reduce((acc, event) => {
     const date = format(new Date(event.startDate), "yyyy-MM-dd");
     if (!acc[date]) acc[date] = [];
     acc[date].push(event);
@@ -283,7 +289,14 @@ export default function Agenda() {
   return (
     <div className="container mx-auto p-6">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Agenda</h1>
+        <div className="flex items-center gap-4">
+          <h1 className="text-3xl font-bold">Agenda</h1>
+          {futureEvents && events && futureEvents.length < events.length && (
+            <Badge variant="secondary" className="text-xs">
+              {events.length - futureEvents.length} evento{events.length - futureEvents.length !== 1 ? 's' : ''} passado{events.length - futureEvents.length !== 1 ? 's' : ''} oculto{events.length - futureEvents.length !== 1 ? 's' : ''}
+            </Badge>
+          )}
+        </div>
         <div className="flex gap-4">
           <Tabs value={view} onValueChange={(v) => setView(v as any)}>
             <TabsList className="rounded-full">
@@ -600,7 +613,7 @@ export default function Agenda() {
           ) : (
             <Card>
               <CardContent className="p-12 text-center text-muted-foreground">
-                Nenhum evento cadastrado. Clique em "Novo Evento" para começar.
+                Nenhum evento futuro encontrado. Eventos passados são ocultados automaticamente.
               </CardContent>
             </Card>
           )}
@@ -636,7 +649,7 @@ export default function Agenda() {
                 <div key={day} className="text-center text-sm font-semibold p-2">{day}</div>
               ))}
               {calendarDays.map((day, i) => {
-                const dayEvents = events?.filter((event) => isSameDay(new Date(event.startDate), day)) || [];
+                const dayEvents = futureEvents?.filter((event) => isSameDay(new Date(event.startDate), day)) || [];
                 return (
                   <div key={i} className="min-h-24 p-2 border rounded-lg">
                     <div className="text-sm font-medium mb-1">{format(day, "d")}</div>
@@ -670,9 +683,9 @@ export default function Agenda() {
         <div className="space-y-4">
           {isLoading ? (
             [...Array(5)].map((_, i) => <Skeleton key={i} className="h-32 w-full" />)
-          ) : events && events.length > 0 ? (
+          ) : futureEvents && futureEvents.length > 0 ? (
             <div className="relative border-l-2 border-primary ml-6 space-y-8">
-              {events.sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime()).map((event, index) => (
+              {futureEvents.map((event, index) => (
                 <div key={event.id} className="relative pl-8">
                   <div className="absolute -left-3 w-6 h-6 rounded-full bg-primary border-4 border-background" />
                   <Card>
@@ -723,7 +736,7 @@ export default function Agenda() {
           ) : (
             <Card>
               <CardContent className="p-12 text-center text-muted-foreground">
-                Nenhum evento cadastrado.
+                Nenhum evento futuro encontrado. Eventos passados são ocultados automaticamente.
               </CardContent>
             </Card>
           )}
