@@ -371,7 +371,7 @@ export default function Demands() {
             onDragLeave={handleDragLeave}
             onDrop={(e) => handleDrop(e, status)}
           >
-            <CardHeader className="flex flex-row items-center justify-between gap-3 pb-3">
+            <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0 p-4">
               <CardTitle className="text-base flex-1 min-w-0 truncate">{STATUS_CONFIG[status as keyof typeof STATUS_CONFIG].label}</CardTitle>
               <Badge variant="secondary" className="shrink-0">{statusDemands.length}</Badge>
             </CardHeader>
