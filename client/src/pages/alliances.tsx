@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, Trash2, Mail, MessageCircle, Edit, UserPlus } from "lucide-react";
+import { Plus, Trash2, Mail, MessageCircle, Edit, UserPlus, Users, TrendingUp } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -183,6 +183,35 @@ export default function Alliances() {
     window.open(`https://wa.me/${internationalPhone}`, "_blank");
   };
 
+  const getTotalAlliances = () => {
+    return alliances?.length || 0;
+  };
+
+  const getDominantIdeology = () => {
+    if (!alliances || !parties || alliances.length === 0) return null;
+    
+    const ideologyCounts: { [key: string]: number } = {};
+    
+    alliances.forEach((alliance) => {
+      const party = parties.find((p) => p.id === alliance.partyId);
+      if (party) {
+        ideologyCounts[party.ideology] = (ideologyCounts[party.ideology] || 0) + 1;
+      }
+    });
+    
+    let maxCount = 0;
+    let dominantIdeology = "";
+    
+    Object.entries(ideologyCounts).forEach(([ideology, count]) => {
+      if (count > maxCount) {
+        maxCount = count;
+        dominantIdeology = ideology;
+      }
+    });
+    
+    return dominantIdeology || null;
+  };
+
   return (
     <div className="p-4 sm:p-6 md:p-8 space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
@@ -348,6 +377,48 @@ export default function Alliances() {
             </Form>
           </DialogContent>
         </Dialog>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total de Aliados</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold" data-testid="text-total-alliances">
+              {getTotalAlliances()}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {getTotalAlliances() === 1 ? "aliado cadastrado" : "aliados cadastrados"}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Ideologia Dominante</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            {getDominantIdeology() ? (
+              <>
+                <div className="text-2xl font-bold" data-testid="text-dominant-ideology">
+                  {getDominantIdeology()}
+                </div>
+                <Badge 
+                  className={`mt-2 ${IDEOLOGY_BADGES[getDominantIdeology()! as keyof typeof IDEOLOGY_BADGES]}`}
+                >
+                  Maioria dos aliados
+                </Badge>
+              </>
+            ) : (
+              <div className="text-sm text-muted-foreground">
+                Nenhum aliado cadastrado ainda
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       {loadingParties ? (
