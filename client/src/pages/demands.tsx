@@ -13,7 +13,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, Calendar as CalendarIcon, MessageSquare, Clock, User, CalendarDays, RefreshCw, Play, Check } from "lucide-react";
+import { Plus, Calendar as CalendarIcon, MessageSquare, Clock, User, CalendarDays, RefreshCw, Play, Check, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -256,6 +256,18 @@ export default function Demands() {
       {
         onSuccess: () => {
           toast({ title: "Demanda concluída!" });
+        }
+      }
+    );
+  };
+
+  const handleCancelDemand = (e: React.MouseEvent, demandId: string) => {
+    e.stopPropagation(); // Previne abrir o sheet ao clicar no botão
+    updateMutation.mutate(
+      { id: demandId, data: { status: "cancelled" } },
+      {
+        onSuccess: () => {
+          toast({ title: "Demanda cancelada!" });
         }
       }
     );
@@ -549,33 +561,49 @@ export default function Demands() {
                           )}
                         </div>
 
-                        {/* Botão Iniciar para demandas pendentes */}
+                        {/* Botões de ação para demandas pendentes */}
                         {demand.status === "pending" && (
-                          <div className="pt-2">
+                          <div className="pt-2 flex gap-2">
                             <Button
                               size="sm"
-                              className="w-full"
+                              className="flex-1"
                               onClick={(e) => handleStartDemand(e, demand.id)}
                               data-testid={`button-start-${demand.id}`}
                             >
                               <Play className="h-3 w-3 mr-1" />
                               Iniciar
                             </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={(e) => handleCancelDemand(e, demand.id)}
+                              data-testid={`button-cancel-${demand.id}`}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
                           </div>
                         )}
 
-                        {/* Botão Concluir para demandas em andamento */}
+                        {/* Botões de ação para demandas em andamento */}
                         {demand.status === "in_progress" && (
-                          <div className="pt-2">
+                          <div className="pt-2 flex gap-2">
                             <Button
                               size="sm"
-                              className="w-full"
+                              className="flex-1"
                               variant="default"
                               onClick={(e) => handleCompleteDemand(e, demand.id)}
                               data-testid={`button-complete-${demand.id}`}
                             >
                               <Check className="h-3 w-3 mr-1" />
                               Concluir
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={(e) => handleCancelDemand(e, demand.id)}
+                              data-testid={`button-cancel-${demand.id}`}
+                            >
+                              <X className="h-4 w-4" />
                             </Button>
                           </div>
                         )}
