@@ -1109,7 +1109,7 @@ export default function Marketing() {
           {/* Fixed Header */}
           <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
             <DialogTitle className="text-2xl">
-              {editingCampaign ? "Editar Campanha" : "Nova Campanha de Pesquisa"}
+              {editingCampaign ? "Editar Campanha" : "Pesquisa Mercadológica"}
             </DialogTitle>
             <div className="flex items-center gap-2 mt-4">
               {[1, 2, 3].map((step) => (
