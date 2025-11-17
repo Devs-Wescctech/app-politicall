@@ -129,7 +129,6 @@ export default function LandingPage() {
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-3">
               <img src={logoUrl} alt="Politicall" className="h-8" data-testid="img-header-logo" />
-              <span className="font-bold text-xl">Politicall</span>
             </div>
 
             <nav className="hidden md:flex items-center gap-6">
