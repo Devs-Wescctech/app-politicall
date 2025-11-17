@@ -25,9 +25,13 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import pdfMake from "pdfmake/build/pdfmake";
-import * as pdfFonts from "pdfmake/build/vfs_fonts";
 
-(pdfMake as any).vfs = pdfFonts;
+// Lazy load fonts to avoid bundle size issues
+if (typeof window !== 'undefined') {
+  import('pdfmake/build/vfs_fonts').then((vfs: any) => {
+    (pdfMake as any).vfs = vfs.pdfMake ? vfs.pdfMake.vfs : vfs;
+  });
+}
 
 const SURVEY_STATUS_CONFIG = {
   under_review: { 
@@ -121,7 +125,13 @@ async function generateSurveyPdfReport(
   campaignId: string
 ) {
   try {
-    const response = await fetch(`/api/survey-campaigns/${campaignId}/responses`);
+    // Ensure fonts are loaded
+    if (!(pdfMake as any).vfs) {
+      const vfs = await import('pdfmake/build/vfs_fonts');
+      (pdfMake as any).vfs = vfs.pdfMake ? vfs.pdfMake.vfs : vfs;
+    }
+
+    const response = await apiRequest("GET", `/api/survey-campaigns/${campaignId}/responses`);
     const data = await response.json();
     
     const responses = Array.isArray(data) ? data : (data?.responses || []);
