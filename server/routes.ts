@@ -104,8 +104,8 @@ async function seedSurveyTemplates() {
       {
         name: "Intenção de voto (neutra)",
         slug: "intencao-voto",
-        description: "Pesquisa neutra sobre intenção de voto",
-        questionText: "Qual candidato você acha que tem mais chances de vencer a eleição?",
+        description: "Identifique o recall espontâneo de candidatos com maior probabilidade de vitória",
+        questionText: "Cite o nome de um político (independente do cargo) que você acredita que terá mais chances de vencer a próxima eleição na sua cidade ou estado:",
         questionType: "open_text",
         options: null,
         order: 1
