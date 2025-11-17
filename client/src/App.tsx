@@ -16,6 +16,8 @@ import logoUrl from "@assets/logo pol_1763308638963.png";
 import NotFound from "@/pages/not-found";
 import Login from "@/pages/login";
 import Register from "@/pages/register";
+import AdminLogin from "@/pages/admin-login";
+import Admin from "@/pages/admin";
 import Dashboard from "@/pages/dashboard";
 import Contacts from "@/pages/contacts";
 import Alliances from "@/pages/alliances";
@@ -88,6 +90,8 @@ function Router() {
         </ProtectedRoute>
       </Route>
       <Route path="/survey/:slug" component={SurveyLanding} />
+      <Route path="/admin-login" component={AdminLogin} />
+      <Route path="/admin" component={Admin} />
       <Route component={NotFound} />
     </Switch>
   );

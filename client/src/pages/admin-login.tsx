@@ -1,42 +1,38 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { loginSchema, type LoginUser } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
-import { setAuthToken, setAuthUser } from "@/lib/auth";
-import { apiRequest } from "@/lib/queryClient";
 import logoUrl from "@assets/logo pol_1763308638963.png";
 
-export default function Login() {
+interface AdminLoginForm {
+  password: string;
+}
+
+export default function AdminLogin() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
 
-  const form = useForm<LoginUser>({
-    resolver: zodResolver(loginSchema),
+  const form = useForm<AdminLoginForm>({
     defaultValues: {
-      email: "",
       password: "",
     },
   });
 
-  async function onSubmit(data: LoginUser) {
+  function onSubmit(data: AdminLoginForm) {
     setIsLoading(true);
-    try {
-      const response = await apiRequest("POST", "/api/auth/login", data);
-      const result = await response.json();
-      setAuthToken(result.token);
-      setAuthUser(result.user);
-      window.location.href = "/dashboard";
-    } catch (error: any) {
+    
+    if (data.password === "Politicall123") {
+      localStorage.setItem("admin_authenticated", "true");
+      setLocation("/admin");
+    } else {
       toast({
-        title: "Erro ao fazer login",
-        description: error.message || "Verifique suas credenciais e tente novamente",
+        title: "Senha incorreta",
+        description: "A senha informada não está correta",
         variant: "destructive",
       });
       setIsLoading(false);
@@ -51,7 +47,7 @@ export default function Login() {
             <img src={logoUrl} alt="Logo" className="h-12" />
           </div>
           <CardDescription className="text-base">
-            Entre na sua conta para acessar a plataforma
+            Acesso Administrativo
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -59,33 +55,15 @@ export default function Login() {
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <FormField
                 control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl>
-                      <Input 
-                        placeholder="seu@email.com" 
-                        type="email" 
-                        data-testid="input-email"
-                        {...field} 
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
                 name="password"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Senha</FormLabel>
+                    <FormLabel>Senha de Administrador</FormLabel>
                     <FormControl>
                       <Input 
                         placeholder="••••••••" 
                         type="password" 
-                        data-testid="input-password"
+                        data-testid="input-admin-password"
                         {...field} 
                       />
                     </FormControl>
@@ -95,9 +73,9 @@ export default function Login() {
               />
               <Button 
                 type="submit" 
-                className="w-full" 
+                className="w-full rounded-full" 
                 disabled={isLoading}
-                data-testid="button-login"
+                data-testid="button-admin-login"
               >
                 {isLoading ? "Entrando..." : "Entrar"}
               </Button>
@@ -105,21 +83,12 @@ export default function Login() {
           </Form>
           <div className="mt-6 text-center">
             <p className="text-sm text-muted-foreground">
-              Não tem uma conta?{" "}
               <button
-                onClick={() => setLocation("/register")}
+                onClick={() => setLocation("/login")}
                 className="text-primary font-medium hover:underline"
-                data-testid="link-register"
+                data-testid="link-back-login"
               >
-                Criar conta
-              </button>
-              {" | "}
-              <button
-                onClick={() => setLocation("/admin-login")}
-                className="text-primary font-medium hover:underline"
-                data-testid="link-admin"
-              >
-                Admin
+                Voltar ao login
               </button>
             </p>
           </div>
