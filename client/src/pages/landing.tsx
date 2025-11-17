@@ -206,7 +206,7 @@ export default function LandingPage() {
               <Button size="sm" className="rounded-full w-32" onClick={() => setLocation("/login")} data-testid="button-header-login">
                 Login
               </Button>
-              <Button size="sm" className="rounded-full w-32" onClick={() => scrollToSection('contato')} data-testid="button-header-cta">
+              <Button variant="outline" size="sm" className="rounded-full w-32" onClick={() => scrollToSection('contato')} data-testid="button-header-cta">
                 Começar Agora
               </Button>
             </nav>
