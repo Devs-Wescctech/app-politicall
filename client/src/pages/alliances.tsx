@@ -314,7 +314,6 @@ export default function Alliances() {
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-3xl font-bold">Aliança Política</h1>
-          <p className="text-muted-foreground mt-2">Clique em um partido para ver seus aliados</p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
           <Select 
