@@ -1313,6 +1313,53 @@ export default function Marketing() {
                     </CardContent>
                   </Card>
 
+                  {selectedTemplate && (
+                    <Card className="border-[#40E0D0] bg-[#40E0D0]/5">
+                      <CardHeader>
+                        <CardTitle className="text-base text-[#40E0D0]">Perguntas da Pesquisa</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <div>
+                          <Label className="text-xs font-semibold text-[#40E0D0]">PERGUNTA PRINCIPAL:</Label>
+                          <p className="text-sm font-medium mt-1 bg-white dark:bg-background p-3 rounded-md border">
+                            {selectedTemplate.questionText}
+                          </p>
+                        </div>
+                        <div className="pt-2 border-t border-[#40E0D0]/30">
+                          <Label className="text-xs font-semibold text-muted-foreground">
+                            DADOS DEMOGRÁFICOS (coletados automaticamente):
+                          </Label>
+                          <div className="grid grid-cols-2 gap-2 mt-2 text-xs">
+                            <div className="flex items-center gap-1">
+                              <span className="text-[#40E0D0]">✓</span>
+                              <span>Gênero</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <span className="text-[#40E0D0]">✓</span>
+                              <span>Faixa etária</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <span className="text-[#40E0D0]">✓</span>
+                              <span>Tipo de emprego</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <span className="text-[#40E0D0]">✓</span>
+                              <span>Tipo de moradia</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <span className="text-[#40E0D0]">✓</span>
+                              <span>Possui filhos</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <span className="text-[#40E0D0]">✓</span>
+                              <span>Ideologia política</span>
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
                   <FormField
                     control={form.control}
                     name="targetAudience"
