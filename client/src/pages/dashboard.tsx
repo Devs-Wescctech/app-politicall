@@ -86,7 +86,37 @@ export default function Dashboard() {
   const position = currentUser?.politicalPosition || '';
   const goals = POSITION_GOALS[position] || { voters: 5000, alliances: 10, description: 'Metas recomendadas para sua campanha' };
   
-  const votersProgress = Math.min((stats?.totalContacts || 0) / goals.voters * 100, 100);
+  // Taxa de conversão média (percentual de eleitores cadastrados que efetivamente votam)
+  // Baixo engajamento: 40%, Médio: 60%, Alto: 80%
+  const CONVERSION_RATES = {
+    low: 0.40,    // 40% dos cadastrados votam
+    medium: 0.60, // 60% dos cadastrados votam  
+    high: 0.80    // 80% dos cadastrados votam
+  };
+
+  // Calcular quantos eleitores precisam ser cadastrados considerando taxa de conversão
+  const currentContacts = stats?.totalContacts || 0;
+  
+  // Projeção de votos com diferentes níveis de engajamento
+  const projectedVotesLow = Math.floor(currentContacts * CONVERSION_RATES.low);
+  const projectedVotesMedium = Math.floor(currentContacts * CONVERSION_RATES.medium);
+  const projectedVotesHigh = Math.floor(currentContacts * CONVERSION_RATES.high);
+  
+  // Quantos eleitores precisam cadastrar para atingir a meta com cada nível de engajamento
+  const neededContactsLow = Math.ceil(goals.voters / CONVERSION_RATES.low);
+  const neededContactsMedium = Math.ceil(goals.voters / CONVERSION_RATES.medium);
+  const neededContactsHigh = Math.ceil(goals.voters / CONVERSION_RATES.high);
+  
+  // Determinar nível de engajamento atual baseado em atividades
+  const totalActivities = (stats?.totalEvents || 0) + (stats?.totalDemands || 0);
+  const engagementLevel = totalActivities > 50 ? 'high' : totalActivities > 20 ? 'medium' : 'low';
+  const currentConversionRate = CONVERSION_RATES[engagementLevel as keyof typeof CONVERSION_RATES];
+  
+  // Projeção realista de votos considerando engajamento atual
+  const projectedVotes = Math.floor(currentContacts * currentConversionRate);
+  const neededContacts = Math.ceil(goals.voters / currentConversionRate);
+  
+  const votersProgress = Math.min((currentContacts / neededContacts) * 100, 100);
   const alliancesProgress = Math.min((stats?.totalAlliances || 0) / goals.alliances * 100, 100);
   
   const votersGoalStatus = votersProgress >= 100 ? 'achieved' : votersProgress >= 50 ? 'on-track' : 'needs-attention';
@@ -103,9 +133,9 @@ export default function Dashboard() {
   const insights: { type: 'success' | 'warning' | 'info'; message: string }[] = [];
   
   if (votersGoalStatus === 'achieved') {
-    insights.push({ type: 'success', message: `Parabéns! Você atingiu sua meta de eleitores para ${position || 'sua campanha'}!` });
+    insights.push({ type: 'success', message: `Parabéns! Você atingiu sua meta de cadastros! Projeção: ${projectedVotes.toLocaleString('pt-BR')} votos com engajamento ${engagementLevel === 'high' ? 'alto (80%)' : engagementLevel === 'medium' ? 'médio (60%)' : 'baixo (40%)'}` });
   } else if (votersGoalStatus === 'needs-attention') {
-    insights.push({ type: 'warning', message: `Você precisa cadastrar mais ${goals.voters - currentVoters} eleitores para atingir sua meta.` });
+    insights.push({ type: 'warning', message: `Com seu engajamento ${engagementLevel === 'high' ? 'alto' : engagementLevel === 'medium' ? 'médio' : 'baixo'}, você precisa cadastrar ${(neededContacts - currentContacts).toLocaleString('pt-BR')} eleitores para atingir ${goals.voters.toLocaleString('pt-BR')} votos.` });
   }
   
   if (alliancesGoalStatus === 'achieved') {
@@ -204,6 +234,111 @@ export default function Dashboard() {
                 {alliancesProgress.toFixed(0)}% da meta atingida
                 {alliancesGoalStatus === 'needs-attention' && ` • Faltam ${goals.alliances - (stats?.totalAlliances || 0)} alianças`}
               </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Projeção de Votos e Taxa de Conversão */}
+      {position && (
+        <Card className="border-primary/20">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <TrendingUp className="h-5 w-5 text-primary" />
+                  Projeção de Votos & Engajamento
+                </CardTitle>
+                <CardDescription className="mt-1">
+                  Análise de conversão considerando que nem todos os cadastrados votarão
+                </CardDescription>
+              </div>
+              <Badge variant={engagementLevel === 'high' ? 'default' : engagementLevel === 'medium' ? 'secondary' : 'outline'}>
+                Engajamento {engagementLevel === 'high' ? 'Alto' : engagementLevel === 'medium' ? 'Médio' : 'Baixo'}
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Projeção Atual */}
+            <div className="bg-primary/5 p-4 rounded-lg">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium">Projeção de Votos Atual</span>
+                <Info className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <div className="text-3xl font-bold text-primary">{projectedVotes.toLocaleString('pt-BR')}</div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Com {(currentConversionRate * 100).toFixed(0)}% de taxa de comparecimento (engajamento {engagementLevel === 'high' ? 'alto' : engagementLevel === 'medium' ? 'médio' : 'baixo'})
+              </p>
+              <div className="mt-3 pt-3 border-t border-primary/20">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Meta de votos:</span>
+                  <span className="font-semibold">{goals.voters.toLocaleString('pt-BR')}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm mt-1">
+                  <span className="text-muted-foreground">Ainda faltam:</span>
+                  <span className={projectedVotes >= goals.voters ? "text-green-500 font-semibold" : "text-amber-500 font-semibold"}>
+                    {projectedVotes >= goals.voters ? '✓ Meta atingida!' : `${(goals.voters - projectedVotes).toLocaleString('pt-BR')} votos`}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Cenários de Engajamento */}
+            <div>
+              <h4 className="text-sm font-medium mb-3">Cadastros Necessários por Nível de Engajamento</h4>
+              <div className="space-y-3">
+                {/* Baixo Engajamento */}
+                <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="text-xs">40%</Badge>
+                      <span className="text-sm font-medium">Baixo Engajamento</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {neededContactsLow.toLocaleString('pt-BR')} eleitores precisam ser cadastrados
+                    </p>
+                  </div>
+                  {currentContacts >= neededContactsLow && <CheckCircle2 className="h-5 w-5 text-green-500" />}
+                </div>
+
+                {/* Médio Engajamento */}
+                <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary" className="text-xs">60%</Badge>
+                      <span className="text-sm font-medium">Médio Engajamento</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {neededContactsMedium.toLocaleString('pt-BR')} eleitores precisam ser cadastrados
+                    </p>
+                  </div>
+                  {currentContacts >= neededContactsMedium && <CheckCircle2 className="h-5 w-5 text-green-500" />}
+                </div>
+
+                {/* Alto Engajamento */}
+                <div className="flex items-center justify-between p-3 rounded-lg bg-primary/10">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <Badge className="text-xs">80%</Badge>
+                      <span className="text-sm font-medium">Alto Engajamento</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {neededContactsHigh.toLocaleString('pt-BR')} eleitores precisam ser cadastrados
+                    </p>
+                  </div>
+                  {currentContacts >= neededContactsHigh && <CheckCircle2 className="h-5 w-5 text-green-500" />}
+                </div>
+              </div>
+
+              <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-900">
+                <div className="flex gap-2">
+                  <Info className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                  <div className="text-xs text-blue-900 dark:text-blue-100">
+                    <strong>Dica:</strong> Aumente seu engajamento realizando mais eventos e atendendo demandas. 
+                    Quanto maior o engajamento, menor o número de cadastros necessários para atingir sua meta!
+                  </div>
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
