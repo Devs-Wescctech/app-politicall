@@ -203,10 +203,10 @@ export default function LandingPage() {
               <button onClick={() => scrollToSection('contato')} className={`text-sm hover:text-primary transition-colors ${!isScrolled ? 'text-white' : ''}`} data-testid="button-nav-contato">
                 Contato
               </button>
-              <Button size="sm" className="rounded-full" onClick={() => setLocation("/login")} data-testid="button-header-login">
+              <Button size="sm" className="rounded-full w-32" onClick={() => setLocation("/login")} data-testid="button-header-login">
                 Login
               </Button>
-              <Button size="sm" className="rounded-full" onClick={() => scrollToSection('contato')} data-testid="button-header-cta">
+              <Button size="sm" className="rounded-full w-32" onClick={() => scrollToSection('contato')} data-testid="button-header-cta">
                 Começar Agora
               </Button>
             </nav>
