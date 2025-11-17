@@ -69,7 +69,10 @@ export default function Settings() {
       const votesNumber = cleanedVotes ? parseInt(cleanedVotes, 10) : undefined;
       
       const payload = {
-        ...data,
+        name: data.name,
+        phone: data.phone || undefined,
+        partyId: data.partyId || undefined,
+        politicalPosition: data.politicalPosition || undefined,
         lastElectionVotes: votesNumber,
       };
       return await apiRequest("PATCH", "/api/auth/profile", payload);
