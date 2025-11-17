@@ -27,7 +27,6 @@ const STATUS_CONFIG = {
   pending: { label: "Pendente", color: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200" },
   in_progress: { label: "Em Andamento", color: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200" },
   completed: { label: "Concluído", color: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" },
-  cancelled: { label: "Cancelado", color: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200" },
 };
 
 const PRIORITY_CONFIG = {
@@ -45,7 +44,7 @@ const RECURRENCE_CONFIG = {
 };
 
 function getDueDateStatus(dueDate: string | null | undefined, status: string) {
-  if (!dueDate || status === "completed" || status === "cancelled") {
+  if (!dueDate || status === "completed") {
     return null;
   }
 
@@ -74,7 +73,6 @@ export default function Demands() {
     pending: 5,
     in_progress: 5,
     completed: 5,
-    cancelled: 5
   });
   const { toast } = useToast();
 
@@ -619,38 +617,6 @@ export default function Demands() {
                             >
                               <Check className="h-3 w-3 mr-1" />
                               Concluir
-                            </Button>
-                          </div>
-                        )}
-
-                        {/* Botão Cancelar para demandas concluídas */}
-                        {demand.status === "completed" && (
-                          <div className="pt-2">
-                            <Button
-                              size="sm"
-                              className="w-full"
-                              variant="destructive"
-                              onClick={(e) => handleCancelDemand(e, demand.id)}
-                              data-testid={`button-cancel-${demand.id}`}
-                            >
-                              <X className="h-3 w-3 mr-1" />
-                              Cancelar
-                            </Button>
-                          </div>
-                        )}
-
-                        {/* Botão Excluir para demandas canceladas */}
-                        {demand.status === "cancelled" && (
-                          <div className="pt-2">
-                            <Button
-                              size="sm"
-                              className="w-full"
-                              variant="destructive"
-                              onClick={(e) => handleDeleteClick(e, demand.id)}
-                              data-testid={`button-delete-${demand.id}`}
-                            >
-                              <Trash2 className="h-3 w-3 mr-1" />
-                              Excluir
                             </Button>
                           </div>
                         )}
