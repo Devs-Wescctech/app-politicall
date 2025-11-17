@@ -67,7 +67,9 @@ export default function Settings() {
     mutationFn: async (data: ProfileForm) => {
       const payload = {
         ...data,
-        lastElectionVotes: data.lastElectionVotes ? parseInt(data.lastElectionVotes) : undefined,
+        lastElectionVotes: data.lastElectionVotes 
+          ? parseInt(data.lastElectionVotes.replace(/\D/g, '')) 
+          : undefined,
       };
       return await apiRequest("/api/auth/profile", "PATCH", payload);
     },
@@ -150,12 +152,16 @@ export default function Settings() {
   };
 
   const handleEditClick = () => {
+    const formattedVotes = currentUser?.lastElectionVotes 
+      ? currentUser.lastElectionVotes.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+      : "";
+    
     form.reset({
       name: currentUser?.name || "",
       phone: currentUser?.phone || "",
       partyId: currentUser?.partyId || "",
       politicalPosition: currentUser?.politicalPosition || "",
-      lastElectionVotes: currentUser?.lastElectionVotes?.toString() || "",
+      lastElectionVotes: formattedVotes,
     });
     setShowEditDialog(true);
   };
@@ -435,9 +441,14 @@ export default function Settings() {
                       <FormLabel>Votos na Última Eleição</FormLabel>
                       <FormControl>
                         <Input 
-                          type="number" 
-                          placeholder="Número de votos" 
-                          {...field} 
+                          type="text" 
+                          placeholder="0.000.000" 
+                          value={field.value}
+                          onChange={(e) => {
+                            const value = e.target.value.replace(/\D/g, '');
+                            const formatted = value.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+                            field.onChange(formatted);
+                          }}
                           data-testid="input-votes" 
                         />
                       </FormControl>
