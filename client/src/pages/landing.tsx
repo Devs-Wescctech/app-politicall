@@ -49,7 +49,7 @@ const POSITION_OPTIONS = [
   { category: "Outros", positions: ["Outro"] }
 ];
 
-function AnimatedNumber({ value, suffix = "" }: { value: number; suffix?: string }) {
+function AnimatedNumber({ value, suffix = "", className = "" }: { value: number; suffix?: string; className?: string }) {
   const [count, setCount] = useState(0);
   const ref = useRef<HTMLDivElement>(null);
   const isInView = useInView(ref, { once: true });
@@ -87,7 +87,7 @@ function AnimatedNumber({ value, suffix = "" }: { value: number; suffix?: string
   };
 
   return (
-    <div ref={ref} className="text-4xl font-bold mb-3">
+    <div ref={ref} className={`text-4xl font-bold mb-3 ${className}`}>
       {formatNumber(count)}{suffix}
     </div>
   );
@@ -287,15 +287,15 @@ export default function LandingPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-3xl mx-auto">
               <div className="flex flex-col items-center gap-2" data-testid="stat-users">
-                <AnimatedNumber value={500} suffix="+" />
+                <AnimatedNumber value={500} suffix="+" className="text-white" />
                 <div className="text-sm text-white/80">Políticos Ativos</div>
               </div>
               <div className="flex flex-col items-center gap-2" data-testid="stat-contacts">
-                <AnimatedNumber value={50000} suffix="+" />
+                <AnimatedNumber value={50000} suffix="+" className="text-white" />
                 <div className="text-sm text-white/80">Eleitores Cadastrados</div>
               </div>
               <div className="flex flex-col items-center gap-2" data-testid="stat-responses">
-                <AnimatedNumber value={1000000} suffix="+" />
+                <AnimatedNumber value={1000000} suffix="+" className="text-white" />
                 <div className="text-sm text-white/80">Respostas Automáticas IA</div>
               </div>
             </div>
