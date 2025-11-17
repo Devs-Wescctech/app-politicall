@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 import logoUrl from "@assets/logo pol_1763308638963.png";
 
 interface AdminLoginForm {
@@ -23,13 +24,16 @@ export default function AdminLogin() {
     },
   });
 
-  function onSubmit(data: AdminLoginForm) {
+  async function onSubmit(data: AdminLoginForm) {
     setIsLoading(true);
     
-    if (data.password === "Politicall123") {
-      localStorage.setItem("admin_authenticated", "true");
+    try {
+      const response = await apiRequest("POST", "/api/admin/login", { password: data.password });
+      const result = await response.json();
+      
+      localStorage.setItem("admin_token", result.token);
       setLocation("/admin");
-    } else {
+    } catch (error: any) {
       toast({
         title: "Senha incorreta",
         description: "A senha informada não está correta",

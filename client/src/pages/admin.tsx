@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,18 +6,49 @@ import logoUrl from "@assets/logo pol_1763308638963.png";
 
 export default function Admin() {
   const [, setLocation] = useLocation();
+  const [isVerifying, setIsVerifying] = useState(true);
 
   useEffect(() => {
-    const isAdminAuthenticated = localStorage.getItem("admin_authenticated") === "true";
-    if (!isAdminAuthenticated) {
-      setLocation("/admin-login");
+    async function verifyAdminToken() {
+      const token = localStorage.getItem("admin_token");
+      
+      if (!token) {
+        setLocation("/admin-login");
+        return;
+      }
+
+      try {
+        const response = await fetch("/api/admin/verify", {
+          headers: {
+            "Authorization": `Bearer ${token}`,
+          },
+        });
+
+        const result = await response.json();
+        
+        if (!result.valid) {
+          localStorage.removeItem("admin_token");
+          setLocation("/admin-login");
+        } else {
+          setIsVerifying(false);
+        }
+      } catch (error) {
+        localStorage.removeItem("admin_token");
+        setLocation("/admin-login");
+      }
     }
+
+    verifyAdminToken();
   }, [setLocation]);
 
   const handleLogout = () => {
-    localStorage.removeItem("admin_authenticated");
+    localStorage.removeItem("admin_token");
     setLocation("/login");
   };
+
+  if (isVerifying) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 to-background p-4">

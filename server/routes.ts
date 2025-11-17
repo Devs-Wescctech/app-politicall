@@ -5,7 +5,7 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { insertUserSchema, loginSchema, insertContactSchema, insertPoliticalAllianceSchema, insertDemandSchema, insertDemandCommentSchema, insertEventSchema, insertAiConfigurationSchema, insertAiTrainingExampleSchema, insertAiResponseTemplateSchema, insertMarketingCampaignSchema, insertNotificationSchema, insertIntegrationSchema, insertSurveyCampaignSchema, insertSurveyLandingPageSchema, insertSurveyResponseSchema, DEFAULT_PERMISSIONS } from "@shared/schema";
 import { db } from "./db";
-import { politicalParties, politicalAlliances, surveyTemplates, surveyCampaigns, surveyLandingPages, surveyResponses, type SurveyTemplate, type SurveyCampaign, type InsertSurveyCampaign, type SurveyLandingPage, type InsertSurveyLandingPage, type SurveyResponse, type InsertSurveyResponse } from "@shared/schema";
+import { politicalParties, politicalAlliances, surveyTemplates, surveyCampaigns, surveyLandingPages, surveyResponses, users, type SurveyTemplate, type SurveyCampaign, type InsertSurveyCampaign, type SurveyLandingPage, type InsertSurveyLandingPage, type SurveyResponse, type InsertSurveyResponse } from "@shared/schema";
 import { sql, eq } from "drizzle-orm";
 import { generateAiResponse, testOpenAiApiKey } from "./openai";
 import { requireRole } from "./authorization";
@@ -343,7 +343,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(400).json({ error: "Senha atual é obrigatória para alterar a senha" });
         }
 
-        const user = await storage.getUserById(req.userId!);
+        const user = await storage.getUser(req.userId!);
         if (!user) {
           return res.status(404).json({ error: "Usuário não encontrado" });
         }
@@ -356,7 +356,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Hash new password
         const hashedPassword = await bcrypt.hash(validatedData.newPassword, 10);
         const { currentPassword, newPassword, ...profileData } = validatedData;
-        const updated = await storage.updateUser(req.userId!, { ...profileData, password: hashedPassword });
+        await db.update(users).set({ ...profileData, password: hashedPassword }).where(eq(users.id, req.userId!));
+        const updated = await storage.getUser(req.userId!);
+        if (!updated) {
+          return res.status(404).json({ error: "Usuário não encontrado" });
+        }
         const { password, ...sanitizedUser } = updated;
         return res.json(sanitizedUser);
       }
@@ -368,6 +372,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(sanitizedUser);
     } catch (error: any) {
       res.status(400).json({ error: error.message || "Erro ao atualizar perfil" });
+    }
+  });
+
+  // ==================== ADMIN AUTHENTICATION ====================
+  
+  // Admin login endpoint (PUBLIC)
+  app.post("/api/admin/login", async (req, res) => {
+    try {
+      const adminLoginSchema = z.object({
+        password: z.string(),
+      });
+      
+      const validatedData = adminLoginSchema.parse(req.body);
+      
+      // Validate hardcoded admin password
+      if (validatedData.password !== "Politicall123") {
+        return res.status(401).json({ error: "Senha incorreta" });
+      }
+
+      // Generate JWT token with isAdmin flag
+      const token = jwt.sign({ isAdmin: true }, JWT_SECRET, { expiresIn: '24h' });
+
+      res.json({ token });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message || "Erro ao fazer login admin" });
+    }
+  });
+
+  // Admin token verification endpoint (PUBLIC)
+  app.get("/api/admin/verify", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      
+      if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return res.status(401).json({ valid: false });
+      }
+
+      const token = authHeader.substring(7);
+      
+      try {
+        const decoded = jwt.verify(token, JWT_SECRET) as { isAdmin?: boolean };
+        
+        if (decoded.isAdmin === true) {
+          return res.json({ valid: true });
+        } else {
+          return res.status(401).json({ valid: false });
+        }
+      } catch (jwtError) {
+        return res.status(401).json({ valid: false });
+      }
+    } catch (error: any) {
+      res.status(401).json({ valid: false });
     }
   });
 
