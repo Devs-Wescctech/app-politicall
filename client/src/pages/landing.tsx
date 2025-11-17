@@ -27,7 +27,7 @@ import crmImage from "@assets/stock_images/professional_crm_das_daddedaa.jpg";
 import alliancesImage from "@assets/stock_images/political_alliances__25c21404.jpg";
 import demandsImage from "@assets/stock_images/task_management_dema_ed39ef14.jpg";
 import eventsImage from "@assets/stock_images/calendar_event_sched_888f73da.jpg";
-import aiImage from "@assets/Técnico- Luis Flores (3)_1763412860989.png";
+import aiImage from "@assets/dsfsdfdsfdsfdsf_1763412976580.png";
 import marketingImage from "@assets/stock_images/marketing_campaign_a_481dcd3f.jpg";
 
 const BRAZILIAN_STATES = [
