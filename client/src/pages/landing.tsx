@@ -240,26 +240,6 @@ export default function LandingPage() {
               CRM inteligente para eleitores, IA que responde automaticamente suas redes sociais, pesquisas TSE-compliant, gestão de demandas e muito mais. Tudo em uma única plataforma profissional.
             </p>
 
-            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-16">
-              <Button
-                size="lg"
-                className="rounded-full text-lg px-8 py-6 h-auto"
-                onClick={() => scrollToSection('contato')}
-                data-testid="button-cta-hero"
-              >
-                Solicitar Demonstração <ArrowRight className="ml-2 w-5 h-5" />
-              </Button>
-              <Button
-                size="lg"
-                variant="outline"
-                className="rounded-full text-lg px-8 py-6 h-auto bg-white/10 backdrop-blur-sm text-white border-white/20 hover:bg-white/20"
-                onClick={() => scrollToSection('ia')}
-                data-testid="button-learn-hero"
-              >
-                Conheça a IA
-              </Button>
-            </div>
-
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-3xl mx-auto">
               <div className="flex flex-col items-center gap-2" data-testid="stat-users">
                 <div className="text-4xl font-bold text-primary">500+</div>
