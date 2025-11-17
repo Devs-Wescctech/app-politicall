@@ -670,13 +670,13 @@ export default function LandingPage() {
             <div className="text-center mb-16">
               <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary mb-6">
                 <Zap className="w-4 h-4" />
-                <span className="text-sm font-medium">Tráfego Pago Estratégico</span>
+                <span className="text-sm font-medium">Pesquisas Impulsionadas</span>
               </div>
               <h2 className="text-4xl md:text-6xl font-bold mb-6" data-testid="text-ads-title">
-                Multiplique Seu Alcance com Google Ads
+                Pesquisas Eleitorais Turbinadas com Google Ads
               </h2>
               <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-                Enquanto seus concorrentes esperam meses para alcançar 500 eleitores organicamente, você alcança 50.000 em uma semana com tráfego pago estratégico.
+                Pare de depender de pesquisas caras e lentas. Use tecnologia a seu favor: impulsione suas pesquisas no Google Ads e colete dados cirúrgicos dos eleitores que realmente importam para sua eleição.
               </p>
             </div>
 
@@ -684,12 +684,12 @@ export default function LandingPage() {
               <Card className="border-0 shadow-xl bg-card">
                 <CardContent className="p-8 text-center">
                   <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-6">
-                    <TrendingUp className="w-8 h-8 text-primary" />
+                    <Target className="w-8 h-8 text-primary" />
                   </div>
-                  <div className="text-4xl font-bold mb-3">50x</div>
-                  <div className="text-lg font-semibold mb-2">Mais Alcance</div>
+                  <div className="text-4xl font-bold mb-3">72h</div>
+                  <div className="text-lg font-semibold mb-2">Para 10 Mil Respostas</div>
                   <p className="text-muted-foreground text-sm">
-                    Alcance 50x mais eleitores em 1/10 do tempo comparado a estratégias orgânicas tradicionais
+                    Coleta massiva e rápida de dados que levaria meses em pesquisas tradicionais
                   </p>
                 </CardContent>
               </Card>
@@ -697,12 +697,12 @@ export default function LandingPage() {
               <Card className="border-0 shadow-xl bg-card">
                 <CardContent className="p-8 text-center">
                   <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-6">
-                    <Target className="w-8 h-8 text-primary" />
+                    <Users className="w-8 h-8 text-primary" />
                   </div>
-                  <div className="text-4xl font-bold mb-3">R$ 0,80</div>
-                  <div className="text-lg font-semibold mb-2">Por Resposta</div>
+                  <div className="text-4xl font-bold mb-3">100%</div>
+                  <div className="text-lg font-semibold mb-2">Segmentação Precisa</div>
                   <p className="text-muted-foreground text-sm">
-                    Custo médio por resposta qualificada em pesquisas eleitorais com segmentação demográfica precisa
+                    Alcance exatamente o perfil demográfico que você precisa para vencer
                   </p>
                 </CardContent>
               </Card>
@@ -712,17 +712,17 @@ export default function LandingPage() {
                   <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-6">
                     <BarChart2 className="w-8 h-8 text-primary" />
                   </div>
-                  <div className="text-4xl font-bold mb-3">85%</div>
-                  <div className="text-lg font-semibold mb-2">Taxa de Conversão</div>
+                  <div className="text-4xl font-bold mb-3">95%</div>
+                  <div className="text-lg font-semibold mb-2">Mais Barato</div>
                   <p className="text-muted-foreground text-sm">
-                    Visitantes que chegam via Google Ads completam pesquisas com taxa de conversão 3x maior que orgânico
+                    Economia brutal comparado a pesquisas tradicionais por telefone ou presenciais
                   </p>
                 </CardContent>
               </Card>
             </div>
 
             <div className="bg-card rounded-2xl p-8 md:p-12 shadow-2xl border">
-              <h3 className="text-3xl font-bold mb-8 text-center">Por Que Google Ads é Essencial para Pesquisas Políticas</h3>
+              <h3 className="text-3xl font-bold mb-8 text-center">Por Que Usar Google Ads Para Suas Pesquisas Eleitorais</h3>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-6">
@@ -731,9 +731,9 @@ export default function LandingPage() {
                       <CheckCircle2 className="w-6 h-6 text-foreground" />
                     </div>
                     <div>
-                      <h4 className="font-bold text-lg mb-2">Segmentação Cirúrgica</h4>
+                      <h4 className="font-bold text-lg mb-2">Segmentação Cirúrgica de Eleitores</h4>
                       <p className="text-muted-foreground">
-                        Alcance exatamente o perfil de eleitor que você precisa: por cidade, bairro, idade, interesses políticos, poder aquisitivo e histórico de engajamento eleitoral.
+                        Direcione sua pesquisa para perfis específicos: moradores de bairros estratégicos, faixas etárias decisivas, níveis de renda que definem eleições. Dados precisos dos eleitores que realmente importam.
                       </p>
                     </div>
                   </div>
@@ -743,9 +743,9 @@ export default function LandingPage() {
                       <CheckCircle2 className="w-6 h-6 text-foreground" />
                     </div>
                     <div>
-                      <h4 className="font-bold text-lg mb-2">Velocidade Incomparável</h4>
+                      <h4 className="font-bold text-lg mb-2">Velocidade Brutal na Coleta</h4>
                       <p className="text-muted-foreground">
-                        Consiga 10.000 respostas em 72 horas. Impossível organicamente. Com tráfego pago, você define o ritmo e escala conforme necessário.
+                        Pesquisas tradicionais levam semanas. Com Google Ads, você tem milhares de respostas em dias. Tome decisões estratégicas enquanto seus concorrentes ainda estão coletando dados.
                       </p>
                     </div>
                   </div>
@@ -755,9 +755,9 @@ export default function LandingPage() {
                       <CheckCircle2 className="w-6 h-6 text-foreground" />
                     </div>
                     <div>
-                      <h4 className="font-bold text-lg mb-2">ROI Mensurável</h4>
+                      <h4 className="font-bold text-lg mb-2">Custo Acessível</h4>
                       <p className="text-muted-foreground">
-                        Dashboards em tempo real mostram custo por clique, custo por resposta, taxa de conversão e projeções de orçamento. Controle total do investimento.
+                        Pesquisas profissionais custam dezenas de milhares. Com nossa plataforma integrada ao Google Ads, você gasta uma fração disso e obtém dados ainda mais precisos e acionáveis.
                       </p>
                     </div>
                   </div>
@@ -769,9 +769,9 @@ export default function LandingPage() {
                       <CheckCircle2 className="w-6 h-6 text-foreground" />
                     </div>
                     <div>
-                      <h4 className="font-bold text-lg mb-2">Dados Demográficos Ricos</h4>
+                      <h4 className="font-bold text-lg mb-2">Dados Demográficos Completos</h4>
                       <p className="text-muted-foreground">
-                        Google Ads traz eleitores de todos os perfis demográficos, não apenas seus seguidores atuais. Amplie sua base e entenda novos públicos.
+                        Capture automaticamente idade, gênero, escolaridade, profissão, renda e ideologia de cada respondente. Cruze informações e descubra insights que vencem eleições.
                       </p>
                     </div>
                   </div>
@@ -781,9 +781,9 @@ export default function LandingPage() {
                       <CheckCircle2 className="w-6 h-6 text-foreground" />
                     </div>
                     <div>
-                      <h4 className="font-bold text-lg mb-2">Otimização Contínua</h4>
+                      <h4 className="font-bold text-lg mb-2">Controle Total do Processo</h4>
                       <p className="text-muted-foreground">
-                        Ajuste campanhas em tempo real baseado em performance. Pause anúncios ruins, escale os vencedores, teste novos textos e maximize resultados.
+                        Você decide quando começar, quando parar, quem alcançar e quanto investir. Total autonomia sem depender de institutos externos caros e inflexíveis.
                       </p>
                     </div>
                   </div>
@@ -793,9 +793,9 @@ export default function LandingPage() {
                       <CheckCircle2 className="w-6 h-6 text-foreground" />
                     </div>
                     <div>
-                      <h4 className="font-bold text-lg mb-2">Competitividade Eleitoral</h4>
+                      <h4 className="font-bold text-lg mb-2">Resultados em Tempo Real</h4>
                       <p className="text-muted-foreground">
-                        Enquanto adversários fazem pesquisas tradicionais caras e lentas, você coleta milhares de dados em dias com custo muito menor por respondente.
+                        Acompanhe respostas chegando ao vivo. Ajuste perguntas, refine segmentação e otimize sua coleta enquanto a pesquisa ainda está ativa. Agilidade que pesquisas tradicionais nunca terão.
                       </p>
                     </div>
                   </div>
@@ -808,7 +808,7 @@ export default function LandingPage() {
                   <div>
                     <p className="font-bold text-lg mb-2">Caso Real: Vereador em São Paulo</p>
                     <p className="text-muted-foreground">
-                      Gastou R$ 3.200 em Google Ads durante 5 dias e coletou 4.000 respostas qualificadas em sua pesquisa eleitoral. Custo: R$ 0,80 por resposta. Tempo: 5 dias. Mesma pesquisa via telefone custaria R$ 60.000+ e levaria 3 semanas.
+                      Precisava de dados sobre intenção de voto em 3 bairros específicos. Criou pesquisa no Politicall, impulsionou no Google Ads segmentando apenas aqueles bairros. Em 5 dias tinha 4.000 respostas qualificadas. Identificou que 62% dos eleitores entre 35-50 anos priorizavam segurança pública. Ajustou toda a campanha baseado nesses dados cirúrgicos e venceu a eleição.
                     </p>
                   </div>
                 </div>
