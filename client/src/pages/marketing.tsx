@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
@@ -386,144 +386,67 @@ export default function Marketing() {
         </Dialog>
       </div>
 
-      <Tabs defaultValue="all">
-        <TabsList className="rounded-full">
-          <TabsTrigger value="all" className="rounded-full">Todas</TabsTrigger>
-          <TabsTrigger value="draft" className="rounded-full">Rascunhos</TabsTrigger>
-          <TabsTrigger value="scheduled" className="rounded-full">Agendadas</TabsTrigger>
-          <TabsTrigger value="sent" className="rounded-full">Enviadas</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="all" className="space-y-4 mt-6">
-          {isLoading ? (
-            [...Array(5)].map((_, i) => <Skeleton key={i} className="h-32 w-full" />)
-          ) : campaigns && campaigns.length > 0 ? (
-            campaigns.map((campaign) => (
-              <Card key={campaign.id} data-testid={`campaign-${campaign.id}`}>
-                <CardHeader>
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1 space-y-2">
-                      <div className="flex items-center gap-3 flex-wrap">
-                        <CardTitle className="text-lg">{campaign.name}</CardTitle>
-                        <Badge className={STATUS_CONFIG[campaign.status as keyof typeof STATUS_CONFIG]?.color}>
-                          {STATUS_CONFIG[campaign.status as keyof typeof STATUS_CONFIG]?.label}
-                        </Badge>
-                        <Badge variant="outline">
-                          {campaign.type === "email" ? (
-                            <><Mail className="w-3 h-3 mr-1" /> Email</>
-                          ) : (
-                            <><MessageCircle className="w-3 h-3 mr-1" /> WhatsApp</>
-                          )}
-                        </Badge>
-                      </div>
-                      {campaign.subject && (
-                        <p className="text-sm text-muted-foreground">Assunto: {campaign.subject}</p>
-                      )}
+      <div className="space-y-4">
+        {isLoading ? (
+          [...Array(5)].map((_, i) => <Skeleton key={i} className="h-32 w-full" />)
+        ) : campaigns && campaigns.length > 0 ? (
+          campaigns.map((campaign) => (
+            <Card key={campaign.id} data-testid={`campaign-${campaign.id}`}>
+              <CardHeader>
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1 space-y-2">
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <CardTitle className="text-lg">{campaign.name}</CardTitle>
+                      <Badge className={STATUS_CONFIG[campaign.status as keyof typeof STATUS_CONFIG]?.color}>
+                        {STATUS_CONFIG[campaign.status as keyof typeof STATUS_CONFIG]?.label}
+                      </Badge>
+                      <Badge variant="outline">
+                        {campaign.type === "email" ? (
+                          <><Mail className="w-3 h-3 mr-1" /> Email</>
+                        ) : (
+                          <><MessageCircle className="w-3 h-3 mr-1" /> WhatsApp</>
+                        )}
+                      </Badge>
                     </div>
-                    {campaign.status === "draft" && (
-                      <Button onClick={() => handleSend(campaign.id)} disabled={sendMutation.isPending} data-testid={`button-send-${campaign.id}`}>
-                        <Send className="w-4 h-4 mr-2" />
-                        Enviar Agora
-                      </Button>
+                    {campaign.subject && (
+                      <p className="text-sm text-muted-foreground">Assunto: {campaign.subject}</p>
                     )}
                   </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <p className="text-sm line-clamp-2">{campaign.message}</p>
-                  <div className="flex items-center gap-6 text-sm text-muted-foreground flex-wrap">
-                    <span>{Array.isArray(campaign.recipients) ? campaign.recipients.length : 0} destinatários</span>
-                    {campaign.scheduledFor && (
-                      <span className="flex items-center gap-1">
-                        <CalendarIcon className="w-4 h-4" />
-                        Agendado para {format(new Date(campaign.scheduledFor), "dd/MM/yyyy HH:mm", { locale: ptBR })}
-                      </span>
-                    )}
-                    {campaign.sentAt && (
-                      <span>
-                        Enviado em {format(new Date(campaign.sentAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}
-                      </span>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            ))
-          ) : (
-            <Card>
-              <CardContent className="p-12 text-center text-muted-foreground">
-                Nenhuma campanha criada. Clique em "Nova Campanha" para começar.
+                  {campaign.status === "draft" && (
+                    <Button onClick={() => handleSend(campaign.id)} disabled={sendMutation.isPending} data-testid={`button-send-${campaign.id}`}>
+                      <Send className="w-4 h-4 mr-2" />
+                      Enviar Agora
+                    </Button>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <p className="text-sm line-clamp-2">{campaign.message}</p>
+                <div className="flex items-center gap-6 text-sm text-muted-foreground flex-wrap">
+                  <span>{Array.isArray(campaign.recipients) ? campaign.recipients.length : 0} destinatários</span>
+                  {campaign.scheduledFor && (
+                    <span className="flex items-center gap-1">
+                      <CalendarIcon className="w-4 h-4" />
+                      Agendado para {format(new Date(campaign.scheduledFor), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                    </span>
+                  )}
+                  {campaign.sentAt && (
+                    <span>
+                      Enviado em {format(new Date(campaign.sentAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                    </span>
+                  )}
+                </div>
               </CardContent>
             </Card>
-          )}
-        </TabsContent>
-
-        {["draft", "scheduled", "sent"].map((status) => {
-          const filteredCampaigns = campaigns?.filter(c => c.status === status) || [];
-          
-          return (
-            <TabsContent key={status} value={status} className="space-y-4 mt-6">
-              {isLoading ? (
-                [...Array(5)].map((_, i) => <Skeleton key={i} className="h-32 w-full" />)
-              ) : filteredCampaigns.length > 0 ? (
-                filteredCampaigns.map((campaign) => (
-                  <Card key={campaign.id} data-testid={`campaign-${campaign.id}`}>
-                    <CardHeader>
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex-1 space-y-2">
-                          <div className="flex items-center gap-3 flex-wrap">
-                            <CardTitle className="text-lg">{campaign.name}</CardTitle>
-                            <Badge className={STATUS_CONFIG[campaign.status as keyof typeof STATUS_CONFIG]?.color}>
-                              {STATUS_CONFIG[campaign.status as keyof typeof STATUS_CONFIG]?.label}
-                            </Badge>
-                            <Badge variant="outline">
-                              {campaign.type === "email" ? (
-                                <><Mail className="w-3 h-3 mr-1" /> Email</>
-                              ) : (
-                                <><MessageCircle className="w-3 h-3 mr-1" /> WhatsApp</>
-                              )}
-                            </Badge>
-                          </div>
-                          {campaign.subject && (
-                            <p className="text-sm text-muted-foreground">Assunto: {campaign.subject}</p>
-                          )}
-                        </div>
-                        {campaign.status === "draft" && (
-                          <Button onClick={() => handleSend(campaign.id)} disabled={sendMutation.isPending} data-testid={`button-send-${campaign.id}`}>
-                            <Send className="w-4 h-4 mr-2" />
-                            Enviar Agora
-                          </Button>
-                        )}
-                      </div>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      <p className="text-sm line-clamp-2">{campaign.message}</p>
-                      <div className="flex items-center gap-6 text-sm text-muted-foreground flex-wrap">
-                        <span>{Array.isArray(campaign.recipients) ? campaign.recipients.length : 0} destinatários</span>
-                        {campaign.scheduledFor && (
-                          <span className="flex items-center gap-1">
-                            <CalendarIcon className="w-4 h-4" />
-                            Agendado para {format(new Date(campaign.scheduledFor), "dd/MM/yyyy HH:mm", { locale: ptBR })}
-                          </span>
-                        )}
-                        {campaign.sentAt && (
-                          <span>
-                            Enviado em {format(new Date(campaign.sentAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}
-                          </span>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))
-              ) : (
-                <Card>
-                  <CardContent className="p-12 text-center text-muted-foreground">
-                    Nenhuma campanha {STATUS_CONFIG[status as keyof typeof STATUS_CONFIG]?.label.toLowerCase()}.
-                  </CardContent>
-                </Card>
-              )}
-            </TabsContent>
-          );
-        })}
-      </Tabs>
+          ))
+        ) : (
+          <Card>
+            <CardContent className="p-12 text-center text-muted-foreground">
+              Nenhuma campanha criada. Clique em "Nova Campanha" para começar.
+            </CardContent>
+          </Card>
+        )}
+      </div>
     </div>
   );
 }
