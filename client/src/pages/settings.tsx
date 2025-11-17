@@ -65,11 +65,12 @@ export default function Settings() {
 
   const updateProfileMutation = useMutation({
     mutationFn: async (data: ProfileForm) => {
+      const cleanedVotes = data.lastElectionVotes?.replace(/\D/g, '') || '';
+      const votesNumber = cleanedVotes ? parseInt(cleanedVotes, 10) : undefined;
+      
       const payload = {
         ...data,
-        lastElectionVotes: data.lastElectionVotes 
-          ? parseInt(data.lastElectionVotes.replace(/\D/g, '')) 
-          : undefined,
+        lastElectionVotes: votesNumber,
       };
       return await apiRequest("/api/auth/profile", "PATCH", payload);
     },
