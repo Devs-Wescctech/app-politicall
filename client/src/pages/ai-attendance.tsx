@@ -982,13 +982,14 @@ export default function AiAttendance() {
       {/* Platform Configuration Dialog (existing) */}
       <Dialog open={!!selectedPlatform} onOpenChange={() => setSelectedPlatform(null)}>
         {selectedPlatform === "facebook" && (
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
+          <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col p-0">
+            <DialogHeader className="px-6 pt-6 pb-4 border-b">
               <DialogTitle>Configurar Facebook</DialogTitle>
             </DialogHeader>
             <Form {...platformForm}>
-              <form onSubmit={platformForm.handleSubmit(handleSavePlatform)} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <form onSubmit={platformForm.handleSubmit(handleSavePlatform)} className="flex flex-col flex-1 overflow-hidden">
+                <div className="overflow-y-auto px-6 py-4 space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField
                     control={platformForm.control}
                     name="facebookAppId"
@@ -1067,8 +1068,9 @@ export default function AiAttendance() {
                       </FormItem>
                     )}
                   />
+                  </div>
                 </div>
-                <DialogFooter className="px-6 py-4 border-t grid grid-cols-1 gap-2">
+                <DialogFooter className="px-6 py-4 border-t">
                   <Button type="submit" className="rounded-full w-full" data-testid="button-save-fb-config">
                     Salvar Configuração
                   </Button>
@@ -1078,13 +1080,14 @@ export default function AiAttendance() {
           </DialogContent>
         )}
         {selectedPlatform === "instagram" && (
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
+          <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col p-0">
+            <DialogHeader className="px-6 pt-6 pb-4 border-b">
               <DialogTitle>Configurar Instagram</DialogTitle>
             </DialogHeader>
             <Form {...platformForm}>
-              <form onSubmit={platformForm.handleSubmit(handleSavePlatform)} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <form onSubmit={platformForm.handleSubmit(handleSavePlatform)} className="flex flex-col flex-1 overflow-hidden">
+                <div className="overflow-y-auto px-6 py-4 space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField
                     control={platformForm.control}
                     name="instagramAppId"
@@ -1163,8 +1166,9 @@ export default function AiAttendance() {
                       </FormItem>
                     )}
                   />
+                  </div>
                 </div>
-                <DialogFooter className="px-6 py-4 border-t grid grid-cols-1 gap-2">
+                <DialogFooter className="px-6 py-4 border-t">
                   <Button type="submit" className="rounded-full w-full" data-testid="button-save-ig-config">
                     Salvar Configuração
                   </Button>
@@ -1174,13 +1178,14 @@ export default function AiAttendance() {
           </DialogContent>
         )}
         {selectedPlatform === "twitter" && (
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
+          <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col p-0">
+            <DialogHeader className="px-6 pt-6 pb-4 border-b">
               <DialogTitle>Configurar X (Twitter)</DialogTitle>
             </DialogHeader>
             <Form {...platformForm}>
-              <form onSubmit={platformForm.handleSubmit(handleSavePlatform)} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <form onSubmit={platformForm.handleSubmit(handleSavePlatform)} className="flex flex-col flex-1 overflow-hidden">
+                <div className="overflow-y-auto px-6 py-4 space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField
                     control={platformForm.control}
                     name="twitterApiKey"
@@ -1285,8 +1290,9 @@ export default function AiAttendance() {
                       </FormItem>
                     )}
                   />
+                  </div>
                 </div>
-                <DialogFooter className="px-6 py-4 border-t grid grid-cols-1 gap-2">
+                <DialogFooter className="px-6 py-4 border-t">
                   <Button type="submit" className="rounded-full w-full" data-testid="button-save-tw-config">
                     Salvar Configuração
                   </Button>
@@ -1296,13 +1302,14 @@ export default function AiAttendance() {
           </DialogContent>
         )}
         {selectedPlatform === "whatsapp" && (
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
+          <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col p-0">
+            <DialogHeader className="px-6 pt-6 pb-4 border-b">
               <DialogTitle>Configurar WhatsApp</DialogTitle>
             </DialogHeader>
             <Form {...platformForm}>
-              <form onSubmit={platformForm.handleSubmit(handleSavePlatform)} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <form onSubmit={platformForm.handleSubmit(handleSavePlatform)} className="flex flex-col flex-1 overflow-hidden">
+                <div className="overflow-y-auto px-6 py-4 space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField
                     control={platformForm.control}
                     name="whatsappPhoneNumberId"
@@ -1407,8 +1414,9 @@ export default function AiAttendance() {
                       </FormItem>
                     )}
                   />
+                  </div>
                 </div>
-                <DialogFooter className="px-6 py-4 border-t grid grid-cols-1 gap-2">
+                <DialogFooter className="px-6 py-4 border-t">
                   <Button type="submit" className="rounded-full w-full" data-testid="button-save-wa-config">
                     Salvar Configuração
                   </Button>
