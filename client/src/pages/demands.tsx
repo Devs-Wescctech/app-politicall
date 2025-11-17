@@ -310,7 +310,6 @@ export default function Demands() {
       <div className="flex items-center justify-between mb-6 shrink-0">
         <div>
           <h1 className="text-3xl font-bold">Demandas do Gabinete</h1>
-          <p className="text-muted-foreground mt-2">Gerencie as demandas com pipeline visual</p>
         </div>
         <div className="flex items-center gap-3">
           {/* Filtro de Prioridade */}
