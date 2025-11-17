@@ -16,12 +16,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Separator } from "@/components/ui/separator";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, Trash2, Edit, ExternalLink, Copy, CheckCircle, XCircle, Clock } from "lucide-react";
+import { Plus, Trash2, Edit, ExternalLink, Copy, CheckCircle, XCircle, Clock, BarChart3, ChevronDown, ChevronUp, Eye } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useCurrentUser } from "@/hooks/use-current-user";
+import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 
 const SURVEY_STATUS_CONFIG = {
   under_review: { 
@@ -71,6 +73,253 @@ interface CampaignWithTemplate extends SurveyCampaign {
 }
 
 
+const CHART_COLORS = ["#40E0D0", "#48D1CC", "#5FEDD8", "#76F5E6", "#8DFCF4", "#A4FFF9"];
+
+const DEMOGRAPHIC_LABELS: Record<string, Record<string, string>> = {
+  gender: {
+    masculino: "Masculino",
+    feminino: "Feminino",
+    outro: "Outro",
+    prefiro_nao_dizer: "Prefiro não dizer"
+  },
+  ageRange: {
+    menos_35: "Menos de 35",
+    mais_35: "35 ou mais"
+  },
+  employmentType: {
+    carteira_assinada: "Carteira Assinada",
+    autonomo: "Autônomo",
+    desempregado: "Desempregado",
+    aposentado: "Aposentado",
+    outro: "Outro"
+  },
+  housingType: {
+    casa_propria: "Casa Própria",
+    aluguel: "Aluguel",
+    cedido: "Cedido",
+    outro: "Outro"
+  },
+  hasChildren: {
+    sim: "Sim",
+    nao: "Não"
+  },
+  politicalIdeology: {
+    direita: "Direita",
+    centro: "Centro",
+    esquerda: "Esquerda",
+    prefiro_nao_comentar: "Prefiro não comentar"
+  }
+};
+
+interface SurveyResultsProps {
+  campaignId: string;
+  template?: SurveyTemplate;
+}
+
+function SurveyResults({ campaignId, template }: SurveyResultsProps) {
+  const { data: responses, isLoading } = useQuery<any[]>({
+    queryKey: ["/api/survey-campaigns", campaignId, "responses"],
+    enabled: !!campaignId,
+  });
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4 mt-4">
+        <Skeleton className="h-32 w-full" />
+        <Skeleton className="h-64 w-full" />
+      </div>
+    );
+  }
+
+  if (!responses || responses.length === 0) {
+    return (
+      <Card className="mt-4 bg-muted/30">
+        <CardContent className="py-8">
+          <p className="text-center text-muted-foreground">Nenhuma resposta recebida ainda</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Process demographic data
+  const processData = (field: string) => {
+    const counts: Record<string, number> = {};
+    responses.forEach(r => {
+      const value = r[field];
+      counts[value] = (counts[value] || 0) + 1;
+    });
+    return Object.entries(counts).map(([key, value]) => ({
+      name: DEMOGRAPHIC_LABELS[field]?.[key] || key,
+      value,
+      percentage: ((value / responses.length) * 100).toFixed(1)
+    }));
+  };
+
+  const DEMOGRAPHIC_TITLES: Record<string, string> = {
+    gender: "Sexo",
+    ageRange: "Faixa Etária",
+    employmentType: "Tipo de Trabalho",
+    housingType: "Tipo de Moradia",
+    hasChildren: "Tem Filhos",
+    politicalIdeology: "Ideologia Política"
+  };
+
+  // Process survey responses
+  const processResponseData = () => {
+    if (!template) return [];
+
+    if (template.questionType === "single_choice" || template.questionType === "multiple_choice") {
+      const counts: Record<string, number> = {};
+      responses.forEach(r => {
+        const data = r.responseData;
+        if (template.questionType === "single_choice" && data.answer) {
+          counts[data.answer] = (counts[data.answer] || 0) + 1;
+        } else if (template.questionType === "multiple_choice" && data.answers) {
+          data.answers.forEach((ans: string) => {
+            counts[ans] = (counts[ans] || 0) + 1;
+          });
+        }
+      });
+      return Object.entries(counts).map(([key, value]) => ({
+        name: key,
+        value,
+        percentage: ((value / responses.length) * 100).toFixed(1)
+      })).sort((a, b) => b.value - a.value);
+    }
+
+    if (template.questionType === "rating" && template.options) {
+      return template.options.map(option => {
+        const ratings = responses
+          .map(r => r.responseData?.ratings?.[option])
+          .filter(r => r !== undefined);
+        const avg = ratings.length > 0
+          ? (ratings.reduce((sum, r) => sum + r, 0) / ratings.length).toFixed(1)
+          : "0.0";
+        return { name: option, rating: parseFloat(avg), responses: ratings.length };
+      });
+    }
+
+    return [];
+  };
+
+  const responseData = processResponseData();
+
+  return (
+    <div className="space-y-6 mt-6">
+      {/* Stats Overview */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card className="bg-gradient-to-br from-[#40E0D0] to-[#48D1CC] text-white">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm opacity-90">Total de Respostas</p>
+                <p className="text-4xl font-bold mt-2">{responses.length}</p>
+              </div>
+              <Eye className="w-12 h-12 opacity-50" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Survey Responses Chart */}
+      {template && (template.questionType === "single_choice" || template.questionType === "multiple_choice") && responseData.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Respostas da Pesquisa</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={responseData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} interval={0} style={{ fontSize: '12px' }} />
+                <YAxis />
+                <Tooltip />
+                <Bar dataKey="value" fill="#40E0D0" />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Rating Chart */}
+      {template && template.questionType === "rating" && responseData.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Avaliações Médias</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={responseData} layout="vertical">
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis type="number" domain={[0, 5]} />
+                <YAxis dataKey="name" type="category" width={150} style={{ fontSize: '12px' }} />
+                <Tooltip />
+                <Bar dataKey="rating" fill="#40E0D0" />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Demographic Charts */}
+      <div>
+        <h3 className="text-lg font-semibold mb-4">Dados Demográficos</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Object.keys(DEMOGRAPHIC_TITLES).map((field) => {
+            const data = processData(field);
+            return (
+              <Card key={field}>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm">{DEMOGRAPHIC_TITLES[field]}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={200}>
+                    <PieChart>
+                      <Pie
+                        data={data}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        label={({ name, percentage }) => `${name} (${percentage}%)`}
+                        outerRadius={60}
+                        fill="#8884d8"
+                        dataKey="value"
+                      >
+                        {data.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Open Text Responses */}
+      {template && template.questionType === "open_text" && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Respostas Abertas ({responses.length})</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3 max-h-96 overflow-y-auto">
+              {responses.map((r, idx) => (
+                <div key={idx} className="border-l-4 border-[#40E0D0] pl-4 py-2 bg-muted/30 rounded-r">
+                  <p className="text-sm">{r.responseData?.answer || "Sem resposta"}</p>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
 export default function Marketing() {
   const { user } = useCurrentUser();
   const { toast } = useToast();
@@ -80,6 +329,7 @@ export default function Marketing() {
   const [selectedTemplate, setSelectedTemplate] = useState<SurveyTemplate | null>(null);
   const [campaignToDelete, setCampaignToDelete] = useState<string | null>(null);
   const [editingCampaign, setEditingCampaign] = useState<CampaignWithTemplate | null>(null);
+  const [expandedResults, setExpandedResults] = useState<Set<string>>(new Set());
 
   const form = useForm<InsertSurveyCampaign>({
     resolver: zodResolver(insertSurveyCampaignSchema),
@@ -216,6 +466,16 @@ export default function Marketing() {
     return `https://www.politicall.com.br/survey/${slug}`;
   };
 
+  const toggleResults = (campaignId: string) => {
+    const newExpanded = new Set(expandedResults);
+    if (newExpanded.has(campaignId)) {
+      newExpanded.delete(campaignId);
+    } else {
+      newExpanded.add(campaignId);
+    }
+    setExpandedResults(newExpanded);
+  };
+
   return (
     <div className="container mx-auto p-6 max-w-7xl">
       <div className="flex items-center justify-between mb-6">
@@ -346,6 +606,23 @@ export default function Marketing() {
                           {campaign.adminNotes}
                         </p>
                       </div>
+                    )}
+
+                    <Separator className="my-4" />
+
+                    <Button
+                      variant="outline"
+                      className="w-full rounded-full"
+                      onClick={() => toggleResults(campaign.id)}
+                      data-testid={`button-toggle-results-${campaign.id}`}
+                    >
+                      <BarChart3 className="w-4 h-4 mr-2" />
+                      {expandedResults.has(campaign.id) ? "Ocultar Resultados" : "Ver Resultados da Pesquisa"}
+                      {expandedResults.has(campaign.id) ? <ChevronUp className="w-4 h-4 ml-2" /> : <ChevronDown className="w-4 h-4 ml-2" />}
+                    </Button>
+
+                    {expandedResults.has(campaign.id) && (
+                      <SurveyResults campaignId={campaign.id} template={campaign.template} />
                     )}
                   </CardContent>
                 </Card>
