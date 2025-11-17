@@ -98,12 +98,9 @@ async function seedPoliticalParties() {
 async function seedSurveyTemplates() {
   try {
     const existingTemplates = await storage.getSurveyTemplates();
-    if (existingTemplates.length > 0) {
-      console.log("Survey templates already seeded");
-      return;
-    }
+    const existingSlugs = new Set(existingTemplates.map(t => t.slug));
 
-    await db.insert(surveyTemplates).values([
+    const templatesToInsert = [
       {
         name: "Intenção de voto (neutra)",
         slug: "intencao-voto",
@@ -193,10 +190,107 @@ async function seedSurveyTemplates() {
         questionType: "single_choice",
         options: ["Sim, frequentemente", "Sim, ocasionalmente", "Não"],
         order: 10
+      },
+      {
+        name: "Rejeição de perfis políticos",
+        slug: "rejeicao-perfis",
+        description: "Identifique perfis políticos com maior rejeição",
+        questionText: "Qual perfil de político você NÃO votaria de jeito nenhum?",
+        questionType: "single_choice",
+        options: ["Político de carreira", "Empresário", "Militar", "Religioso", "Celebridade", "Nenhum desses"],
+        order: 11
+      },
+      {
+        name: "Conhecimento espontâneo de candidatos",
+        slug: "conhecimento-candidatos",
+        description: "Meça o recall espontâneo de nomes políticos",
+        questionText: "Cite um nome de político que você conhece na sua região:",
+        questionType: "open_text",
+        options: null,
+        order: 12
+      },
+      {
+        name: "Avaliação da gestão atual",
+        slug: "avaliacao-gestao",
+        description: "Avalie a percepção sobre a administração vigente",
+        questionText: "Como você avalia a gestão atual do seu município/estado?",
+        questionType: "single_choice",
+        options: ["Ótima", "Boa", "Regular", "Ruim", "Péssima"],
+        order: 13
+      },
+      {
+        name: "Principal problema local",
+        slug: "problema-local",
+        description: "Identifique o problema mais urgente da região",
+        questionText: "Qual é o maior problema da sua cidade/bairro que precisa ser resolvido?",
+        questionType: "open_text",
+        options: null,
+        order: 14
+      },
+      {
+        name: "Perfil de liderança desejado",
+        slug: "perfil-lideranca",
+        description: "Entenda qual tipo de liderança a população valoriza",
+        questionText: "Qual característica é mais importante em um líder político?",
+        questionType: "single_choice",
+        options: ["Experiência", "Honestidade", "Capacidade técnica", "Proximidade com o povo", "Força e decisão"],
+        order: 15
+      },
+      {
+        name: "Momento da decisão de voto",
+        slug: "momento-decisao",
+        description: "Descubra quando os eleitores decidem seu voto",
+        questionText: "Quando você costuma decidir em quem vai votar?",
+        questionType: "single_choice",
+        options: ["Muito antes da eleição", "Algumas semanas antes", "Na última semana", "No dia da eleição"],
+        order: 16
+      },
+      {
+        name: "Fatores decisivos na escolha",
+        slug: "fatores-decisivos",
+        description: "Identifique o que mais influencia a decisão de voto",
+        questionText: "O que mais influencia sua decisão de voto?",
+        questionType: "single_choice",
+        options: ["Propostas do candidato", "Histórico político", "Indicação de pessoas próximas", "Partido político", "Debates e entrevistas"],
+        order: 17
+      },
+      {
+        name: "Avaliação de propostas específicas",
+        slug: "avaliacao-propostas",
+        description: "Teste a aceitação de propostas e políticas públicas",
+        questionText: "Você seria favorável a uma proposta de investimento massivo em transporte público?",
+        questionType: "single_choice",
+        options: ["Totalmente favorável", "Parcialmente favorável", "Indiferente", "Parcialmente contra", "Totalmente contra"],
+        order: 18
+      },
+      {
+        name: "Percepção de ética e transparência",
+        slug: "etica-transparencia",
+        description: "Avalie a importância de ética na política",
+        questionText: "Quão importante é para você que um candidato tenha ficha limpa?",
+        questionType: "single_choice",
+        options: ["Extremamente importante", "Muito importante", "Importante", "Pouco importante", "Não é importante"],
+        order: 19
+      },
+      {
+        name: "Expectativa para o futuro",
+        slug: "expectativa-futuro",
+        description: "Meça o sentimento sobre o futuro da região",
+        questionText: "Você acredita que sua cidade/estado vai melhorar nos próximos 4 anos?",
+        questionType: "single_choice",
+        options: ["Sim, com certeza", "Provavelmente sim", "Não sei dizer", "Provavelmente não", "Com certeza não"],
+        order: 20
       }
-    ]);
+    ];
 
-    console.log("✓ Survey templates seeded successfully");
+    const newTemplates = templatesToInsert.filter(t => !existingSlugs.has(t.slug));
+
+    if (newTemplates.length > 0) {
+      await db.insert(surveyTemplates).values(newTemplates);
+      console.log(`✓ Inserted ${newTemplates.length} new survey templates`);
+    } else {
+      console.log("✓ All survey templates already exist");
+    }
   } catch (error) {
     console.error("Error seeding survey templates:", error);
   }
