@@ -258,7 +258,7 @@ export default function Marketing() {
       </div>
 
       <Tabs defaultValue="all">
-        <TabsList>
+        <TabsList className="rounded-full">
           <TabsTrigger value="all">Todas</TabsTrigger>
           <TabsTrigger value="draft">Rascunhos</TabsTrigger>
           <TabsTrigger value="scheduled">Agendadas</TabsTrigger>
