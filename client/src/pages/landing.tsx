@@ -23,7 +23,7 @@ import {
 import { motion, useScroll, useTransform } from "framer-motion";
 import logoUrl from "@assets/logo pol_1763308638963.png";
 import heroBackgroundVideo from "@assets/grok-video-d39a8f83-9488-4450-a920-1ca2b1507b3e (1)_1763410752455.mp4";
-import crmImage from "@assets/stock_images/professional_crm_das_daddedaa.jpg";
+import crmImage from "@assets/Técnico- Luis Flores (4)_1763413287476.png";
 import alliancesImage from "@assets/stock_images/political_alliances__25c21404.jpg";
 import demandsImage from "@assets/stock_images/task_management_dema_ed39ef14.jpg";
 import eventsImage from "@assets/stock_images/calendar_event_sched_888f73da.jpg";
