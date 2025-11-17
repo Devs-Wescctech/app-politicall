@@ -259,10 +259,10 @@ export default function Marketing() {
 
       <Tabs defaultValue="all">
         <TabsList className="rounded-full">
-          <TabsTrigger value="all">Todas</TabsTrigger>
-          <TabsTrigger value="draft">Rascunhos</TabsTrigger>
-          <TabsTrigger value="scheduled">Agendadas</TabsTrigger>
-          <TabsTrigger value="sent">Enviadas</TabsTrigger>
+          <TabsTrigger value="all" className="rounded-full">Todas</TabsTrigger>
+          <TabsTrigger value="draft" className="rounded-full">Rascunhos</TabsTrigger>
+          <TabsTrigger value="scheduled" className="rounded-full">Agendadas</TabsTrigger>
+          <TabsTrigger value="sent" className="rounded-full">Enviadas</TabsTrigger>
         </TabsList>
 
         <TabsContent value="all" className="space-y-4 mt-6">
