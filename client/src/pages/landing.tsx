@@ -25,7 +25,7 @@ import logoUrl from "@assets/logo pol_1763308638963.png";
 import heroBackgroundVideo from "@assets/grok-video-d39a8f83-9488-4450-a920-1ca2b1507b3e (1)_1763410752455.mp4";
 import crmImage from "@assets/Técnico- Luis Flores (4)_1763413287476.png";
 import alliancesImage from "@assets/Técnico- Luis Flores (5)_1763413674690.png";
-import demandsImage from "@assets/stock_images/task_management_dema_ed39ef14.jpg";
+import demandsImage from "@assets/Técnico- Luis Flores (6)_1763413913827.png";
 import eventsImage from "@assets/stock_images/calendar_event_sched_888f73da.jpg";
 import aiImage from "@assets/dsfsdfdsfdsfdsf_1763412976580.png";
 import marketingImage from "@assets/stock_images/marketing_campaign_a_481dcd3f.jpg";
@@ -599,16 +599,12 @@ export default function LandingPage() {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-              <div className="order-2 lg:order-1">
-                <div className="rounded-lg overflow-hidden shadow-xl border">
-                  <img 
-                    src={demandsImage} 
-                    alt="CRM de Gabinete Politicall" 
-                    className="w-full h-auto"
-                    data-testid="img-module-demands"
-                  />
-                </div>
-              </div>
+              <img 
+                src={demandsImage} 
+                alt="Pesquisas Eleitorais TSE-Compliant Politicall" 
+                className="w-full h-auto order-2 lg:order-1"
+                data-testid="img-module-demands"
+              />
               <div className="order-1 lg:order-2">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="p-3 rounded-lg bg-primary/10">
