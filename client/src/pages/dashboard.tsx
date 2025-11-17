@@ -1,11 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Users, Handshake, ClipboardList, Calendar, TrendingUp, TrendingDown, Target, AlertCircle, CheckCircle2, Award, Zap, Info } from "lucide-react";
+import { Users, Handshake, ClipboardList, Calendar, TrendingUp, TrendingDown, Target, AlertCircle, CheckCircle2, Award, Zap, Info, BarChart } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from "recharts";
+import { PieChart, Pie, Cell, ResponsiveContainer, BarChart as RechartsBarChart, Bar, XAxis, YAxis, Tooltip, Legend } from "recharts";
 
 interface DashboardStats {
   totalContacts: number;
@@ -401,57 +401,130 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {/* Gráficos de Distribuição Ideológica */}
-      {stats?.ideologyDistribution && stats.ideologyDistribution.length > 0 && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Distribuição Ideológica das Alianças</CardTitle>
-              <CardDescription>Diversidade política da sua base de alianças</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={320}>
-                <PieChart>
-                  <Pie
-                    data={stats.ideologyDistribution}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ ideology, percent }) => `${ideology}: ${(percent * 100).toFixed(0)}%`}
-                    outerRadius={100}
-                    fill="#8884d8"
-                    dataKey="count"
-                    nameKey="ideology"
-                  >
-                    {stats.ideologyDistribution.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[entry.ideology as keyof typeof COLORS] || '#94a3b8'} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
+      {/* Gráficos de Pesquisas Mercadológicas */}
+      <SurveyCampaignsCharts />
+    </div>
+  );
+}
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Alianças por Ideologia</CardTitle>
-              <CardDescription>Quantidade de alianças em cada espectro político</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={320}>
-                <BarChart data={stats.ideologyDistribution}>
-                  <XAxis dataKey="ideology" tick={{ fontSize: 12 }} />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Bar dataKey="count" fill="hsl(var(--primary))" name="Quantidade" />
-                </BarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+function SurveyCampaignsCharts() {
+  const { data: campaigns } = useQuery<any[]>({
+    queryKey: ["/api/survey-campaigns"],
+  });
+
+  if (!campaigns || campaigns.length === 0) {
+    return null;
+  }
+
+  // Filtrar apenas pesquisas aprovadas
+  const approvedCampaigns = campaigns.filter(c => c.status === 'approved' || c.status === 'active');
+
+  if (approvedCampaigns.length === 0) {
+    return null;
+  }
+
+  // Preparar dados para gráficos
+  const campaignsByStatus = [
+    { status: 'Aprovadas', count: campaigns.filter(c => c.status === 'approved' || c.status === 'active').length },
+    { status: 'Em Análise', count: campaigns.filter(c => c.status === 'under_review').length },
+    { status: 'Rejeitadas', count: campaigns.filter(c => c.status === 'rejected').length },
+  ].filter(item => item.count > 0);
+
+  const campaignsByResponses = approvedCampaigns
+    .map(c => ({
+      name: c.campaignName.replace('Pesquisa: ', '').substring(0, 30) + (c.campaignName.length > 30 ? '...' : ''),
+      responses: c.responseCount || 0,
+    }))
+    .sort((a, b) => b.responses - a.responses)
+    .slice(0, 5);
+
+  const totalResponses = approvedCampaigns.reduce((sum, c) => sum + (c.responseCount || 0), 0);
+
+  const STATUS_COLORS = {
+    'Aprovadas': '#40E0D0',
+    'Em Análise': '#fbbf24',
+    'Rejeitadas': '#ef4444',
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Resumo de Pesquisas */}
+      <Card className="border-[#40E0D0]/20">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <BarChart className="h-5 w-5 text-[#40E0D0]" />
+            Pesquisas Mercadológicas
+          </CardTitle>
+          <CardDescription>Visão geral das suas pesquisas encomendadas</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-3 gap-4">
+            <div className="text-center">
+              <div className="text-3xl font-bold text-[#40E0D0]">{approvedCampaigns.length}</div>
+              <div className="text-sm text-muted-foreground mt-1">Pesquisas Ativas</div>
+            </div>
+            <div className="text-center">
+              <div className="text-3xl font-bold">{totalResponses.toLocaleString('pt-BR')}</div>
+              <div className="text-sm text-muted-foreground mt-1">Respostas Coletadas</div>
+            </div>
+            <div className="text-center">
+              <div className="text-3xl font-bold">{campaigns.length}</div>
+              <div className="text-sm text-muted-foreground mt-1">Total de Campanhas</div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Status das Campanhas */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Status das Campanhas</CardTitle>
+            <CardDescription>Distribuição por status de aprovação</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={320}>
+              <PieChart>
+                <Pie
+                  data={campaignsByStatus}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={({ status, percent }) => `${status}: ${(percent * 100).toFixed(0)}%`}
+                  outerRadius={100}
+                  fill="#8884d8"
+                  dataKey="count"
+                  nameKey="status"
+                >
+                  {campaignsByStatus.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={STATUS_COLORS[entry.status as keyof typeof STATUS_COLORS] || '#94a3b8'} />
+                  ))}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        {/* Respostas por Pesquisa */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Respostas por Pesquisa</CardTitle>
+            <CardDescription>Top 5 pesquisas com mais participação</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={320}>
+              <RechartsBarChart data={campaignsByResponses} layout="horizontal">
+                <XAxis type="number" />
+                <YAxis dataKey="name" type="category" width={150} tick={{ fontSize: 11 }} />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="responses" fill="#40E0D0" name="Respostas" />
+              </RechartsBarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
