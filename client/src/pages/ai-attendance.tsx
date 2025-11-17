@@ -13,7 +13,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
-import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -393,15 +392,15 @@ export default function AiAttendance() {
                       <div className="flex items-center justify-between">
                         <platform.icon className="w-8 h-8" style={{ color: platform.color }} />
                         {connected ? (
-                          <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                          <div className="flex items-center text-sm">
                             <CheckCircle2 className="w-3 h-3 mr-1" />
                             Conectado
-                          </Badge>
+                          </div>
                         ) : (
-                          <Badge variant="secondary">
+                          <div className="flex items-center text-[12px]">
                             <XCircle className="w-3 h-3 mr-1" />
                             Desconectado
-                          </Badge>
+                          </div>
                         )}
                       </div>
                     </CardHeader>
@@ -456,23 +455,23 @@ export default function AiAttendance() {
                     {config?.hasCustomKey ? (
                       <>
                         {loadingStatus || testApiStatusMutation.isPending ? (
-                          <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
+                          <div className="flex items-center text-sm">
                             <Settings className="w-3 h-3 mr-1 animate-spin" />
                             Verificando...
-                          </Badge>
+                          </div>
                         ) : apiStatus?.status === 'active' ? (
-                          <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                          <div className="flex items-center text-sm">
                             <CheckCircle2 className="w-3 h-3 mr-1" />
                             Ativa
-                          </Badge>
+                          </div>
                         ) : apiStatus?.status === 'error' ? (
                           <TooltipProvider>
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <Badge className="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
+                                <div className="flex items-center text-sm">
                                   <AlertCircle className="w-3 h-3 mr-1" />
                                   Erro
-                                </Badge>
+                                </div>
                               </TooltipTrigger>
                               <TooltipContent>
                                 <p>{apiStatus?.message || 'Erro desconhecido'}</p>
@@ -480,10 +479,10 @@ export default function AiAttendance() {
                             </Tooltip>
                           </TooltipProvider>
                         ) : (
-                          <Badge variant="secondary">
+                          <div className="flex items-center text-sm">
                             <HelpCircle className="w-3 h-3 mr-1" />
                             Desconhecido
-                          </Badge>
+                          </div>
                         )}
                         <Button
                           size="sm"
@@ -733,9 +732,9 @@ export default function AiAttendance() {
                         <TableCell className="max-w-xs truncate">{example.question}</TableCell>
                         <TableCell className="max-w-xs truncate">{example.answer}</TableCell>
                         <TableCell>
-                          <Badge variant="outline" className="rounded-full">
+                          <span className="text-sm">
                             {TRAINING_CATEGORIES.find(c => c.value === example.category)?.label || example.category}
-                          </Badge>
+                          </span>
                         </TableCell>
                         <TableCell>
                           <Switch
