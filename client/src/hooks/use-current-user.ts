@@ -7,6 +7,11 @@ export interface CurrentUser {
   email: string;
   role: string;
   permissions: UserPermissions;
+  avatar?: string;
+  phone?: string;
+  partyId?: string;
+  politicalPosition?: string;
+  lastElectionVotes?: number;
 }
 
 export function useCurrentUser() {

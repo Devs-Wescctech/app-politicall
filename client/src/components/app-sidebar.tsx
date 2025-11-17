@@ -130,7 +130,16 @@ export function AppSidebar() {
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel className="mb-4 px-2 flex items-center gap-3">
-            <img src={logoUrl} alt="Logo" className="h-8 w-auto" />
+            {user?.avatar ? (
+              <img 
+                src={user.avatar} 
+                alt="Foto de Perfil" 
+                className="h-8 w-8 rounded-full object-cover"
+                data-testid="avatar-image"
+              />
+            ) : (
+              <img src={logoUrl} alt="Logo" className="h-8 w-auto" />
+            )}
             {user?.name && (
               <span className="text-sm font-semibold text-foreground" data-testid="text-user-name">
                 {getShortName(user.name)}
