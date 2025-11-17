@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { motion, useScroll, useTransform } from "framer-motion";
 import logoUrl from "@assets/logo pol_1763308638963.png";
+import brazilFlagImage from "@assets/2150169459_1763409992891.jpg";
 import crmImage from "@assets/stock_images/professional_crm_das_daddedaa.jpg";
 import alliancesImage from "@assets/stock_images/political_alliances__25c21404.jpg";
 import demandsImage from "@assets/stock_images/task_management_dema_ed39ef14.jpg";
@@ -196,7 +197,11 @@ export default function LandingPage() {
       </motion.header>
 
       <section className="relative min-h-screen flex items-center justify-center pt-16 overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-background to-background" />
+        <div 
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+          style={{ backgroundImage: `url(${brazilFlagImage})` }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-br from-black/70 via-black/60 to-black/70" />
         
         <div className="container mx-auto px-4 py-32 relative z-10">
           <motion.div
