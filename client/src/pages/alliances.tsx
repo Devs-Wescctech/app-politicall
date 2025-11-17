@@ -378,7 +378,7 @@ export default function Alliances() {
             className="rounded-full"
           >
             <Send className="w-4 h-4 mr-2" />
-            Email em Massa
+            Enviar E-mail
           </Button>
           
           <Button 
