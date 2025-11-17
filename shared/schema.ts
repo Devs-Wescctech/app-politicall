@@ -322,12 +322,13 @@ export const googleAdsCampaigns = pgTable("google_ads_campaigns", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-// Google Ads Campaign Assets (Images)
+// Google Ads Campaign Assets (Images and Videos)
 export const googleAdsCampaignAssets = pgTable("google_ads_campaign_assets", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   campaignId: varchar("campaign_id").notNull().references(() => googleAdsCampaigns.id, { onDelete: "cascade" }),
+  assetType: text("asset_type").notNull().default("image"), // image or video
   storageKey: text("storage_key").notNull(), // Path in attached_assets
-  url: text("url").notNull(), // Full URL to access the image
+  url: text("url").notNull(), // Full URL to access the asset
   originalFilename: text("original_filename").notNull(),
   sizeBytes: integer("size_bytes").notNull(),
   mimeType: text("mime_type").notNull(),
