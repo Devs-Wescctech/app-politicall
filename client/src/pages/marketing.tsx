@@ -1268,6 +1268,11 @@ export default function Marketing() {
                         <Label className="text-xs text-muted-foreground">URL da Pesquisa:</Label>
                         <p className="text-sm font-mono mt-1">politicall.com.br/pesquisa/{form.watch("slug")}</p>
                       </div>
+                      <div className="pt-2 border-t">
+                        <p className="text-xs text-muted-foreground">
+                          A pesquisa será realizada por <strong>7 dias corridos</strong> a contar da data de aprovação da solicitação
+                        </p>
+                      </div>
                     </CardContent>
                   </Card>
 
