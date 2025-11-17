@@ -326,6 +326,7 @@ export const surveyCampaigns = pgTable("survey_campaigns", {
   startDate: timestamp("start_date"),
   endDate: timestamp("end_date"),
   targetAudience: text("target_audience"), // Optional description of target
+  viewCount: integer("view_count").default(0).notNull(), // Track landing page views
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

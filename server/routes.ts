@@ -1622,8 +1622,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get all survey campaigns for user
   app.get("/api/survey-campaigns", authenticateToken, requirePermission("marketing"), async (req: AuthRequest, res) => {
     try {
-      const campaigns = await storage.getSurveyCampaigns(req.userId!);
-      res.json(campaigns);
+      // Fetch campaigns with templates and response counts
+      const results = await db.select({
+        campaign: surveyCampaigns,
+        template: surveyTemplates
+      })
+        .from(surveyCampaigns)
+        .innerJoin(surveyTemplates, eq(surveyCampaigns.templateId, surveyTemplates.id))
+        .where(eq(surveyCampaigns.userId, req.userId!))
+        .orderBy(desc(surveyCampaigns.createdAt));
+
+      // Enrich with response counts
+      const enrichedCampaigns = await Promise.all(
+        results.map(async ({ campaign, template }) => {
+          const responses = await db.select()
+            .from(surveyResponses)
+            .where(eq(surveyResponses.campaignId, campaign.id));
+
+          return {
+            ...campaign,
+            template,
+            responseCount: responses.length,
+            viewCount: campaign.viewCount || 0
+          };
+        })
+      );
+
+      res.json(enrichedCampaigns);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -1737,6 +1762,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (campaign.status !== "active" && campaign.status !== "approved") {
         return res.status(400).json({ error: "Esta pesquisa não está disponível no momento" });
       }
+
+      // Increment view count
+      await db.update(surveyCampaigns)
+        .set({ viewCount: sql`${surveyCampaigns.viewCount} + 1` })
+        .where(eq(surveyCampaigns.id, campaign.id));
 
       res.json({
         campaign: {

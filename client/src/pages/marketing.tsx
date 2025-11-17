@@ -70,6 +70,7 @@ function slugify(text: string): string {
 interface CampaignWithTemplate extends SurveyCampaign {
   template?: SurveyTemplate;
   responseCount?: number;
+  viewCount?: number;
 }
 
 
@@ -114,9 +115,10 @@ const DEMOGRAPHIC_LABELS: Record<string, Record<string, string>> = {
 interface SurveyResultsProps {
   campaignId: string;
   template?: SurveyTemplate;
+  viewCount?: number;
 }
 
-function SurveyResults({ campaignId, template }: SurveyResultsProps) {
+function SurveyResults({ campaignId, template, viewCount = 0 }: SurveyResultsProps) {
   const { data: responses, isLoading } = useQuery<any[]>({
     queryKey: ["/api/survey-campaigns", campaignId, "responses"],
     enabled: !!campaignId,
@@ -212,10 +214,21 @@ function SurveyResults({ campaignId, template }: SurveyResultsProps) {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
+                <p className="text-sm opacity-90">Visualizações da URL</p>
+                <p className="text-4xl font-bold mt-2">{viewCount}</p>
+              </div>
+              <Eye className="w-12 h-12 opacity-50" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-gradient-to-br from-[#48D1CC] to-[#40E0D0] text-white">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
                 <p className="text-sm opacity-90">Total de Respostas</p>
                 <p className="text-4xl font-bold mt-2">{responses.length}</p>
               </div>
-              <Eye className="w-12 h-12 opacity-50" />
+              <BarChart3 className="w-12 h-12 opacity-50" />
             </div>
           </CardContent>
         </Card>
@@ -622,7 +635,7 @@ export default function Marketing() {
                     </Button>
 
                     {expandedResults.has(campaign.id) && (
-                      <SurveyResults campaignId={campaign.id} template={campaign.template} />
+                      <SurveyResults campaignId={campaign.id} template={campaign.template} viewCount={campaign.viewCount || 0} />
                     )}
                   </CardContent>
                 </Card>
