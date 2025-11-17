@@ -11,7 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { setAuthToken, setAuthUser } from "@/lib/auth";
 import { apiRequest } from "@/lib/queryClient";
 import logoUrl from "@assets/logo pol_1763308638963.png";
-import backgroundUrl from "@assets/242_1763395274317.jpg";
+import backgroundUrl from "@assets/d39a8f83-9488-4450-a920-1ca2b1507b3e_1763412325286.jpg";
 
 export default function Login() {
   const [, setLocation] = useLocation();
