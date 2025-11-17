@@ -210,17 +210,17 @@ export default function LandingPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
           >
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary mb-6" data-testid="badge-hero-label">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur-sm text-white mb-6" data-testid="badge-hero-label">
               <Sparkles className="w-4 h-4" />
               <span className="text-sm font-medium">Plataforma Profissional de Gestão Política</span>
             </div>
             
-            <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight" data-testid="text-hero-title">
+            <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight text-white" data-testid="text-hero-title">
               Transforme Sua Carreira Política com
               <span className="bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent"> Tecnologia de Ponta</span>
             </h1>
             
-            <p className="text-xl md:text-2xl text-muted-foreground mb-12 leading-relaxed max-w-3xl mx-auto" data-testid="text-hero-subtitle">
+            <p className="text-xl md:text-2xl text-white/90 mb-12 leading-relaxed max-w-3xl mx-auto" data-testid="text-hero-subtitle">
               CRM inteligente para eleitores, IA que responde automaticamente suas redes sociais, pesquisas TSE-compliant, gestão de demandas e muito mais. Tudo em uma única plataforma profissional.
             </p>
 
@@ -236,7 +236,7 @@ export default function LandingPage() {
               <Button
                 size="lg"
                 variant="outline"
-                className="rounded-full text-lg px-8 py-6 h-auto"
+                className="rounded-full text-lg px-8 py-6 h-auto bg-white/10 backdrop-blur-sm text-white border-white/20 hover:bg-white/20"
                 onClick={() => scrollToSection('ia')}
                 data-testid="button-learn-hero"
               >
@@ -247,15 +247,15 @@ export default function LandingPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-3xl mx-auto">
               <div className="flex flex-col items-center gap-2" data-testid="stat-users">
                 <div className="text-4xl font-bold text-primary">500+</div>
-                <div className="text-sm text-muted-foreground">Políticos Ativos</div>
+                <div className="text-sm text-white/80">Políticos Ativos</div>
               </div>
               <div className="flex flex-col items-center gap-2" data-testid="stat-contacts">
                 <div className="text-4xl font-bold text-primary">50mil+</div>
-                <div className="text-sm text-muted-foreground">Eleitores Cadastrados</div>
+                <div className="text-sm text-white/80">Eleitores Cadastrados</div>
               </div>
               <div className="flex flex-col items-center gap-2" data-testid="stat-responses">
                 <div className="text-4xl font-bold text-primary">1M+</div>
-                <div className="text-sm text-muted-foreground">Respostas Automáticas IA</div>
+                <div className="text-sm text-white/80">Respostas Automáticas IA</div>
               </div>
             </div>
           </motion.div>
