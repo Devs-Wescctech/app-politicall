@@ -18,9 +18,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, Trash2, Edit, X, Image as ImageIcon } from "lucide-react";
+import { Plus, Trash2, Edit, X, Image as ImageIcon, Video } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -76,29 +77,41 @@ function ImageUploadComponent({ campaignId, onUploadComplete }: ImageUploadProps
   const [selectedAssets, setSelectedAssets] = useState<string[]>([]);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [assetToDelete, setAssetToDelete] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"images" | "videos">("images");
   const { toast } = useToast();
-  const fileInputId = `file-input-${campaignId}`;
+  const imageInputId = `image-input-${campaignId}`;
+  const videoInputId = `video-input-${campaignId}`;
 
   const { data: assets, isLoading: assetsLoading } = useQuery<GoogleAdsCampaignAsset[]>({
     queryKey: ["/api/google-ads-campaigns", campaignId, "assets"],
     enabled: !!campaignId,
   });
 
+  const imageAssets = assets?.filter(a => a.assetType === "image") || [];
+  const videoAssets = assets?.filter(a => a.assetType === "video") || [];
+
   const uploadMutation = useMutation({
-    mutationFn: async (file: File) => {
-      if (!file.type.startsWith("image/")) {
+    mutationFn: async ({ file, assetType }: { file: File; assetType: "image" | "video" }) => {
+      const isImage = assetType === "image";
+      const isVideo = assetType === "video";
+
+      if (isImage && !file.type.startsWith("image/")) {
         throw new Error("Apenas imagens são permitidas.");
+      }
+      if (isVideo && !file.type.startsWith("video/")) {
+        throw new Error("Apenas vídeos são permitidos.");
       }
 
       const reader = new FileReader();
       return new Promise((resolve, reject) => {
         reader.onload = async () => {
           try {
-            const imageData = reader.result as string;
-            const response = await apiRequest("POST", `/api/google-ads-campaigns/${campaignId}/upload-image`, {
-              imageData,
+            const fileData = reader.result as string;
+            const response = await apiRequest("POST", `/api/google-ads-campaigns/${campaignId}/upload-asset`, {
+              assetData: fileData,
               filename: file.name,
               mimeType: file.type,
+              assetType,
             });
             resolve(response);
           } catch (error) {
@@ -109,14 +122,15 @@ function ImageUploadComponent({ campaignId, onUploadComplete }: ImageUploadProps
         reader.readAsDataURL(file);
       });
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/google-ads-campaigns", campaignId, "assets"] });
       queryClient.invalidateQueries({ queryKey: ["/api/google-ads-campaigns"] });
-      toast({ title: "Imagem enviada com sucesso!" });
+      const assetTypeName = variables.assetType === "image" ? "Imagem" : "Vídeo";
+      toast({ title: `${assetTypeName} enviado com sucesso!` });
       onUploadComplete();
     },
     onError: (error: Error) => {
-      toast({ title: error.message || "Erro ao enviar imagem", variant: "destructive" });
+      toast({ title: error.message || "Erro ao enviar arquivo", variant: "destructive" });
     },
   });
 
@@ -127,13 +141,18 @@ function ImageUploadComponent({ campaignId, onUploadComplete }: ImageUploadProps
       queryClient.invalidateQueries({ queryKey: ["/api/google-ads-campaigns"] });
     },
     onError: () => {
-      toast({ title: "Erro ao remover imagem", variant: "destructive" });
+      toast({ title: "Erro ao remover arquivo", variant: "destructive" });
     },
   });
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
-    files.forEach(file => uploadMutation.mutate(file));
+    files.forEach(file => uploadMutation.mutate({ file, assetType: "image" }));
+  };
+
+  const handleVideoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    files.forEach(file => uploadMutation.mutate({ file, assetType: "video" }));
   };
 
   const handleDeleteClick = (assetId: string) => {
@@ -144,7 +163,8 @@ function ImageUploadComponent({ campaignId, onUploadComplete }: ImageUploadProps
   const handleConfirmDelete = async () => {
     if (assetToDelete) {
       await deleteMutation.mutateAsync(assetToDelete);
-      toast({ title: "Imagem removida com sucesso!" });
+      const assetTypeName = activeTab === "images" ? "Imagem" : "Vídeo";
+      toast({ title: `${assetTypeName} removido com sucesso!` });
     }
     setShowDeleteDialog(false);
     setAssetToDelete(null);
@@ -158,132 +178,185 @@ function ImageUploadComponent({ campaignId, onUploadComplete }: ImageUploadProps
     );
   };
 
-  const handleSelectAll = () => {
-    if (selectedAssets.length === assets?.length) {
+  const handleSelectAll = (currentAssets: GoogleAdsCampaignAsset[]) => {
+    if (selectedAssets.length === currentAssets.length && currentAssets.length > 0) {
       setSelectedAssets([]);
     } else {
-      setSelectedAssets(assets?.map(a => a.id) || []);
+      setSelectedAssets(currentAssets.map(a => a.id));
     }
   };
 
   const handleDeleteSelected = async () => {
     const count = selectedAssets.length;
+    const assetTypeName = activeTab === "images" ? "imagem" : "vídeo";
     try {
       for (const assetId of selectedAssets) {
         await deleteMutation.mutateAsync(assetId);
       }
-      toast({ title: `${count} imagem(ns) removida(s) com sucesso!` });
+      toast({ title: `${count} ${assetTypeName}(ns) removida(s) com sucesso!` });
     } catch (error) {
-      toast({ title: "Erro ao remover imagens", variant: "destructive" });
+      toast({ title: `Erro ao remover ${assetTypeName}s`, variant: "destructive" });
     }
     setSelectedAssets([]);
     setShowDeleteDialog(false);
   };
 
-  const currentCount = assets?.length || 0;
-  const hasSelection = selectedAssets.length > 0;
-  const allSelected = selectedAssets.length === currentCount && currentCount > 0;
+  const renderAssetList = (currentAssets: GoogleAdsCampaignAsset[], assetType: "image" | "video") => {
+    const currentCount = currentAssets.length;
+    const hasSelection = selectedAssets.length > 0;
+    const allSelected = selectedAssets.length === currentCount && currentCount > 0;
+    const isImage = assetType === "image";
+    const inputId = isImage ? imageInputId : videoInputId;
+    const Icon = isImage ? ImageIcon : Video;
+    const label = isImage ? "Imagem" : "Vídeo";
+    const labelPlural = isImage ? "Imagens" : "Vídeos";
 
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between gap-2 flex-wrap">
-        <Label>Imagens da Campanha ({currentCount})</Label>
-        <div className="flex gap-2">
-          {currentCount > 0 && (
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <Label>{labelPlural} da Campanha ({currentCount})</Label>
+          <div className="flex gap-2">
+            {currentCount > 0 && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="rounded-full"
+                onClick={() => handleSelectAll(currentAssets)}
+                data-testid={`button-select-all-${assetType}`}
+              >
+                {allSelected ? "Desmarcar Todas" : "Selecionar Todas"}
+              </Button>
+            )}
+            {hasSelection && (
+              <Button
+                type="button"
+                variant="destructive"
+                size="sm"
+                className="rounded-full"
+                onClick={() => setShowDeleteDialog(true)}
+                disabled={deleteMutation.isPending}
+                data-testid={`button-delete-selected-${assetType}`}
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Excluir Selecionadas ({selectedAssets.length})
+              </Button>
+            )}
             <Button
               type="button"
               variant="outline"
               size="sm"
               className="rounded-full"
-              onClick={handleSelectAll}
-              data-testid="button-select-all"
+              onClick={() => document.getElementById(inputId)?.click()}
+              disabled={uploadMutation.isPending}
+              data-testid={`button-upload-${assetType}`}
             >
-              {allSelected ? "Desmarcar Todas" : "Selecionar Todas"}
+              <Icon className="w-4 h-4 mr-2" />
+              {uploadMutation.isPending ? "Enviando..." : `Adicionar ${label}`}
             </Button>
-          )}
-          {hasSelection && (
-            <Button
-              type="button"
-              variant="destructive"
-              size="sm"
-              className="rounded-full"
-              onClick={() => setShowDeleteDialog(true)}
-              disabled={deleteMutation.isPending}
-              data-testid="button-delete-selected"
-            >
-              <Trash2 className="w-4 h-4 mr-2" />
-              Excluir Selecionadas ({selectedAssets.length})
-            </Button>
-          )}
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="rounded-full"
-            onClick={() => document.getElementById(fileInputId)?.click()}
-            disabled={uploadMutation.isPending}
-            data-testid="button-upload-image"
-          >
-            <ImageIcon className="w-4 h-4 mr-2" />
-            {uploadMutation.isPending ? "Enviando..." : "Adicionar Imagem"}
-          </Button>
+          </div>
         </div>
-        <input
-          id={fileInputId}
-          type="file"
-          accept="image/*"
-          multiple
-          onChange={handleFileSelect}
-          className="hidden"
-          data-testid="input-file-upload"
-        />
-      </div>
 
-      {assetsLoading ? (
-        <div className="grid grid-cols-3 gap-4">
-          {[1, 2, 3].map((i) => (
-            <Skeleton key={i} className="aspect-square rounded-lg" />
-          ))}
-        </div>
-      ) : (
-        <div className="grid grid-cols-3 gap-4">
-          {assets?.map((asset) => (
-            <div key={asset.id} className="relative group">
-              <div className="absolute top-2 left-2 z-10">
-                <Checkbox
-                  checked={selectedAssets.includes(asset.id)}
-                  onCheckedChange={() => handleToggleSelect(asset.id)}
-                  className="bg-white dark:bg-gray-800"
-                  data-testid={`checkbox-select-image-${asset.id}`}
-                />
+        {assetsLoading ? (
+          <div className="grid grid-cols-3 gap-4">
+            {[1, 2, 3].map((i) => (
+              <Skeleton key={i} className="aspect-square rounded-lg" />
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-3 gap-4">
+            {currentAssets.map((asset) => (
+              <div key={asset.id} className="relative group">
+                <div className="absolute top-2 left-2 z-10">
+                  <Checkbox
+                    checked={selectedAssets.includes(asset.id)}
+                    onCheckedChange={() => handleToggleSelect(asset.id)}
+                    className="bg-white dark:bg-gray-800"
+                    data-testid={`checkbox-select-${assetType}-${asset.id}`}
+                  />
+                </div>
+                {isImage ? (
+                  <img
+                    src={asset.url}
+                    alt={asset.originalFilename}
+                    className="w-full aspect-square object-cover rounded-lg"
+                  />
+                ) : (
+                  <video
+                    src={asset.url}
+                    className="w-full aspect-square object-cover rounded-lg"
+                    controls
+                  />
+                )}
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="icon"
+                  className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity rounded-full"
+                  onClick={() => handleDeleteClick(asset.id)}
+                  disabled={deleteMutation.isPending}
+                  data-testid={`button-delete-${assetType}-${asset.id}`}
+                >
+                  <X className="w-4 h-4" />
+                </Button>
               </div>
-              <img
-                src={asset.url}
-                alt={asset.originalFilename}
-                className="w-full aspect-square object-cover rounded-lg"
-              />
-              <Button
-                type="button"
-                variant="destructive"
-                size="icon"
-                className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity rounded-full"
-                onClick={() => handleDeleteClick(asset.id)}
-                disabled={deleteMutation.isPending}
-                data-testid={`button-delete-image-${asset.id}`}
-              >
-                <X className="w-4 h-4" />
-              </Button>
-            </div>
-          ))}
-        </div>
-      )}
+            ))}
+          </div>
+        )}
 
-      {currentCount === 0 && !assetsLoading && (
-        <div className="text-center py-8 text-muted-foreground">
-          <ImageIcon className="w-12 h-12 mx-auto mb-2 opacity-50" />
-          <p>Nenhuma imagem adicionada ainda</p>
-        </div>
-      )}
+        {currentCount === 0 && !assetsLoading && (
+          <div className="text-center py-8 text-muted-foreground">
+            <Icon className="w-12 h-12 mx-auto mb-2 opacity-50" />
+            <p>Nenhum {label.toLowerCase()} adicionado ainda</p>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const assetTypeName = activeTab === "images" ? "imagem" : "vídeo";
+
+  return (
+    <div className="space-y-4">
+      <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v as "images" | "videos"); setSelectedAssets([]); }}>
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="images" data-testid="tab-images">
+            <ImageIcon className="w-4 h-4 mr-2" />
+            Imagens ({imageAssets.length})
+          </TabsTrigger>
+          <TabsTrigger value="videos" data-testid="tab-videos">
+            <Video className="w-4 h-4 mr-2" />
+            Vídeos ({videoAssets.length})
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="images">
+          {renderAssetList(imageAssets, "image")}
+        </TabsContent>
+
+        <TabsContent value="videos">
+          {renderAssetList(videoAssets, "video")}
+        </TabsContent>
+      </Tabs>
+
+      <input
+        id={imageInputId}
+        type="file"
+        accept="image/*"
+        multiple
+        onChange={handleImageSelect}
+        className="hidden"
+        data-testid="input-image-upload"
+      />
+      <input
+        id={videoInputId}
+        type="file"
+        accept="video/*"
+        multiple
+        onChange={handleVideoSelect}
+        className="hidden"
+        data-testid="input-video-upload"
+      />
 
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
@@ -291,8 +364,8 @@ function ImageUploadComponent({ campaignId, onUploadComplete }: ImageUploadProps
             <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
             <AlertDialogDescription>
               {assetToDelete 
-                ? "Tem certeza que deseja excluir esta imagem? Esta ação não pode ser desfeita."
-                : `Tem certeza que deseja excluir ${selectedAssets.length} imagem(ns)? Esta ação não pode ser desfeita.`
+                ? `Tem certeza que deseja excluir este ${assetTypeName}? Esta ação não pode ser desfeita.`
+                : `Tem certeza que deseja excluir ${selectedAssets.length} ${assetTypeName}(ns)? Esta ação não pode ser desfeita.`
               }
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -507,13 +580,6 @@ function GoogleAdsTab() {
                       </FormItem>
                     )}
                   />
-
-                  <div className="p-4 bg-muted rounded-lg">
-                    <Label className="text-sm">URL da Landing Page</Label>
-                    <p className="text-sm font-mono mt-1" data-testid="text-lp-url">
-                      {form.watch("lpUrl") || "https://www.politicall.com.br/..."}
-                    </p>
-                  </div>
 
                   <FormField
                     control={form.control}
