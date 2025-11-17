@@ -440,70 +440,23 @@ export default function LandingPage() {
                 </h2>
                 
                 <p className="text-lg text-muted-foreground mb-8">
-                  Nossa inteligência artificial foi treinada especificamente para o contexto político brasileiro. Ela aprende o seu tom de voz, suas posições e responde automaticamente mensagens em Facebook, Instagram, Twitter e WhatsApp.
+                  IA treinada para responder automaticamente suas redes sociais (Facebook, Instagram, Twitter e WhatsApp) mantendo seu tom de voz e posicionamento político.
                 </p>
 
-                <div className="space-y-6">
-                  <div className="flex items-start gap-4">
-                    <div className="p-2 rounded-lg bg-primary/10 shrink-0">
-                      <CheckCircle2 className="w-5 h-5 text-foreground" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold mb-1">Respostas Personalizadas</h3>
-                      <p className="text-muted-foreground text-sm">
-                        A IA analisa o contexto de cada mensagem e responde de forma personalizada, mantendo seu tom de voz único.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-4">
-                    <div className="p-2 rounded-lg bg-primary/10 shrink-0">
-                      <CheckCircle2 className="w-5 h-5 text-foreground" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold mb-1">Moderação Inteligente</h3>
-                      <p className="text-muted-foreground text-sm">
-                        Filtra automaticamente comentários ofensivos, spam e mensagens irrelevantes, mantendo suas redes limpas.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-4">
-                    <div className="p-2 rounded-lg bg-primary/10 shrink-0">
-                      <CheckCircle2 className="w-5 h-5 text-foreground" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold mb-1">Análise de Sentimento</h3>
-                      <p className="text-muted-foreground text-sm">
-                        Monitora o sentimento das interações e alerta sobre tendências positivas ou negativas em tempo real.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-4">
-                    <div className="p-2 rounded-lg bg-primary/10 shrink-0">
-                      <CheckCircle2 className="w-5 h-5 text-foreground" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold mb-1">Escalamento Inteligente</h3>
-                      <p className="text-muted-foreground text-sm">
-                        Identifica questões complexas e encaminha automaticamente para sua equipe quando necessário.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-4">
-                    <div className="p-2 rounded-lg bg-primary/10 shrink-0">
-                      <CheckCircle2 className="w-5 h-5 text-foreground" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold mb-1">Relatórios Detalhados</h3>
-                      <p className="text-muted-foreground text-sm">
-                        Acompanhe métricas de engajamento, temas mais discutidos e oportunidades de conexão.
-                      </p>
-                    </div>
-                  </div>
-                </div>
+                <ul className="space-y-3">
+                  <li className="flex items-start gap-3">
+                    <ChevronRight className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                    <span>Respostas automáticas 24/7 em todas as redes sociais</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <ChevronRight className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                    <span>Moderação inteligente filtrando spam e ofensas</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <ChevronRight className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                    <span>Economia massiva de tempo da sua equipe</span>
+                  </li>
+                </ul>
               </div>
 
               <img 
