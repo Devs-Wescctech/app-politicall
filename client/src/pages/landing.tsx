@@ -29,7 +29,7 @@ import alliancesImage from "@assets/Técnico- Luis Flores (5)_1763413674690.png"
 import demandsImage from "@assets/Técnico- Luis Flores (6)_1763413913827.png";
 import eventsImage from "@assets/Técnico- Luis Flores (7)_1763414009496.png";
 import aiImage from "@assets/dsfsdfdsfdsfdsf_1763412976580.png";
-import marketingImage from "@assets/stock_images/marketing_campaign_a_481dcd3f.jpg";
+import surveysImage from "@assets/Técnico- Luis Flores (8)_1763415574038.png";
 import ctaBackground from "@assets/2151190606_1763415381149.jpg";
 
 const BRAZILIAN_STATES = [
@@ -857,24 +857,12 @@ export default function LandingPage() {
                 </div>
               </div>
 
-              <div className="relative">
-                <div className="rounded-xl overflow-hidden shadow-2xl border">
-                  <img 
-                    src={marketingImage} 
-                    alt="Sistema de Pesquisas Eleitorais Politicall" 
-                    className="w-full h-auto"
-                    data-testid="img-surveys-screenshot"
-                  />
-                </div>
-
-                <div className="absolute -bottom-8 -left-8 bg-primary text-primary-foreground p-6 rounded-xl shadow-2xl max-w-xs">
-                  <div className="flex items-center gap-3 mb-2">
-                    <Shield className="w-6 h-6" />
-                    <div className="text-2xl font-bold">100%</div>
-                  </div>
-                  <div className="text-sm opacity-90">Compliance TSE Garantido</div>
-                </div>
-              </div>
+              <img 
+                src={surveysImage} 
+                alt="Sistema de Pesquisas Eleitorais Politicall" 
+                className="w-full h-auto"
+                data-testid="img-surveys-screenshot"
+              />
             </div>
           </div>
         </div>
