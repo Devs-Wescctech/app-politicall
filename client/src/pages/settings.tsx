@@ -72,8 +72,7 @@ export default function Settings() {
         ...data,
         lastElectionVotes: votesNumber,
       };
-      console.log('Payload being sent to API:', payload);
-      return await apiRequest("/api/auth/profile", "PATCH", payload);
+      return await apiRequest("PATCH", "/api/auth/profile", payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
@@ -94,7 +93,7 @@ export default function Settings() {
 
   const uploadAvatarMutation = useMutation({
     mutationFn: async (avatar: string) => {
-      return await apiRequest("/api/auth/profile", "PATCH", { avatar });
+      return await apiRequest("PATCH", "/api/auth/profile", { avatar });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
@@ -150,7 +149,6 @@ export default function Settings() {
   };
 
   const onSubmitProfile = (data: ProfileForm) => {
-    console.log('Form data before submit:', data);
     updateProfileMutation.mutate(data);
   };
 
