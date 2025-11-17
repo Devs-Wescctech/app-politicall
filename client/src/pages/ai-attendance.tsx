@@ -400,7 +400,7 @@ export default function AiAttendance() {
                   <Card key={platform.id} data-testid={`platform-${platform.id}`}>
                     <CardHeader className="pb-3">
                       <div className="flex items-center justify-between">
-                        <platform.icon className="w-8 h-8 text-primary" />
+                        <platform.icon className="w-6 h-6 text-primary" />
                         {connected ? (
                           <CheckCircle2 className="w-4 h-4 text-primary" />
                         ) : (
