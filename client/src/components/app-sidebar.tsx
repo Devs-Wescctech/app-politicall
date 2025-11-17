@@ -129,7 +129,7 @@ export function AppSidebar() {
     <Sidebar>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel className="mt-8 mb-4 px-2 flex items-center gap-3">
+          <SidebarGroupLabel className="mt-12 mb-4 px-2 flex items-center gap-3">
             {user?.avatar ? (
               <img 
                 src={user.avatar} 
