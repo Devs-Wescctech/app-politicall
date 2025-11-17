@@ -288,269 +288,279 @@ export default function UsersManagement() {
 
       {/* Edit Role Dialog */}
       <Dialog open={!!selectedUser} onOpenChange={(open) => !open && setSelectedUser(null)}>
-        <DialogContent data-testid="dialog-edit-role">
-          <DialogHeader>
+        <DialogContent className="max-w-md max-h-[90vh] flex flex-col p-0" data-testid="dialog-edit-role">
+          <DialogHeader className="px-6 pt-6 pb-4 border-b">
             <DialogTitle>Alterar Nível de Acesso</DialogTitle>
           </DialogHeader>
           {selectedUser && (
-            <div className="space-y-4">
-              <div>
-                <p className="text-sm font-medium mb-1">Usuário</p>
-                <p className="text-sm text-muted-foreground">{selectedUser.name} ({selectedUser.email})</p>
-              </div>
-              <div>
-                <p className="text-sm font-medium mb-2">Novo Nível de Acesso</p>
-                <Select value={newRole} onValueChange={setNewRole}>
-                  <SelectTrigger data-testid="select-role">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(ROLE_CONFIG).map(([role, config]) => {
-                      const Icon = config.icon;
-                      return (
-                        <SelectItem key={role} value={role}>
-                          <div className="flex items-center gap-2">
-                            <Icon className="w-4 h-4" />
-                            {config.label}
-                          </div>
-                        </SelectItem>
-                      );
-                    })}
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div className="space-y-3">
-                <p className="text-sm font-medium">Permissões de Acesso aos Menus</p>
-                <div className="grid grid-cols-2 gap-3">
-                  {Object.entries({
-                    dashboard: 'Dashboard',
-                    contacts: 'Eleitores',
-                    alliances: 'Alianças',
-                    demands: 'Demandas',
-                    agenda: 'Agenda',
-                    ai: 'Atendimento IA',
-                    marketing: 'Marketing',
-                    users: 'Usuários'
-                  }).map(([key, label]) => (
-                    <div key={key} className="flex items-center space-x-2">
-                      <Checkbox
-                        id={`edit-perm-${key}`}
-                        checked={editPermissions[key as keyof UserPermissions]}
-                        onCheckedChange={(checked) => {
-                          setEditPermissions(prev => ({
-                            ...prev,
-                            [key]: checked === true
-                          }));
-                        }}
-                        data-testid={`checkbox-edit-permission-${key}`}
-                      />
-                      <label
-                        htmlFor={`edit-perm-${key}`}
-                        className="text-sm cursor-pointer"
-                      >
-                        {label}
-                      </label>
-                    </div>
-                  ))}
+            <>
+              <div className="overflow-y-auto px-6 py-4 space-y-4">
+                <div>
+                  <p className="text-sm font-medium mb-1">Usuário</p>
+                  <p className="text-sm text-muted-foreground">{selectedUser.name} ({selectedUser.email})</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium mb-2">Novo Nível de Acesso</p>
+                  <Select value={newRole} onValueChange={setNewRole}>
+                    <SelectTrigger data-testid="select-role">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(ROLE_CONFIG).map(([role, config]) => {
+                        const Icon = config.icon;
+                        return (
+                          <SelectItem key={role} value={role}>
+                            <div className="flex items-center gap-2">
+                              <Icon className="w-4 h-4" />
+                              {config.label}
+                            </div>
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="space-y-3">
+                  <p className="text-sm font-medium">Permissões de Acesso aos Menus</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    {Object.entries({
+                      dashboard: 'Dashboard',
+                      contacts: 'Eleitores',
+                      alliances: 'Alianças',
+                      demands: 'Demandas',
+                      agenda: 'Agenda',
+                      ai: 'Atendimento IA',
+                      marketing: 'Marketing',
+                      users: 'Usuários'
+                    }).map(([key, label]) => (
+                      <div key={key} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`edit-perm-${key}`}
+                          checked={editPermissions[key as keyof UserPermissions]}
+                          onCheckedChange={(checked) => {
+                            setEditPermissions(prev => ({
+                              ...prev,
+                              [key]: checked === true
+                            }));
+                          }}
+                          data-testid={`checkbox-edit-permission-${key}`}
+                        />
+                        <label
+                          htmlFor={`edit-perm-${key}`}
+                          className="text-sm cursor-pointer"
+                        >
+                          {label}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                
+                <div className="bg-muted/50 p-3 rounded-md text-sm">
+                  <p className="font-medium mb-2">Níveis de Acesso:</p>
+                  <ul className="space-y-1 text-muted-foreground">
+                    <li>• <strong>Adm:</strong> Acesso total ao sistema</li>
+                    <li>• <strong>Coordenador:</strong> Gerencia equipe e operações</li>
+                    <li>• <strong>Assessor:</strong> Acesso básico às funcionalidades</li>
+                  </ul>
                 </div>
               </div>
-              
-              <div className="bg-muted/50 p-3 rounded-md text-sm">
-                <p className="font-medium mb-2">Níveis de Acesso:</p>
-                <ul className="space-y-1 text-muted-foreground">
-                  <li>• <strong>Administrador:</strong> Acesso total ao sistema</li>
-                  <li>• <strong>Coordenador:</strong> Gerencia equipe e operações</li>
-                  <li>• <strong>Assessor:</strong> Acesso básico às funcionalidades</li>
-                </ul>
-              </div>
-            </div>
+              <DialogFooter className="px-6 py-4 border-t">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setSelectedUser(null)} 
+                  data-testid="button-cancel"
+                  className="rounded-full"
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  onClick={handleSaveRole}
+                  disabled={!newRole || updateRoleMutation.isPending}
+                  data-testid="button-save-role"
+                  className="rounded-full"
+                >
+                  {updateRoleMutation.isPending ? "Salvando..." : "Salvar"}
+                </Button>
+              </DialogFooter>
+            </>
           )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setSelectedUser(null)} data-testid="button-cancel">
-              Cancelar
-            </Button>
-            <Button
-              onClick={handleSaveRole}
-              disabled={!newRole || updateRoleMutation.isPending}
-              data-testid="button-save-role"
-            >
-              {updateRoleMutation.isPending ? "Salvando..." : "Salvar"}
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Add User Dialog */}
       <Dialog open={showAddUserDialog} onOpenChange={setShowAddUserDialog}>
-        <DialogContent className="sm:max-w-[500px]" data-testid="dialog-add-user">
-          <DialogHeader>
+        <DialogContent className="max-w-md max-h-[90vh] flex flex-col p-0" data-testid="dialog-add-user">
+          <DialogHeader className="px-6 pt-6 pb-4 border-b">
             <DialogTitle>Adicionar Novo Usuário</DialogTitle>
           </DialogHeader>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmitCreateUser)} className="space-y-4">
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Nome</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Nome completo" {...field} data-testid="input-name" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl>
-                      <Input type="email" placeholder="email@exemplo.com" {...field} data-testid="input-email" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Senha</FormLabel>
-                    <FormControl>
-                      <div className="relative">
-                        <Input
-                          type={showPassword ? "text" : "password"}
-                          placeholder="Mínimo 6 caracteres"
-                          {...field}
-                          data-testid="input-password"
-                        />
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                          onClick={() => setShowPassword(!showPassword)}
-                          data-testid="button-toggle-password"
-                        >
-                          {showPassword ? (
-                            <EyeOff className="h-4 w-4 text-muted-foreground" />
-                          ) : (
-                            <Eye className="h-4 w-4 text-muted-foreground" />
-                          )}
-                        </Button>
-                      </div>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="confirmPassword"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Confirmar Senha</FormLabel>
-                    <FormControl>
-                      <div className="relative">
-                        <Input
-                          type={showConfirmPassword ? "text" : "password"}
-                          placeholder="Digite a senha novamente"
-                          {...field}
-                          data-testid="input-confirm-password"
-                        />
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                          data-testid="button-toggle-confirm-password"
-                        >
-                          {showConfirmPassword ? (
-                            <EyeOff className="h-4 w-4 text-muted-foreground" />
-                          ) : (
-                            <Eye className="h-4 w-4 text-muted-foreground" />
-                          )}
-                        </Button>
-                      </div>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="role"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Nível de Acesso</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+            <form onSubmit={form.handleSubmit(onSubmitCreateUser)} className="flex flex-col flex-1 overflow-hidden">
+              <div className="overflow-y-auto px-6 py-4 space-y-4">
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Nome</FormLabel>
                       <FormControl>
-                        <SelectTrigger data-testid="select-new-user-role">
-                          <SelectValue placeholder="Selecione o nível de acesso" />
-                        </SelectTrigger>
+                        <Input placeholder="Nome completo" {...field} data-testid="input-name" />
                       </FormControl>
-                      <SelectContent>
-                        {Object.entries(ROLE_CONFIG).map(([role, config]) => {
-                          const Icon = config.icon;
-                          return (
-                            <SelectItem key={role} value={role}>
-                              <div className="flex items-center gap-2">
-                                <Icon className="w-4 h-4" />
-                                {config.label}
-                              </div>
-                            </SelectItem>
-                          );
-                        })}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <div className="space-y-3">
-                <p className="text-sm font-medium">Permissões de Acesso aos Menus</p>
-                <div className="grid grid-cols-2 gap-3">
-                  {Object.entries({
-                    dashboard: 'Dashboard',
-                    contacts: 'Eleitores',
-                    alliances: 'Alianças',
-                    demands: 'Demandas',
-                    agenda: 'Agenda',
-                    ai: 'Atendimento IA',
-                    marketing: 'Marketing',
-                    users: 'Usuários'
-                  }).map(([key, label]) => (
-                    <div key={key} className="flex items-center space-x-2">
-                      <Checkbox
-                        id={`perm-${key}`}
-                        checked={customPermissions[key as keyof UserPermissions]}
-                        onCheckedChange={(checked) => {
-                          setCustomPermissions(prev => ({
-                            ...prev,
-                            [key]: checked === true
-                          }));
-                        }}
-                        data-testid={`checkbox-permission-${key}`}
-                      />
-                      <label
-                        htmlFor={`perm-${key}`}
-                        className="text-sm cursor-pointer"
-                      >
-                        {label}
-                      </label>
-                    </div>
-                  ))}
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email</FormLabel>
+                      <FormControl>
+                        <Input type="email" placeholder="email@exemplo.com" {...field} data-testid="input-email" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Senha</FormLabel>
+                      <FormControl>
+                        <div className="relative">
+                          <Input
+                            type={showPassword ? "text" : "password"}
+                            placeholder="Mínimo 6 caracteres"
+                            {...field}
+                            data-testid="input-password"
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                            onClick={() => setShowPassword(!showPassword)}
+                            data-testid="button-toggle-password"
+                          >
+                            {showPassword ? (
+                              <EyeOff className="h-4 w-4 text-muted-foreground" />
+                            ) : (
+                              <Eye className="h-4 w-4 text-muted-foreground" />
+                            )}
+                          </Button>
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="confirmPassword"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Confirmar Senha</FormLabel>
+                      <FormControl>
+                        <div className="relative">
+                          <Input
+                            type={showConfirmPassword ? "text" : "password"}
+                            placeholder="Digite a senha novamente"
+                            {...field}
+                            data-testid="input-confirm-password"
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                            data-testid="button-toggle-confirm-password"
+                          >
+                            {showConfirmPassword ? (
+                              <EyeOff className="h-4 w-4 text-muted-foreground" />
+                            ) : (
+                              <Eye className="h-4 w-4 text-muted-foreground" />
+                            )}
+                          </Button>
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="role"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Nível de Acesso</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-new-user-role">
+                            <SelectValue placeholder="Selecione o nível de acesso" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {Object.entries(ROLE_CONFIG).map(([role, config]) => {
+                            const Icon = config.icon;
+                            return (
+                              <SelectItem key={role} value={role}>
+                                <div className="flex items-center gap-2">
+                                  <Icon className="w-4 h-4" />
+                                  {config.label}
+                                </div>
+                              </SelectItem>
+                            );
+                          })}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <div className="space-y-3">
+                  <p className="text-sm font-medium">Permissões de Acesso aos Menus</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    {Object.entries({
+                      dashboard: 'Dashboard',
+                      contacts: 'Eleitores',
+                      alliances: 'Alianças',
+                      demands: 'Demandas',
+                      agenda: 'Agenda',
+                      ai: 'Atendimento IA',
+                      marketing: 'Marketing',
+                      users: 'Usuários'
+                    }).map(([key, label]) => (
+                      <div key={key} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`perm-${key}`}
+                          checked={customPermissions[key as keyof UserPermissions]}
+                          onCheckedChange={(checked) => {
+                            setCustomPermissions(prev => ({
+                              ...prev,
+                              [key]: checked === true
+                            }));
+                          }}
+                          data-testid={`checkbox-permission-${key}`}
+                        />
+                        <label
+                          htmlFor={`perm-${key}`}
+                          className="text-sm cursor-pointer"
+                        >
+                          {label}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
               
-              <DialogFooter>
+              <DialogFooter className="px-6 py-4 border-t">
                 <Button
                   type="button"
                   variant="outline"
@@ -561,6 +571,7 @@ export default function UsersManagement() {
                     setShowConfirmPassword(false);
                   }}
                   data-testid="button-cancel-add-user"
+                  className="rounded-full"
                 >
                   Cancelar
                 </Button>
@@ -568,6 +579,7 @@ export default function UsersManagement() {
                   type="submit"
                   disabled={createUserMutation.isPending}
                   data-testid="button-submit-add-user"
+                  className="rounded-full"
                 >
                   {createUserMutation.isPending ? "Criando..." : "Criar Usuário"}
                 </Button>
