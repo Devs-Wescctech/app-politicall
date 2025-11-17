@@ -1244,6 +1244,43 @@ export default function Marketing() {
                       </FormItem>
                     )}
                   />
+
+                  <Card className="bg-muted/50">
+                    <CardHeader>
+                      <CardTitle className="text-base">Dados Demográficos Coletados</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      <p className="text-sm text-muted-foreground mb-3">
+                        Além da pergunta principal, esta pesquisa coletará automaticamente os seguintes dados demográficos de todos os participantes:
+                      </p>
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        <div className="flex items-start gap-2">
+                          <span className="text-[#40E0D0]">•</span>
+                          <span>Gênero</span>
+                        </div>
+                        <div className="flex items-start gap-2">
+                          <span className="text-[#40E0D0]">•</span>
+                          <span>Faixa etária</span>
+                        </div>
+                        <div className="flex items-start gap-2">
+                          <span className="text-[#40E0D0]">•</span>
+                          <span>Tipo de emprego</span>
+                        </div>
+                        <div className="flex items-start gap-2">
+                          <span className="text-[#40E0D0]">•</span>
+                          <span>Tipo de moradia</span>
+                        </div>
+                        <div className="flex items-start gap-2">
+                          <span className="text-[#40E0D0]">•</span>
+                          <span>Possui filhos</span>
+                        </div>
+                        <div className="flex items-start gap-2">
+                          <span className="text-[#40E0D0]">•</span>
+                          <span>Ideologia política</span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
                 </div>
               )}
 
