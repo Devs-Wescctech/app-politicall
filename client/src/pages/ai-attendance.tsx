@@ -21,7 +21,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Label } from "@/components/ui/label";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Settings, CheckCircle2, XCircle, Plus, Edit, Trash2, Save, X, AlertCircle, HelpCircle, RefreshCw, MessageSquare } from "lucide-react";
+import { Settings, CheckCircle2, XCircle, Plus, Edit, Trash2, Save, X, AlertCircle, HelpCircle, RefreshCw, MessageSquare, Info } from "lucide-react";
 import { SiFacebook, SiInstagram, SiX, SiWhatsapp } from "react-icons/si";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -989,6 +989,21 @@ export default function AiAttendance() {
             <Form {...platformForm}>
               <form onSubmit={platformForm.handleSubmit(handleSavePlatform)} className="flex flex-col flex-1 overflow-hidden">
                 <div className="overflow-y-auto px-6 py-4 space-y-4">
+                  <div className="bg-primary/10 border border-primary/20 rounded-lg p-4 space-y-2">
+                    <h4 className="font-semibold text-sm flex items-center gap-2">
+                      <Info className="w-4 h-4" />
+                      Configuração de Webhook no Meta
+                    </h4>
+                    <div className="space-y-1 text-sm">
+                      <p className="font-medium">1. Acesse: <a href="https://developers.facebook.com" target="_blank" className="text-primary underline">developers.facebook.com</a> → Seu App → Produtos → Webhooks</p>
+                      <p className="font-medium">2. Cole esta URL de Callback:</p>
+                      <code className="block bg-background px-3 py-2 rounded border text-xs">
+                        https://www.politicall.com.br/api/webhook/facebook
+                      </code>
+                      <p className="font-medium">3. Use o mesmo Verify Token que você definir abaixo</p>
+                      <p className="font-medium">4. Inscreva-se nos campos: messages, messaging_postbacks</p>
+                    </div>
+                  </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField
                     control={platformForm.control}
@@ -1087,6 +1102,21 @@ export default function AiAttendance() {
             <Form {...platformForm}>
               <form onSubmit={platformForm.handleSubmit(handleSavePlatform)} className="flex flex-col flex-1 overflow-hidden">
                 <div className="overflow-y-auto px-6 py-4 space-y-4">
+                  <div className="bg-primary/10 border border-primary/20 rounded-lg p-4 space-y-2">
+                    <h4 className="font-semibold text-sm flex items-center gap-2">
+                      <Info className="w-4 h-4" />
+                      Configuração de Webhook no Meta
+                    </h4>
+                    <div className="space-y-1 text-sm">
+                      <p className="font-medium">1. Acesse: <a href="https://developers.facebook.com" target="_blank" className="text-primary underline">developers.facebook.com</a> → Seu App → Produtos → Webhooks</p>
+                      <p className="font-medium">2. Cole esta URL de Callback:</p>
+                      <code className="block bg-background px-3 py-2 rounded border text-xs">
+                        https://www.politicall.com.br/api/webhook/facebook
+                      </code>
+                      <p className="font-medium">3. Instagram usa o mesmo webhook do Facebook</p>
+                      <p className="font-medium">4. Inscreva-se nos campos: messages, messaging_postbacks</p>
+                    </div>
+                  </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField
                     control={platformForm.control}
@@ -1185,6 +1215,20 @@ export default function AiAttendance() {
             <Form {...platformForm}>
               <form onSubmit={platformForm.handleSubmit(handleSavePlatform)} className="flex flex-col flex-1 overflow-hidden">
                 <div className="overflow-y-auto px-6 py-4 space-y-4">
+                  <div className="bg-primary/10 border border-primary/20 rounded-lg p-4 space-y-2">
+                    <h4 className="font-semibold text-sm flex items-center gap-2">
+                      <Info className="w-4 h-4" />
+                      Configuração de Webhook no Twitter
+                    </h4>
+                    <div className="space-y-1 text-sm">
+                      <p className="font-medium">1. Acesse: <a href="https://developer.twitter.com/en/portal/dashboard" target="_blank" className="text-primary underline">developer.twitter.com</a> → Seu App → Webhooks</p>
+                      <p className="font-medium">2. Cole esta URL de Callback:</p>
+                      <code className="block bg-background px-3 py-2 rounded border text-xs">
+                        https://www.politicall.com.br/api/webhook/twitter
+                      </code>
+                      <p className="font-medium">3. Twitter fará uma verificação CRC automática</p>
+                    </div>
+                  </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField
                     control={platformForm.control}
@@ -1309,6 +1353,21 @@ export default function AiAttendance() {
             <Form {...platformForm}>
               <form onSubmit={platformForm.handleSubmit(handleSavePlatform)} className="flex flex-col flex-1 overflow-hidden">
                 <div className="overflow-y-auto px-6 py-4 space-y-4">
+                  <div className="bg-primary/10 border border-primary/20 rounded-lg p-4 space-y-2">
+                    <h4 className="font-semibold text-sm flex items-center gap-2">
+                      <Info className="w-4 h-4" />
+                      Configuração de Webhook no Meta WhatsApp
+                    </h4>
+                    <div className="space-y-1 text-sm">
+                      <p className="font-medium">1. Acesse: <a href="https://developers.facebook.com" target="_blank" className="text-primary underline">developers.facebook.com</a> → Seu App → WhatsApp → Configuração</p>
+                      <p className="font-medium">2. Cole esta URL de Callback:</p>
+                      <code className="block bg-background px-3 py-2 rounded border text-xs">
+                        https://www.politicall.com.br/api/webhook/whatsapp
+                      </code>
+                      <p className="font-medium">3. Use o mesmo Webhook Verify Token que você definir abaixo</p>
+                      <p className="font-medium">4. Inscreva-se nos campos: messages, message_status</p>
+                    </div>
+                  </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField
                     control={platformForm.control}

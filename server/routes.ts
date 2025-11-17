@@ -1411,6 +1411,123 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ==================== WEBHOOKS (Meta, WhatsApp, Twitter) ====================
+  
+  // Facebook/Instagram Webhook - Verification (GET)
+  app.get("/api/webhook/facebook", (req, res) => {
+    const mode = req.query['hub.mode'];
+    const token = req.query['hub.verify_token'];
+    const challenge = req.query['hub.challenge'];
+    
+    // Você deve configurar o mesmo token no Meta Developer Console
+    const VERIFY_TOKEN = process.env.FACEBOOK_WEBHOOK_VERIFY_TOKEN || 'politicall_fb_verify_token_2024';
+    
+    if (mode === 'subscribe' && token === VERIFY_TOKEN) {
+      console.log('✓ Facebook webhook verified');
+      res.status(200).send(challenge);
+    } else {
+      console.log('✗ Facebook webhook verification failed');
+      res.sendStatus(403);
+    }
+  });
+
+  // Facebook/Instagram Webhook - Receive Events (POST)
+  app.post("/api/webhook/facebook", (req, res) => {
+    const body = req.body;
+    
+    console.log('Facebook webhook event received:', JSON.stringify(body, null, 2));
+    
+    if (body.object === 'page') {
+      body.entry?.forEach((entry: any) => {
+        const webhookEvent = entry.messaging?.[0];
+        if (webhookEvent) {
+          console.log('Facebook message:', webhookEvent);
+          // TODO: Process Facebook/Instagram message
+          // Implement AI response logic here
+        }
+      });
+      res.status(200).send('EVENT_RECEIVED');
+    } else {
+      res.sendStatus(404);
+    }
+  });
+
+  // WhatsApp Webhook - Verification (GET)
+  app.get("/api/webhook/whatsapp", (req, res) => {
+    const mode = req.query['hub.mode'];
+    const token = req.query['hub.verify_token'];
+    const challenge = req.query['hub.challenge'];
+    
+    const VERIFY_TOKEN = process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN || 'politicall_wa_verify_token_2024';
+    
+    if (mode === 'subscribe' && token === VERIFY_TOKEN) {
+      console.log('✓ WhatsApp webhook verified');
+      res.status(200).send(challenge);
+    } else {
+      console.log('✗ WhatsApp webhook verification failed');
+      res.sendStatus(403);
+    }
+  });
+
+  // WhatsApp Webhook - Receive Events (POST)
+  app.post("/api/webhook/whatsapp", (req, res) => {
+    const body = req.body;
+    
+    console.log('WhatsApp webhook event received:', JSON.stringify(body, null, 2));
+    
+    if (body.object === 'whatsapp_business_account') {
+      body.entry?.forEach((entry: any) => {
+        const changes = entry.changes?.[0];
+        const value = changes?.value;
+        
+        if (value?.messages) {
+          const message = value.messages[0];
+          console.log('WhatsApp message from:', message.from, 'Text:', message.text?.body);
+          // TODO: Process WhatsApp message
+          // Implement AI response logic here
+        }
+      });
+      res.status(200).send('EVENT_RECEIVED');
+    } else {
+      res.sendStatus(404);
+    }
+  });
+
+  // Twitter/X Webhook - Verification (GET)
+  app.get("/api/webhook/twitter", (req, res) => {
+    const crc_token = req.query.crc_token;
+    
+    if (crc_token) {
+      const crypto = require('crypto');
+      const consumer_secret = process.env.TWITTER_CONSUMER_SECRET || '';
+      
+      const hmac = crypto.createHmac('sha256', consumer_secret).update(crc_token as string).digest('base64');
+      const response_token = `sha256=${hmac}`;
+      
+      console.log('✓ Twitter CRC verified');
+      res.status(200).json({ response_token });
+    } else {
+      res.sendStatus(400);
+    }
+  });
+
+  // Twitter/X Webhook - Receive Events (POST)
+  app.post("/api/webhook/twitter", (req, res) => {
+    const body = req.body;
+    
+    console.log('Twitter webhook event received:', JSON.stringify(body, null, 2));
+    
+    if (body.direct_message_events) {
+      body.direct_message_events.forEach((event: any) => {
+        console.log('Twitter DM:', event);
+        // TODO: Process Twitter message
+        // Implement AI response logic here
+      });
+    }
+    
+    res.status(200).send('EVENT_RECEIVED');
+  });
+
   // ==================== DASHBOARD STATS ====================
   
   app.get("/api/dashboard/stats", authenticateToken, async (req: AuthRequest, res) => {
