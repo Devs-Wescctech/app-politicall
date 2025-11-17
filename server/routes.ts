@@ -11,6 +11,7 @@ import { generateAiResponse, testOpenAiApiKey } from "./openai";
 import { requireRole } from "./authorization";
 import { authenticateToken, requirePermission, type AuthRequest } from "./auth";
 import { z } from "zod";
+import { groupTextResponses } from "@shared/text-normalization";
 import fs from "fs";
 import path from "path";
 
@@ -1842,7 +1843,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const responses = await storage.getSurveyResponses(req.params.id);
-      res.json(responses);
+      
+      // Get template to check question type
+      const template = await storage.getSurveyTemplate(campaign.templateId);
+      
+      // For open_text questions, group similar responses
+      if (template && template.questionType === "open_text") {
+        const textResponses = responses
+          .map(r => (r.responseData as any)?.answer as string)
+          .filter((answer): answer is string => typeof answer === 'string' && answer.trim().length > 0);
+        
+        const grouped = groupTextResponses(textResponses);
+        
+        res.json({
+          responses,
+          grouped, // Grouped and counted responses for open_text
+          questionType: template.questionType
+        });
+      } else {
+        res.json({
+          responses,
+          questionType: template?.questionType
+        });
+      }
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }

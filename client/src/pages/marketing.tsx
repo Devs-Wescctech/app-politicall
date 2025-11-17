@@ -118,8 +118,20 @@ interface SurveyResultsProps {
   viewCount?: number;
 }
 
+interface GroupedTextResponse {
+  displayText: string;
+  normalizedText: string;
+  count: number;
+}
+
+interface ResponsesData {
+  responses: any[];
+  grouped?: GroupedTextResponse[];
+  questionType?: string;
+}
+
 function SurveyResults({ campaignId, template, viewCount = 0 }: SurveyResultsProps) {
-  const { data: responses, isLoading } = useQuery<any[]>({
+  const { data: responseData, isLoading } = useQuery<ResponsesData>({
     queryKey: ["/api/survey-campaigns", campaignId, "responses"],
     enabled: !!campaignId,
   });
@@ -132,6 +144,10 @@ function SurveyResults({ campaignId, template, viewCount = 0 }: SurveyResultsPro
       </div>
     );
   }
+
+  // Handle both old and new API response formats
+  const responses = Array.isArray(responseData) ? responseData : (responseData?.responses || []);
+  const groupedResponses = !Array.isArray(responseData) ? responseData?.grouped : undefined;
 
   if (!responses || responses.length === 0) {
     return (
@@ -204,7 +220,7 @@ function SurveyResults({ campaignId, template, viewCount = 0 }: SurveyResultsPro
     return [];
   };
 
-  const responseData = processResponseData();
+  const surveyData = processResponseData();
 
   return (
     <div className="space-y-6 mt-6">
@@ -235,14 +251,14 @@ function SurveyResults({ campaignId, template, viewCount = 0 }: SurveyResultsPro
       </div>
 
       {/* Survey Responses Chart */}
-      {template && (template.questionType === "single_choice" || template.questionType === "multiple_choice") && responseData.length > 0 && (
+      {template && (template.questionType === "single_choice" || template.questionType === "multiple_choice") && surveyData.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">Respostas da Pesquisa</CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={responseData}>
+              <BarChart data={surveyData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} interval={0} style={{ fontSize: '12px' }} />
                 <YAxis />
@@ -255,14 +271,14 @@ function SurveyResults({ campaignId, template, viewCount = 0 }: SurveyResultsPro
       )}
 
       {/* Rating Chart */}
-      {template && template.questionType === "rating" && responseData.length > 0 && (
+      {template && template.questionType === "rating" && surveyData.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">Avaliações Médias</CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={responseData} layout="vertical">
+              <BarChart data={surveyData} layout="vertical">
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis type="number" domain={[0, 5]} />
                 <YAxis dataKey="name" type="category" width={150} style={{ fontSize: '12px' }} />
@@ -312,8 +328,32 @@ function SurveyResults({ campaignId, template, viewCount = 0 }: SurveyResultsPro
         </div>
       </div>
 
-      {/* Open Text Responses */}
-      {template && template.questionType === "open_text" && (
+      {/* Open Text Responses - Grouped */}
+      {template && template.questionType === "open_text" && groupedResponses && groupedResponses.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Respostas Abertas Agrupadas ({responses.length} total)</CardTitle>
+            <CardDescription>Respostas similares agrupadas e contadas automaticamente</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3 max-h-96 overflow-y-auto">
+              {groupedResponses.map((item, idx) => (
+                <div key={idx} className="border-l-4 border-[#40E0D0] pl-4 py-2 bg-muted/30 rounded-r">
+                  <div className="flex items-center justify-between gap-4">
+                    <p className="text-sm font-medium flex-1">{item.displayText}</p>
+                    <Badge variant="outline" className="shrink-0">
+                      {item.count} {item.count === 1 ? 'resposta' : 'respostas'}
+                    </Badge>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Open Text Responses - Fallback for ungrouped */}
+      {template && template.questionType === "open_text" && (!groupedResponses || groupedResponses.length === 0) && (
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">Respostas Abertas ({responses.length})</CardTitle>
