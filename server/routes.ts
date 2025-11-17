@@ -1806,10 +1806,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Esta pesquisa não está mais aceitando respostas" });
       }
 
-      // Validate response data including demographic fields
-      const validatedData = insertSurveyResponseSchema.parse(req.body);
+      // Validate response data (without campaignId which will be added server-side)
+      const validatedData = insertSurveyResponseSchema.omit({ campaignId: true }).parse(req.body);
 
-      // Create the response
+      // Create the response with campaignId
       const response = await storage.createSurveyResponse({
         ...validatedData,
         campaignId: campaign.id,
