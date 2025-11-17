@@ -52,6 +52,7 @@ export default function LandingPage() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
   const { scrollY } = useScroll();
   const headerBg = useTransform(scrollY, [0, 100], ["rgba(255, 255, 255, 0)", "rgba(255, 255, 255, 0.95)"]);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -72,6 +73,13 @@ export default function LandingPage() {
     if (videoRef.current) {
       videoRef.current.playbackRate = 0.5;
     }
+
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 50);
+    };
+    
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
   const form = useForm<InsertLead>({
@@ -138,19 +146,19 @@ export default function LandingPage() {
             </div>
 
             <nav className="hidden md:flex items-center gap-6">
-              <button onClick={() => scrollToSection('recursos')} className="text-sm hover:text-primary transition-colors" data-testid="button-nav-recursos">
+              <button onClick={() => scrollToSection('recursos')} className={`text-sm hover:text-primary transition-colors ${!isScrolled ? 'text-white' : ''}`} data-testid="button-nav-recursos">
                 Recursos
               </button>
-              <button onClick={() => scrollToSection('ia')} className="text-sm hover:text-primary transition-colors" data-testid="button-nav-ia">
+              <button onClick={() => scrollToSection('ia')} className={`text-sm hover:text-primary transition-colors ${!isScrolled ? 'text-white' : ''}`} data-testid="button-nav-ia">
                 IA para Redes Sociais
               </button>
-              <button onClick={() => scrollToSection('modulos')} className="text-sm hover:text-primary transition-colors" data-testid="button-nav-modulos">
+              <button onClick={() => scrollToSection('modulos')} className={`text-sm hover:text-primary transition-colors ${!isScrolled ? 'text-white' : ''}`} data-testid="button-nav-modulos">
                 Módulos
               </button>
-              <button onClick={() => scrollToSection('contato')} className="text-sm hover:text-primary transition-colors" data-testid="button-nav-contato">
+              <button onClick={() => scrollToSection('contato')} className={`text-sm hover:text-primary transition-colors ${!isScrolled ? 'text-white' : ''}`} data-testid="button-nav-contato">
                 Contato
               </button>
-              <Button variant="ghost" size="sm" className="rounded-full" onClick={() => setLocation("/login")} data-testid="button-header-login">
+              <Button variant="ghost" size="sm" className={`rounded-full ${!isScrolled ? 'text-white hover:bg-white/10' : ''}`} onClick={() => setLocation("/login")} data-testid="button-header-login">
                 Login
               </Button>
               <Button size="sm" className="rounded-full" onClick={() => scrollToSection('contato')} data-testid="button-header-cta">
@@ -159,7 +167,7 @@ export default function LandingPage() {
             </nav>
 
             <button 
-              className="md:hidden p-2"
+              className={`md:hidden p-2 ${!isScrolled ? 'text-white' : ''}`}
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               data-testid="button-mobile-menu"
             >
