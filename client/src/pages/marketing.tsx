@@ -892,12 +892,6 @@ export default function Marketing() {
                       <div className="space-y-2">
                         <Label className="text-sm font-medium">URL da Página de Pesquisa:</Label>
                         <div className="flex gap-2">
-                          <Input
-                            value={landingUrl}
-                            readOnly
-                            className="font-mono text-sm"
-                            data-testid={`input-landing-url-${campaign.id}`}
-                          />
                           <Button
                             variant="outline"
                             size="icon"
