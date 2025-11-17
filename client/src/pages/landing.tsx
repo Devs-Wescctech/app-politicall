@@ -26,7 +26,7 @@ import heroBackgroundVideo from "@assets/grok-video-d39a8f83-9488-4450-a920-1ca2
 import crmImage from "@assets/Técnico- Luis Flores (4)_1763413287476.png";
 import alliancesImage from "@assets/Técnico- Luis Flores (5)_1763413674690.png";
 import demandsImage from "@assets/Técnico- Luis Flores (6)_1763413913827.png";
-import eventsImage from "@assets/stock_images/calendar_event_sched_888f73da.jpg";
+import eventsImage from "@assets/Técnico- Luis Flores (7)_1763414009496.png";
 import aiImage from "@assets/dsfsdfdsfdsfdsf_1763412976580.png";
 import marketingImage from "@assets/stock_images/marketing_campaign_a_481dcd3f.jpg";
 
@@ -674,16 +674,12 @@ export default function LandingPage() {
                   </li>
                 </ul>
               </div>
-              <div>
-                <div className="rounded-lg overflow-hidden shadow-xl border">
-                  <img 
-                    src={eventsImage} 
-                    alt="Agenda de Eventos Politicall" 
-                    className="w-full h-auto"
-                    data-testid="img-module-events"
-                  />
-                </div>
-              </div>
+              <img 
+                src={eventsImage} 
+                alt="Agenda de Eventos Politicall" 
+                className="w-full h-auto"
+                data-testid="img-module-events"
+              />
             </div>
 
           </div>
