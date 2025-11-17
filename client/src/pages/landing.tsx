@@ -1096,17 +1096,19 @@ export default function LandingPage() {
           </div>
 
           <div className="pt-8 border-t text-center">
-            <p className="text-sm text-muted-foreground flex items-center justify-center gap-2">
-              <span>&copy; 2025</span>
-              <img 
-                src={wesccLogo} 
-                alt="Wescc Tech" 
-                className="h-8 inline-block"
-                style={{ filter: 'invert(1)' }}
-                data-testid="img-footer-wescc-logo"
-              />
-              <span>Todos os direitos reservados.</span>
-              <span>|</span>
+            <div className="flex flex-col md:flex-row items-center justify-center gap-2 text-sm text-muted-foreground">
+              <div className="flex items-center gap-2">
+                <span>&copy; 2025</span>
+                <img 
+                  src={wesccLogo} 
+                  alt="Wescc Tech" 
+                  className="h-6 md:h-8 inline-block"
+                  style={{ filter: 'invert(1)' }}
+                  data-testid="img-footer-wescc-logo"
+                />
+                <span>Todos os direitos reservados.</span>
+              </div>
+              <span className="hidden md:inline">|</span>
               <button 
                 onClick={() => setLocation("/admin-login")}
                 className="text-primary hover:underline"
@@ -1114,7 +1116,7 @@ export default function LandingPage() {
               >
                 Painel de Controle
               </button>
-            </p>
+            </div>
           </div>
         </div>
       </footer>
