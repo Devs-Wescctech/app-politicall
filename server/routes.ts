@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import { insertUserSchema, loginSchema, insertContactSchema, insertPoliticalAllianceSchema, insertDemandSchema, insertDemandCommentSchema, insertEventSchema, insertAiConfigurationSchema, insertAiTrainingExampleSchema, insertAiResponseTemplateSchema, insertMarketingCampaignSchema, insertNotificationSchema, insertIntegrationSchema, insertSurveyCampaignSchema, insertSurveyLandingPageSchema, insertSurveyResponseSchema, DEFAULT_PERMISSIONS } from "@shared/schema";
+import { insertUserSchema, loginSchema, insertContactSchema, insertPoliticalAllianceSchema, insertDemandSchema, insertDemandCommentSchema, insertEventSchema, insertAiConfigurationSchema, insertAiTrainingExampleSchema, insertAiResponseTemplateSchema, insertMarketingCampaignSchema, insertNotificationSchema, insertIntegrationSchema, insertSurveyCampaignSchema, insertSurveyLandingPageSchema, insertSurveyResponseSchema, insertLeadSchema, DEFAULT_PERMISSIONS } from "@shared/schema";
 import { db } from "./db";
 import { politicalParties, politicalAlliances, surveyTemplates, surveyCampaigns, surveyLandingPages, surveyResponses, users, type SurveyTemplate, type SurveyCampaign, type InsertSurveyCampaign, type SurveyLandingPage, type InsertSurveyLandingPage, type SurveyResponse, type InsertSurveyResponse } from "@shared/schema";
 import { sql, eq, desc } from "drizzle-orm";
@@ -2204,6 +2204,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
     
     res.status(200).send('EVENT_RECEIVED');
+  });
+
+  // ==================== LEADS (PUBLIC) ====================
+  
+  // Create lead from landing page (no authentication required)
+  app.post("/api/leads", async (req, res) => {
+    try {
+      const validatedLead = insertLeadSchema.parse(req.body);
+      const lead = await storage.createLead(validatedLead);
+      res.status(201).json(lead);
+    } catch (error: any) {
+      if (error.name === 'ZodError') {
+        res.status(400).json({ error: "Dados inválidos", details: error.errors });
+      } else {
+        res.status(500).json({ error: error.message });
+      }
+    }
+  });
+
+  // Get all leads (admin only)
+  app.get("/api/leads", authenticateToken, requireRole("admin"), async (req: AuthRequest, res) => {
+    try {
+      const leads = await storage.getLeads();
+      res.json(leads);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
   });
 
   // ==================== DASHBOARD STATS ====================

@@ -2,7 +2,7 @@
 import { 
   users, contacts, politicalParties, politicalAlliances, demands, demandComments, events,
   aiConfigurations, aiConversations, aiTrainingExamples, aiResponseTemplates, 
-  marketingCampaigns, notifications, integrations, surveyTemplates, surveyCampaigns, surveyLandingPages, surveyResponses,
+  marketingCampaigns, notifications, integrations, surveyTemplates, surveyCampaigns, surveyLandingPages, surveyResponses, leads,
   type User, type InsertUser, type Contact, type InsertContact,
   type PoliticalParty, type PoliticalAlliance, type InsertPoliticalAlliance,
   type Demand, type InsertDemand, type DemandComment, type InsertDemandComment,
@@ -15,7 +15,8 @@ import {
   type SurveyTemplate, type InsertSurveyTemplate,
   type SurveyCampaign, type InsertSurveyCampaign,
   type SurveyLandingPage, type InsertSurveyLandingPage,
-  type SurveyResponse, type InsertSurveyResponse
+  type SurveyResponse, type InsertSurveyResponse,
+  type Lead, type InsertLead
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, count } from "drizzle-orm";
@@ -133,6 +134,10 @@ export interface IStorage {
   // Survey Responses
   getSurveyResponses(campaignId: string): Promise<SurveyResponse[]>;
   createSurveyResponse(response: InsertSurveyResponse): Promise<SurveyResponse>;
+
+  // Leads
+  createLead(lead: InsertLead): Promise<Lead>;
+  getLeads(): Promise<Lead[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -769,6 +774,20 @@ export class DatabaseStorage implements IStorage {
       .values(response)
       .returning();
     return newResponse;
+  }
+
+  // Leads
+  async createLead(lead: InsertLead): Promise<Lead> {
+    const [newLead] = await db.insert(leads)
+      .values(lead)
+      .returning();
+    return newLead;
+  }
+
+  async getLeads(): Promise<Lead[]> {
+    return await db.select()
+      .from(leads)
+      .orderBy(desc(leads.createdAt));
   }
 }
 

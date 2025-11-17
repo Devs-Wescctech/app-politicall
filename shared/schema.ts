@@ -603,6 +603,29 @@ export const insertSurveyResponseSchema = createInsertSchema(surveyResponses).om
   politicalIdeology: z.enum(["direita", "centro", "esquerda", "prefiro_nao_comentar"]),
 });
 
+// Leads - Landing page lead capture
+export const leads = pgTable("leads", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  email: text("email").notNull(),
+  phone: text("phone").notNull(),
+  position: text("position").notNull(),
+  state: text("state").notNull(),
+  city: text("city").notNull(),
+  message: text("message"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertLeadSchema = createInsertSchema(leads, {
+  name: z.string().min(3, "Nome deve ter pelo menos 3 caracteres"),
+  email: z.string().email("Email inválido"),
+  phone: z.string().min(10, "Telefone inválido"),
+  position: z.string().min(1, "Selecione um cargo"),
+  state: z.string().min(2, "Selecione um estado"),
+  city: z.string().min(2, "Digite a cidade"),
+  message: z.string().optional(),
+}).omit({ id: true, createdAt: true });
+
 // TypeScript types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -656,3 +679,6 @@ export type InsertSurveyLandingPage = z.infer<typeof insertSurveyLandingPageSche
 
 export type SurveyResponse = typeof surveyResponses.$inferSelect;
 export type InsertSurveyResponse = z.infer<typeof insertSurveyResponseSchema>;
+
+export type Lead = typeof leads.$inferSelect;
+export type InsertLead = z.infer<typeof insertLeadSchema>;

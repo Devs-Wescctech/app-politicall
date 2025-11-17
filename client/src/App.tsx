@@ -28,6 +28,7 @@ import Marketing from "@/pages/marketing";
 import Settings from "@/pages/settings";
 import UsersManagement from "@/pages/users";
 import SurveyLanding from "@/pages/survey-landing";
+import LandingPage from "@/pages/landing";
 
 function AuthenticatedLayout() {
   const style = {
@@ -117,14 +118,7 @@ function App() {
             <Route path="/admin-login" component={AdminLogin} />
             <Route path="/admin" component={Admin} />
             <Route path="/pesquisa/:slug" component={SurveyLanding} />
-            <Route path="/">
-              {() => {
-                if (!isAuthenticated()) {
-                  return <Redirect to="/login" />;
-                }
-                return <Redirect to="/dashboard" />;
-              }}
-            </Route>
+            <Route path="/" component={LandingPage} />
             <Route path="/:rest*">
               {() => {
                 if (!isAuthenticated()) {
