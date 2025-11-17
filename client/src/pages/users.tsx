@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { type User } from "@shared/schema";
+import { type User, DEFAULT_PERMISSIONS, type UserPermissions } from "@shared/schema";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useCurrentUser } from "@/hooks/use-current-user";
@@ -54,6 +55,12 @@ export default function UsersManagement() {
   const [showAddUserDialog, setShowAddUserDialog] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  
+  // Permissions state for create dialog
+  const [customPermissions, setCustomPermissions] = useState<UserPermissions>(DEFAULT_PERMISSIONS.assessor);
+  
+  // Permissions state for edit dialog
+  const [editPermissions, setEditPermissions] = useState<UserPermissions>(DEFAULT_PERMISSIONS.assessor);
 
   const form = useForm<CreateUserForm>({
     resolver: zodResolver(createUserSchema),
@@ -65,14 +72,41 @@ export default function UsersManagement() {
       role: "assessor",
     },
   });
+  
+  // Watch role changes in create form
+  const selectedRoleInForm = form.watch("role");
+  
+  // Update permissions when role changes in create dialog
+  useEffect(() => {
+    if (selectedRoleInForm) {
+      setCustomPermissions(DEFAULT_PERMISSIONS[selectedRoleInForm as keyof typeof DEFAULT_PERMISSIONS]);
+    }
+  }, [selectedRoleInForm]);
+  
+  // Load saved permissions when opening edit dialog
+  useEffect(() => {
+    if (selectedUser) {
+      // Load SAVED permissions from user
+      setEditPermissions(selectedUser.permissions || DEFAULT_PERMISSIONS[selectedUser.role as keyof typeof DEFAULT_PERMISSIONS]);
+      setNewRole(selectedUser.role);
+    }
+  }, [selectedUser]);
+  
+  // Only update permissions when ROLE changes (not when modal opens)
+  useEffect(() => {
+    if (newRole && selectedUser && newRole !== selectedUser.role) {
+      // User changed role, so reset to defaults of new role
+      setEditPermissions(DEFAULT_PERMISSIONS[newRole as keyof typeof DEFAULT_PERMISSIONS]);
+    }
+  }, [newRole, selectedUser?.role]);
 
   const { data: users, isLoading } = useQuery<Omit<User, "password">[]>({
     queryKey: ["/api/users"],
   });
 
   const updateRoleMutation = useMutation({
-    mutationFn: async ({ userId, role }: { userId: string; role: string }) => {
-      return await apiRequest("PATCH", `/api/users/${userId}`, { role });
+    mutationFn: async ({ userId, role, permissions }: { userId: string; role: string; permissions: UserPermissions }) => {
+      return await apiRequest("PATCH", `/api/users/${userId}`, { role, permissions });
     },
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
@@ -105,7 +139,7 @@ export default function UsersManagement() {
   });
 
   const createUserMutation = useMutation({
-    mutationFn: async (data: CreateUserForm) => {
+    mutationFn: async (data: CreateUserForm & { permissions: UserPermissions }) => {
       const { confirmPassword, ...userData } = data;
       return await apiRequest("POST", "/api/users/create", userData);
     },
@@ -132,16 +166,38 @@ export default function UsersManagement() {
   const handleEditRole = (user: Omit<User, "password">) => {
     setSelectedUser(user);
     setNewRole(user.role);
+    // Set current permissions or default for role
+    setEditPermissions(user.permissions || DEFAULT_PERMISSIONS[user.role as keyof typeof DEFAULT_PERMISSIONS]);
   };
 
   const handleSaveRole = () => {
     if (selectedUser && newRole) {
-      updateRoleMutation.mutate({ userId: selectedUser.id, role: newRole });
+      // Validate at least one permission is checked
+      const hasAtLeastOnePermission = Object.values(editPermissions).some(val => val === true);
+      if (!hasAtLeastOnePermission) {
+        toast({
+          variant: "destructive",
+          title: "Erro",
+          description: "Pelo menos uma permissão deve estar marcada",
+        });
+        return;
+      }
+      updateRoleMutation.mutate({ userId: selectedUser.id, role: newRole, permissions: editPermissions });
     }
   };
 
   const onSubmitCreateUser = (data: CreateUserForm) => {
-    createUserMutation.mutate(data);
+    // Validate at least one permission is checked
+    const hasAtLeastOnePermission = Object.values(customPermissions).some(val => val === true);
+    if (!hasAtLeastOnePermission) {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Pelo menos uma permissão deve estar marcada",
+      });
+      return;
+    }
+    createUserMutation.mutate({ ...data, permissions: customPermissions });
   };
 
   return (
@@ -261,6 +317,43 @@ export default function UsersManagement() {
                   </SelectContent>
                 </Select>
               </div>
+              
+              <div className="space-y-3">
+                <p className="text-sm font-medium">Permissões de Acesso aos Menus</p>
+                <div className="grid grid-cols-2 gap-3">
+                  {Object.entries({
+                    dashboard: 'Dashboard',
+                    contacts: 'Eleitores',
+                    alliances: 'Alianças',
+                    demands: 'Demandas',
+                    agenda: 'Agenda',
+                    ai: 'Atendimento IA',
+                    marketing: 'Marketing',
+                    users: 'Usuários'
+                  }).map(([key, label]) => (
+                    <div key={key} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`edit-perm-${key}`}
+                        checked={editPermissions[key as keyof UserPermissions]}
+                        onCheckedChange={(checked) => {
+                          setEditPermissions(prev => ({
+                            ...prev,
+                            [key]: checked === true
+                          }));
+                        }}
+                        data-testid={`checkbox-edit-permission-${key}`}
+                      />
+                      <label
+                        htmlFor={`edit-perm-${key}`}
+                        className="text-sm cursor-pointer"
+                      >
+                        {label}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              
               <div className="bg-muted/50 p-3 rounded-md text-sm">
                 <p className="font-medium mb-2">Níveis de Acesso:</p>
                 <ul className="space-y-1 text-muted-foreground">
@@ -418,6 +511,43 @@ export default function UsersManagement() {
                   </FormItem>
                 )}
               />
+              
+              <div className="space-y-3">
+                <p className="text-sm font-medium">Permissões de Acesso aos Menus</p>
+                <div className="grid grid-cols-2 gap-3">
+                  {Object.entries({
+                    dashboard: 'Dashboard',
+                    contacts: 'Eleitores',
+                    alliances: 'Alianças',
+                    demands: 'Demandas',
+                    agenda: 'Agenda',
+                    ai: 'Atendimento IA',
+                    marketing: 'Marketing',
+                    users: 'Usuários'
+                  }).map(([key, label]) => (
+                    <div key={key} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`perm-${key}`}
+                        checked={customPermissions[key as keyof UserPermissions]}
+                        onCheckedChange={(checked) => {
+                          setCustomPermissions(prev => ({
+                            ...prev,
+                            [key]: checked === true
+                          }));
+                        }}
+                        data-testid={`checkbox-permission-${key}`}
+                      />
+                      <label
+                        htmlFor={`perm-${key}`}
+                        className="text-sm cursor-pointer"
+                      >
+                        {label}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              
               <DialogFooter>
                 <Button
                   type="button"

@@ -4,6 +4,52 @@ import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+// User Permissions Type
+export type UserPermissions = {
+  dashboard: boolean;
+  contacts: boolean;
+  alliances: boolean;
+  demands: boolean;
+  agenda: boolean;
+  ai: boolean;
+  marketing: boolean;
+  users: boolean;
+};
+
+// Default permissions by role
+export const DEFAULT_PERMISSIONS = {
+  admin: {
+    dashboard: true,
+    contacts: true,
+    alliances: true,
+    demands: true,
+    agenda: true,
+    ai: true,
+    marketing: true,
+    users: true
+  },
+  coordenador: {
+    dashboard: true,
+    contacts: true,
+    alliances: true,
+    demands: true,
+    agenda: true,
+    ai: true,
+    marketing: true,
+    users: false
+  },
+  assessor: {
+    dashboard: true,
+    contacts: true,
+    alliances: false,
+    demands: true,
+    agenda: true,
+    ai: false,
+    marketing: false,
+    users: false
+  }
+} as const;
+
 // Users table - Custom authentication with email/password
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -11,6 +57,7 @@ export const users = pgTable("users", {
   password: text("password").notNull(),
   name: text("name").notNull(),
   role: text("role").notNull().default("assessor"), // admin, coordenador, assessor
+  permissions: jsonb("permissions").$type<UserPermissions>(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -291,11 +338,22 @@ export const insertUserSchema = createInsertSchema(users).pick({
   password: true,
   name: true,
   role: true,
+  permissions: true,
 }).extend({
   email: z.string().email("Email inválido"),
   password: z.string().min(6, "Senha deve ter no mínimo 6 caracteres"),
   name: z.string().min(2, "Nome deve ter no mínimo 2 caracteres"),
   role: z.enum(["admin", "coordenador", "assessor"]).optional(),
+  permissions: z.object({
+    dashboard: z.boolean(),
+    contacts: z.boolean(),
+    alliances: z.boolean(),
+    demands: z.boolean(),
+    agenda: z.boolean(),
+    ai: z.boolean(),
+    marketing: z.boolean(),
+    users: z.boolean(),
+  }).optional(),
 });
 
 export const loginSchema = z.object({

@@ -1,10 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
+import type { UserPermissions } from "@shared/schema";
 
 export interface CurrentUser {
   id: string;
   name: string;
   email: string;
   role: string;
+  permissions: UserPermissions;
 }
 
 export function useCurrentUser() {

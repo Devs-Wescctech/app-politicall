@@ -26,69 +26,91 @@ import { Button } from "@/components/ui/button";
 import { removeAuthToken } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrentUser } from "@/hooks/use-current-user";
+import { DEFAULT_PERMISSIONS, type UserPermissions } from "@shared/schema";
 import logoUrl from "@assets/icon politicall_1763309153389.png";
 
-const menuItems = [
-  {
-    title: "Dashboard",
-    url: "/dashboard",
-    icon: LayoutDashboard,
-    adminOnly: false,
-  },
-  {
-    title: "Eleitores",
-    url: "/contacts",
-    icon: Users,
-    adminOnly: false,
-  },
-  {
-    title: "Aliança Política",
-    url: "/alliances",
-    icon: Handshake,
-    adminOnly: false,
-  },
-  {
-    title: "Demandas",
-    url: "/demands",
-    icon: ClipboardList,
-    adminOnly: false,
-  },
-  {
-    title: "Agenda",
-    url: "/agenda",
-    icon: Calendar,
-    adminOnly: false,
-  },
-  {
-    title: "Atendimento IA",
-    url: "/ai-attendance",
-    icon: Bot,
-    adminOnly: false,
-  },
-  {
-    title: "Marketing",
-    url: "/marketing",
-    icon: Megaphone,
-    adminOnly: false,
-  },
-  {
-    title: "Usuários",
-    url: "/users",
-    icon: Shield,
-    adminOnly: true,
-  },
-  {
-    title: "Configurações",
-    url: "/settings",
-    icon: Settings,
-    adminOnly: false,
-  },
-];
+type MenuItem = {
+  title: string;
+  url: string;
+  icon: any;
+  permissionKey?: keyof UserPermissions;
+  alwaysShow?: boolean;
+};
 
 export function AppSidebar() {
   const [location, setLocation] = useLocation();
   const { toast } = useToast();
-  const { isAdmin } = useCurrentUser();
+  const { user } = useCurrentUser();
+  
+  // Get permissions from backend user or use default assessor permissions
+  const permissions: UserPermissions = user?.permissions || DEFAULT_PERMISSIONS.assessor;
+
+  // Define menu items with permission mappings
+  const menuItems: MenuItem[] = [
+    {
+      title: "Dashboard",
+      url: "/dashboard",
+      icon: LayoutDashboard,
+      permissionKey: "dashboard",
+    },
+    {
+      title: "Eleitores",
+      url: "/contacts",
+      icon: Users,
+      permissionKey: "contacts",
+    },
+    {
+      title: "Aliança Política",
+      url: "/alliances",
+      icon: Handshake,
+      permissionKey: "alliances",
+    },
+    {
+      title: "Demandas",
+      url: "/demands",
+      icon: ClipboardList,
+      permissionKey: "demands",
+    },
+    {
+      title: "Agenda",
+      url: "/agenda",
+      icon: Calendar,
+      permissionKey: "agenda",
+    },
+    {
+      title: "Atendimento IA",
+      url: "/ai-attendance",
+      icon: Bot,
+      permissionKey: "ai",
+    },
+    {
+      title: "Marketing",
+      url: "/marketing",
+      icon: Megaphone,
+      permissionKey: "marketing",
+    },
+    {
+      title: "Usuários",
+      url: "/users",
+      icon: Shield,
+      permissionKey: "users",
+    },
+    {
+      title: "Configurações",
+      url: "/settings",
+      icon: Settings,
+      alwaysShow: true,
+    },
+  ];
+  
+  // Filter menu items based on permissions
+  const visibleItems = menuItems.filter(item => {
+    if (item.alwaysShow) return true;
+    if (item.permissionKey) {
+      return permissions[item.permissionKey] === true;
+    }
+    return false;
+  });
 
   const handleLogout = () => {
     removeAuthToken();
@@ -104,23 +126,21 @@ export function AppSidebar() {
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu className="gap-2">
-              {menuItems
-                .filter(item => !item.adminOnly || isAdmin)
-                .map((item) => {
-                  const isActive = location === item.url;
-                  return (
-                    <SidebarMenuItem key={item.title} className="border-b border-muted-foreground/20 pb-2 mx-4">
-                      <Link 
-                        href={item.url} 
-                        data-testid={`link-${item.url.slice(1)}`}
-                        className={`flex items-center gap-2 py-2 px-2 ${isActive ? "text-primary" : ""}`}
-                      >
-                        <item.icon className="w-4 h-4" />
-                        <span>{item.title}</span>
-                      </Link>
-                    </SidebarMenuItem>
-                  );
-                })}
+              {visibleItems.map((item) => {
+                const isActive = location === item.url;
+                return (
+                  <SidebarMenuItem key={item.title} className="border-b border-muted-foreground/20 pb-2 mx-4">
+                    <Link 
+                      href={item.url} 
+                      data-testid={`link-${item.url.slice(1)}`}
+                      className={`flex items-center gap-2 py-2 px-2 ${isActive ? "text-primary" : ""}`}
+                    >
+                      <item.icon className="w-4 h-4" />
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuItem>
+                );
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -128,7 +148,7 @@ export function AppSidebar() {
       <SidebarFooter className="p-4">
         <Button 
           variant="outline" 
-          className="w-full" 
+          className="w-full rounded-full" 
           onClick={handleLogout}
           data-testid="button-logout"
         >

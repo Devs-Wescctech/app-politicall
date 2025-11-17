@@ -3,50 +3,19 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import { insertUserSchema, loginSchema, insertContactSchema, insertPoliticalAllianceSchema, insertDemandSchema, insertDemandCommentSchema, insertEventSchema, insertAiConfigurationSchema, insertAiTrainingExampleSchema, insertAiResponseTemplateSchema, insertMarketingCampaignSchema, insertNotificationSchema, insertIntegrationSchema } from "@shared/schema";
+import { insertUserSchema, loginSchema, insertContactSchema, insertPoliticalAllianceSchema, insertDemandSchema, insertDemandCommentSchema, insertEventSchema, insertAiConfigurationSchema, insertAiTrainingExampleSchema, insertAiResponseTemplateSchema, insertMarketingCampaignSchema, insertNotificationSchema, insertIntegrationSchema, DEFAULT_PERMISSIONS } from "@shared/schema";
 import { db } from "./db";
 import { politicalParties, politicalAlliances } from "@shared/schema";
 import { sql, eq } from "drizzle-orm";
 import { generateAiResponse, testOpenAiApiKey } from "./openai";
 import { requireRole } from "./authorization";
+import { authenticateToken, requirePermission, type AuthRequest } from "./auth";
 import { z } from "zod";
 
 if (!process.env.SESSION_SECRET) {
   throw new Error("SESSION_SECRET must be set in environment variables");
 }
 const JWT_SECRET = process.env.SESSION_SECRET;
-
-// Middleware to verify JWT token
-interface AuthRequest extends Request {
-  userId?: string;
-  userRole?: string;
-}
-
-async function authenticateToken(req: AuthRequest, res: Response, next: NextFunction) {
-  const authHeader = req.headers.authorization;
-  const token = authHeader && authHeader.split(" ")[1];
-
-  if (!token) {
-    return res.status(401).json({ error: "Token não fornecido" });
-  }
-
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET) as { userId: string; role: string };
-    req.userId = decoded.userId;
-    
-    // Fetch current role from database (authoritative source)
-    // This ensures role changes take effect immediately without requiring new login
-    const user = await storage.getUser(decoded.userId);
-    if (!user) {
-      return res.status(403).json({ error: "Usuário não encontrado" });
-    }
-    
-    req.userRole = user.role;
-    next();
-  } catch (error) {
-    return res.status(403).json({ error: "Token inválido" });
-  }
-}
 
 // Seed political parties data - All 29 Brazilian political parties from 2025
 async function seedPoliticalParties() {
@@ -165,10 +134,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Hash password
       const hashedPassword = await bcrypt.hash(validatedData.password, 10);
       
+      // Always define permissions explicitly using defaults for role
+      const permissionsToSave = validatedData.permissions || DEFAULT_PERMISSIONS[validatedData.role as keyof typeof DEFAULT_PERMISSIONS];
+      
       // Create user
       const user = await storage.createUser({
         ...validatedData,
         password: hashedPassword,
+        permissions: permissionsToSave,
       });
 
       // Generate JWT token
@@ -181,6 +154,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           email: user.email,
           name: user.name,
           role: user.role,
+          permissions: user.permissions,
         },
       });
     } catch (error: any) {
@@ -212,6 +186,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           email: user.email,
           name: user.name,
           role: user.role,
+          permissions: user.permissions,
         },
       });
     } catch (error: any) {
@@ -236,7 +211,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ==================== USER MANAGEMENT (Admin Only) ====================
   
   // List all users (admin only)
-  app.get("/api/users", authenticateToken, requireRole("admin"), async (req: AuthRequest, res) => {
+  app.get("/api/users", authenticateToken, requireRole("admin"), requirePermission("users"), async (req: AuthRequest, res) => {
     try {
       const allUsers = await storage.getAllUsers();
       // Don't send passwords to frontend
@@ -248,14 +223,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create new user (admin only)
-  app.post("/api/users/create", authenticateToken, requireRole("admin"), async (req: AuthRequest, res) => {
+  app.post("/api/users/create", authenticateToken, requireRole("admin"), requirePermission("users"), async (req: AuthRequest, res) => {
     try {
-      // Admin-specific user creation schema that includes role
+      // Admin-specific user creation schema that includes role and permissions
       const adminCreateUserSchema = z.object({
         email: z.string().email(),
         password: z.string().min(6),
         name: z.string().min(2),
         role: z.enum(["admin", "coordenador", "assessor"]),
+        permissions: z.object({
+          dashboard: z.boolean(),
+          contacts: z.boolean(),
+          alliances: z.boolean(),
+          demands: z.boolean(),
+          agenda: z.boolean(),
+          ai: z.boolean(),
+          marketing: z.boolean(),
+          users: z.boolean(),
+        }).optional(),
       });
       
       const validatedData = adminCreateUserSchema.parse(req.body);
@@ -269,10 +254,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Hash password
       const hashedPassword = await bcrypt.hash(validatedData.password, 10);
       
-      // Create user with specified role
+      // Always define permissions explicitly - use provided or defaults for role
+      const permissionsToSave = validatedData.permissions || DEFAULT_PERMISSIONS[validatedData.role as keyof typeof DEFAULT_PERMISSIONS];
+      
+      // Create user with specified role and permissions
       const user = await storage.createUser({
         ...validatedData,
         password: hashedPassword,
+        permissions: permissionsToSave,
       });
 
       // Don't send password to frontend
@@ -284,13 +273,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update user role (admin only)
-  app.patch("/api/users/:id", authenticateToken, requireRole("admin"), async (req: AuthRequest, res) => {
+  app.patch("/api/users/:id", authenticateToken, requireRole("admin"), requirePermission("users"), async (req: AuthRequest, res) => {
     try {
-      // Validate role if provided
+      // Validate role and permissions if provided
       const updateSchema = z.object({
         role: z.enum(["admin", "coordenador", "assessor"]).optional(),
         name: z.string().min(2).optional(),
         email: z.string().email().optional(),
+        permissions: z.object({
+          dashboard: z.boolean(),
+          contacts: z.boolean(),
+          alliances: z.boolean(),
+          demands: z.boolean(),
+          agenda: z.boolean(),
+          ai: z.boolean(),
+          marketing: z.boolean(),
+          users: z.boolean(),
+        }).optional(),
       });
       
       const validatedData = updateSchema.parse(req.body);
@@ -320,7 +319,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ==================== CONTACTS ====================
   
-  app.get("/api/contacts", authenticateToken, async (req: AuthRequest, res) => {
+  app.get("/api/contacts", authenticateToken, requirePermission("contacts"), async (req: AuthRequest, res) => {
     try {
       const contacts = await storage.getContacts(req.userId!);
       res.json(contacts);
@@ -329,7 +328,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/contacts", authenticateToken, async (req: AuthRequest, res) => {
+  app.post("/api/contacts", authenticateToken, requirePermission("contacts"), async (req: AuthRequest, res) => {
     try {
       const validatedData = insertContactSchema.parse(req.body);
       const contact = await storage.createContact({
@@ -342,7 +341,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/contacts/:id", authenticateToken, async (req: AuthRequest, res) => {
+  app.patch("/api/contacts/:id", authenticateToken, requirePermission("contacts"), async (req: AuthRequest, res) => {
     try {
       const validatedData = insertContactSchema.partial().parse(req.body);
       const contact = await storage.updateContact(req.params.id, validatedData);
@@ -352,7 +351,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/contacts/:id", authenticateToken, async (req: AuthRequest, res) => {
+  app.delete("/api/contacts/:id", authenticateToken, requirePermission("contacts"), async (req: AuthRequest, res) => {
     try {
       await storage.deleteContact(req.params.id);
       res.json({ success: true });
@@ -363,7 +362,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ==================== POLITICAL PARTIES & ALLIANCES ====================
   
-  app.get("/api/parties", authenticateToken, async (req: AuthRequest, res) => {
+  app.get("/api/parties", authenticateToken, requirePermission("alliances"), async (req: AuthRequest, res) => {
     try {
       const parties = await storage.getAllParties();
       res.json(parties);
@@ -372,7 +371,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/alliances", authenticateToken, async (req: AuthRequest, res) => {
+  app.get("/api/alliances", authenticateToken, requirePermission("alliances"), async (req: AuthRequest, res) => {
     try {
       const alliances = await storage.getAlliances(req.userId!);
       
@@ -391,7 +390,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/alliances", authenticateToken, async (req: AuthRequest, res) => {
+  app.post("/api/alliances", authenticateToken, requirePermission("alliances"), async (req: AuthRequest, res) => {
     try {
       const validatedData = insertPoliticalAllianceSchema.parse(req.body);
       const alliance = await storage.createAlliance({
@@ -404,7 +403,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/alliances/:id", authenticateToken, async (req: AuthRequest, res) => {
+  app.patch("/api/alliances/:id", authenticateToken, requirePermission("alliances"), async (req: AuthRequest, res) => {
     try {
       const validatedData = insertPoliticalAllianceSchema.partial().parse(req.body);
       const alliance = await storage.updateAlliance(req.params.id, validatedData);
@@ -414,7 +413,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/alliances/:id", authenticateToken, async (req: AuthRequest, res) => {
+  app.delete("/api/alliances/:id", authenticateToken, requirePermission("alliances"), async (req: AuthRequest, res) => {
     try {
       await storage.deleteAlliance(req.params.id);
       res.json({ success: true });
@@ -425,7 +424,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ==================== DEMANDS ====================
   
-  app.get("/api/demands", authenticateToken, async (req: AuthRequest, res) => {
+  app.get("/api/demands", authenticateToken, requirePermission("demands"), async (req: AuthRequest, res) => {
     try {
       const demands = await storage.getDemands(req.userId!);
       res.json(demands);
@@ -434,7 +433,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/demands", authenticateToken, async (req: AuthRequest, res) => {
+  app.post("/api/demands", authenticateToken, requirePermission("demands"), async (req: AuthRequest, res) => {
     try {
       const validatedData = insertDemandSchema.parse(req.body);
       const demand = await storage.createDemand({
@@ -465,7 +464,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/demands/:id", authenticateToken, async (req: AuthRequest, res) => {
+  app.patch("/api/demands/:id", authenticateToken, requirePermission("demands"), async (req: AuthRequest, res) => {
     try {
       const validatedData = insertDemandSchema.partial().parse(req.body);
       const demand = await storage.updateDemand(req.params.id, validatedData);
@@ -475,7 +474,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/demands/:id", authenticateToken, async (req: AuthRequest, res) => {
+  app.delete("/api/demands/:id", authenticateToken, requirePermission("demands"), async (req: AuthRequest, res) => {
     try {
       await storage.deleteDemand(req.params.id);
       res.json({ success: true });
@@ -485,7 +484,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Demand comments
-  app.get("/api/demands/:id/comments", authenticateToken, async (req: AuthRequest, res) => {
+  app.get("/api/demands/:id/comments", authenticateToken, requirePermission("demands"), async (req: AuthRequest, res) => {
     try {
       const comments = await storage.getDemandComments(req.params.id);
       res.json(comments);
@@ -494,7 +493,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/demands/:id/comments", authenticateToken, async (req: AuthRequest, res) => {
+  app.post("/api/demands/:id/comments", authenticateToken, requirePermission("demands"), async (req: AuthRequest, res) => {
     try {
       const validatedData = insertDemandCommentSchema.parse(req.body);
       const comment = await storage.createDemandComment({
@@ -529,7 +528,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ==================== EVENTS ====================
   
-  app.get("/api/events", authenticateToken, async (req: AuthRequest, res) => {
+  app.get("/api/events", authenticateToken, requirePermission("agenda"), async (req: AuthRequest, res) => {
     try {
       const events = await storage.getEvents(req.userId!);
       res.json(events);
@@ -538,7 +537,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/events", authenticateToken, async (req: AuthRequest, res) => {
+  app.post("/api/events", authenticateToken, requirePermission("agenda"), async (req: AuthRequest, res) => {
     try {
       // Converter strings ISO para objetos Date antes da validação
       const bodyWithDates = {
@@ -612,7 +611,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/events/:id", authenticateToken, async (req: AuthRequest, res) => {
+  app.patch("/api/events/:id", authenticateToken, requirePermission("agenda"), async (req: AuthRequest, res) => {
     try {
       // Converter strings ISO para objetos Date antes da validação
       const bodyWithDates = {
@@ -628,7 +627,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/events/:id", authenticateToken, async (req: AuthRequest, res) => {
+  app.delete("/api/events/:id", authenticateToken, requirePermission("agenda"), async (req: AuthRequest, res) => {
     try {
       await storage.deleteEvent(req.params.id);
       res.json({ success: true });
@@ -639,7 +638,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ==================== AI CONFIGURATION ====================
   
-  app.get("/api/ai-config", authenticateToken, async (req: AuthRequest, res) => {
+  app.get("/api/ai-config", authenticateToken, requirePermission("ai"), async (req: AuthRequest, res) => {
     try {
       const config = await storage.getAiConfig(req.userId!);
       
@@ -661,7 +660,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/ai-config", authenticateToken, async (req: AuthRequest, res) => {
+  app.post("/api/ai-config", authenticateToken, requirePermission("ai"), async (req: AuthRequest, res) => {
     try {
       const validatedData = insertAiConfigurationSchema.parse(req.body);
       const config = await storage.upsertAiConfig({
@@ -674,7 +673,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/ai-config/mode", authenticateToken, async (req: AuthRequest, res) => {
+  app.patch("/api/ai-config/mode", authenticateToken, requirePermission("ai"), async (req: AuthRequest, res) => {
     try {
       const { mode } = req.body;
       const config = await storage.upsertAiConfig({
@@ -688,7 +687,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // OpenAI API Key Management
-  app.post("/api/ai-config/openai-key", authenticateToken, async (req: AuthRequest, res) => {
+  app.post("/api/ai-config/openai-key", authenticateToken, requirePermission("ai"), async (req: AuthRequest, res) => {
     try {
       const { apiKey } = req.body;
       
@@ -740,7 +739,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/ai-config/openai-key", authenticateToken, async (req: AuthRequest, res) => {
+  app.delete("/api/ai-config/openai-key", authenticateToken, requirePermission("ai"), async (req: AuthRequest, res) => {
     try {
       await storage.deleteOpenAiApiKey(req.userId!);
       res.json({ success: true, message: "Chave API removida com sucesso" });
@@ -750,7 +749,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // GET OpenAI API Status
-  app.get("/api/ai-config/openai-status", authenticateToken, async (req: AuthRequest, res) => {
+  app.get("/api/ai-config/openai-status", authenticateToken, requirePermission("ai"), async (req: AuthRequest, res) => {
     try {
       const config = await storage.getAiConfig(req.userId!);
       
@@ -781,7 +780,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // POST Test OpenAI API Status
-  app.post("/api/ai-config/test-openai-status", authenticateToken, async (req: AuthRequest, res) => {
+  app.post("/api/ai-config/test-openai-status", authenticateToken, requirePermission("ai"), async (req: AuthRequest, res) => {
     try {
       const config = await storage.getAiConfig(req.userId!);
       
@@ -845,7 +844,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Test AI Response Endpoint
-  app.post("/api/ai-config/test-response", authenticateToken, async (req: AuthRequest, res) => {
+  app.post("/api/ai-config/test-response", authenticateToken, requirePermission("ai"), async (req: AuthRequest, res) => {
     try {
       const { message } = req.body;
       
@@ -909,7 +908,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // AI Conversations
-  app.get("/api/ai-conversations", authenticateToken, async (req: AuthRequest, res) => {
+  app.get("/api/ai-conversations", authenticateToken, requirePermission("ai"), async (req: AuthRequest, res) => {
     try {
       const conversations = await storage.getAiConversations(req.userId!);
       res.json(conversations);
@@ -919,7 +918,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // AI Training Examples
-  app.get("/api/ai-training-examples", authenticateToken, async (req: AuthRequest, res) => {
+  app.get("/api/ai-training-examples", authenticateToken, requirePermission("ai"), async (req: AuthRequest, res) => {
     try {
       const examples = await storage.getTrainingExamples(req.userId!);
       res.json(examples);
@@ -928,7 +927,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/ai-training-examples", authenticateToken, async (req: AuthRequest, res) => {
+  app.post("/api/ai-training-examples", authenticateToken, requirePermission("ai"), async (req: AuthRequest, res) => {
     try {
       const validatedData = insertAiTrainingExampleSchema.parse(req.body);
       const example = await storage.createTrainingExample({
@@ -941,7 +940,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/ai-training-examples/:id", authenticateToken, async (req: AuthRequest, res) => {
+  app.patch("/api/ai-training-examples/:id", authenticateToken, requirePermission("ai"), async (req: AuthRequest, res) => {
     try {
       const validatedData = insertAiTrainingExampleSchema.partial().parse(req.body);
       const example = await storage.updateTrainingExample(req.params.id, validatedData);
@@ -951,7 +950,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/ai-training-examples/:id", authenticateToken, async (req: AuthRequest, res) => {
+  app.delete("/api/ai-training-examples/:id", authenticateToken, requirePermission("ai"), async (req: AuthRequest, res) => {
     try {
       await storage.deleteTrainingExample(req.params.id);
       res.json({ success: true });
@@ -961,7 +960,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // AI Response Templates
-  app.get("/api/ai-response-templates", authenticateToken, async (req: AuthRequest, res) => {
+  app.get("/api/ai-response-templates", authenticateToken, requirePermission("ai"), async (req: AuthRequest, res) => {
     try {
       const templates = await storage.getResponseTemplates(req.userId!);
       res.json(templates);
@@ -970,7 +969,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/ai-response-templates", authenticateToken, async (req: AuthRequest, res) => {
+  app.post("/api/ai-response-templates", authenticateToken, requirePermission("ai"), async (req: AuthRequest, res) => {
     try {
       const validatedData = insertAiResponseTemplateSchema.parse(req.body);
       const template = await storage.createResponseTemplate({
@@ -983,7 +982,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/ai-response-templates/:id", authenticateToken, async (req: AuthRequest, res) => {
+  app.patch("/api/ai-response-templates/:id", authenticateToken, requirePermission("ai"), async (req: AuthRequest, res) => {
     try {
       const validatedData = insertAiResponseTemplateSchema.partial().parse(req.body);
       const template = await storage.updateResponseTemplate(req.params.id, validatedData);
@@ -993,7 +992,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/ai-response-templates/:id", authenticateToken, async (req: AuthRequest, res) => {
+  app.delete("/api/ai-response-templates/:id", authenticateToken, requirePermission("ai"), async (req: AuthRequest, res) => {
     try {
       await storage.deleteResponseTemplate(req.params.id);
       res.json({ success: true });
@@ -1003,7 +1002,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Generate AI response
-  app.post("/api/ai-conversations/generate", authenticateToken, async (req: AuthRequest, res) => {
+  app.post("/api/ai-conversations/generate", authenticateToken, requirePermission("ai"), async (req: AuthRequest, res) => {
     try {
       const { userMessage, postContent, platform } = req.body;
       
@@ -1081,7 +1080,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ==================== MARKETING CAMPAIGNS ====================
   
-  app.get("/api/campaigns", authenticateToken, async (req: AuthRequest, res) => {
+  app.get("/api/campaigns", authenticateToken, requirePermission("marketing"), async (req: AuthRequest, res) => {
     try {
       const campaigns = await storage.getCampaigns(req.userId!);
       res.json(campaigns);
@@ -1090,7 +1089,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/campaigns", authenticateToken, async (req: AuthRequest, res) => {
+  app.post("/api/campaigns", authenticateToken, requirePermission("marketing"), async (req: AuthRequest, res) => {
     try {
       const validatedData = insertMarketingCampaignSchema.parse(req.body);
       const campaign = await storage.createCampaign({
@@ -1103,7 +1102,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/campaigns/:id/send", authenticateToken, async (req: AuthRequest, res) => {
+  app.post("/api/campaigns/:id/send", authenticateToken, requirePermission("marketing"), async (req: AuthRequest, res) => {
     try {
       const campaign = await storage.getCampaign(req.params.id);
       
@@ -1167,7 +1166,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ==================== INTEGRATIONS ====================
   
   // Get all integrations for user
-  app.get("/api/integrations", authenticateToken, async (req: AuthRequest, res) => {
+  app.get("/api/integrations", authenticateToken, requirePermission("marketing"), async (req: AuthRequest, res) => {
     try {
       const integrations = await storage.getIntegrations(req.userId!);
       // Remove sensitive data from response for security
@@ -1183,7 +1182,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get specific integration
-  app.get("/api/integrations/:service", authenticateToken, async (req: AuthRequest, res) => {
+  app.get("/api/integrations/:service", authenticateToken, requirePermission("marketing"), async (req: AuthRequest, res) => {
     try {
       const integration = await storage.getIntegration(req.userId!, req.params.service);
       if (integration) {
@@ -1198,7 +1197,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Save/update integration
-  app.post("/api/integrations", authenticateToken, async (req: AuthRequest, res) => {
+  app.post("/api/integrations", authenticateToken, requirePermission("marketing"), async (req: AuthRequest, res) => {
     try {
       const validatedData = insertIntegrationSchema.parse(req.body);
       const integration = await storage.upsertIntegration({
@@ -1218,7 +1217,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Test integration
-  app.post("/api/integrations/:service/test", authenticateToken, async (req: AuthRequest, res) => {
+  app.post("/api/integrations/:service/test", authenticateToken, requirePermission("marketing"), async (req: AuthRequest, res) => {
     try {
       const integration = await storage.getIntegration(req.userId!, req.params.service);
       
