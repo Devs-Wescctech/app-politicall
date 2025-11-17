@@ -19,11 +19,15 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, Trash2, Edit, ExternalLink, Copy, CheckCircle, XCircle, Clock, BarChart3, ChevronDown, ChevronUp, Eye } from "lucide-react";
+import { Plus, Trash2, Edit, ExternalLink, Copy, CheckCircle, XCircle, Clock, BarChart3, ChevronDown, ChevronUp, Eye, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import pdfMake from "pdfmake/build/pdfmake";
+import * as pdfFonts from "pdfmake/build/vfs_fonts";
+
+(pdfMake as any).vfs = pdfFonts;
 
 const SURVEY_STATUS_CONFIG = {
   under_review: { 
@@ -70,7 +74,6 @@ function slugify(text: string): string {
 interface CampaignWithTemplate extends SurveyCampaign {
   template?: SurveyTemplate;
   responseCount?: number;
-  viewCount?: number;
 }
 
 
@@ -111,6 +114,253 @@ const DEMOGRAPHIC_LABELS: Record<string, Record<string, string>> = {
     prefiro_nao_comentar: "Prefiro não comentar"
   }
 };
+
+async function generateSurveyPdfReport(
+  campaign: CampaignWithTemplate,
+  template: SurveyTemplate,
+  campaignId: string
+) {
+  try {
+    const response = await fetch(`/api/survey-campaigns/${campaignId}/responses`);
+    const data = await response.json();
+    
+    const responses = Array.isArray(data) ? data : (data?.responses || []);
+    const groupedResponses = !Array.isArray(data) ? data?.grouped : undefined;
+    
+    if (responses.length === 0) {
+      throw new Error("Nenhuma resposta disponível para gerar o relatório");
+    }
+
+    let majorityResult = "";
+    let majorityPercentage = "0";
+    let totalResponses = responses.length;
+
+    if (template.questionType === "single_choice" || template.questionType === "multiple_choice") {
+      const counts: Record<string, number> = {};
+      responses.forEach((r: any) => {
+        const responseData = r.responseData;
+        if (template.questionType === "single_choice" && responseData.answer) {
+          counts[responseData.answer] = (counts[responseData.answer] || 0) + 1;
+        } else if (template.questionType === "multiple_choice" && responseData.answers) {
+          responseData.answers.forEach((ans: string) => {
+            counts[ans] = (counts[ans] || 0) + 1;
+          });
+        }
+      });
+
+      const sortedResults = Object.entries(counts)
+        .map(([key, value]) => ({
+          name: key,
+          value,
+          percentage: ((value / totalResponses) * 100).toFixed(1)
+        }))
+        .sort((a, b) => b.value - a.value);
+
+      if (sortedResults.length > 0) {
+        majorityResult = sortedResults[0].name;
+        majorityPercentage = sortedResults[0].percentage;
+      }
+    } else if (template.questionType === "open_text" && groupedResponses && groupedResponses.length > 0) {
+      majorityResult = groupedResponses[0].displayText;
+      majorityPercentage = ((groupedResponses[0].count / totalResponses) * 100).toFixed(1);
+    } else if (template.questionType === "rating" && template.options) {
+      const avgRatings = template.options.map(option => {
+        const ratings = responses
+          .map((r: any) => r.responseData?.ratings?.[option])
+          .filter((r: any) => r !== undefined);
+        const avg = ratings.length > 0
+          ? (ratings.reduce((sum: number, r: number) => sum + r, 0) / ratings.length)
+          : 0;
+        return { option, avg };
+      });
+      
+      const best = avgRatings.sort((a, b) => b.avg - a.avg)[0];
+      if (best) {
+        majorityResult = best.option;
+        majorityPercentage = ((best.avg / 5) * 100).toFixed(1);
+      }
+    }
+
+    const currentDate = new Date().toLocaleDateString('pt-BR', {
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric'
+    });
+
+    const docDefinition: any = {
+      pageSize: 'A4',
+      pageMargins: [60, 80, 60, 60],
+      content: [
+        {
+          text: 'POLITICALL',
+          style: 'header',
+          color: '#40E0D0',
+          alignment: 'center',
+          margin: [0, 0, 0, 10]
+        },
+        {
+          text: 'Relatório de Resultados de Pesquisa',
+          style: 'subheader',
+          alignment: 'center',
+          margin: [0, 0, 0, 30]
+        },
+        {
+          canvas: [
+            {
+              type: 'line',
+              x1: 0,
+              y1: 0,
+              x2: 475,
+              y2: 0,
+              lineWidth: 2,
+              lineColor: '#40E0D0'
+            }
+          ],
+          margin: [0, 0, 0, 30]
+        },
+        {
+          text: 'Informações da Campanha',
+          style: 'sectionTitle',
+          margin: [0, 0, 0, 15]
+        },
+        {
+          columns: [
+            {
+              width: '50%',
+              stack: [
+                { text: 'Nome da Campanha:', style: 'label' },
+                { text: campaign.campaignName, style: 'value', margin: [0, 0, 0, 10] },
+                { text: 'Pergunta:', style: 'label' },
+                { text: template.questionText, style: 'value', margin: [0, 0, 0, 10] }
+              ]
+            },
+            {
+              width: '50%',
+              stack: [
+                { text: 'Data do Relatório:', style: 'label' },
+                { text: currentDate, style: 'value', margin: [0, 0, 0, 10] },
+                { text: 'Total de Respostas:', style: 'label' },
+                { text: totalResponses.toString(), style: 'value', fontSize: 18, bold: true, color: '#40E0D0' }
+              ]
+            }
+          ],
+          margin: [0, 0, 0, 40]
+        },
+        {
+          canvas: [
+            {
+              type: 'rect',
+              x: 0,
+              y: 0,
+              w: 475,
+              h: 150,
+              r: 8,
+              lineColor: '#40E0D0',
+              lineWidth: 3,
+              color: '#F0FFFF'
+            }
+          ],
+          absolutePosition: { x: 60, y: 420 }
+        },
+        {
+          stack: [
+            {
+              text: 'RESULTADO DA MAIORIA',
+              style: 'resultTitle',
+              alignment: 'center',
+              margin: [0, 15, 0, 20]
+            },
+            {
+              text: majorityResult,
+              style: 'majorityResult',
+              alignment: 'center',
+              margin: [0, 0, 0, 15]
+            },
+            {
+              text: `${majorityPercentage}%`,
+              style: 'percentage',
+              alignment: 'center',
+              color: '#40E0D0'
+            }
+          ],
+          margin: [0, 0, 0, 60]
+        },
+        {
+          canvas: [
+            {
+              type: 'line',
+              x1: 0,
+              y1: 0,
+              x2: 475,
+              y2: 0,
+              lineWidth: 1,
+              lineColor: '#CCCCCC'
+            }
+          ],
+          margin: [0, 0, 0, 20]
+        },
+        {
+          text: [
+            { text: 'Documento gerado pela plataforma ', style: 'footer' },
+            { text: 'Politicall', style: 'footer', bold: true, color: '#40E0D0' },
+            { text: ' - www.politicall.com.br', style: 'footer' }
+          ],
+          alignment: 'center'
+        }
+      ],
+      styles: {
+        header: {
+          fontSize: 28,
+          bold: true,
+          letterSpacing: 2
+        },
+        subheader: {
+          fontSize: 14,
+          color: '#666666'
+        },
+        sectionTitle: {
+          fontSize: 16,
+          bold: true,
+          color: '#333333'
+        },
+        label: {
+          fontSize: 10,
+          color: '#666666',
+          margin: [0, 0, 0, 3]
+        },
+        value: {
+          fontSize: 12,
+          color: '#333333'
+        },
+        resultTitle: {
+          fontSize: 14,
+          color: '#666666',
+          letterSpacing: 1
+        },
+        majorityResult: {
+          fontSize: 24,
+          bold: true,
+          color: '#333333'
+        },
+        percentage: {
+          fontSize: 48,
+          bold: true
+        },
+        footer: {
+          fontSize: 9,
+          color: '#999999'
+        }
+      },
+      defaultStyle: {
+        font: 'Roboto'
+      }
+    };
+
+    pdfMake.createPdf(docDefinition).download(`resultado-${campaign.slug}.pdf`);
+  } catch (error) {
+    throw error;
+  }
+}
 
 interface SurveyResultsProps {
   campaignId: string;
@@ -486,8 +736,8 @@ export default function Marketing() {
       campaignName: campaign.campaignName,
       slug: campaign.slug,
       status: campaign.status,
-      startDate: campaign.startDate,
-      endDate: campaign.endDate,
+      startDate: campaign.startDate ? campaign.startDate.toString() : null,
+      endDate: campaign.endDate ? campaign.endDate.toString() : null,
       targetAudience: campaign.targetAudience,
       adminReviewerId: campaign.adminReviewerId,
       adminNotes: campaign.adminNotes,
@@ -606,6 +856,29 @@ export default function Marketing() {
                         )}
                       </div>
                       <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="rounded-full"
+                          onClick={async () => {
+                            try {
+                              if (campaign.template) {
+                                await generateSurveyPdfReport(campaign, campaign.template, campaign.id);
+                                toast({ title: "PDF gerado com sucesso!" });
+                              }
+                            } catch (error: any) {
+                              toast({ 
+                                title: "Erro ao gerar PDF", 
+                                description: error.message,
+                                variant: "destructive" 
+                              });
+                            }
+                          }}
+                          data-testid={`button-pdf-${campaign.id}`}
+                          title="Baixar Resultado em PDF"
+                        >
+                          <FileText className="w-4 h-4" />
+                        </Button>
                         <Button
                           variant="outline"
                           size="icon"
