@@ -30,6 +30,7 @@ import demandsImage from "@assets/Técnico- Luis Flores (6)_1763413913827.png";
 import eventsImage from "@assets/Técnico- Luis Flores (7)_1763414009496.png";
 import aiImage from "@assets/dsfsdfdsfdsfdsf_1763412976580.png";
 import marketingImage from "@assets/stock_images/marketing_campaign_a_481dcd3f.jpg";
+import ctaBackground from "@assets/2151190606_1763415381149.jpg";
 
 const BRAZILIAN_STATES = [
   "Acre", "Alagoas", "Amapá", "Amazonas", "Bahia", "Ceará", "Distrito Federal",
@@ -879,13 +880,17 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section className="py-24 bg-background">
-        <div className="container mx-auto px-4">
+      <section 
+        className="py-24 bg-background relative bg-cover bg-center"
+        style={{ backgroundImage: `url(${ctaBackground})` }}
+      >
+        <div className="absolute inset-0 bg-black/60"></div>
+        <div className="container mx-auto px-4 relative z-10">
           <div className="max-w-4xl mx-auto text-center">
-            <h2 className="text-4xl md:text-5xl font-bold mb-6" data-testid="text-cta-final-title">
+            <h2 className="text-4xl md:text-5xl font-bold mb-6 text-white" data-testid="text-cta-final-title">
               Pronto para Transformar Sua Carreira Política?
             </h2>
-            <p className="text-xl text-muted-foreground mb-8">
+            <p className="text-xl text-white/90 mb-8">
               Junte-se a centenas de políticos que já usam Politicall para vencer eleições e servir melhor seus eleitores.
             </p>
           </div>
