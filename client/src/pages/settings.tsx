@@ -193,18 +193,7 @@ export default function Settings() {
                 <label className="text-sm font-medium text-muted-foreground">Plataforma</label>
                 <p className="text-base mt-1">Gestão Política Completa</p>
               </div>
-              <Separator />
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Módulos Ativos</label>
-                <div className="flex flex-wrap gap-2 mt-2">
-                  <Badge>Eleitores</Badge>
-                  <Badge>Aliança Política</Badge>
-                  <Badge>Demandas</Badge>
-                  <Badge>Agenda</Badge>
-                  <Badge>Atendimento IA</Badge>
-                  <Badge>Marketing</Badge>
-                </div>
-              </div>
+              
             </CardContent>
           </Card>
         </div>
