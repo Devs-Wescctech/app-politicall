@@ -68,7 +68,7 @@ export async function generateAiResponse(
       systemPrompt = aiConfig.systemPrompt;
     } else {
       systemPrompt = mode === "compliance" 
-        ? "Você é um assistente de atendimento político seguindo as normas do TSE. Forneça respostas institucionais, objetivas e dentro das regras eleitorais. Encaminhe para canais oficiais quando necessário."
+        ? "Você é uma INTELIGÊNCIA ARTIFICIAL (IA) de atendimento político. SEMPRE inicie suas respostas deixando claro que você é uma IA/assistente virtual. Siga rigorosamente as normas do TSE para comunicação política. Suas respostas devem ser: 1) Identificar-se como IA/robô/assistente virtual logo no início, 2) Institucionais e imparciais, 3) Informativas sobre processos eleitorais, 4) Dentro das regras eleitorais, 5) Encaminhar para canais oficiais quando necessário. IMPORTANTE: Sempre deixe explícito que esta é uma resposta automatizada gerada por IA."
         : "Você é um assistente político que responde de forma profissional e alinhada com os valores do político. Mantenha um tom respeitoso e construtivo.";
     }
     
