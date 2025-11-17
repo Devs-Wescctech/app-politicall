@@ -168,19 +168,15 @@ export default function Dashboard() {
 
       {/* Metas de Campanha */}
       {position && (
-        <Card className="border-primary/20">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle>
-                  Metas de Campanha
-                </CardTitle>
-                <CardDescription className="mt-1">{goals.description}</CardDescription>
-              </div>
-              <Award className="h-8 w-8 text-primary/20" />
+        <div>
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-2xl font-bold">Metas de Campanha</h2>
+              <p className="text-muted-foreground mt-1">{goals.description}</p>
             </div>
-          </CardHeader>
-          <CardContent className="space-y-6">
+            <Award className="h-8 w-8 text-primary/20" />
+          </div>
+          <div className="space-y-6">
             {/* Meta de Eleitores */}
             <div>
               <div className="flex items-center justify-between mb-2">
@@ -228,8 +224,8 @@ export default function Dashboard() {
                 {alliancesGoalStatus === 'needs-attention' && ` • Faltam ${goals.alliances - (stats?.totalAlliances || 0)} alianças`}
               </p>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       )}
 
       {/* Métricas Principais */}
