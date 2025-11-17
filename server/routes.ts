@@ -11,6 +11,8 @@ import { generateAiResponse, testOpenAiApiKey } from "./openai";
 import { requireRole } from "./authorization";
 import { authenticateToken, requirePermission, type AuthRequest } from "./auth";
 import { z } from "zod";
+import fs from "fs";
+import path from "path";
 
 if (!process.env.SESSION_SECRET) {
   throw new Error("SESSION_SECRET must be set in environment variables");
@@ -1411,8 +1413,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log('[UPLOAD] Creating directory...');
       // Create directory if it doesn't exist
-      const fs = require('fs');
-      const path = require('path');
       const dir = path.dirname(fullPath);
       if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
@@ -1463,7 +1463,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Delete file from filesystem
-      const fs = require('fs');
       const fullPath = `attached_assets/${asset.storageKey}`;
       if (fs.existsSync(fullPath)) {
         fs.unlinkSync(fullPath);
