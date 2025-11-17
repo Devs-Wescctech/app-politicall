@@ -229,22 +229,16 @@ export default function UsersManagement() {
           <h1 className="text-3xl font-bold">Gerenciamento de Usuários</h1>
           <p className="text-muted-foreground mt-2">Gerencie permissões e acessos dos usuários</p>
         </div>
-        <div className="flex items-center gap-2">
-          {isAdmin && (
-            <Button
-              onClick={() => setShowAddUserDialog(true)}
-              className="rounded-full"
-              data-testid="button-add-user"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Adicionar Usuário
-            </Button>
-          )}
-          <Badge variant="outline" className="text-sm">
-            <Shield className="w-3 h-3 mr-1" />
-            Apenas Administradores
-          </Badge>
-        </div>
+        {isAdmin && (
+          <Button
+            onClick={() => setShowAddUserDialog(true)}
+            className="rounded-full"
+            data-testid="button-add-user"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Adicionar Usuário
+          </Button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
