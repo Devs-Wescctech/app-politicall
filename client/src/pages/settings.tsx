@@ -98,15 +98,23 @@ export default function Settings() {
                   <Badge className="bg-green-500/10 text-green-500 hover:bg-green-500/20">Ativo</Badge>
                 </div>
                 <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Alianças</span>
+                  <Badge className="bg-green-500/10 text-green-500 hover:bg-green-500/20">Ativo</Badge>
+                </div>
+                <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Demandas</span>
                   <Badge className="bg-green-500/10 text-green-500 hover:bg-green-500/20">Ativo</Badge>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Eventos</span>
+                  <span className="text-muted-foreground">Agenda</span>
                   <Badge className="bg-green-500/10 text-green-500 hover:bg-green-500/20">Ativo</Badge>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Campanhas</span>
+                  <span className="text-muted-foreground">Atendimento IA</span>
+                  <Badge className="bg-green-500/10 text-green-500 hover:bg-green-500/20">Ativo</Badge>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Marketing</span>
                   <Badge className="bg-green-500/10 text-green-500 hover:bg-green-500/20">Ativo</Badge>
                 </div>
               </div>
