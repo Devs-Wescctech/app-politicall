@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { type MarketingCampaign, type InsertMarketingCampaign, insertMarketingCampaignSchema } from "@shared/schema";
+import { type MarketingCampaign, type InsertMarketingCampaign, insertMarketingCampaignSchema, type Contact, type PoliticalAlliance } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,6 +10,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Plus, Mail, MessageCircle, Send, Calendar as CalendarIcon } from "lucide-react";
@@ -90,10 +92,23 @@ function DateTimeInput({ field }: { field: any }) {
 export default function Marketing() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [recipientsText, setRecipientsText] = useState("");
+  const [recipientType, setRecipientType] = useState<"manual" | "voters" | "alliance" | "all">("manual");
   const { toast } = useToast();
 
   const { data: campaigns, isLoading } = useQuery<MarketingCampaign[]>({
     queryKey: ["/api/campaigns"],
+  });
+
+  // Query for contacts
+  const { data: contacts } = useQuery<Contact[]>({
+    queryKey: ["/api/contacts"],
+    enabled: recipientType === "voters" || recipientType === "all",
+  });
+
+  // Query for political alliances
+  const { data: alliances } = useQuery<PoliticalAlliance[]>({
+    queryKey: ["/api/alliances"],
+    enabled: recipientType === "alliance" || recipientType === "all",
   });
 
   const form = useForm<InsertMarketingCampaign>({
@@ -117,6 +132,7 @@ export default function Marketing() {
       setIsDialogOpen(false);
       form.reset();
       setRecipientsText("");
+      setRecipientType("manual");
     },
     onError: () => {
       toast({ title: "Erro ao criar campanha", variant: "destructive" });
@@ -153,6 +169,38 @@ export default function Marketing() {
   };
 
   const campaignType = form.watch("type");
+
+  // Automatically populate recipients based on selection
+  useEffect(() => {
+    if (recipientType === "manual") {
+      return; // Keep manual text
+    }
+    
+    let recipients: string[] = [];
+    
+    if (recipientType === "voters" && contacts) {
+      recipients = campaignType === "email" 
+        ? contacts.filter(c => c.email).map(c => c.email!)
+        : contacts.filter(c => c.phone).map(c => c.phone!);
+    } else if (recipientType === "alliance" && alliances) {
+      // Alliances have direct email and phone fields
+      recipients = campaignType === "email"
+        ? alliances.filter(a => a.email).map(a => a.email!)
+        : alliances.filter(a => a.phone).map(a => a.phone!);
+    } else if (recipientType === "all") {
+      const voterRecipients = contacts ? (campaignType === "email" 
+        ? contacts.filter(c => c.email).map(c => c.email!)
+        : contacts.filter(c => c.phone).map(c => c.phone!)) : [];
+      
+      const allianceRecipients = alliances ? (campaignType === "email"
+        ? alliances.filter(a => a.email).map(a => a.email!)
+        : alliances.filter(a => a.phone).map(a => a.phone!)) : [];
+      
+      recipients = [...voterRecipients, ...allianceRecipients];
+    }
+    
+    setRecipientsText(recipients.join(", "));
+  }, [recipientType, contacts, alliances, campaignType]);
 
   return (
     <div className="p-4 sm:p-6 md:p-8 space-y-6">
@@ -256,6 +304,30 @@ export default function Marketing() {
                 />
 
                 <div>
+                  <FormLabel>Tipo de Destinatários *</FormLabel>
+                  <RadioGroup
+                    value={recipientType}
+                    onValueChange={(value: "manual" | "voters" | "alliance" | "all") => setRecipientType(value)}
+                    className="flex flex-wrap gap-4 mt-2 mb-4"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="manual" id="manual" />
+                      <Label htmlFor="manual">Manual</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="voters" id="voters" />
+                      <Label htmlFor="voters">Lista de Eleitores</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="alliance" id="alliance" />
+                      <Label htmlFor="alliance">Lista de Aliança Política</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="all" id="all" />
+                      <Label htmlFor="all">Todos</Label>
+                    </div>
+                  </RadioGroup>
+
                   <FormLabel>Destinatários *</FormLabel>
                   <Textarea
                     placeholder={campaignType === "email" ? "email1@exemplo.com, email2@exemplo.com" : "+5511999999999, +5511888888888"}
@@ -264,9 +336,12 @@ export default function Marketing() {
                     onChange={(e) => setRecipientsText(e.target.value)}
                     className="mt-2"
                     data-testid="input-recipients"
+                    disabled={recipientType !== "manual"}
                   />
                   <p className="text-xs text-muted-foreground mt-1">
-                    Separe múltiplos {campaignType === "email" ? "emails" : "telefones"} com vírgula, ponto e vírgula ou quebra de linha
+                    {recipientType === "manual" 
+                      ? `Separe múltiplos ${campaignType === "email" ? "emails" : "telefones"} com vírgula, ponto e vírgula ou quebra de linha`
+                      : `${recipientsText.split(",").filter(r => r.trim()).length} ${campaignType === "email" ? "emails" : "telefones"} selecionados`}
                   </p>
                 </div>
 
