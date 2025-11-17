@@ -326,7 +326,7 @@ export default function Alliances() {
             }}
           >
             <SelectTrigger className="w-[180px] rounded-full" data-testid="select-filter-state">
-              <SelectValue placeholder="Filtrar por Estado" />
+              <SelectValue placeholder="Estado" />
             </SelectTrigger>
             <SelectContent>
               {getUniqueStates().map((state) => (
@@ -343,7 +343,7 @@ export default function Alliances() {
             onValueChange={setCityFilter}
           >
             <SelectTrigger className="w-[180px] rounded-full" data-testid="select-filter-city">
-              <SelectValue placeholder="Filtrar por Cidade" />
+              <SelectValue placeholder="Cidade" />
             </SelectTrigger>
             <SelectContent>
               {getFilteredCities().map((city) => (
