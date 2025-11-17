@@ -1375,28 +1375,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Upload campaign image (base64)
   app.post("/api/google-ads-campaigns/:id/upload-image", authenticateToken, requirePermission("marketing"), async (req: AuthRequest, res) => {
     try {
+      console.log('[UPLOAD] Starting upload for campaign:', req.params.id);
       const campaign = await storage.getGoogleAdsCampaign(req.params.id);
       
       if (!campaign || campaign.userId !== req.userId!) {
+        console.log('[UPLOAD] Campaign not found or unauthorized');
         return res.status(404).json({ error: "Campanha não encontrada" });
       }
 
-      // Check current asset count (removed limit)
-
       const { imageData, filename, mimeType } = req.body;
+      console.log('[UPLOAD] Received:', { filename, mimeType, dataLength: imageData?.length });
       
       if (!imageData || !filename || !mimeType) {
+        console.log('[UPLOAD] Missing data');
         return res.status(400).json({ error: "Dados da imagem incompletos" });
       }
 
       // Validate mime type
       if (!mimeType.startsWith('image/')) {
+        console.log('[UPLOAD] Invalid mime type');
         return res.status(400).json({ error: "Apenas imagens são permitidas" });
       }
 
+      console.log('[UPLOAD] Decoding base64...');
       // Decode base64 and get size
       const buffer = Buffer.from(imageData.replace(/^data:image\/\w+;base64,/, ''), 'base64');
       const sizeBytes = buffer.length;
+      console.log('[UPLOAD] Buffer size:', sizeBytes);
 
       // Generate unique filename
       const timestamp = Date.now();
@@ -1404,6 +1409,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const storageKey = `google-ads-campaigns/${campaign.id}/${timestamp}_${safeFilename}`;
       const fullPath = `attached_assets/${storageKey}`;
 
+      console.log('[UPLOAD] Creating directory...');
       // Create directory if it doesn't exist
       const fs = require('fs');
       const path = require('path');
@@ -1412,9 +1418,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         fs.mkdirSync(dir, { recursive: true });
       }
 
+      console.log('[UPLOAD] Writing file to:', fullPath);
       // Write file
       fs.writeFileSync(fullPath, buffer);
 
+      console.log('[UPLOAD] Creating asset record...');
       // Create asset record
       const asset = await storage.createCampaignAsset({
         campaignId: campaign.id,
@@ -1426,8 +1434,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         uploadedBy: req.userId!,
       });
 
+      console.log('[UPLOAD] Success! Asset ID:', asset.id);
       res.json(asset);
     } catch (error: any) {
+      console.error('[UPLOAD] Error:', error.message, error.stack);
       res.status(500).json({ error: error.message });
     }
   });
