@@ -870,29 +870,6 @@ export default function Marketing() {
                           variant="outline"
                           size="icon"
                           className="rounded-full"
-                          onClick={async () => {
-                            try {
-                              if (campaign.template) {
-                                await generateSurveyPdfReport(campaign, campaign.template, campaign.id);
-                                toast({ title: "PDF gerado com sucesso!" });
-                              }
-                            } catch (error: any) {
-                              toast({ 
-                                title: "Erro ao gerar PDF", 
-                                description: error.message,
-                                variant: "destructive" 
-                              });
-                            }
-                          }}
-                          data-testid={`button-pdf-${campaign.id}`}
-                          title="Baixar Resultado em PDF"
-                        >
-                          <FileText className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          className="rounded-full"
                           onClick={() => handleEditClick(campaign)}
                           data-testid={`button-edit-${campaign.id}`}
                         >
@@ -938,6 +915,29 @@ export default function Marketing() {
                             data-testid={`button-open-url-${campaign.id}`}
                           >
                             <ExternalLink className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="rounded-full flex-shrink-0"
+                            onClick={async () => {
+                              try {
+                                if (campaign.template) {
+                                  await generateSurveyPdfReport(campaign, campaign.template, campaign.id);
+                                  toast({ title: "PDF gerado com sucesso!" });
+                                }
+                              } catch (error: any) {
+                                toast({ 
+                                  title: "Erro ao gerar PDF", 
+                                  description: error.message,
+                                  variant: "destructive" 
+                                });
+                              }
+                            }}
+                            data-testid={`button-pdf-${campaign.id}`}
+                            title="Baixar Resultado em PDF"
+                          >
+                            <FileText className="w-4 h-4" />
                           </Button>
                         </div>
                       </div>
