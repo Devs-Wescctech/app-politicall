@@ -361,8 +361,7 @@ function SurveyCampaignsCharts() {
       {/* Resumo de Pesquisas */}
       <Card className="border-[#40E0D0]/20">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <BarChart className="h-5 w-5 text-[#40E0D0]" />
+          <CardTitle>
             Pesquisas Mercadológicas
           </CardTitle>
           <CardDescription>Visão geral das suas pesquisas encomendadas</CardDescription>
