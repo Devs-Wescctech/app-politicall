@@ -909,17 +909,6 @@ export default function LandingPage() {
                     </div>
                   </div>
                 </div>
-
-                <div className="flex flex-col sm:flex-row gap-4">
-                  <Button
-                    size="lg"
-                    className="rounded-full"
-                    onClick={() => scrollToSection('contato')}
-                    data-testid="button-cta-surveys"
-                  >
-                    Criar Minha Primeira Pesquisa <ArrowRight className="ml-2 w-5 h-5" />
-                  </Button>
-                </div>
               </div>
 
               <div className="relative">
