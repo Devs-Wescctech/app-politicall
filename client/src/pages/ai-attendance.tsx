@@ -1077,6 +1077,346 @@ export default function AiAttendance() {
             </Form>
           </DialogContent>
         )}
+        {selectedPlatform === "instagram" && (
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Configurar Instagram</DialogTitle>
+            </DialogHeader>
+            <Form {...platformForm}>
+              <form onSubmit={platformForm.handleSubmit(handleSavePlatform)} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={platformForm.control}
+                    name="instagramAppId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>App ID</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="123456789" data-testid="input-ig-app-id" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={platformForm.control}
+                    name="instagramAppSecret"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>App Secret</FormLabel>
+                        <FormControl>
+                          <Input {...field} type="password" placeholder="••••••••" data-testid="input-ig-app-secret" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={platformForm.control}
+                    name="instagramBusinessAccountId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Business Account ID</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="17841..." data-testid="input-ig-business-id" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={platformForm.control}
+                    name="instagramUsername"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Nome de Usuário</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="@seu_usuario" data-testid="input-ig-username" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={platformForm.control}
+                    name="instagramFacebookPageId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Facebook Page ID</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="987654321" data-testid="input-ig-fb-page-id" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={platformForm.control}
+                    name="instagramAccessToken"
+                    render={({ field }) => (
+                      <FormItem className="md:col-span-2">
+                        <FormLabel>Access Token</FormLabel>
+                        <FormControl>
+                          <Textarea {...field} placeholder="IGQVJ..." className="min-h-[80px]" data-testid="textarea-ig-token" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <DialogFooter className="px-6 py-4 border-t grid grid-cols-1 gap-2">
+                  <Button type="submit" className="rounded-full w-full" data-testid="button-save-ig-config">
+                    Salvar Configuração
+                  </Button>
+                </DialogFooter>
+              </form>
+            </Form>
+          </DialogContent>
+        )}
+        {selectedPlatform === "twitter" && (
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Configurar X (Twitter)</DialogTitle>
+            </DialogHeader>
+            <Form {...platformForm}>
+              <form onSubmit={platformForm.handleSubmit(handleSavePlatform)} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={platformForm.control}
+                    name="twitterApiKey"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>API Key</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="xxxxxxxxxxx" data-testid="input-tw-api-key" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={platformForm.control}
+                    name="twitterApiSecretKey"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>API Secret Key</FormLabel>
+                        <FormControl>
+                          <Input {...field} type="password" placeholder="••••••••" data-testid="input-tw-api-secret" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={platformForm.control}
+                    name="twitterBearerToken"
+                    render={({ field }) => (
+                      <FormItem className="md:col-span-2">
+                        <FormLabel>Bearer Token</FormLabel>
+                        <FormControl>
+                          <Textarea {...field} placeholder="AAAAAAA..." className="min-h-[80px]" data-testid="textarea-tw-bearer-token" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={platformForm.control}
+                    name="twitterAccessToken"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Access Token</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="1234567890..." data-testid="input-tw-access-token" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={platformForm.control}
+                    name="twitterAccessTokenSecret"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Access Token Secret</FormLabel>
+                        <FormControl>
+                          <Input {...field} type="password" placeholder="••••••••" data-testid="input-tw-token-secret" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={platformForm.control}
+                    name="twitterClientId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Client ID</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="xyz123..." data-testid="input-tw-client-id" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={platformForm.control}
+                    name="twitterClientSecret"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Client Secret</FormLabel>
+                        <FormControl>
+                          <Input {...field} type="password" placeholder="••••••••" data-testid="input-tw-client-secret" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={platformForm.control}
+                    name="twitterUsername"
+                    render={({ field }) => (
+                      <FormItem className="md:col-span-2">
+                        <FormLabel>Nome de Usuário</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="@seu_usuario" data-testid="input-tw-username" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <DialogFooter className="px-6 py-4 border-t grid grid-cols-1 gap-2">
+                  <Button type="submit" className="rounded-full w-full" data-testid="button-save-tw-config">
+                    Salvar Configuração
+                  </Button>
+                </DialogFooter>
+              </form>
+            </Form>
+          </DialogContent>
+        )}
+        {selectedPlatform === "whatsapp" && (
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Configurar WhatsApp</DialogTitle>
+            </DialogHeader>
+            <Form {...platformForm}>
+              <form onSubmit={platformForm.handleSubmit(handleSavePlatform)} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={platformForm.control}
+                    name="whatsappPhoneNumberId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Phone Number ID</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="123456789" data-testid="input-wa-phone-id" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={platformForm.control}
+                    name="whatsappBusinessAccountId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Business Account ID</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="987654321" data-testid="input-wa-business-id" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={platformForm.control}
+                    name="whatsappAppId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>App ID</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="123456789" data-testid="input-wa-app-id" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={platformForm.control}
+                    name="whatsappAppSecret"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>App Secret</FormLabel>
+                        <FormControl>
+                          <Input {...field} type="password" placeholder="••••••••" data-testid="input-wa-app-secret" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={platformForm.control}
+                    name="whatsappPhoneNumber"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Número de Telefone</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="+5511999999999" data-testid="input-wa-phone" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={platformForm.control}
+                    name="whatsappBusinessName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Nome do Negócio</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="Meu Negócio" data-testid="input-wa-business-name" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={platformForm.control}
+                    name="whatsappAccessToken"
+                    render={({ field }) => (
+                      <FormItem className="md:col-span-2">
+                        <FormLabel>Access Token</FormLabel>
+                        <FormControl>
+                          <Textarea {...field} placeholder="EAABw..." className="min-h-[80px]" data-testid="textarea-wa-token" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={platformForm.control}
+                    name="whatsappWebhookVerifyToken"
+                    render={({ field }) => (
+                      <FormItem className="md:col-span-2">
+                        <FormLabel>Webhook Verify Token</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="my-verify-token" data-testid="input-wa-webhook-token" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <DialogFooter className="px-6 py-4 border-t grid grid-cols-1 gap-2">
+                  <Button type="submit" className="rounded-full w-full" data-testid="button-save-wa-config">
+                    Salvar Configuração
+                  </Button>
+                </DialogFooter>
+              </form>
+            </Form>
+          </DialogContent>
+        )}
       </Dialog>
     </div>
   );
