@@ -484,7 +484,7 @@ export default function Demands() {
       </div>
 
       <div className="flex-1 overflow-x-auto">
-        <div className="flex gap-4 pb-6 min-h-full justify-center">
+        <div className="flex gap-4 pb-6 min-h-full">
           {Object.entries(groupedDemands).map(([status, statusDemands]) => (
             <Card 
               key={status} 
