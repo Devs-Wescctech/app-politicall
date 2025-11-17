@@ -355,7 +355,6 @@ export default function AiAttendance() {
         <h1 className="text-3xl font-bold">Atendimento por IA</h1>
         <p className="text-muted-foreground mt-2">Automatize o atendimento nas redes sociais</p>
       </div>
-
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -398,7 +397,6 @@ export default function AiAttendance() {
           </div>
         </CardContent>
       </Card>
-
       <Tabs defaultValue="platforms" className="space-y-4">
         <TabsList className="rounded-full grid w-full grid-cols-4">
           <TabsTrigger value="platforms" className="rounded-full">Plataformas</TabsTrigger>
@@ -523,7 +521,7 @@ export default function AiAttendance() {
                         </Button>
                       </>
                     ) : (
-                      <div className="flex items-center text-blue-800 dark:text-blue-200">
+                      <div className="flex items-center text-blue-800 dark:text-blue-200 text-[12px]">
                         <CheckCircle2 className="w-3 h-3 mr-1" />
                         Api Padrão do Sistema
                       </div>
@@ -911,7 +909,6 @@ export default function AiAttendance() {
           </Card>
         </TabsContent>
       </Tabs>
-
       {/* Training Example Modal */}
       <Dialog open={isTrainingModalOpen} onOpenChange={setIsTrainingModalOpen}>
         <DialogContent className="max-w-2xl">
@@ -1036,7 +1033,6 @@ export default function AiAttendance() {
           </Form>
         </DialogContent>
       </Dialog>
-
       {/* Response Template Modal */}
       <Dialog open={isTemplateModalOpen} onOpenChange={setIsTemplateModalOpen}>
         <DialogContent className="max-w-2xl">
@@ -1186,7 +1182,6 @@ export default function AiAttendance() {
           </Form>
         </DialogContent>
       </Dialog>
-
       {/* Platform Configuration Dialog (existing) */}
       <Dialog open={!!selectedPlatform} onOpenChange={() => setSelectedPlatform(null)}>
         {selectedPlatform === "facebook" && (
