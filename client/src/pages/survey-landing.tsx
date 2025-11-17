@@ -13,6 +13,8 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { CheckCircle2, AlertCircle } from "lucide-react";
@@ -44,6 +46,27 @@ export default function SurveyLanding() {
   });
 
   const formSchema = z.object({
+    // Demographic fields (mandatory)
+    gender: z.enum(["masculino", "feminino", "outro", "prefiro_nao_dizer"], {
+      required_error: "Por favor, selecione seu sexo",
+    }),
+    ageRange: z.enum(["menos_35", "mais_35"], {
+      required_error: "Por favor, selecione sua faixa etária",
+    }),
+    employmentType: z.enum(["carteira_assinada", "autonomo", "desempregado", "aposentado", "outro"], {
+      required_error: "Por favor, selecione seu tipo de trabalho",
+    }),
+    housingType: z.enum(["casa_propria", "aluguel", "cedido", "outro"], {
+      required_error: "Por favor, selecione seu tipo de moradia",
+    }),
+    hasChildren: z.enum(["sim", "nao"], {
+      required_error: "Por favor, indique se tem filhos",
+    }),
+    politicalIdeology: z.enum(["direita", "centro", "esquerda", "prefiro_nao_comentar"], {
+      required_error: "Por favor, selecione sua ideologia política",
+    }),
+    
+    // Survey response fields (conditional based on question type)
     answer: z.string().optional(),
     answers: z.array(z.string()).optional(),
     ratings: z.record(z.number()).optional(),
@@ -68,6 +91,12 @@ export default function SurveyLanding() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      gender: undefined,
+      ageRange: undefined,
+      employmentType: undefined,
+      housingType: undefined,
+      hasChildren: undefined,
+      politicalIdeology: undefined,
       answer: "",
       answers: [],
       ratings: {},
@@ -76,19 +105,28 @@ export default function SurveyLanding() {
 
   const submitMutation = useMutation({
     mutationFn: async (data: z.infer<typeof formSchema>) => {
-      const responseData: any = {};
+      const payload: any = {
+        // Demographic fields
+        gender: data.gender,
+        ageRange: data.ageRange,
+        employmentType: data.employmentType,
+        housingType: data.housingType,
+        hasChildren: data.hasChildren,
+        politicalIdeology: data.politicalIdeology,
+      };
       
+      // Response data based on question type
       if (surveyData?.template.questionType === "open_text") {
-        responseData.responseData = { answer: data.answer };
+        payload.responseData = { answer: data.answer };
       } else if (surveyData?.template.questionType === "single_choice") {
-        responseData.responseData = { answer: data.answer };
+        payload.responseData = { answer: data.answer };
       } else if (surveyData?.template.questionType === "multiple_choice") {
-        responseData.responseData = { answers: data.answers };
+        payload.responseData = { answers: data.answers };
       } else if (surveyData?.template.questionType === "rating") {
-        responseData.responseData = { ratings: data.ratings };
+        payload.responseData = { ratings: data.ratings };
       }
 
-      const res = await apiRequest("POST", `/api/survey/${slug}/submit`, responseData);
+      const res = await apiRequest("POST", `/api/survey/${slug}/submit`, payload);
       return res.json();
     },
     onSuccess: () => {
@@ -229,16 +267,170 @@ export default function SurveyLanding() {
 
         <Card className="shadow-lg">
           <CardHeader>
-            <CardTitle className="text-xl sm:text-2xl" data-testid="text-question">
-              {surveyData.template.questionText}
-            </CardTitle>
+            <CardTitle className="text-xl sm:text-2xl">Dados Demográficos</CardTitle>
             <CardDescription>
-              Suas respostas são anônimas e serão usadas apenas para fins estatísticos.
+              Para fins estatísticos, precisamos de algumas informações básicas. Suas respostas são anônimas.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                {/* Demographic Fields Section */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="gender"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Sexo</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-gender">
+                              <SelectValue placeholder="Selecione" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="masculino">Masculino</SelectItem>
+                            <SelectItem value="feminino">Feminino</SelectItem>
+                            <SelectItem value="outro">Outro</SelectItem>
+                            <SelectItem value="prefiro_nao_dizer">Prefiro não dizer</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="ageRange"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Faixa Etária</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-age-range">
+                              <SelectValue placeholder="Selecione" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="menos_35">Menos de 35 anos</SelectItem>
+                            <SelectItem value="mais_35">35 anos ou mais</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="employmentType"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Tipo de Trabalho</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-employment-type">
+                              <SelectValue placeholder="Selecione" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="carteira_assinada">Carteira Assinada</SelectItem>
+                            <SelectItem value="autonomo">Autônomo</SelectItem>
+                            <SelectItem value="desempregado">Desempregado</SelectItem>
+                            <SelectItem value="aposentado">Aposentado</SelectItem>
+                            <SelectItem value="outro">Outro</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="housingType"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Tipo de Moradia</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-housing-type">
+                              <SelectValue placeholder="Selecione" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="casa_propria">Casa Própria</SelectItem>
+                            <SelectItem value="aluguel">Aluguel</SelectItem>
+                            <SelectItem value="cedido">Cedido</SelectItem>
+                            <SelectItem value="outro">Outro</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="hasChildren"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Tem Filhos?</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-has-children">
+                              <SelectValue placeholder="Selecione" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="sim">Sim</SelectItem>
+                            <SelectItem value="nao">Não</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="politicalIdeology"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Ideologia Política</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-political-ideology">
+                              <SelectValue placeholder="Selecione" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="direita">Direita</SelectItem>
+                            <SelectItem value="centro">Centro</SelectItem>
+                            <SelectItem value="esquerda">Esquerda</SelectItem>
+                            <SelectItem value="prefiro_nao_comentar">Prefiro não comentar</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <Separator className="my-8" />
+
+                {/* Survey Question Section */}
+                <div>
+                  <h3 className="text-xl font-semibold mb-2" data-testid="text-question">
+                    {surveyData.template.questionText}
+                  </h3>
+                  <p className="text-sm text-muted-foreground mb-6">
+                    Por favor, responda a pergunta abaixo.
+                  </p>
+                </div>
+
                 {surveyData.template.questionType === "open_text" && (
                   <FormField
                     control={form.control}

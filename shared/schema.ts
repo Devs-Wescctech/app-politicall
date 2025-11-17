@@ -344,6 +344,15 @@ export const surveyResponses = pgTable("survey_responses", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   campaignId: varchar("campaign_id").notNull().references(() => surveyCampaigns.id, { onDelete: "cascade" }),
   responseData: jsonb("response_data").notNull(), // { answer: "text" } or { answers: ["option1", "option2"] }
+  
+  // Demographic data (mandatory for all surveys)
+  gender: text("gender").notNull(), // masculino, feminino, outro, prefiro_nao_dizer
+  ageRange: text("age_range").notNull(), // menos_35, mais_35
+  employmentType: text("employment_type").notNull(), // carteira_assinada, autonomo, desempregado, aposentado, outro
+  housingType: text("housing_type").notNull(), // casa_propria, aluguel, cedido, outro
+  hasChildren: text("has_children").notNull(), // sim, nao
+  politicalIdeology: text("political_ideology").notNull(), // direita, centro, esquerda, prefiro_nao_comentar
+  
   respondentIp: text("respondent_ip"), // For duplicate prevention
   respondentMetadata: jsonb("respondent_metadata").$type<Record<string, any>>(), // Optional: location, device, etc
   submittedAt: timestamp("submitted_at").defaultNow().notNull(),
@@ -580,6 +589,13 @@ export const insertSurveyLandingPageSchema = createInsertSchema(surveyLandingPag
 export const insertSurveyResponseSchema = createInsertSchema(surveyResponses).omit({
   id: true,
   submittedAt: true,
+}).extend({
+  gender: z.enum(["masculino", "feminino", "outro", "prefiro_nao_dizer"]),
+  ageRange: z.enum(["menos_35", "mais_35"]),
+  employmentType: z.enum(["carteira_assinada", "autonomo", "desempregado", "aposentado", "outro"]),
+  housingType: z.enum(["casa_propria", "aluguel", "cedido", "outro"]),
+  hasChildren: z.enum(["sim", "nao"]),
+  politicalIdeology: z.enum(["direita", "centro", "esquerda", "prefiro_nao_comentar"]),
 });
 
 // TypeScript types

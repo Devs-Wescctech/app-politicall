@@ -1618,37 +1618,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Submit survey response (PUBLIC - no auth required, anonymous)
-  app.post("/api/survey/:slug/submit", async (req, res) => {
-    try {
-      const { slug } = req.params;
-      const { responseData } = req.body;
-
-      const campaign = await storage.getSurveyCampaignBySlug(slug);
-      
-      if (!campaign) {
-        return res.status(404).json({ error: "Pesquisa não encontrada" });
-      }
-
-      // Only allow submissions to approved or active campaigns
-      if (campaign.status !== "approved" && campaign.status !== "active") {
-        return res.status(403).json({ error: "Esta pesquisa não está aceitando respostas" });
-      }
-
-      const response = await storage.createSurveyResponse({
-        campaignId: campaign.id,
-        responseData: responseData,
-      });
-
-      res.json({ 
-        success: true, 
-        message: "Resposta enviada com sucesso!",
-        responseId: response.id 
-      });
-    } catch (error: any) {
-      res.status(400).json({ error: error.message });
-    }
-  });
 
   // Get all survey campaigns for user
   app.get("/api/survey-campaigns", authenticateToken, requirePermission("marketing"), async (req: AuthRequest, res) => {
@@ -1801,12 +1770,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const campaign = campaigns[0];
 
-      // Check if campaign is active
-      if (campaign.status !== "active") {
+      // Check if campaign is active or approved
+      if (campaign.status !== "active" && campaign.status !== "approved") {
         return res.status(400).json({ error: "Esta pesquisa não está mais aceitando respostas" });
       }
 
-      // Validate response data
+      // Validate response data including demographic fields
       const validatedData = insertSurveyResponseSchema.parse(req.body);
 
       // Create the response
