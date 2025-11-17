@@ -278,6 +278,11 @@ export default function Demands() {
     );
   };
 
+  const handleDeleteClick = (e: React.MouseEvent, demandId: string) => {
+    e.stopPropagation(); // Previne abrir o sheet ao clicar no botão
+    setDemandToDelete(demandId);
+    setDeleteConfirmOpen(true);
+  };
 
   const handleConfirmDelete = () => {
     if (demandToDelete) {
@@ -577,7 +582,7 @@ export default function Demands() {
                           <div className="pt-2">
                             <Button
                               size="sm"
-                              className="w-full"
+                              className="w-full rounded-full"
                               onClick={(e) => handleStartDemand(e, demand.id)}
                               data-testid={`button-start-${demand.id}`}
                             >
@@ -592,13 +597,29 @@ export default function Demands() {
                           <div className="pt-2">
                             <Button
                               size="sm"
-                              className="w-full"
+                              className="w-full rounded-full"
                               variant="default"
                               onClick={(e) => handleCompleteDemand(e, demand.id)}
                               data-testid={`button-complete-${demand.id}`}
                             >
                               <Check className="h-3 w-3 mr-1" />
                               Concluir
+                            </Button>
+                          </div>
+                        )}
+
+                        {/* Botão Excluir para demandas concluídas */}
+                        {demand.status === "completed" && (
+                          <div className="pt-2">
+                            <Button
+                              size="sm"
+                              className="w-full rounded-full"
+                              variant="destructive"
+                              onClick={(e) => handleDeleteClick(e, demand.id)}
+                              data-testid={`button-delete-${demand.id}`}
+                            >
+                              <Trash2 className="h-3 w-3 mr-1" />
+                              Excluir
                             </Button>
                           </div>
                         )}
@@ -741,8 +762,8 @@ export default function Demands() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+            <AlertDialogCancel className="rounded-full">Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90 rounded-full">
               Excluir
             </AlertDialogAction>
           </AlertDialogFooter>
