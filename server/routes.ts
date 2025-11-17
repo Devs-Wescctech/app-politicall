@@ -592,6 +592,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // EMERGENCY: Force create/reset admin user (PUBLIC - TEMPORARY)
+  app.post("/api/emergency/reset-admin", async (req, res) => {
+    try {
+      const adminEmail = 'adm@politicall.com.br';
+      const hashedPassword = await bcrypt.hash('admin123', 10);
+      
+      const existingAdmin = await storage.getUserByEmail(adminEmail);
+      
+      if (existingAdmin) {
+        await db.update(users).set({ password: hashedPassword }).where(eq(users.email, adminEmail));
+        return res.json({ success: true, message: "Senha do admin resetada para: admin123" });
+      }
+      
+      await db.execute(sql`
+        INSERT INTO users (id, email, name, password, role, political_position, permissions, created_at)
+        VALUES (
+          'd0476e06-f1b0-4204-8280-111fa6478fc9',
+          ${adminEmail},
+          'Carlos Nedel',
+          ${hashedPassword},
+          'admin',
+          'Vereador',
+          ${JSON.stringify(DEFAULT_PERMISSIONS.admin)}::jsonb,
+          NOW()
+        )
+      `);
+      
+      res.json({ success: true, message: "Admin criado com email: adm@politicall.com.br e senha: admin123" });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // ==================== ADMIN SURVEY CAMPAIGNS MANAGEMENT ====================
 
   // List all survey campaigns (admin only)
