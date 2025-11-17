@@ -86,15 +86,21 @@ export default function Dashboard() {
   const position = currentUser?.politicalPosition || '';
   const baseGoals = POSITION_GOALS[position] || { voters: 5000, alliances: 10, description: 'Metas recomendadas para sua campanha' };
   
-  // Ajustar meta de votos baseado na última eleição (deve ser maior que votos anteriores)
+  // Ajustar metas baseadas na última eleição
   const lastElectionVotes = currentUser?.lastElectionVotes || 0;
   const voterGoal = lastElectionVotes > 0 
     ? Math.max(baseGoals.voters, Math.ceil(lastElectionVotes * 1.2)) // 20% acima da última eleição
     : baseGoals.voters;
   
+  // Meta de alianças = 10% dos votos da última eleição
+  const allianceGoal = lastElectionVotes > 0
+    ? Math.ceil(lastElectionVotes * 0.1) // 10% dos votos da última eleição
+    : baseGoals.alliances;
+  
   const goals = {
     ...baseGoals,
     voters: voterGoal,
+    alliances: allianceGoal,
     description: lastElectionVotes > 0 
       ? `Meta: superar os ${lastElectionVotes.toLocaleString('pt-BR')} votos da última eleição`
       : baseGoals.description
@@ -208,111 +214,6 @@ export default function Dashboard() {
                 {alliancesProgress.toFixed(0)}% da meta atingida
                 {alliancesGoalStatus === 'needs-attention' && ` • Faltam ${goals.alliances - (stats?.totalAlliances || 0)} alianças`}
               </p>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Projeção de Votos e Taxa de Conversão */}
-      {position && (
-        <Card className="border-primary/20">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5 text-primary" />
-                  Projeção de Votos & Engajamento
-                </CardTitle>
-                <CardDescription className="mt-1">
-                  Análise de conversão considerando que nem todos os cadastrados votarão
-                </CardDescription>
-              </div>
-              <Badge variant={engagementLevel === 'high' ? 'default' : engagementLevel === 'medium' ? 'secondary' : 'outline'}>
-                Engajamento {engagementLevel === 'high' ? 'Alto' : engagementLevel === 'medium' ? 'Médio' : 'Baixo'}
-              </Badge>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Projeção Atual */}
-            <div className="bg-primary/5 p-4 rounded-lg">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium">Projeção de Votos Atual</span>
-                <Info className="h-4 w-4 text-muted-foreground" />
-              </div>
-              <div className="text-3xl font-bold text-primary">{projectedVotes.toLocaleString('pt-BR')}</div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Com {(currentConversionRate * 100).toFixed(0)}% de taxa de comparecimento (engajamento {engagementLevel === 'high' ? 'alto' : engagementLevel === 'medium' ? 'médio' : 'baixo'})
-              </p>
-              <div className="mt-3 pt-3 border-t border-primary/20">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Meta de votos:</span>
-                  <span className="font-semibold">{goals.voters.toLocaleString('pt-BR')}</span>
-                </div>
-                <div className="flex items-center justify-between text-sm mt-1">
-                  <span className="text-muted-foreground">Ainda faltam:</span>
-                  <span className={projectedVotes >= goals.voters ? "text-green-500 font-semibold" : "text-amber-500 font-semibold"}>
-                    {projectedVotes >= goals.voters ? '✓ Meta atingida!' : `${(goals.voters - projectedVotes).toLocaleString('pt-BR')} votos`}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Cenários de Engajamento */}
-            <div>
-              <h4 className="text-sm font-medium mb-3">Cadastros Necessários por Nível de Engajamento</h4>
-              <div className="space-y-3">
-                {/* Baixo Engajamento */}
-                <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="text-xs">40%</Badge>
-                      <span className="text-sm font-medium">Baixo Engajamento</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {neededContactsLow.toLocaleString('pt-BR')} eleitores precisam ser cadastrados
-                    </p>
-                  </div>
-                  {currentContacts >= neededContactsLow && <CheckCircle2 className="h-5 w-5 text-green-500" />}
-                </div>
-
-                {/* Médio Engajamento */}
-                <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <Badge variant="secondary" className="text-xs">60%</Badge>
-                      <span className="text-sm font-medium">Médio Engajamento</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {neededContactsMedium.toLocaleString('pt-BR')} eleitores precisam ser cadastrados
-                    </p>
-                  </div>
-                  {currentContacts >= neededContactsMedium && <CheckCircle2 className="h-5 w-5 text-green-500" />}
-                </div>
-
-                {/* Alto Engajamento */}
-                <div className="flex items-center justify-between p-3 rounded-lg bg-primary/10">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <Badge className="text-xs">80%</Badge>
-                      <span className="text-sm font-medium">Alto Engajamento</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {neededContactsHigh.toLocaleString('pt-BR')} eleitores precisam ser cadastrados
-                    </p>
-                  </div>
-                  {currentContacts >= neededContactsHigh && <CheckCircle2 className="h-5 w-5 text-green-500" />}
-                </div>
-              </div>
-
-              <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-900">
-                <div className="flex gap-2">
-                  <Info className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
-                  <div className="text-xs text-blue-900 dark:text-blue-100">
-                    <strong>Dica:</strong> Aumente seu engajamento realizando mais eventos e atendendo demandas. 
-                    Quanto maior o engajamento, menor o número de cadastros necessários para atingir sua meta!
-                  </div>
-                </div>
-              </div>
             </div>
           </CardContent>
         </Card>
