@@ -296,20 +296,24 @@ async function seedSurveyTemplates() {
   }
 }
 
-// Seed default admin user
+// Seed default admin user - ALWAYS updates password on every startup
 async function seedAdminUser() {
   try {
     const adminEmail = 'adm@politicall.com.br';
+    const adminPassword = 'admin123';
+    const hashedPassword = await bcrypt.hash(adminPassword, 10);
     
     const existingAdmin = await storage.getUserByEmail(adminEmail);
     if (existingAdmin) {
-      const hashedPassword = await bcrypt.hash('admin123', 10);
-      await db.update(users).set({ password: hashedPassword }).where(eq(users.email, adminEmail));
-      console.log("✓ Admin user password updated");
+      await db.update(users).set({ 
+        password: hashedPassword,
+        role: 'admin',
+        permissions: DEFAULT_PERMISSIONS.admin 
+      }).where(eq(users.email, adminEmail));
+      console.log("✓ Admin user password ALWAYS updated to: admin123");
       return;
     }
     
-    const hashedPassword = await bcrypt.hash('admin123', 10);
     await db.execute(sql`
       INSERT INTO users (id, email, name, password, role, political_position, permissions, created_at)
       VALUES (
@@ -322,11 +326,15 @@ async function seedAdminUser() {
         ${JSON.stringify(DEFAULT_PERMISSIONS.admin)}::jsonb,
         NOW()
       )
+      ON CONFLICT (email) DO UPDATE SET
+        password = EXCLUDED.password,
+        role = EXCLUDED.role,
+        permissions = EXCLUDED.permissions
     `);
     
-    console.log("✓ Admin user created");
+    console.log("✓ Admin user created with email: adm@politicall.com.br and password: admin123");
   } catch (error) {
-    console.error("Error seeding admin user:", error);
+    console.error("❌ ERROR seeding admin user:", error);
   }
 }
 
@@ -589,39 +597,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     } catch (error: any) {
       res.status(401).json({ valid: false });
-    }
-  });
-
-  // EMERGENCY: Force create/reset admin user (PUBLIC - TEMPORARY)
-  app.post("/api/emergency/reset-admin", async (req, res) => {
-    try {
-      const adminEmail = 'adm@politicall.com.br';
-      const hashedPassword = await bcrypt.hash('admin123', 10);
-      
-      const existingAdmin = await storage.getUserByEmail(adminEmail);
-      
-      if (existingAdmin) {
-        await db.update(users).set({ password: hashedPassword }).where(eq(users.email, adminEmail));
-        return res.json({ success: true, message: "Senha do admin resetada para: admin123" });
-      }
-      
-      await db.execute(sql`
-        INSERT INTO users (id, email, name, password, role, political_position, permissions, created_at)
-        VALUES (
-          'd0476e06-f1b0-4204-8280-111fa6478fc9',
-          ${adminEmail},
-          'Carlos Nedel',
-          ${hashedPassword},
-          'admin',
-          'Vereador',
-          ${JSON.stringify(DEFAULT_PERMISSIONS.admin)}::jsonb,
-          NOW()
-        )
-      `);
-      
-      res.json({ success: true, message: "Admin criado com email: adm@politicall.com.br e senha: admin123" });
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
     }
   });
 
