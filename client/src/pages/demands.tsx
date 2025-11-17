@@ -314,7 +314,7 @@ export default function Demands() {
         <div className="flex items-center gap-3">
           {/* Filtro de Prioridade */}
           <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-            <SelectTrigger className="w-[150px]" data-testid="filter-priority">
+            <SelectTrigger className="w-[150px] rounded-full" data-testid="filter-priority">
               <SelectValue placeholder="Prioridade" />
             </SelectTrigger>
             <SelectContent>
@@ -328,7 +328,7 @@ export default function Demands() {
 
           {/* Filtro de Status de Vencimento */}
           <Select value={dueDateFilter} onValueChange={setDueDateFilter}>
-            <SelectTrigger className="w-[150px]" data-testid="filter-duedate">
+            <SelectTrigger className="w-[150px] rounded-full" data-testid="filter-duedate">
               <SelectValue placeholder="Vencimento" />
             </SelectTrigger>
             <SelectContent>
