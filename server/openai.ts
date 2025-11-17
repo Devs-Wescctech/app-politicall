@@ -92,12 +92,12 @@ export async function generateAiResponse(
       : userMessage;
 
     const response = await openai.chat.completions.create({
-      model: "gpt-5",
+      model: "gpt-3.5-turbo",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: contextMessage }
       ],
-      max_completion_tokens: 500,
+      max_tokens: 500,
     });
 
     return response.choices[0]?.message?.content || "Desculpe, não pude gerar uma resposta no momento.";
