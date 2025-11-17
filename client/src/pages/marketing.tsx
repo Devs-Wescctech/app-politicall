@@ -248,6 +248,8 @@ function GoogleAdsTab() {
       lpSlug: "",
       lpUrl: "",
       status: "submitted",
+      startDate: new Date().toISOString(),
+      endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
     },
   });
 
