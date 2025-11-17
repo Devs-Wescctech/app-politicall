@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, integer, boolean, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, integer, boolean, jsonb, numeric } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -300,6 +300,41 @@ export const integrations = pgTable("integrations", {
   updatedAt: timestamp("updated_at").defaultNow().notNull()
 });
 
+// Google Ads Campaign Requests
+export const googleAdsCampaigns = pgTable("google_ads_campaigns", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  campaignName: text("campaign_name").notNull(),
+  objective: text("objective").notNull(), // gerar_novo_eleitor, pesquisa_satisfacao, pesquisa_social
+  targetScope: text("target_scope").notNull(), // bairro, cidade, estado, brasil
+  targetLocations: jsonb("target_locations").$type<string[]>(), // Array of location names
+  budget: numeric("budget", { precision: 10, scale: 2 }).notNull(), // Total budget
+  managementFee: numeric("management_fee", { precision: 10, scale: 2 }).notNull(), // 15% of budget
+  startDate: timestamp("start_date").notNull(),
+  endDate: timestamp("end_date").notNull(),
+  durationDays: integer("duration_days").notNull(), // 7-30 days
+  lpSlug: text("lp_slug").notNull().unique(), // URL-friendly slug
+  lpUrl: text("lp_url").notNull(), // Full LP URL
+  status: text("status").notNull().default("submitted"), // submitted, under_review, approved, rejected, scheduled, running, paused, completed
+  adminReviewerId: varchar("admin_reviewer_id").references(() => users.id),
+  adminNotes: text("admin_notes"), // Admin comments/feedback
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Google Ads Campaign Assets (Images)
+export const googleAdsCampaignAssets = pgTable("google_ads_campaign_assets", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  campaignId: varchar("campaign_id").notNull().references(() => googleAdsCampaigns.id, { onDelete: "cascade" }),
+  storageKey: text("storage_key").notNull(), // Path in attached_assets
+  url: text("url").notNull(), // Full URL to access the image
+  originalFilename: text("original_filename").notNull(),
+  sizeBytes: integer("size_bytes").notNull(),
+  mimeType: text("mime_type").notNull(),
+  uploadedAt: timestamp("uploaded_at").defaultNow().notNull(),
+  uploadedBy: varchar("uploaded_by").notNull().references(() => users.id),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   contacts: many(contacts),
@@ -307,6 +342,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   demands: many(demands),
   events: many(events),
   campaigns: many(marketingCampaigns),
+  googleAdsCampaigns: many(googleAdsCampaigns),
   notifications: many(notifications),
 }));
 
@@ -350,6 +386,29 @@ export const demandCommentsRelations = relations(demandComments, ({ one }) => ({
 export const eventsRelations = relations(events, ({ one }) => ({
   user: one(users, {
     fields: [events.userId],
+    references: [users.id],
+  }),
+}));
+
+export const googleAdsCampaignsRelations = relations(googleAdsCampaigns, ({ one, many }) => ({
+  user: one(users, {
+    fields: [googleAdsCampaigns.userId],
+    references: [users.id],
+  }),
+  adminReviewer: one(users, {
+    fields: [googleAdsCampaigns.adminReviewerId],
+    references: [users.id],
+  }),
+  assets: many(googleAdsCampaignAssets),
+}));
+
+export const googleAdsCampaignAssetsRelations = relations(googleAdsCampaignAssets, ({ one }) => ({
+  campaign: one(googleAdsCampaigns, {
+    fields: [googleAdsCampaignAssets.campaignId],
+    references: [googleAdsCampaigns.id],
+  }),
+  uploader: one(users, {
+    fields: [googleAdsCampaignAssets.uploadedBy],
     references: [users.id],
   }),
 }));
@@ -471,6 +530,33 @@ export const insertIntegrationSchema = createInsertSchema(integrations).omit({
   updatedAt: true,
 });
 
+export const insertGoogleAdsCampaignSchema = createInsertSchema(googleAdsCampaigns).omit({
+  id: true,
+  userId: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  campaignName: z.string().min(3, "Nome da campanha deve ter no mínimo 3 caracteres"),
+  objective: z.enum(["gerar_novo_eleitor", "pesquisa_satisfacao", "pesquisa_social"]),
+  targetScope: z.enum(["bairro", "cidade", "estado", "brasil"]),
+  targetLocations: z.array(z.string()).optional(),
+  budget: z.string().refine((val) => !isNaN(Number(val)) && Number(val) > 0, {
+    message: "Orçamento deve ser maior que zero",
+  }),
+  managementFee: z.string(),
+  startDate: z.string().or(z.date()),
+  endDate: z.string().or(z.date()),
+  durationDays: z.number().min(7, "Duração mínima de 7 dias").max(30, "Duração máxima de 30 dias"),
+  lpSlug: z.string(),
+  lpUrl: z.string(),
+  status: z.string().default("submitted"),
+});
+
+export const insertGoogleAdsCampaignAssetSchema = createInsertSchema(googleAdsCampaignAssets).omit({
+  id: true,
+  uploadedAt: true,
+});
+
 // TypeScript types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -512,3 +598,9 @@ export type InsertNotification = z.infer<typeof insertNotificationSchema>;
 
 export type Integration = typeof integrations.$inferSelect;
 export type InsertIntegration = z.infer<typeof insertIntegrationSchema>;
+
+export type GoogleAdsCampaign = typeof googleAdsCampaigns.$inferSelect;
+export type InsertGoogleAdsCampaign = z.infer<typeof insertGoogleAdsCampaignSchema>;
+
+export type GoogleAdsCampaignAsset = typeof googleAdsCampaignAssets.$inferSelect;
+export type InsertGoogleAdsCampaignAsset = z.infer<typeof insertGoogleAdsCampaignAssetSchema>;

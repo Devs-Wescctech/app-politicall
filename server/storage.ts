@@ -2,7 +2,7 @@
 import { 
   users, contacts, politicalParties, politicalAlliances, demands, demandComments, events,
   aiConfigurations, aiConversations, aiTrainingExamples, aiResponseTemplates, 
-  marketingCampaigns, notifications, integrations,
+  marketingCampaigns, notifications, integrations, googleAdsCampaigns, googleAdsCampaignAssets,
   type User, type InsertUser, type Contact, type InsertContact,
   type PoliticalParty, type PoliticalAlliance, type InsertPoliticalAlliance,
   type Demand, type InsertDemand, type DemandComment, type InsertDemandComment,
@@ -11,7 +11,9 @@ import {
   type AiResponseTemplate, type InsertAiResponseTemplate,
   type MarketingCampaign, type InsertMarketingCampaign,
   type Notification, type InsertNotification,
-  type Integration, type InsertIntegration
+  type Integration, type InsertIntegration,
+  type GoogleAdsCampaign, type InsertGoogleAdsCampaign,
+  type GoogleAdsCampaignAsset, type InsertGoogleAdsCampaignAsset
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, count } from "drizzle-orm";
@@ -107,6 +109,18 @@ export interface IStorage {
   getIntegration(userId: string, service: string): Promise<Integration | null>;
   upsertIntegration(integration: InsertIntegration & { userId: string }): Promise<Integration>;
   deleteIntegration(id: string, userId: string): Promise<void>;
+
+  // Google Ads Campaigns
+  getGoogleAdsCampaigns(userId: string): Promise<GoogleAdsCampaign[]>;
+  getGoogleAdsCampaign(id: string): Promise<GoogleAdsCampaign | undefined>;
+  createGoogleAdsCampaign(campaign: InsertGoogleAdsCampaign & { userId: string }): Promise<GoogleAdsCampaign>;
+  updateGoogleAdsCampaign(id: string, campaign: Partial<InsertGoogleAdsCampaign>): Promise<GoogleAdsCampaign>;
+  deleteGoogleAdsCampaign(id: string): Promise<void>;
+
+  // Google Ads Campaign Assets
+  getCampaignAssets(campaignId: string): Promise<GoogleAdsCampaignAsset[]>;
+  createCampaignAsset(asset: InsertGoogleAdsCampaignAsset): Promise<GoogleAdsCampaignAsset>;
+  deleteCampaignAsset(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -625,6 +639,81 @@ export class DatabaseStorage implements IStorage {
         eq(integrations.id, id),
         eq(integrations.userId, userId)
       ));
+  }
+
+  // Google Ads Campaigns
+  async getGoogleAdsCampaigns(userId: string): Promise<GoogleAdsCampaign[]> {
+    return await db.select()
+      .from(googleAdsCampaigns)
+      .where(eq(googleAdsCampaigns.userId, userId))
+      .orderBy(desc(googleAdsCampaigns.createdAt));
+  }
+
+  async getGoogleAdsCampaign(id: string): Promise<GoogleAdsCampaign | undefined> {
+    const [campaign] = await db.select()
+      .from(googleAdsCampaigns)
+      .where(eq(googleAdsCampaigns.id, id));
+    return campaign || undefined;
+  }
+
+  async createGoogleAdsCampaign(campaign: InsertGoogleAdsCampaign & { userId: string }): Promise<GoogleAdsCampaign> {
+    // Ensure dates are Date objects
+    const values = {
+      ...campaign,
+      startDate: typeof campaign.startDate === 'string' ? new Date(campaign.startDate) : campaign.startDate,
+      endDate: typeof campaign.endDate === 'string' ? new Date(campaign.endDate) : campaign.endDate,
+    };
+
+    const [newCampaign] = await db.insert(googleAdsCampaigns)
+      .values(values)
+      .returning();
+    return newCampaign;
+  }
+
+  async updateGoogleAdsCampaign(id: string, campaign: Partial<InsertGoogleAdsCampaign>): Promise<GoogleAdsCampaign> {
+    const values: any = {
+      ...campaign,
+      updatedAt: new Date()
+    };
+
+    // Convert string dates to Date objects if present
+    if (campaign.startDate) {
+      values.startDate = typeof campaign.startDate === 'string' ? new Date(campaign.startDate) : campaign.startDate;
+    }
+    if (campaign.endDate) {
+      values.endDate = typeof campaign.endDate === 'string' ? new Date(campaign.endDate) : campaign.endDate;
+    }
+
+    const [updated] = await db.update(googleAdsCampaigns)
+      .set(values)
+      .where(eq(googleAdsCampaigns.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteGoogleAdsCampaign(id: string): Promise<void> {
+    await db.delete(googleAdsCampaigns)
+      .where(eq(googleAdsCampaigns.id, id));
+  }
+
+  // Google Ads Campaign Assets
+  async getCampaignAssets(campaignId: string): Promise<GoogleAdsCampaignAsset[]> {
+    return await db.select()
+      .from(googleAdsCampaignAssets)
+      .where(eq(googleAdsCampaignAssets.campaignId, campaignId))
+      .orderBy(googleAdsCampaignAssets.uploadedAt);
+  }
+
+  async createCampaignAsset(asset: InsertGoogleAdsCampaignAsset): Promise<GoogleAdsCampaignAsset> {
+    const [newAsset] = await db.insert(googleAdsCampaignAssets)
+      .values(asset)
+      .returning();
+    return newAsset;
+  }
+
+  async deleteCampaignAsset(id: string): Promise<void> {
+    await db.delete(googleAdsCampaignAssets)
+      .where(eq(googleAdsCampaignAssets.id, id));
   }
 }
 

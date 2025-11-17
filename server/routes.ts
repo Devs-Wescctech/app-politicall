@@ -3,9 +3,9 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import { insertUserSchema, loginSchema, insertContactSchema, insertPoliticalAllianceSchema, insertDemandSchema, insertDemandCommentSchema, insertEventSchema, insertAiConfigurationSchema, insertAiTrainingExampleSchema, insertAiResponseTemplateSchema, insertMarketingCampaignSchema, insertNotificationSchema, insertIntegrationSchema, DEFAULT_PERMISSIONS } from "@shared/schema";
+import { insertUserSchema, loginSchema, insertContactSchema, insertPoliticalAllianceSchema, insertDemandSchema, insertDemandCommentSchema, insertEventSchema, insertAiConfigurationSchema, insertAiTrainingExampleSchema, insertAiResponseTemplateSchema, insertMarketingCampaignSchema, insertNotificationSchema, insertIntegrationSchema, insertGoogleAdsCampaignSchema, DEFAULT_PERMISSIONS } from "@shared/schema";
 import { db } from "./db";
-import { politicalParties, politicalAlliances } from "@shared/schema";
+import { politicalParties, politicalAlliances, googleAdsCampaigns, googleAdsCampaignAssets } from "@shared/schema";
 import { sql, eq } from "drizzle-orm";
 import { generateAiResponse, testOpenAiApiKey } from "./openai";
 import { requireRole } from "./authorization";
@@ -1238,6 +1238,242 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     } catch (error: any) {
       res.status(400).json({ error: error.message });
+    }
+  });
+
+  // ==================== GOOGLE ADS CAMPAIGNS ====================
+  
+  // Utility function to generate slug from campaign name
+  function generateSlug(name: string): string {
+    return name
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '') // Remove diacritics
+      .replace(/[^a-z0-9\s-]/g, '') // Remove special chars
+      .replace(/\s+/g, '-') // Replace spaces with hyphens
+      .replace(/-+/g, '-') // Collapse multiple hyphens
+      .replace(/^-|-$/g, ''); // Trim hyphens from edges
+  }
+
+  // Get all Google Ads campaigns for user
+  app.get("/api/google-ads-campaigns", authenticateToken, requirePermission("marketing"), async (req: AuthRequest, res) => {
+    try {
+      const campaigns = await storage.getGoogleAdsCampaigns(req.userId!);
+      res.json(campaigns);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get single Google Ads campaign
+  app.get("/api/google-ads-campaigns/:id", authenticateToken, requirePermission("marketing"), async (req: AuthRequest, res) => {
+    try {
+      const campaign = await storage.getGoogleAdsCampaign(req.params.id);
+      
+      if (!campaign || campaign.userId !== req.userId!) {
+        return res.status(404).json({ error: "Campanha não encontrada" });
+      }
+
+      // Get assets for this campaign
+      const assets = await storage.getCampaignAssets(campaign.id);
+      
+      res.json({ ...campaign, assets });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Create new Google Ads campaign
+  app.post("/api/google-ads-campaigns", authenticateToken, requirePermission("marketing"), async (req: AuthRequest, res) => {
+    try {
+      const validatedData = insertGoogleAdsCampaignSchema.parse(req.body);
+      
+      // Generate unique slug
+      let slug = generateSlug(validatedData.campaignName);
+      let counter = 1;
+      let finalSlug = slug;
+      
+      // Check for slug uniqueness and append counter if needed
+      while (true) {
+        const existing = await db.query.googleAdsCampaigns.findFirst({
+          where: eq(googleAdsCampaigns.lpSlug, finalSlug)
+        });
+        if (!existing) break;
+        finalSlug = `${slug}-${counter}`;
+        counter++;
+      }
+
+      // Calculate management fee (15% of budget)
+      const budget = parseFloat(validatedData.budget);
+      const managementFee = (budget * 0.15).toFixed(2);
+
+      // Generate LP URL
+      const lpUrl = `https://www.politicall.com.br/${finalSlug}`;
+
+      const campaign = await storage.createGoogleAdsCampaign({
+        ...validatedData,
+        managementFee,
+        lpSlug: finalSlug,
+        lpUrl,
+        userId: req.userId!,
+      });
+      
+      res.json(campaign);
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Update Google Ads campaign
+  app.patch("/api/google-ads-campaigns/:id", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const campaign = await storage.getGoogleAdsCampaign(req.params.id);
+      
+      if (!campaign) {
+        return res.status(404).json({ error: "Campanha não encontrada" });
+      }
+
+      // Only campaign owner or admin can update
+      const user = await storage.getUser(req.userId!);
+      if (campaign.userId !== req.userId! && user?.role !== 'admin') {
+        return res.status(403).json({ error: "Sem permissão para atualizar esta campanha" });
+      }
+
+      // Recalculate management fee if budget changes
+      const updates: any = { ...req.body };
+      if (req.body.budget) {
+        const budget = parseFloat(req.body.budget);
+        updates.managementFee = (budget * 0.15).toFixed(2);
+      }
+
+      const updated = await storage.updateGoogleAdsCampaign(req.params.id, updates);
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Delete Google Ads campaign
+  app.delete("/api/google-ads-campaigns/:id", authenticateToken, requirePermission("marketing"), async (req: AuthRequest, res) => {
+    try {
+      const campaign = await storage.getGoogleAdsCampaign(req.params.id);
+      
+      if (!campaign || campaign.userId !== req.userId!) {
+        return res.status(404).json({ error: "Campanha não encontrada" });
+      }
+
+      await storage.deleteGoogleAdsCampaign(req.params.id);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Upload campaign image (base64)
+  app.post("/api/google-ads-campaigns/:id/upload-image", authenticateToken, requirePermission("marketing"), async (req: AuthRequest, res) => {
+    try {
+      const campaign = await storage.getGoogleAdsCampaign(req.params.id);
+      
+      if (!campaign || campaign.userId !== req.userId!) {
+        return res.status(404).json({ error: "Campanha não encontrada" });
+      }
+
+      // Check current asset count
+      const existingAssets = await storage.getCampaignAssets(campaign.id);
+      if (existingAssets.length >= 10) {
+        return res.status(400).json({ error: "Limite de 10 imagens por campanha atingido" });
+      }
+
+      const { imageData, filename, mimeType } = req.body;
+      
+      if (!imageData || !filename || !mimeType) {
+        return res.status(400).json({ error: "Dados da imagem incompletos" });
+      }
+
+      // Validate mime type
+      if (!mimeType.startsWith('image/')) {
+        return res.status(400).json({ error: "Apenas imagens são permitidas" });
+      }
+
+      // Decode base64 and get size
+      const buffer = Buffer.from(imageData.replace(/^data:image\/\w+;base64,/, ''), 'base64');
+      const sizeBytes = buffer.length;
+
+      // Validate size (max 5MB)
+      if (sizeBytes > 5 * 1024 * 1024) {
+        return res.status(400).json({ error: "Imagem muito grande (máximo 5MB)" });
+      }
+
+      // Generate unique filename
+      const timestamp = Date.now();
+      const safeFilename = filename.replace(/[^a-zA-Z0-9.-]/g, '_');
+      const storageKey = `google-ads-campaigns/${campaign.id}/${timestamp}_${safeFilename}`;
+      const fullPath = `attached_assets/${storageKey}`;
+
+      // Create directory if it doesn't exist
+      const fs = require('fs');
+      const path = require('path');
+      const dir = path.dirname(fullPath);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+
+      // Write file
+      fs.writeFileSync(fullPath, buffer);
+
+      // Create asset record
+      const asset = await storage.createCampaignAsset({
+        campaignId: campaign.id,
+        storageKey,
+        url: `/assets/${storageKey}`,
+        originalFilename: filename,
+        sizeBytes,
+        mimeType,
+        uploadedBy: req.userId!,
+      });
+
+      res.json(asset);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Delete campaign image
+  app.delete("/api/google-ads-campaign-assets/:id", authenticateToken, requirePermission("marketing"), async (req: AuthRequest, res) => {
+    try {
+      // Get asset to verify ownership
+      const assets = await db.select()
+        .from(googleAdsCampaignAssets)
+        .where(eq(googleAdsCampaignAssets.id, req.params.id));
+      
+      if (assets.length === 0) {
+        return res.status(404).json({ error: "Imagem não encontrada" });
+      }
+
+      const asset = assets[0];
+
+      // Verify campaign ownership
+      const campaign = await storage.getGoogleAdsCampaign(asset.campaignId);
+      if (!campaign || campaign.userId !== req.userId!) {
+        return res.status(403).json({ error: "Sem permissão para deletar esta imagem" });
+      }
+
+      // Delete file from filesystem
+      const fs = require('fs');
+      const fullPath = `attached_assets/${asset.storageKey}`;
+      if (fs.existsSync(fullPath)) {
+        fs.unlinkSync(fullPath);
+      }
+
+      // Delete record
+      await storage.deleteCampaignAsset(req.params.id);
+      
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
     }
   });
 
