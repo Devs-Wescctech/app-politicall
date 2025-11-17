@@ -31,10 +31,10 @@ import { ptBR } from "date-fns/locale";
 import { z } from "zod";
 
 const PLATFORMS = [
-  { id: "facebook", name: "Facebook", icon: SiFacebook, color: "#1877F2" },
-  { id: "instagram", name: "Instagram", icon: SiInstagram, color: "#E4405F" },
-  { id: "twitter", name: "X (Twitter)", icon: SiX, color: "#000000" },
-  { id: "whatsapp", name: "WhatsApp", icon: SiWhatsapp, color: "#25D366" },
+  { id: "facebook", name: "Facebook", icon: SiFacebook },
+  { id: "instagram", name: "Instagram", icon: SiInstagram },
+  { id: "twitter", name: "X (Twitter)", icon: SiX },
+  { id: "whatsapp", name: "WhatsApp", icon: SiWhatsapp },
 ];
 
 const TRAINING_CATEGORIES = [
@@ -400,15 +400,11 @@ export default function AiAttendance() {
                   <Card key={platform.id} data-testid={`platform-${platform.id}`}>
                     <CardHeader className="pb-3">
                       <div className="flex items-center justify-between">
-                        {platform.id === 'twitter' ? (
-                          <platform.icon className="w-8 h-8 text-black dark:text-white" />
-                        ) : (
-                          <platform.icon className="w-8 h-8" style={{ color: platform.color }} />
-                        )}
+                        <platform.icon className="w-8 h-8 text-primary" />
                         {connected ? (
-                          <CheckCircle2 className="w-4 h-4" />
+                          <CheckCircle2 className="w-4 h-4 text-primary" />
                         ) : (
-                          <XCircle className="w-4 h-4" />
+                          <XCircle className="w-4 h-4 text-muted-foreground" />
                         )}
                       </div>
                     </CardHeader>
