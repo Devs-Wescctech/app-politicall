@@ -51,7 +51,7 @@ export default function Dashboard() {
 
   const metricCards = [
     {
-      title: "Contatos",
+      title: "Eleitores",
       value: stats?.totalContacts || 0,
       icon: Users,
       trend: null,
