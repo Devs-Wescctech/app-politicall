@@ -206,7 +206,15 @@ export default function Dashboard() {
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
                   <Handshake className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">Alianças Políticas</span>
+                  <span className="text-sm font-medium">
+                    Alianças Políticas
+                    {stats?.ideologyDistribution && stats.ideologyDistribution.length > 0 && (() => {
+                      const strongest = stats.ideologyDistribution.reduce((max, current) => 
+                        current.count > max.count ? current : max
+                      );
+                      return ` | ${strongest.ideology}`;
+                    })()}
+                  </span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-2xl font-bold">{stats?.totalAlliances || 0}</span>
