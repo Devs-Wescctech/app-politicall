@@ -57,7 +57,7 @@ export default function Login() {
       {/* Dark overlay for better readability */}
       <div className="absolute inset-0 bg-black/50"></div>
       
-      <Card className="w-full max-w-md relative z-10 bg-card/5 backdrop-blur-sm">
+      <Card className="w-full max-w-md relative z-10">
         <CardHeader className="space-y-4 text-center">
           <div className="flex justify-center">
             <img src={logoUrl} alt="Logo" className="h-12" />
