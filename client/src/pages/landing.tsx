@@ -496,7 +496,7 @@ export default function LandingPage() {
               <img 
                 src={aiImage} 
                 alt="IA Politicall respondendo mensagens automaticamente" 
-                className="w-full h-auto"
+                className="w-full h-auto max-w-md mx-auto"
                 data-testid="img-ai-screenshot"
               />
             </div>
