@@ -71,7 +71,7 @@ export default function LandingPage() {
     }
 
     if (videoRef.current) {
-      videoRef.current.playbackRate = 0.5;
+      videoRef.current.playbackRate = 0.75;
     }
 
     const handleScroll = () => {
@@ -216,7 +216,9 @@ export default function LandingPage() {
           loop 
           muted 
           playsInline
+          preload="auto"
           className="absolute inset-0 w-full h-full object-cover"
+          style={{ willChange: 'transform' }}
         >
           <source src={heroBackgroundVideo} type="video/mp4" />
         </video>
