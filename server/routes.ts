@@ -1381,11 +1381,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Campanha não encontrada" });
       }
 
-      // Check current asset count
-      const existingAssets = await storage.getCampaignAssets(campaign.id);
-      if (existingAssets.length >= 10) {
-        return res.status(400).json({ error: "Limite de 10 imagens por campanha atingido" });
-      }
+      // Check current asset count (removed limit)
 
       const { imageData, filename, mimeType } = req.body;
       
@@ -1401,11 +1397,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Decode base64 and get size
       const buffer = Buffer.from(imageData.replace(/^data:image\/\w+;base64,/, ''), 'base64');
       const sizeBytes = buffer.length;
-
-      // Validate size (max 5MB)
-      if (sizeBytes > 5 * 1024 * 1024) {
-        return res.status(400).json({ error: "Imagem muito grande (máximo 5MB)" });
-      }
 
       // Generate unique filename
       const timestamp = Date.now();

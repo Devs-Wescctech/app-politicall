@@ -83,10 +83,6 @@ function ImageUploadComponent({ campaignId, onUploadComplete }: ImageUploadProps
 
   const uploadMutation = useMutation({
     mutationFn: async (file: File) => {
-      if (file.size > 5 * 1024 * 1024) {
-        throw new Error("Arquivo muito grande. Máximo 5MB.");
-      }
-      
       if (!file.type.startsWith("image/")) {
         throw new Error("Apenas imagens são permitidas.");
       }
@@ -135,13 +131,6 @@ function ImageUploadComponent({ campaignId, onUploadComplete }: ImageUploadProps
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
-    const totalImages = (assets?.length || 0) + files.length;
-    
-    if (totalImages > 10) {
-      toast({ title: "Máximo de 10 imagens permitidas", variant: "destructive" });
-      return;
-    }
-
     files.forEach(file => uploadMutation.mutate(file));
   };
 
@@ -156,8 +145,8 @@ function ImageUploadComponent({ campaignId, onUploadComplete }: ImageUploadProps
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <Label>Imagens da Campanha ({currentCount}/10)</Label>
-        {currentCount < 10 && (
+        <Label>Imagens da Campanha ({currentCount})</Label>
+        {(
           <Button
             type="button"
             variant="outline"
