@@ -41,7 +41,7 @@ export default function SurveyLanding() {
   const [selectedRatings, setSelectedRatings] = useState<Record<string, number>>({});
 
   const { data: surveyData, isLoading, error } = useQuery<SurveyData>({
-    queryKey: ["/api/survey", slug],
+    queryKey: ["/api/pesquisa", slug],
     enabled: !!slug,
   });
 
@@ -126,7 +126,7 @@ export default function SurveyLanding() {
         payload.responseData = { ratings: data.ratings };
       }
 
-      const res = await apiRequest("POST", `/api/survey/${slug}/submit`, payload);
+      const res = await apiRequest("POST", `/api/pesquisa/${slug}/submit`, payload);
       return res.json();
     },
     onSuccess: () => {

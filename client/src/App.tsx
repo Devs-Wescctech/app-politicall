@@ -116,7 +116,7 @@ function App() {
             <Route path="/register" component={Register} />
             <Route path="/admin-login" component={AdminLogin} />
             <Route path="/admin" component={Admin} />
-            <Route path="/survey/:slug" component={SurveyLanding} />
+            <Route path="/pesquisa/:slug" component={SurveyLanding} />
             <Route path="/">
               {() => {
                 if (!isAuthenticated()) {

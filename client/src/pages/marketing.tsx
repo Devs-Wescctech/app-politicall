@@ -533,7 +533,7 @@ export default function Marketing() {
   };
 
   const getLandingPageUrl = (slug: string) => {
-    return `https://www.politicall.com.br/survey/${slug}`;
+    return `https://www.politicall.com.br/pesquisa/${slug}`;
   };
 
   const toggleResults = (campaignId: string) => {

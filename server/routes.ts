@@ -1580,7 +1580,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get survey campaign by slug for public landing page (PUBLIC - no auth required)
-  app.get("/api/survey/:slug", async (req, res) => {
+  app.get("/api/pesquisa/:slug", async (req, res) => {
     try {
       const { slug } = req.params;
       
@@ -1742,7 +1742,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get public survey landing page by slug (PUBLIC - no auth required)
-  app.get("/api/survey/:slug", async (req, res) => {
+  app.get("/api/pesquisa/:slug", async (req, res) => {
     try {
       // First find the campaign by slug with template data
       const campaigns = await db.select({
@@ -1788,7 +1788,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Submit survey response (PUBLIC - no auth required)
-  app.post("/api/survey/:slug/submit", async (req, res) => {
+  app.post("/api/pesquisa/:slug/submit", async (req, res) => {
     try {
       // Find the campaign by slug
       const campaigns = await db.select()
