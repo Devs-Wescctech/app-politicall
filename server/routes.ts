@@ -767,6 +767,83 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Test AI Response Endpoint
+  app.post("/api/ai-config/test-response", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const { message, platform } = req.body;
+      
+      if (!message) {
+        return res.status(400).json({ error: "Mensagem é obrigatória" });
+      }
+
+      // Get AI configuration and training examples
+      const config = await storage.getAiConfig(req.userId!);
+      const trainingExamples = await storage.getAiTrainingExamples(req.userId!);
+      
+      // Check if AI is configured (either custom key or Replit integration)
+      const hasCustomKey = !!config?.openaiApiKey;
+      const hasReplitIntegration = true; // Replit AI is always available
+      
+      if (!hasCustomKey && !hasReplitIntegration) {
+        return res.status(400).json({ 
+          error: "Por favor, configure uma chave de API da OpenAI primeiro" 
+        });
+      }
+
+      // Build context from training examples if available
+      let trainingContext = "";
+      const activeExamples = trainingExamples.filter(ex => ex.active);
+      if (activeExamples.length > 0) {
+        trainingContext = "\n\nExemplos de respostas para referência:\n";
+        activeExamples.forEach(ex => {
+          trainingContext += `\nPergunta: ${ex.question}\nResposta: ${ex.answer}\n`;
+        });
+      }
+
+      // Add platform context if specified
+      let platformContext = "";
+      if (platform && platform !== 'all') {
+        const platformNames: Record<string, string> = {
+          facebook: "Facebook",
+          instagram: "Instagram",
+          twitter: "X (Twitter)",
+          whatsapp: "WhatsApp"
+        };
+        platformContext = `\nConsidere que esta mensagem está sendo enviada via ${platformNames[platform] || platform}.`;
+      }
+
+      // Create enhanced message with context
+      const enhancedMessage = message + platformContext + trainingContext;
+
+      // Generate AI response using existing function
+      const aiResponse = await generateAiResponse(
+        enhancedMessage,
+        null, // No post content for testing
+        config?.mode || 'compliance',
+        req.userId!,
+        {
+          systemPrompt: config?.systemPrompt,
+          personalityTraits: config?.personalityTraits,
+          politicalInfo: config?.politicalInfo,
+          responseGuidelines: config?.responseGuidelines
+        }
+      );
+
+      res.json({ 
+        response: aiResponse,
+        message: message,
+        platform: platform || 'all'
+      });
+    } catch (error: any) {
+      console.error("Error generating test response:", error);
+      res.status(500).json({ 
+        error: error.message === "AI_INTEGRATION_NOT_CONFIGURED" 
+          ? "Por favor, configure a integração com a OpenAI primeiro"
+          : "Erro ao gerar resposta da IA"
+      });
+    }
+  });
+
   // AI Conversations
   app.get("/api/ai-conversations", authenticateToken, async (req: AuthRequest, res) => {
     try {

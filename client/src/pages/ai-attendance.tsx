@@ -4,10 +4,8 @@ import {
   type AiConfiguration, 
   type AiConversation, 
   type AiTrainingExample,
-  type AiResponseTemplate,
   insertAiConfigurationSchema,
-  insertAiTrainingExampleSchema,
-  insertAiResponseTemplateSchema
+  insertAiTrainingExampleSchema
 } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,9 +19,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Label } from "@/components/ui/label";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Settings, CheckCircle2, XCircle, Plus, Edit, Trash2, Save, X, AlertCircle, HelpCircle, RefreshCw } from "lucide-react";
+import { Settings, CheckCircle2, XCircle, Plus, Edit, Trash2, Save, X, AlertCircle, HelpCircle, RefreshCw, MessageSquare } from "lucide-react";
 import { SiFacebook, SiInstagram, SiX, SiWhatsapp } from "react-icons/si";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -49,11 +48,19 @@ const TRAINING_CATEGORIES = [
 export default function AiAttendance() {
   const [selectedPlatform, setSelectedPlatform] = useState<string | null>(null);
   const [isTrainingModalOpen, setIsTrainingModalOpen] = useState(false);
-  const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
   const [editingTraining, setEditingTraining] = useState<AiTrainingExample | null>(null);
-  const [editingTemplate, setEditingTemplate] = useState<AiResponseTemplate | null>(null);
   const [apiKey, setApiKey] = useState("");
   const [isTestingKey, setIsTestingKey] = useState(false);
+  // New test-related state variables
+  const [testMessage, setTestMessage] = useState('');
+  const [testPlatform, setTestPlatform] = useState('all');
+  const [aiTestResponse, setAiTestResponse] = useState('');
+  const [testHistory, setTestHistory] = useState<Array<{
+    message: string;
+    platform: string;
+    response: string;
+    timestamp: Date;
+  }>>([]);
   const { toast } = useToast();
 
   // Queries
@@ -67,10 +74,6 @@ export default function AiAttendance() {
 
   const { data: trainingExamples = [], isLoading: loadingExamples } = useQuery<AiTrainingExample[]>({
     queryKey: ["/api/ai-training-examples"],
-  });
-
-  const { data: responseTemplates = [], isLoading: loadingTemplates } = useQuery<AiResponseTemplate[]>({
-    queryKey: ["/api/ai-response-templates"],
   });
 
   // API Status Query
@@ -141,17 +144,6 @@ export default function AiAttendance() {
       question: "",
       answer: "",
       category: "geral",
-      active: true,
-    },
-  });
-
-  const templateForm = useForm({
-    resolver: zodResolver(insertAiResponseTemplateSchema),
-    defaultValues: {
-      name: "",
-      trigger: "",
-      response: "",
-      platform: "",
       active: true,
     },
   });
@@ -227,34 +219,30 @@ export default function AiAttendance() {
     },
   });
 
-  const createTemplateMutation = useMutation({
-    mutationFn: (data: any) => apiRequest("POST", "/api/ai-response-templates", data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/ai-response-templates"] });
-      toast({ title: "Template criado com sucesso!" });
-      setIsTemplateModalOpen(false);
-      templateForm.reset();
+  // Test AI Response Mutation
+  const testAiResponseMutation = useMutation({
+    mutationFn: async (data: { message: string; platform: string }) => 
+      apiRequest("POST", "/api/ai-config/test-response", data),
+    onSuccess: (response) => {
+      setAiTestResponse(response.response);
+      setTestHistory(prev => [{
+        message: testMessage,
+        platform: testPlatform,
+        response: response.response,
+        timestamp: new Date()
+      }, ...prev].slice(0, 10)); // Keep last 10 tests
+      toast({ 
+        title: "Teste concluído",
+        description: "A resposta da IA foi gerada com sucesso"
+      });
     },
-  });
-
-  const updateTemplateMutation = useMutation({
-    mutationFn: (data: { id: string; body: any }) => 
-      apiRequest("PATCH", `/api/ai-response-templates/${data.id}`, data.body),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/ai-response-templates"] });
-      toast({ title: "Template atualizado com sucesso!" });
-      setIsTemplateModalOpen(false);
-      setEditingTemplate(null);
-      templateForm.reset();
-    },
-  });
-
-  const deleteTemplateMutation = useMutation({
-    mutationFn: (id: string) => apiRequest("DELETE", `/api/ai-response-templates/${id}`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/ai-response-templates"] });
-      toast({ title: "Template removido com sucesso!" });
-    },
+    onError: () => {
+      toast({ 
+        title: "Erro no teste",
+        description: "Não foi possível gerar a resposta da IA",
+        variant: "destructive"
+      });
+    }
   });
 
   // OpenAI API Key Mutations
@@ -302,14 +290,6 @@ export default function AiAttendance() {
     }
   };
 
-  const handleSaveTemplate = (data: any) => {
-    if (editingTemplate) {
-      updateTemplateMutation.mutate({ id: editingTemplate.id, body: data });
-    } else {
-      createTemplateMutation.mutate(data);
-    }
-  };
-
   const openEditTraining = (example: AiTrainingExample) => {
     setEditingTraining(example);
     trainingForm.reset({
@@ -319,18 +299,6 @@ export default function AiAttendance() {
       active: example.active,
     });
     setIsTrainingModalOpen(true);
-  };
-
-  const openEditTemplate = (template: AiResponseTemplate) => {
-    setEditingTemplate(template);
-    templateForm.reset({
-      name: template.name,
-      trigger: template.trigger,
-      response: template.response,
-      platform: template.platform || "",
-      active: template.active,
-    });
-    setIsTemplateModalOpen(true);
   };
 
   const isConnected = (platform: string) => {
@@ -402,7 +370,7 @@ export default function AiAttendance() {
           <TabsTrigger value="platforms" className="rounded-full">Plataformas</TabsTrigger>
           <TabsTrigger value="personalizacao" className="rounded-full">Personalização</TabsTrigger>
           <TabsTrigger value="treinamento" className="rounded-full">Treinamento</TabsTrigger>
-          <TabsTrigger value="templates" className="rounded-full">Templates</TabsTrigger>
+          <TabsTrigger value="teste" className="rounded-full">Teste sua IA</TabsTrigger>
         </TabsList>
 
         <TabsContent value="platforms">
@@ -804,106 +772,108 @@ export default function AiAttendance() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="templates">
+        <TabsContent value="teste">
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>Templates de Resposta</CardTitle>
-                  <CardDescription>
-                    Configure respostas prontas para palavras-chave específicas
-                  </CardDescription>
+              <CardTitle>Teste sua IA</CardTitle>
+              <CardDescription>
+                Teste como sua IA responderá nas redes sociais com base no treinamento configurado
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Test Input Section */}
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Mensagem de Teste</Label>
+                  <Textarea
+                    value={testMessage}
+                    onChange={(e) => setTestMessage(e.target.value)}
+                    placeholder="Digite uma mensagem para testar a resposta da IA..."
+                    className="min-h-[100px]"
+                    data-testid="textarea-test-message"
+                  />
                 </div>
-                <Button 
-                  onClick={() => {
-                    setEditingTemplate(null);
-                    templateForm.reset();
-                    setIsTemplateModalOpen(true);
-                  }}
+                
+                <div className="space-y-2">
+                  <Label>Plataforma (opcional)</Label>
+                  <Select value={testPlatform} onValueChange={setTestPlatform}>
+                    <SelectTrigger data-testid="select-test-platform">
+                      <SelectValue placeholder="Selecione uma plataforma" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas as Plataformas</SelectItem>
+                      {PLATFORMS.map(platform => (
+                        <SelectItem key={platform.id} value={platform.id}>
+                          {platform.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <Button
+                  onClick={() => testAiResponseMutation.mutate({ message: testMessage, platform: testPlatform })}
+                  disabled={!testMessage || testAiResponseMutation.isPending}
                   className="rounded-full"
-                  data-testid="button-add-template"
+                  data-testid="button-test-ai"
                 >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Adicionar Template
+                  {testAiResponseMutation.isPending ? (
+                    <>
+                      <Settings className="w-4 h-4 mr-2 animate-spin" />
+                      Testando...
+                    </>
+                  ) : (
+                    <>
+                      <MessageSquare className="w-4 h-4 mr-2" />
+                      Testar Resposta
+                    </>
+                  )}
                 </Button>
               </div>
-            </CardHeader>
-            <CardContent>
-              {loadingTemplates ? (
-                <div className="space-y-2">
-                  <Skeleton className="h-12 w-full" />
-                  <Skeleton className="h-12 w-full" />
-                  <Skeleton className="h-12 w-full" />
+              
+              {/* Response Display */}
+              {aiTestResponse && (
+                <div className="space-y-4 pt-4 border-t">
+                  <div className="space-y-2">
+                    <Label>Resposta da IA</Label>
+                    <div className="p-4 bg-muted rounded-lg">
+                      <p className="text-sm whitespace-pre-wrap">{aiTestResponse}</p>
+                    </div>
+                  </div>
                 </div>
-              ) : responseTemplates.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  Nenhum template de resposta cadastrado
-                </div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Nome</TableHead>
-                      <TableHead>Palavras-Chave</TableHead>
-                      <TableHead>Resposta</TableHead>
-                      <TableHead>Plataforma</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Ações</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {responseTemplates.map((template) => (
-                      <TableRow key={template.id}>
-                        <TableCell className="font-medium">{template.name}</TableCell>
-                        <TableCell className="max-w-xs truncate">{template.trigger}</TableCell>
-                        <TableCell className="max-w-xs truncate">{template.response}</TableCell>
-                        <TableCell>
-                          {template.platform ? (
-                            <Badge variant="outline" className="rounded-full">
-                              {PLATFORMS.find(p => p.id === template.platform)?.name || template.platform}
-                            </Badge>
-                          ) : (
-                            <Badge variant="secondary" className="rounded-full">Todas</Badge>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <Switch
-                            checked={template.active}
-                            onCheckedChange={(checked) => {
-                              updateTemplateMutation.mutate({
-                                id: template.id,
-                                body: { active: checked }
-                              });
-                            }}
-                            data-testid={`switch-template-${template.id}`}
-                          />
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => openEditTemplate(template)}
-                              className="rounded-full"
-                              data-testid={`button-edit-template-${template.id}`}
-                            >
-                              <Edit className="w-4 h-4" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => deleteTemplateMutation.mutate(template.id)}
-                              className="rounded-full text-destructive"
-                              data-testid={`button-delete-template-${template.id}`}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
+              )}
+              
+              {/* Test History */}
+              {testHistory.length > 0 && (
+                <div className="space-y-4 pt-4 border-t">
+                  <div className="space-y-2">
+                    <Label>Histórico de Testes</Label>
+                    <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                      {testHistory.map((test, index) => (
+                        <div key={index} className="p-3 bg-muted/50 rounded-lg space-y-2">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <p className="text-sm font-medium">Pergunta:</p>
+                              <p className="text-sm text-muted-foreground">{test.message}</p>
+                            </div>
+                            {test.platform !== 'all' && (
+                              <Badge variant="outline" className="rounded-full ml-2">
+                                {PLATFORMS.find(p => p.id === test.platform)?.name}
+                              </Badge>
+                            )}
                           </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                          <div>
+                            <p className="text-sm font-medium">Resposta:</p>
+                            <p className="text-sm text-muted-foreground whitespace-pre-wrap">{test.response}</p>
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {format(new Date(test.timestamp), "dd/MM HH:mm", { locale: ptBR })}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
               )}
             </CardContent>
           </Card>
@@ -1027,155 +997,6 @@ export default function AiAttendance() {
                 >
                   <Save className="w-4 h-4 mr-2" />
                   {editingTraining ? "Atualizar" : "Salvar"}
-                </Button>
-              </DialogFooter>
-            </form>
-          </Form>
-        </DialogContent>
-      </Dialog>
-      {/* Response Template Modal */}
-      <Dialog open={isTemplateModalOpen} onOpenChange={setIsTemplateModalOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>
-              {editingTemplate ? "Editar Template de Resposta" : "Novo Template de Resposta"}
-            </DialogTitle>
-          </DialogHeader>
-          <Form {...templateForm}>
-            <form onSubmit={templateForm.handleSubmit(handleSaveTemplate)} className="space-y-4">
-              <FormField
-                control={templateForm.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Nome do Template</FormLabel>
-                    <FormControl>
-                      <Input
-                        {...field}
-                        placeholder="Saudação Inicial"
-                        data-testid="input-template-name"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={templateForm.control}
-                name="trigger"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Palavras-Chave de Ativação</FormLabel>
-                    <FormDescription>
-                      Palavras ou frases que ativam este template (separadas por vírgula)
-                    </FormDescription>
-                    <FormControl>
-                      <Textarea
-                        {...field}
-                        placeholder="olá, oi, bom dia, boa tarde, boa noite"
-                        className="min-h-[60px]"
-                        data-testid="textarea-template-trigger"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={templateForm.control}
-                name="response"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Resposta</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        {...field}
-                        placeholder="Olá! Obrigado por entrar em contato. Como posso ajudá-lo hoje?"
-                        className="min-h-[120px]"
-                        data-testid="textarea-template-response"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={templateForm.control}
-                name="platform"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Plataforma</FormLabel>
-                    <FormDescription>
-                      Deixe vazio para aplicar em todas as plataformas
-                    </FormDescription>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger data-testid="select-template-platform">
-                          <SelectValue placeholder="Todas as plataformas" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="">Todas as plataformas</SelectItem>
-                        {PLATFORMS.map((platform) => (
-                          <SelectItem key={platform.id} value={platform.id}>
-                            {platform.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={templateForm.control}
-                name="active"
-                render={({ field }) => (
-                  <FormItem className="flex items-center justify-between rounded-lg border p-4">
-                    <div className="space-y-0.5">
-                      <FormLabel>Template Ativo</FormLabel>
-                      <FormDescription>
-                        Este template será usado nas respostas automáticas
-                      </FormDescription>
-                    </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                        data-testid="switch-template-active"
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-
-              <DialogFooter>
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  onClick={() => {
-                    setIsTemplateModalOpen(false);
-                    setEditingTemplate(null);
-                    templateForm.reset();
-                  }}
-                  className="rounded-full"
-                  data-testid="button-cancel-template"
-                >
-                  <X className="w-4 h-4 mr-2" />
-                  Cancelar
-                </Button>
-                <Button 
-                  type="submit" 
-                  className="rounded-full"
-                  disabled={createTemplateMutation.isPending || updateTemplateMutation.isPending}
-                  data-testid="button-save-template"
-                >
-                  <Save className="w-4 h-4 mr-2" />
-                  {editingTemplate ? "Atualizar" : "Salvar"}
                 </Button>
               </DialogFooter>
             </form>
