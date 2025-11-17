@@ -27,7 +27,7 @@ import crmImage from "@assets/stock_images/professional_crm_das_daddedaa.jpg";
 import alliancesImage from "@assets/stock_images/political_alliances__25c21404.jpg";
 import demandsImage from "@assets/stock_images/task_management_dema_ed39ef14.jpg";
 import eventsImage from "@assets/stock_images/calendar_event_sched_888f73da.jpg";
-import aiImage from "@assets/stock_images/ai_chatbot_social_me_fe7367b1.jpg";
+import aiImage from "@assets/Técnico- Luis Flores (2)_1763412024868.png";
 import marketingImage from "@assets/stock_images/marketing_campaign_a_481dcd3f.jpg";
 
 const BRAZILIAN_STATES = [
@@ -493,20 +493,12 @@ export default function LandingPage() {
                 </div>
               </div>
 
-              <div className="relative">
-                <div className="relative rounded-lg overflow-hidden shadow-2xl border">
-                  <img 
-                    src={aiImage} 
-                    alt="IA Politicall respondendo mensagens automaticamente" 
-                    className="w-full h-auto"
-                    data-testid="img-ai-screenshot"
-                  />
-                </div>
-                <div className="absolute -bottom-6 -right-6 bg-primary text-primary-foreground p-6 rounded-lg shadow-xl max-w-xs">
-                  <div className="text-3xl font-bold mb-1">98.5%</div>
-                  <div className="text-sm opacity-90">Taxa de satisfação nas respostas automáticas</div>
-                </div>
-              </div>
+              <img 
+                src={aiImage} 
+                alt="IA Politicall respondendo mensagens automaticamente" 
+                className="w-full h-auto"
+                data-testid="img-ai-screenshot"
+              />
             </div>
           </div>
         </div>
