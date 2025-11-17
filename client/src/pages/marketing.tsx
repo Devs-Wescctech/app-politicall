@@ -19,12 +19,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, Trash2, Edit, ExternalLink, Copy, CheckCircle, XCircle, Clock, BarChart3, ChevronDown, ChevronUp, Eye, FileText } from "lucide-react";
+import { Plus, Trash2, Edit, ExternalLink, Copy, CheckCircle, XCircle, Clock, BarChart3, ChevronDown, ChevronUp, Eye, FileText, Calendar } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import pdfMake from "pdfmake/build/pdfmake";
+import { format, addDays } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 // Lazy load fonts to avoid bundle size issues
 if (typeof window !== 'undefined') {
@@ -1001,6 +1003,33 @@ export default function Marketing() {
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-4">
+                    {isApproved && campaign.updatedAt && (
+                      <Card className="bg-[#40E0D0]/5 border-[#40E0D0]/30">
+                        <CardContent className="pt-4">
+                          <div className="flex items-start gap-3">
+                            <Calendar className="w-5 h-5 text-[#40E0D0] mt-0.5" />
+                            <div className="flex-1 space-y-2">
+                              <div className="flex items-center justify-between">
+                                <Label className="text-xs text-muted-foreground">Data de Aprovação:</Label>
+                                <p className="text-sm font-medium">
+                                  {format(new Date(campaign.updatedAt), "dd/MM/yyyy", { locale: ptBR })}
+                                </p>
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <Label className="text-xs text-muted-foreground">Data de Término:</Label>
+                                <p className="text-sm font-bold text-[#40E0D0]">
+                                  {format(addDays(new Date(campaign.updatedAt), 7), "dd/MM/yyyy", { locale: ptBR })}
+                                </p>
+                              </div>
+                              <p className="text-xs text-muted-foreground italic">
+                                Pesquisa ativa por 7 dias corridos a partir da aprovação
+                              </p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+
                     {isApproved && (
                       <div className="space-y-2">
                         <Label className="text-sm font-medium">URL da Página de Pesquisa:</Label>
