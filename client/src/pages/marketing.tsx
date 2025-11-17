@@ -173,7 +173,8 @@ export default function Marketing() {
   // Automatically populate recipients based on selection
   useEffect(() => {
     if (recipientType === "manual") {
-      return; // Keep manual text
+      setRecipientsText(""); // Clear field for manual entry
+      return;
     }
     
     let recipients: string[] = [];
