@@ -525,7 +525,7 @@ export default function AiAttendance() {
                     ) : (
                       <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
                         <CheckCircle2 className="w-3 h-3 mr-1" />
-                        Integração Replit
+                        Api Padrão do Sistema
                       </Badge>
                     )}
                   </div>
