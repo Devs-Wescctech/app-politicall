@@ -92,9 +92,9 @@ export default function Dashboard() {
     ? Math.max(baseGoals.voters, Math.ceil(lastElectionVotes * 1.2)) // 20% acima da última eleição
     : baseGoals.voters;
   
-  // Meta de alianças = 10% dos votos da última eleição
+  // Meta de alianças = 3% dos votos da última eleição
   const allianceGoal = lastElectionVotes > 0
-    ? Math.ceil(lastElectionVotes * 0.1) // 10% dos votos da última eleição
+    ? Math.ceil(lastElectionVotes * 0.03) // 3% dos votos da última eleição
     : baseGoals.alliances;
   
   const goals = {
