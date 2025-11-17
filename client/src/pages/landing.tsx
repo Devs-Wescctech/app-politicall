@@ -445,18 +445,6 @@ export default function LandingPage() {
                     </div>
                   </div>
                 </div>
-
-                <div className="mt-8 p-6 rounded-lg bg-muted/50 border">
-                  <div className="flex items-start gap-3">
-                    <MessageSquare className="w-5 h-5 text-primary shrink-0 mt-1" />
-                    <div>
-                      <p className="font-semibold mb-2">Economia de Tempo Comprovada</p>
-                      <p className="text-sm text-muted-foreground">
-                        Políticos que usam nossa IA economizam em média <strong className="text-foreground">15 horas por semana</strong> em gerenciamento de redes sociais, podendo focar em atividades estratégicas.
-                      </p>
-                    </div>
-                  </div>
-                </div>
               </div>
 
               <div className="relative">
@@ -672,61 +660,285 @@ export default function LandingPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-              <div className="order-2 lg:order-1">
-                <div className="rounded-lg overflow-hidden shadow-xl border">
-                  <img 
-                    src={marketingImage} 
-                    alt="Campanhas de Marketing e Pesquisas Politicall" 
-                    className="w-full h-auto"
-                    data-testid="img-module-marketing"
-                  />
+          </div>
+        </div>
+      </section>
+
+      <section className="py-32 bg-gradient-to-br from-primary/5 via-background to-background">
+        <div className="container mx-auto px-4">
+          <div className="max-w-6xl mx-auto">
+            <div className="text-center mb-16">
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary mb-6">
+                <Zap className="w-4 h-4" />
+                <span className="text-sm font-medium">Tráfego Pago Estratégico</span>
+              </div>
+              <h2 className="text-4xl md:text-6xl font-bold mb-6" data-testid="text-ads-title">
+                Multiplique Seu Alcance com Google Ads
+              </h2>
+              <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
+                Enquanto seus concorrentes esperam meses para alcançar 500 eleitores organicamente, você alcança 50.000 em uma semana com tráfego pago estratégico.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
+              <Card className="border-0 shadow-xl bg-card">
+                <CardContent className="p-8 text-center">
+                  <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-6">
+                    <TrendingUp className="w-8 h-8 text-primary" />
+                  </div>
+                  <div className="text-4xl font-bold mb-3">50x</div>
+                  <div className="text-lg font-semibold mb-2">Mais Alcance</div>
+                  <p className="text-muted-foreground text-sm">
+                    Alcance 50x mais eleitores em 1/10 do tempo comparado a estratégias orgânicas tradicionais
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card className="border-0 shadow-xl bg-card">
+                <CardContent className="p-8 text-center">
+                  <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-6">
+                    <Target className="w-8 h-8 text-primary" />
+                  </div>
+                  <div className="text-4xl font-bold mb-3">R$ 0,80</div>
+                  <div className="text-lg font-semibold mb-2">Por Resposta</div>
+                  <p className="text-muted-foreground text-sm">
+                    Custo médio por resposta qualificada em pesquisas eleitorais com segmentação demográfica precisa
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card className="border-0 shadow-xl bg-card">
+                <CardContent className="p-8 text-center">
+                  <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-6">
+                    <BarChart2 className="w-8 h-8 text-primary" />
+                  </div>
+                  <div className="text-4xl font-bold mb-3">85%</div>
+                  <div className="text-lg font-semibold mb-2">Taxa de Conversão</div>
+                  <p className="text-muted-foreground text-sm">
+                    Visitantes que chegam via Google Ads completam pesquisas com taxa de conversão 3x maior que orgânico
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="bg-card rounded-2xl p-8 md:p-12 shadow-2xl border">
+              <h3 className="text-3xl font-bold mb-8 text-center">Por Que Google Ads é Essencial para Pesquisas Políticas</h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-6">
+                  <div className="flex items-start gap-4">
+                    <div className="p-3 rounded-lg bg-primary/10 shrink-0">
+                      <CheckCircle2 className="w-6 h-6 text-foreground" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-lg mb-2">Segmentação Cirúrgica</h4>
+                      <p className="text-muted-foreground">
+                        Alcance exatamente o perfil de eleitor que você precisa: por cidade, bairro, idade, interesses políticos, poder aquisitivo e histórico de engajamento eleitoral.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-4">
+                    <div className="p-3 rounded-lg bg-primary/10 shrink-0">
+                      <CheckCircle2 className="w-6 h-6 text-foreground" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-lg mb-2">Velocidade Incomparável</h4>
+                      <p className="text-muted-foreground">
+                        Consiga 10.000 respostas em 72 horas. Impossível organicamente. Com tráfego pago, você define o ritmo e escala conforme necessário.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-4">
+                    <div className="p-3 rounded-lg bg-primary/10 shrink-0">
+                      <CheckCircle2 className="w-6 h-6 text-foreground" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-lg mb-2">ROI Mensurável</h4>
+                      <p className="text-muted-foreground">
+                        Dashboards em tempo real mostram custo por clique, custo por resposta, taxa de conversão e projeções de orçamento. Controle total do investimento.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-6">
+                  <div className="flex items-start gap-4">
+                    <div className="p-3 rounded-lg bg-primary/10 shrink-0">
+                      <CheckCircle2 className="w-6 h-6 text-foreground" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-lg mb-2">Dados Demográficos Ricos</h4>
+                      <p className="text-muted-foreground">
+                        Google Ads traz eleitores de todos os perfis demográficos, não apenas seus seguidores atuais. Amplie sua base e entenda novos públicos.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-4">
+                    <div className="p-3 rounded-lg bg-primary/10 shrink-0">
+                      <CheckCircle2 className="w-6 h-6 text-foreground" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-lg mb-2">Otimização Contínua</h4>
+                      <p className="text-muted-foreground">
+                        Ajuste campanhas em tempo real baseado em performance. Pause anúncios ruins, escale os vencedores, teste novos textos e maximize resultados.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-4">
+                    <div className="p-3 rounded-lg bg-primary/10 shrink-0">
+                      <CheckCircle2 className="w-6 h-6 text-foreground" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-lg mb-2">Competitividade Eleitoral</h4>
+                      <p className="text-muted-foreground">
+                        Enquanto adversários fazem pesquisas tradicionais caras e lentas, você coleta milhares de dados em dias com custo muito menor por respondente.
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
-              <div className="order-1 lg:order-2">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="p-3 rounded-lg bg-primary/10">
-                    <BarChart3 className="w-8 h-8 text-foreground" />
+
+              <div className="mt-10 p-6 bg-primary/5 rounded-xl border border-primary/20">
+                <div className="flex items-start gap-4">
+                  <Award className="w-8 h-8 text-primary shrink-0" />
+                  <div>
+                    <p className="font-bold text-lg mb-2">Caso Real: Vereador em São Paulo</p>
+                    <p className="text-muted-foreground">
+                      Gastou R$ 3.200 em Google Ads durante 5 dias e coletou 4.000 respostas qualificadas em sua pesquisa eleitoral. Custo: R$ 0,80 por resposta. Tempo: 5 dias. Mesma pesquisa via telefone custaria R$ 60.000+ e levaria 3 semanas.
+                    </p>
                   </div>
-                  <h3 className="text-3xl font-bold">Pesquisas Eleitorais com Google Ads</h3>
                 </div>
-                <p className="text-lg text-muted-foreground mb-6">
-                  Revolucione suas pesquisas eleitorais combinando metodologia TSE-compliant com o poder dos anúncios pagos do Google. Alcance milhares de eleitores qualificados, gere leads massivamente e obtenha insights demográficos profundos com ROI mensurável em cada real investido.
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="py-32 bg-muted/30">
+        <div className="container mx-auto px-4">
+          <div className="max-w-6xl mx-auto">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+              <div>
+                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary mb-6">
+                  <FileText className="w-4 h-4" />
+                  <span className="text-sm font-medium">Sistema de Pesquisas</span>
+                </div>
+                
+                <h2 className="text-4xl md:text-5xl font-bold mb-6" data-testid="text-surveys-title">
+                  Pesquisas Eleitorais Profissionais 100% TSE-Compliant
+                </h2>
+                
+                <p className="text-xl text-muted-foreground mb-8">
+                  Crie, distribua e analise pesquisas eleitorais de nível profissional com total conformidade legal. Landing pages automáticas, coleta de dados demográficos e relatórios executivos em PDF.
                 </p>
-                <ul className="space-y-3">
-                  <li className="flex items-start gap-3">
-                    <ChevronRight className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                    <span><strong>Integração Total com Google Ads:</strong> Crie campanhas de pesquisa diretamente na plataforma e impulsione-as com anúncios segmentados por localização, idade, interesses políticos e histórico de engajamento eleitoral</span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <ChevronRight className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                    <span><strong>Landing Pages de Alta Conversão:</strong> Páginas públicas otimizadas automaticamente (/pesquisa/slug) com design responsivo, loading ultrarrápido e copy persuasivo que converte visitantes em respondentes</span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <ChevronRight className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                    <span><strong>Geração Massiva de Leads Qualificados:</strong> Capture milhares de respostas em dias (não meses) através de tráfego pago segmentado, expandindo exponencialmente seu alcance além das redes orgânicas</span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <ChevronRight className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                    <span><strong>ROI e Custo por Resposta em Tempo Real:</strong> Dashboard analítico mostra exatamente quanto você está pagando por cada respondente, CTR dos anúncios, taxa de conversão e projeções de custo total da pesquisa</span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <ChevronRight className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                    <span><strong>Segmentação Demográfica Avançada:</strong> Coleta automática de dados demográficos obrigatórios (idade, gênero, escolaridade, renda, profissão) para análises cruzadas e insights estratégicos profundos</span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <ChevronRight className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                    <span><strong>100% Compliance com TSE:</strong> Templates pré-aprovados, workflow de moderação administrativa, registro de IP anônimo e todos os requisitos legais para pesquisas eleitorais registradas</span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <ChevronRight className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                    <span><strong>Analytics em Tempo Real:</strong> Acompanhe respostas entrando ao vivo, visualize gráficos dinâmicos, cruze dados demográficos e identifique tendências antes mesmo da pesquisa terminar</span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <ChevronRight className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                    <span><strong>Relatórios PDF Profissionais:</strong> Exportação automática de relatórios executivos com gráficos coloridos, tabelas demográficas detalhadas, análise de sentimento e recomendações estratégicas para sua campanha</span>
-                  </li>
-                </ul>
+
+                <div className="space-y-4 mb-8">
+                  <div className="flex items-start gap-3">
+                    <div className="p-2 rounded-lg bg-primary/10 shrink-0">
+                      <CheckCircle2 className="w-5 h-5 text-foreground" />
+                    </div>
+                    <div>
+                      <h4 className="font-semibold mb-1">Templates Pré-Aprovados TSE</h4>
+                      <p className="text-muted-foreground text-sm">
+                        Biblioteca completa de modelos de perguntas que seguem todas as normas eleitorais brasileiras.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3">
+                    <div className="p-2 rounded-lg bg-primary/10 shrink-0">
+                      <CheckCircle2 className="w-5 h-5 text-foreground" />
+                    </div>
+                    <div>
+                      <h4 className="font-semibold mb-1">Landing Pages Públicas Automáticas</h4>
+                      <p className="text-muted-foreground text-sm">
+                        Cada pesquisa gera automaticamente uma página pública otimizada em politicall.com.br/pesquisa/seu-slug
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3">
+                    <div className="p-2 rounded-lg bg-primary/10 shrink-0">
+                      <CheckCircle2 className="w-5 h-5 text-foreground" />
+                    </div>
+                    <div>
+                      <h4 className="font-semibold mb-1">Workflow de Aprovação Admin</h4>
+                      <p className="text-muted-foreground text-sm">
+                        Moderação administrativa revisa todas as pesquisas antes de ficarem públicas, garantindo conformidade total.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3">
+                    <div className="p-2 rounded-lg bg-primary/10 shrink-0">
+                      <CheckCircle2 className="w-5 h-5 text-foreground" />
+                    </div>
+                    <div>
+                      <h4 className="font-semibold mb-1">Coleta Demográfica Completa</h4>
+                      <p className="text-muted-foreground text-sm">
+                        Captura automática de gênero, faixa etária, escolaridade, renda, profissão e ideologia política de cada respondente.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3">
+                    <div className="p-2 rounded-lg bg-primary/10 shrink-0">
+                      <CheckCircle2 className="w-5 h-5 text-foreground" />
+                    </div>
+                    <div>
+                      <h4 className="font-semibold mb-1">Analytics e Gráficos em Tempo Real</h4>
+                      <p className="text-muted-foreground text-sm">
+                        Veja respostas chegando ao vivo, cruze dados demográficos e identifique tendências antes da pesquisa terminar.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3">
+                    <div className="p-2 rounded-lg bg-primary/10 shrink-0">
+                      <CheckCircle2 className="w-5 h-5 text-foreground" />
+                    </div>
+                    <div>
+                      <h4 className="font-semibold mb-1">Relatórios PDF Executivos</h4>
+                      <p className="text-muted-foreground text-sm">
+                        Exportação profissional com gráficos coloridos, tabelas detalhadas e insights estratégicos para sua campanha.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <Button
+                    size="lg"
+                    className="rounded-full"
+                    onClick={() => scrollToSection('contato')}
+                    data-testid="button-cta-surveys"
+                  >
+                    Criar Minha Primeira Pesquisa <ArrowRight className="ml-2 w-5 h-5" />
+                  </Button>
+                </div>
+              </div>
+
+              <div className="relative">
+                <div className="rounded-xl overflow-hidden shadow-2xl border">
+                  <img 
+                    src={marketingImage} 
+                    alt="Sistema de Pesquisas Eleitorais Politicall" 
+                    className="w-full h-auto"
+                    data-testid="img-surveys-screenshot"
+                  />
+                </div>
+
+                <div className="absolute -bottom-8 -left-8 bg-primary text-primary-foreground p-6 rounded-xl shadow-2xl max-w-xs">
+                  <div className="flex items-center gap-3 mb-2">
+                    <Shield className="w-6 h-6" />
+                    <div className="text-2xl font-bold">100%</div>
+                  </div>
+                  <div className="text-sm opacity-90">Compliance TSE Garantido</div>
+                </div>
               </div>
             </div>
           </div>
