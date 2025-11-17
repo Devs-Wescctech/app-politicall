@@ -125,8 +125,6 @@ function ImageUploadComponent({ campaignId, onUploadComplete }: ImageUploadProps
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/google-ads-campaigns", campaignId, "assets"] });
       queryClient.invalidateQueries({ queryKey: ["/api/google-ads-campaigns"] });
-      toast({ title: "Imagem removida com sucesso!" });
-      setSelectedAssets([]);
     },
     onError: () => {
       toast({ title: "Erro ao remover imagem", variant: "destructive" });
@@ -143,9 +141,10 @@ function ImageUploadComponent({ campaignId, onUploadComplete }: ImageUploadProps
     setShowDeleteDialog(true);
   };
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (assetToDelete) {
-      deleteMutation.mutate(assetToDelete);
+      await deleteMutation.mutateAsync(assetToDelete);
+      toast({ title: "Imagem removida com sucesso!" });
     }
     setShowDeleteDialog(false);
     setAssetToDelete(null);
@@ -168,8 +167,14 @@ function ImageUploadComponent({ campaignId, onUploadComplete }: ImageUploadProps
   };
 
   const handleDeleteSelected = async () => {
-    for (const assetId of selectedAssets) {
-      await deleteMutation.mutateAsync(assetId);
+    const count = selectedAssets.length;
+    try {
+      for (const assetId of selectedAssets) {
+        await deleteMutation.mutateAsync(assetId);
+      }
+      toast({ title: `${count} imagem(ns) removida(s) com sucesso!` });
+    } catch (error) {
+      toast({ title: "Erro ao remover imagens", variant: "destructive" });
     }
     setSelectedAssets([]);
     setShowDeleteDialog(false);
@@ -292,12 +297,15 @@ function ImageUploadComponent({ campaignId, onUploadComplete }: ImageUploadProps
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="rounded-full">Cancelar</AlertDialogCancel>
+            <AlertDialogCancel className="rounded-full" disabled={deleteMutation.isPending}>
+              Cancelar
+            </AlertDialogCancel>
             <AlertDialogAction 
               className="rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={assetToDelete ? handleConfirmDelete : handleDeleteSelected}
+              disabled={deleteMutation.isPending}
             >
-              Excluir
+              {deleteMutation.isPending ? "Excluindo..." : "Excluir"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
