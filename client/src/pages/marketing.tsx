@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { type MarketingCampaign, type InsertMarketingCampaign, insertMarketingCampaignSchema } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -25,6 +25,67 @@ const STATUS_CONFIG = {
   sent: { label: "Enviado", color: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" },
   failed: { label: "Falhou", color: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200" },
 };
+
+// Component for date and time input fields
+function DateTimeInput({ field }: { field: any }) {
+  const [date, setDate] = useState("");
+  const [time, setTime] = useState("");
+  
+  // Parse existing value if it exists
+  useEffect(() => {
+    if (field.value) {
+      const dt = new Date(field.value);
+      setDate(dt.toISOString().split('T')[0]);
+      setTime(dt.toTimeString().slice(0,5));
+    }
+  }, [field.value]);
+  
+  // Combine date and time when either changes
+  const updateDateTime = (newDate: string, newTime: string) => {
+    if (newDate && newTime) {
+      const combined = new Date(`${newDate}T${newTime}`);
+      field.onChange(combined.toISOString());
+    } else {
+      field.onChange(undefined);
+    }
+  };
+  
+  return (
+    <FormItem>
+      <FormLabel>Agendar Envio (Opcional)</FormLabel>
+      <div className="grid grid-cols-2 gap-2">
+        <FormControl>
+          <Input
+            type="date"
+            value={date}
+            onChange={(e) => {
+              setDate(e.target.value);
+              updateDateTime(e.target.value, time);
+            }}
+            data-testid="input-schedule-date"
+            placeholder="DD/MM/AAAA"
+          />
+        </FormControl>
+        <FormControl>
+          <Input
+            type="time"
+            value={time}
+            onChange={(e) => {
+              setTime(e.target.value);
+              updateDateTime(date, e.target.value);
+            }}
+            data-testid="input-schedule-time"
+            placeholder="HH:MM"
+          />
+        </FormControl>
+      </div>
+      <FormDescription>
+        Selecione a data e horário para envio programado
+      </FormDescription>
+      <FormMessage />
+    </FormItem>
+  );
+}
 
 export default function Marketing() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -213,19 +274,7 @@ export default function Marketing() {
                   control={form.control}
                   name="scheduledFor"
                   render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Agendar Envio (Opcional)</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="datetime-local"
-                          data-testid="input-schedule"
-                          {...field}
-                          value={field.value ? new Date(field.value).toISOString().slice(0, 16) : ""}
-                          onChange={(e) => field.onChange(e.target.value ? new Date(e.target.value).toISOString() : undefined)}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
+                    <DateTimeInput field={field} />
                   )}
                 />
                 </div>

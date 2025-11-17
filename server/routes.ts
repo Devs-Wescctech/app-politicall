@@ -104,9 +104,50 @@ async function seedPoliticalParties() {
   }
 }
 
+// Seed test marketing campaign for demonstration
+async function seedTestCampaign() {
+  try {
+    const testUserId = 'd0476e06-f1b0-4204-8280-111fa6478fc9'; // Known test user ID
+    
+    // Check if test user exists
+    const testUser = await storage.getUser(testUserId);
+    if (!testUser) {
+      console.log("Test user not found, skipping test campaign creation");
+      return;
+    }
+    
+    // Check if test campaign already exists
+    const existingCampaigns = await storage.getCampaigns(testUserId);
+    if (existingCampaigns.length > 0) {
+      console.log("Test campaign already exists");
+      return;
+    }
+    
+    // Create test campaign
+    await storage.createCampaign({
+      name: 'Campanha de Teste - Boas Vindas',
+      type: 'email',
+      subject: 'Bem-vindo à nossa plataforma!',
+      message: 'Olá! Esta é uma campanha teste para demonstrar o sistema de campanhas de marketing. Aqui você pode criar campanhas de email ou WhatsApp, agendar envios e gerenciar seus contatos.',
+      recipients: ['exemplo1@email.com', 'exemplo2@email.com', 'exemplo3@email.com'],
+      status: 'draft',
+      scheduledFor: new Date(Date.now() + 24 * 60 * 60 * 1000), // Tomorrow as Date object
+      userId: testUserId
+    });
+    
+    console.log("Test campaign seeded successfully");
+  } catch (error) {
+    console.error("Error seeding test campaign:", error);
+    // Don't throw - this is optional test data
+  }
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Seed political parties on startup
   await seedPoliticalParties();
+  
+  // Seed test campaign on startup
+  await seedTestCampaign();
 
   // ==================== AUTHENTICATION ====================
   
