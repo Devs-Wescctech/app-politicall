@@ -612,33 +612,33 @@ export default function LandingPage() {
               <div className="order-1 lg:order-2">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="p-3 rounded-lg bg-primary/10">
-                    <Users className="w-8 h-8 text-foreground" />
+                    <FileText className="w-8 h-8 text-foreground" />
                   </div>
-                  <h3 className="text-3xl font-bold">CRM de Gabinete</h3>
+                  <h3 className="text-3xl font-bold">Pesquisas Eleitorais TSE-Compliant</h3>
                 </div>
                 <p className="text-lg text-muted-foreground mb-6">
-                  Gerencie todos os seus contatos em um só lugar. Registre interações, agende follow-ups, segmente por região, idade, profissão e muito mais.
+                  Crie e gerencie pesquisas eleitorais profissionais com total conformidade legal. Landing pages automáticas, coleta de dados demográficos e análise em tempo real.
                 </p>
                 <ul className="space-y-3">
                   <li className="flex items-start gap-3">
                     <ChevronRight className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                    <span>Importação em massa de contatos via Excel ou CSV</span>
+                    <span>Templates pré-aprovados seguindo normas do TSE</span>
                   </li>
                   <li className="flex items-start gap-3">
                     <ChevronRight className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                    <span>Histórico completo de interações com cada eleitor</span>
+                    <span>Landing pages públicas geradas automaticamente</span>
                   </li>
                   <li className="flex items-start gap-3">
                     <ChevronRight className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                    <span>Segmentação avançada para campanhas direcionadas</span>
+                    <span>Coleta completa de dados demográficos dos respondentes</span>
                   </li>
                   <li className="flex items-start gap-3">
                     <ChevronRight className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                    <span>Metas automáticas baseadas em eleições anteriores</span>
+                    <span>Workflow de aprovação administrativa obrigatório</span>
                   </li>
                   <li className="flex items-start gap-3">
                     <ChevronRight className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                    <span>Exportação de dados para análise externa</span>
+                    <span>Relatórios PDF executivos com gráficos profissionais</span>
                   </li>
                 </ul>
               </div>
