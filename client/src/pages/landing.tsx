@@ -1100,7 +1100,7 @@ export default function LandingPage() {
 
       {fullscreenImage && (
         <div 
-          className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center p-4"
+          className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-md flex items-center justify-center p-4"
           onClick={() => setFullscreenImage(null)}
           data-testid="overlay-fullscreen"
         >
