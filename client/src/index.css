@@ -185,15 +185,17 @@
     color-scheme: dark;
   }
 
-  /* WebKit browsers (Chrome, Safari) - calendar and clock icons */
+  /* Remove calendar and clock icons completely */
   input[type="date"]::-webkit-calendar-picker-indicator,
   input[type="time"]::-webkit-calendar-picker-indicator {
-    filter: invert(0);
+    display: none;
+    -webkit-appearance: none;
   }
 
-  .dark input[type="date"]::-webkit-calendar-picker-indicator,
-  .dark input[type="time"]::-webkit-calendar-picker-indicator {
-    filter: invert(1);
+  /* Firefox */
+  input[type="date"],
+  input[type="time"] {
+    -moz-appearance: textfield;
   }
 }
 
