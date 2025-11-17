@@ -245,7 +245,6 @@ export default function Demands() {
     pending: filteredDemands?.filter((d) => d.status === "pending") || [],
     in_progress: filteredDemands?.filter((d) => d.status === "in_progress") || [],
     completed: filteredDemands?.filter((d) => d.status === "completed") || [],
-    cancelled: filteredDemands?.filter((d) => d.status === "cancelled") || [],
   };
 
   const handleShowMore = (status: string) => {
@@ -279,23 +278,6 @@ export default function Demands() {
     );
   };
 
-  const handleCancelDemand = (e: React.MouseEvent, demandId: string) => {
-    e.stopPropagation(); // Previne abrir o sheet ao clicar no botão
-    updateMutation.mutate(
-      { id: demandId, data: { status: "cancelled" } },
-      {
-        onSuccess: () => {
-          toast({ title: "Demanda cancelada!" });
-        }
-      }
-    );
-  };
-
-  const handleDeleteClick = (e: React.MouseEvent, demandId: string) => {
-    e.stopPropagation(); // Previne abrir o sheet ao clicar no botão
-    setDemandToDelete(demandId);
-    setDeleteConfirmOpen(true);
-  };
 
   const handleConfirmDelete = () => {
     if (demandToDelete) {
