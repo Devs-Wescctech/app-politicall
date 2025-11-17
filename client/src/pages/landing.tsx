@@ -112,7 +112,7 @@ export default function LandingPage() {
     
     const metaDescription = document.querySelector('meta[name="description"]');
     if (metaDescription) {
-      metaDescription.setAttribute('content', 'Gerencie sua carreira política com tecnologia de ponta. CRM de eleitores, IA para redes sociais, pesquisas TSE-compliant, gestão de demandas e muito mais em uma única plataforma profissional.');
+      metaDescription.setAttribute('content', 'Gerencie sua carreira política com tecnologia de ponta. CRM inteligente para o gabinete, IA para redes sociais, pesquisas TSE-compliant, gestão de demandas e muito mais em uma única plataforma profissional.');
     }
 
     if (videoRef.current) {
@@ -282,7 +282,7 @@ export default function LandingPage() {
             </h1>
             
             <p className="text-xl md:text-2xl text-white/90 mb-12 leading-relaxed max-w-3xl mx-auto" data-testid="text-hero-subtitle">
-              CRM inteligente para eleitores, IA que responde automaticamente suas redes sociais, pesquisas TSE-compliant, gestão de demandas e muito mais. Tudo em uma única plataforma profissional.
+              CRM inteligente para o gabinete, IA que responde automaticamente suas redes sociais, pesquisas TSE-compliant, gestão de demandas e muito mais. Tudo em uma única plataforma profissional.
             </p>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-3xl mx-auto">
@@ -527,7 +527,7 @@ export default function LandingPage() {
                 <div className="rounded-lg overflow-hidden shadow-xl border">
                   <img 
                     src={crmImage} 
-                    alt="CRM de Eleitores Politicall" 
+                    alt="CRM de Gabinete Politicall" 
                     className="w-full h-auto"
                     data-testid="img-module-crm"
                   />
@@ -538,7 +538,7 @@ export default function LandingPage() {
                   <div className="p-3 rounded-lg bg-primary/10">
                     <Users className="w-8 h-8 text-foreground" />
                   </div>
-                  <h3 className="text-3xl font-bold">CRM de Eleitores</h3>
+                  <h3 className="text-3xl font-bold">CRM de Gabinete</h3>
                 </div>
                 <p className="text-lg text-muted-foreground mb-6">
                   Gerencie todos os seus contatos em um só lugar. Registre interações, agende follow-ups, segmente por região, idade, profissão e muito mais.
