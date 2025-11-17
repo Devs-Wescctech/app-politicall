@@ -196,7 +196,8 @@ export default function Marketing() {
         ? alliances.filter(a => a.email).map(a => a.email!)
         : alliances.filter(a => a.phone).map(a => a.phone!)) : [];
       
-      recipients = [...voterRecipients, ...allianceRecipients];
+      // Remove duplicados usando Set
+      recipients = [...new Set([...voterRecipients, ...allianceRecipients])];
     }
     
     setRecipientsText(recipients.join(", "));
