@@ -102,7 +102,7 @@ async function seedSurveyTemplates() {
 
     const templatesToInsert = [
       {
-        name: "Intenção de voto (neutra)",
+        name: "Intenção de voto",
         slug: "intencao-voto",
         description: "Identifique o recall espontâneo de candidatos com maior probabilidade de vitória",
         questionText: "Cite o nome de um político (independente do cargo) que você acredita que terá mais chances de vencer a próxima eleição na sua cidade ou estado:",
