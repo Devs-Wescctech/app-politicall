@@ -115,26 +115,6 @@ export default function Login() {
               </Button>
             </form>
           </Form>
-          <div className="mt-6 text-center">
-            <p className="text-sm text-muted-foreground">
-              Não tem uma conta?{" "}
-              <button
-                onClick={() => setLocation("/register")}
-                className="text-primary font-medium hover:underline"
-                data-testid="link-register"
-              >
-                Criar conta
-              </button>
-              {" | "}
-              <button
-                onClick={() => setLocation("/admin-login")}
-                className="text-primary font-medium hover:underline"
-                data-testid="link-admin"
-              >
-                Admin
-              </button>
-            </p>
-          </div>
         </CardContent>
       </Card>
     </div>
