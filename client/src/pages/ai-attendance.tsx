@@ -44,6 +44,11 @@ const TRAINING_CATEGORIES = [
   { value: "geral", label: "Geral" },
 ];
 
+// Extended type to include server-computed properties
+type AiConfigurationWithCustomKey = AiConfiguration & {
+  hasCustomKey?: boolean;
+};
+
 export default function AiAttendance() {
   const [selectedPlatform, setSelectedPlatform] = useState<string | null>(null);
   const [isTrainingModalOpen, setIsTrainingModalOpen] = useState(false);
@@ -74,7 +79,11 @@ export default function AiAttendance() {
   });
 
   // API Status Query
-  const { data: apiStatus, isLoading: loadingStatus } = useQuery({
+  const { data: apiStatus, isLoading: loadingStatus } = useQuery<{
+    status: string;
+    message: string;
+    checkedAt: Date | string;
+  }>({
     queryKey: ['/api/ai-config/openai-status'],
     enabled: !!config?.openaiApiKey,
     refetchInterval: false, // Don't auto-refresh
@@ -392,15 +401,9 @@ export default function AiAttendance() {
                       <div className="flex items-center justify-between">
                         <platform.icon className="w-8 h-8" style={{ color: platform.color }} />
                         {connected ? (
-                          <div className="flex items-center text-sm">
-                            <CheckCircle2 className="w-3 h-3 mr-1" />
-                            Conectado
-                          </div>
+                          <CheckCircle2 className="w-4 h-4" />
                         ) : (
-                          <div className="flex items-center text-[12px]">
-                            <XCircle className="w-3 h-3 mr-1" />
-                            Desconectado
-                          </div>
+                          <XCircle className="w-4 h-4" />
                         )}
                       </div>
                     </CardHeader>
@@ -455,23 +458,14 @@ export default function AiAttendance() {
                     {config?.hasCustomKey ? (
                       <>
                         {loadingStatus || testApiStatusMutation.isPending ? (
-                          <div className="flex items-center text-sm">
-                            <Settings className="w-3 h-3 mr-1 animate-spin" />
-                            Verificando...
-                          </div>
+                          <Settings className="w-4 h-4 animate-spin" />
                         ) : apiStatus?.status === 'active' ? (
-                          <div className="flex items-center text-sm">
-                            <CheckCircle2 className="w-3 h-3 mr-1" />
-                            Ativa
-                          </div>
+                          <CheckCircle2 className="w-4 h-4" />
                         ) : apiStatus?.status === 'error' ? (
                           <TooltipProvider>
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <div className="flex items-center text-sm">
-                                  <AlertCircle className="w-3 h-3 mr-1" />
-                                  Erro
-                                </div>
+                                <AlertCircle className="w-4 h-4" />
                               </TooltipTrigger>
                               <TooltipContent>
                                 <p>{apiStatus?.message || 'Erro desconhecido'}</p>
@@ -479,10 +473,7 @@ export default function AiAttendance() {
                             </Tooltip>
                           </TooltipProvider>
                         ) : (
-                          <div className="flex items-center text-sm">
-                            <HelpCircle className="w-3 h-3 mr-1" />
-                            Desconhecido
-                          </div>
+                          <HelpCircle className="w-4 h-4" />
                         )}
                         <Button
                           size="sm"
@@ -496,10 +487,7 @@ export default function AiAttendance() {
                         </Button>
                       </>
                     ) : (
-                      <div className="flex items-center text-blue-800 dark:text-blue-200 text-[12px]">
-                        <CheckCircle2 className="w-3 h-3 mr-1" />
-                        Api Padrão do Sistema
-                      </div>
+                      <CheckCircle2 className="w-4 h-4 text-blue-800 dark:text-blue-200" />
                     )}
                   </div>
                 </div>
