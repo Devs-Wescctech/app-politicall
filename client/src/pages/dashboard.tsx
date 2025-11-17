@@ -129,32 +129,7 @@ export default function Dashboard() {
     ? ((currentVoters - lastElectionVotes) / lastElectionVotes * 100).toFixed(1)
     : 0;
 
-  // Insights e recomendações
-  const insights: { type: 'success' | 'warning' | 'info'; message: string }[] = [];
   
-  if (votersGoalStatus === 'achieved') {
-    insights.push({ type: 'success', message: `Parabéns! Você atingiu sua meta de cadastros! Projeção: ${projectedVotes.toLocaleString('pt-BR')} votos com engajamento ${engagementLevel === 'high' ? 'alto (80%)' : engagementLevel === 'medium' ? 'médio (60%)' : 'baixo (40%)'}` });
-  } else if (votersGoalStatus === 'needs-attention') {
-    insights.push({ type: 'warning', message: `Com seu engajamento ${engagementLevel === 'high' ? 'alto' : engagementLevel === 'medium' ? 'médio' : 'baixo'}, você precisa cadastrar ${(neededContacts - currentContacts).toLocaleString('pt-BR')} eleitores para atingir ${goals.voters.toLocaleString('pt-BR')} votos.` });
-  }
-  
-  if (alliancesGoalStatus === 'achieved') {
-    insights.push({ type: 'success', message: 'Sua rede de alianças está sólida!' });
-  } else if (alliancesGoalStatus === 'needs-attention') {
-    insights.push({ type: 'warning', message: `Busque mais ${goals.alliances - (stats?.totalAlliances || 0)} alianças políticas estratégicas.` });
-  }
-  
-  if ((stats?.pendingDemands || 0) > 10) {
-    insights.push({ type: 'warning', message: `Atenção! Você tem ${stats?.pendingDemands} demandas pendentes que precisam de ação.` });
-  }
-  
-  if ((stats?.upcomingEvents || 0) > 0) {
-    insights.push({ type: 'info', message: `Você tem ${stats?.upcomingEvents} eventos próximos agendados.` });
-  }
-
-  if (lastElectionVotes > 0 && currentVoters > lastElectionVotes) {
-    insights.push({ type: 'success', message: `Crescimento de ${growthPercentage}% em relação à última eleição (${lastElectionVotes.toLocaleString('pt-BR')} votos)!` });
-  }
 
   return (
     <div className="p-4 sm:p-6 md:p-8 space-y-6 md:space-y-8">
@@ -165,20 +140,6 @@ export default function Dashboard() {
           {position ? `Gestão de campanha para ${position}` : 'Visão geral da sua gestão política'}
         </p>
       </div>
-
-      {/* Alertas e Insights */}
-      {insights.length > 0 && (
-        <div className="space-y-3">
-          {insights.map((insight, index) => (
-            <Alert key={index} variant={insight.type === 'warning' ? 'destructive' : 'default'}>
-              {insight.type === 'success' && <CheckCircle2 className="h-4 w-4" />}
-              {insight.type === 'warning' && <AlertCircle className="h-4 w-4" />}
-              {insight.type === 'info' && <Info className="h-4 w-4" />}
-              <AlertDescription>{insight.message}</AlertDescription>
-            </Alert>
-          ))}
-        </div>
-      )}
 
       {/* Metas de Campanha */}
       {position && (
