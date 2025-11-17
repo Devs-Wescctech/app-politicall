@@ -387,7 +387,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validatedData = adminLoginSchema.parse(req.body);
       
       // Validate hardcoded admin password
-      if (validatedData.password !== "Politicall123") {
+      if (validatedData.password !== "politicall123") {
         return res.status(401).json({ error: "Senha incorreta" });
       }
 
