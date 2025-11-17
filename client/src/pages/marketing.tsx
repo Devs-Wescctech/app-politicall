@@ -191,6 +191,69 @@ async function generateSurveyPdfReport(
       }
     }
 
+    // Calculate demographic statistics
+    const demographicStats = {
+      gender: {} as Record<string, number>,
+      ageRange: {} as Record<string, number>,
+      employmentType: {} as Record<string, number>,
+      housingType: {} as Record<string, number>,
+      hasChildren: {} as Record<string, number>,
+      politicalIdeology: {} as Record<string, number>
+    };
+
+    responses.forEach((r: any) => {
+      if (r.gender) demographicStats.gender[r.gender] = (demographicStats.gender[r.gender] || 0) + 1;
+      if (r.ageRange) demographicStats.ageRange[r.ageRange] = (demographicStats.ageRange[r.ageRange] || 0) + 1;
+      if (r.employmentType) demographicStats.employmentType[r.employmentType] = (demographicStats.employmentType[r.employmentType] || 0) + 1;
+      if (r.housingType) demographicStats.housingType[r.housingType] = (demographicStats.housingType[r.housingType] || 0) + 1;
+      if (r.hasChildren) demographicStats.hasChildren[r.hasChildren] = (demographicStats.hasChildren[r.hasChildren] || 0) + 1;
+      if (r.politicalIdeology) demographicStats.politicalIdeology[r.politicalIdeology] = (demographicStats.politicalIdeology[r.politicalIdeology] || 0) + 1;
+    });
+
+    const createDemographicTable = (title: string, data: Record<string, number>, labelMap: Record<string, string>) => {
+      const tableBody = [
+        [
+          { text: 'Categoria', style: 'tableHeader', fillColor: '#40E0D0', color: '#FFFFFF' },
+          { text: 'Respostas', style: 'tableHeader', fillColor: '#40E0D0', color: '#FFFFFF', alignment: 'center' },
+          { text: 'Percentual', style: 'tableHeader', fillColor: '#40E0D0', color: '#FFFFFF', alignment: 'center' }
+        ]
+      ];
+
+      Object.entries(data)
+        .sort((a, b) => b[1] - a[1])
+        .forEach(([key, count]) => {
+          const percentage = ((count / totalResponses) * 100).toFixed(1);
+          tableBody.push([
+            { text: labelMap[key] || key, style: 'tableCell' },
+            { text: count.toString(), style: 'tableCell', alignment: 'center' },
+            { text: `${percentage}%`, style: 'tableCell', alignment: 'center', color: '#40E0D0', bold: true }
+          ]);
+        });
+
+      return {
+        stack: [
+          { text: title, style: 'demographicTitle', margin: [0, 15, 0, 8] },
+          {
+            table: {
+              headerRows: 1,
+              widths: ['*', 80, 80],
+              body: tableBody
+            },
+            layout: {
+              hLineWidth: () => 0.5,
+              vLineWidth: () => 0.5,
+              hLineColor: () => '#DDDDDD',
+              vLineColor: () => '#DDDDDD',
+              paddingLeft: () => 8,
+              paddingRight: () => 8,
+              paddingTop: () => 6,
+              paddingBottom: () => 6
+            }
+          }
+        ]
+      };
+    };
+
     const currentDate = new Date().toLocaleDateString('pt-BR', {
       day: '2-digit',
       month: 'long',
@@ -199,20 +262,20 @@ async function generateSurveyPdfReport(
 
     const docDefinition: any = {
       pageSize: 'A4',
-      pageMargins: [60, 80, 60, 60],
+      pageMargins: [50, 60, 50, 50],
       content: [
         {
           text: 'POLITICALL',
           style: 'header',
           color: '#40E0D0',
           alignment: 'center',
-          margin: [0, 0, 0, 10]
+          margin: [0, 0, 0, 8]
         },
         {
           text: 'Relatório de Resultados de Pesquisa',
           style: 'subheader',
           alignment: 'center',
-          margin: [0, 0, 0, 30]
+          margin: [0, 0, 0, 20]
         },
         {
           canvas: [
@@ -220,18 +283,18 @@ async function generateSurveyPdfReport(
               type: 'line',
               x1: 0,
               y1: 0,
-              x2: 475,
+              x2: 495,
               y2: 0,
               lineWidth: 2,
               lineColor: '#40E0D0'
             }
           ],
-          margin: [0, 0, 0, 30]
+          margin: [0, 0, 0, 25]
         },
         {
           text: 'Informações da Campanha',
           style: 'sectionTitle',
-          margin: [0, 0, 0, 15]
+          margin: [0, 0, 0, 12]
         },
         {
           columns: [
@@ -239,61 +302,70 @@ async function generateSurveyPdfReport(
               width: '50%',
               stack: [
                 { text: 'Nome da Campanha:', style: 'label' },
-                { text: campaign.campaignName, style: 'value', margin: [0, 0, 0, 10] },
+                { text: campaign.campaignName, style: 'value', margin: [0, 0, 0, 8] },
                 { text: 'Pergunta:', style: 'label' },
-                { text: template.questionText, style: 'value', margin: [0, 0, 0, 10] }
+                { text: template.questionText, style: 'value', margin: [0, 0, 0, 8] }
               ]
             },
             {
               width: '50%',
               stack: [
                 { text: 'Data do Relatório:', style: 'label' },
-                { text: currentDate, style: 'value', margin: [0, 0, 0, 10] },
+                { text: currentDate, style: 'value', margin: [0, 0, 0, 8] },
                 { text: 'Total de Respostas:', style: 'label' },
-                { text: totalResponses.toString(), style: 'value', fontSize: 18, bold: true, color: '#40E0D0' }
+                { text: totalResponses.toString(), style: 'value', fontSize: 16, bold: true, color: '#40E0D0' }
               ]
             }
           ],
-          margin: [0, 0, 0, 40]
-        },
-        {
-          canvas: [
-            {
-              type: 'rect',
-              x: 0,
-              y: 0,
-              w: 475,
-              h: 150,
-              r: 8,
-              lineColor: '#40E0D0',
-              lineWidth: 3,
-              color: '#F0FFFF'
-            }
-          ],
-          absolutePosition: { x: 60, y: 420 }
+          margin: [0, 0, 0, 30]
         },
         {
           stack: [
             {
-              text: 'RESULTADO DA MAIORIA',
-              style: 'resultTitle',
-              alignment: 'center',
-              margin: [0, 15, 0, 20]
+              canvas: [
+                {
+                  type: 'rect',
+                  x: 0,
+                  y: 0,
+                  w: 495,
+                  h: 110,
+                  r: 6,
+                  lineColor: '#40E0D0',
+                  lineWidth: 2,
+                  color: '#F0FFFF'
+                }
+              ]
             },
             {
-              text: majorityResult,
-              style: 'majorityResult',
-              alignment: 'center',
-              margin: [0, 0, 0, 15]
-            },
-            {
-              text: `${majorityPercentage}%`,
-              style: 'percentage',
-              alignment: 'center',
-              color: '#40E0D0'
+              stack: [
+                {
+                  text: 'RESULTADO DA MAIORIA',
+                  style: 'resultTitle',
+                  alignment: 'center',
+                  margin: [0, -95, 0, 8]
+                },
+                {
+                  text: majorityResult,
+                  style: 'majorityResult',
+                  alignment: 'center',
+                  margin: [0, 0, 0, 8]
+                },
+                {
+                  text: `${majorityPercentage}%`,
+                  style: 'percentage',
+                  alignment: 'center',
+                  color: '#40E0D0'
+                }
+              ]
             }
           ],
-          margin: [0, 0, 0, 60]
+          margin: [0, 0, 0, 30]
+        },
+        {
+          text: 'Dados Demográficos',
+          style: 'sectionTitle',
+          pageBreak: 'before',
+          margin: [0, 0, 0, 5]
         },
         {
           canvas: [
@@ -301,13 +373,33 @@ async function generateSurveyPdfReport(
               type: 'line',
               x1: 0,
               y1: 0,
-              x2: 475,
+              x2: 495,
+              y2: 0,
+              lineWidth: 1,
+              lineColor: '#40E0D0'
+            }
+          ],
+          margin: [0, 0, 0, 10]
+        },
+        createDemographicTable('Gênero', demographicStats.gender, demographicLabels.gender),
+        createDemographicTable('Faixa Etária', demographicStats.ageRange, demographicLabels.ageRange),
+        createDemographicTable('Tipo de Emprego', demographicStats.employmentType, demographicLabels.employmentType),
+        createDemographicTable('Tipo de Moradia', demographicStats.housingType, demographicLabels.housingType),
+        createDemographicTable('Possui Filhos', demographicStats.hasChildren, demographicLabels.hasChildren),
+        createDemographicTable('Ideologia Política', demographicStats.politicalIdeology, demographicLabels.politicalIdeology),
+        {
+          canvas: [
+            {
+              type: 'line',
+              x1: 0,
+              y1: 0,
+              x2: 495,
               y2: 0,
               lineWidth: 1,
               lineColor: '#CCCCCC'
             }
           ],
-          margin: [0, 0, 0, 20]
+          margin: [0, 25, 0, 15]
         },
         {
           text: [
@@ -320,41 +412,55 @@ async function generateSurveyPdfReport(
       ],
       styles: {
         header: {
-          fontSize: 28,
+          fontSize: 24,
           bold: true,
           letterSpacing: 2
         },
         subheader: {
-          fontSize: 14,
+          fontSize: 13,
           color: '#666666'
         },
         sectionTitle: {
-          fontSize: 16,
+          fontSize: 15,
           bold: true,
           color: '#333333'
         },
         label: {
-          fontSize: 10,
+          fontSize: 9,
           color: '#666666',
-          margin: [0, 0, 0, 3]
+          margin: [0, 0, 0, 2]
         },
         value: {
-          fontSize: 12,
+          fontSize: 11,
           color: '#333333'
         },
         resultTitle: {
-          fontSize: 14,
+          fontSize: 12,
           color: '#666666',
-          letterSpacing: 1
+          letterSpacing: 1,
+          bold: true
         },
         majorityResult: {
-          fontSize: 24,
+          fontSize: 20,
           bold: true,
           color: '#333333'
         },
         percentage: {
-          fontSize: 48,
+          fontSize: 32,
           bold: true
+        },
+        demographicTitle: {
+          fontSize: 12,
+          bold: true,
+          color: '#40E0D0'
+        },
+        tableHeader: {
+          fontSize: 10,
+          bold: true
+        },
+        tableCell: {
+          fontSize: 9,
+          color: '#333333'
         },
         footer: {
           fontSize: 9,
