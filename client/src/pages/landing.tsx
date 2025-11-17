@@ -1132,25 +1132,19 @@ export default function LandingPage() {
             </div>
 
             <div>
-              <h3 className="font-semibold mb-4">Acesso</h3>
-              <div className="space-y-3">
-                <Button 
-                  variant="ghost" 
-                  className="rounded-full w-full justify-start" 
-                  onClick={() => setLocation("/login")} 
-                  data-testid="button-footer-login"
-                >
-                  Login
-                </Button>
-                <Button 
-                  variant="ghost" 
-                  className="rounded-full w-full justify-start" 
-                  onClick={() => setLocation("/register")} 
-                  data-testid="button-footer-register"
-                >
-                  Criar Conta
-                </Button>
-              </div>
+              <h3 className="font-semibold mb-4">Empresa</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                A Wescc Tech é uma empresa do grupo Explorer Business Center, que provê serviços de telefonia, consultoria e implantação para call center e contact center, além de um conjunto de softwares integrando gestão, comercial, contato via WhatsApp, SMS entre outras tecnologias atendendo diversos segmentos.
+              </p>
+              <a 
+                href="https://www.wescctech.com.br" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-sm text-primary hover:underline"
+                data-testid="link-footer-website"
+              >
+                www.wescctech.com.br
+              </a>
             </div>
           </div>
 
