@@ -29,104 +29,111 @@ import Settings from "@/pages/settings";
 import UsersManagement from "@/pages/users";
 import SurveyLanding from "@/pages/survey-landing";
 
-function Router() {
-  return (
-    <Switch>
-      <Route path="/login" component={Login} />
-      <Route path="/register" component={Register} />
-      <Route path="/">
-        {() => {
-          if (!isAuthenticated()) {
-            return <Redirect to="/login" />;
-          }
-          return <Redirect to="/dashboard" />;
-        }}
-      </Route>
-      <Route path="/dashboard">
-        <ProtectedRoute>
-          <Dashboard />
-        </ProtectedRoute>
-      </Route>
-      <Route path="/contacts">
-        <ProtectedRoute>
-          <Contacts />
-        </ProtectedRoute>
-      </Route>
-      <Route path="/alliances">
-        <ProtectedRoute>
-          <Alliances />
-        </ProtectedRoute>
-      </Route>
-      <Route path="/demands">
-        <ProtectedRoute>
-          <Demands />
-        </ProtectedRoute>
-      </Route>
-      <Route path="/agenda">
-        <ProtectedRoute>
-          <Agenda />
-        </ProtectedRoute>
-      </Route>
-      <Route path="/ai-attendance">
-        <ProtectedRoute>
-          <AiAttendance />
-        </ProtectedRoute>
-      </Route>
-      <Route path="/marketing">
-        <ProtectedRoute>
-          <Marketing />
-        </ProtectedRoute>
-      </Route>
-      <Route path="/settings">
-        <ProtectedRoute>
-          <Settings />
-        </ProtectedRoute>
-      </Route>
-      <Route path="/users">
-        <ProtectedRoute>
-          <AdminRoute>
-            <UsersManagement />
-          </AdminRoute>
-        </ProtectedRoute>
-      </Route>
-      <Route path="/survey/:slug" component={SurveyLanding} />
-      <Route path="/admin-login" component={AdminLogin} />
-      <Route path="/admin" component={Admin} />
-      <Route component={NotFound} />
-    </Switch>
-  );
-}
-
-function App() {
+function AuthenticatedLayout() {
   const style = {
     "--sidebar-width": "16rem",
     "--sidebar-width-icon": "3rem",
   };
 
   return (
+    <SidebarProvider style={style as React.CSSProperties}>
+      <div className="flex h-screen w-full overflow-hidden">
+        <AppSidebar />
+        <div className="flex flex-col flex-1 min-w-0 min-h-0 overflow-hidden">
+          <header className="flex items-center justify-between p-4 border-b bg-background shrink-0">
+            <SidebarTrigger data-testid="button-sidebar-toggle" />
+            <img src={logoUrl} alt="Logo" className="h-8" />
+            <div className="flex items-center gap-2">
+              <NotificationBell />
+              <ThemeToggle />
+            </div>
+          </header>
+          <main className="flex-1 overflow-y-auto">
+            <Switch>
+              <Route path="/dashboard">
+                <ProtectedRoute>
+                  <Dashboard />
+                </ProtectedRoute>
+              </Route>
+              <Route path="/contacts">
+                <ProtectedRoute>
+                  <Contacts />
+                </ProtectedRoute>
+              </Route>
+              <Route path="/alliances">
+                <ProtectedRoute>
+                  <Alliances />
+                </ProtectedRoute>
+              </Route>
+              <Route path="/demands">
+                <ProtectedRoute>
+                  <Demands />
+                </ProtectedRoute>
+              </Route>
+              <Route path="/agenda">
+                <ProtectedRoute>
+                  <Agenda />
+                </ProtectedRoute>
+              </Route>
+              <Route path="/ai-attendance">
+                <ProtectedRoute>
+                  <AiAttendance />
+                </ProtectedRoute>
+              </Route>
+              <Route path="/marketing">
+                <ProtectedRoute>
+                  <Marketing />
+                </ProtectedRoute>
+              </Route>
+              <Route path="/settings">
+                <ProtectedRoute>
+                  <Settings />
+                </ProtectedRoute>
+              </Route>
+              <Route path="/users">
+                <ProtectedRoute>
+                  <AdminRoute>
+                    <UsersManagement />
+                  </AdminRoute>
+                </ProtectedRoute>
+              </Route>
+              <Route component={NotFound} />
+            </Switch>
+          </main>
+        </div>
+      </div>
+    </SidebarProvider>
+  );
+}
+
+function App() {
+  return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider defaultTheme="light">
         <TooltipProvider>
-          <SidebarProvider style={style as React.CSSProperties}>
-            <div className="flex h-screen w-full overflow-hidden">
-              {isAuthenticated() && <AppSidebar />}
-              <div className="flex flex-col flex-1 min-w-0 min-h-0 overflow-hidden">
-                {isAuthenticated() && (
-                  <header className="flex items-center justify-between p-4 border-b bg-background shrink-0">
-                    <SidebarTrigger data-testid="button-sidebar-toggle" />
-                    <img src={logoUrl} alt="Logo" className="h-8" />
-                    <div className="flex items-center gap-2">
-                      <NotificationBell />
-                      <ThemeToggle />
-                    </div>
-                  </header>
-                )}
-                <main className="flex-1 overflow-y-auto">
-                  <Router />
-                </main>
-              </div>
-            </div>
-          </SidebarProvider>
+          <Switch>
+            <Route path="/login" component={Login} />
+            <Route path="/register" component={Register} />
+            <Route path="/admin-login" component={AdminLogin} />
+            <Route path="/admin" component={Admin} />
+            <Route path="/survey/:slug" component={SurveyLanding} />
+            <Route path="/">
+              {() => {
+                if (!isAuthenticated()) {
+                  return <Redirect to="/login" />;
+                }
+                return <Redirect to="/dashboard" />;
+              }}
+            </Route>
+            <Route path="/:rest*">
+              {() => {
+                if (!isAuthenticated()) {
+                  return <Redirect to="/login" />;
+                }
+                return <AuthenticatedLayout />;
+              }}
+            </Route>
+          </Switch>
           <Toaster />
         </TooltipProvider>
       </ThemeProvider>
