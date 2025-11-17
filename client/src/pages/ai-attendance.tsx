@@ -995,17 +995,17 @@ export default function AiAttendance() {
                       Configuração de Webhook no Meta
                     </h4>
                     <div className="space-y-1 text-sm">
-                      <p className="font-medium">📋 Passo 1: Adicione o produto "Webhooks" no seu app Meta</p>
-                      <p className="font-medium">📋 Passo 2: Configure o webhook:</p>
+                      <p className="font-medium">Passo 1: Adicione o produto "Webhooks" no seu app Meta</p>
+                      <p className="font-medium">Passo 2: Configure o webhook:</p>
                       <code className="block bg-background px-3 py-2 rounded border text-xs font-mono">
                         https://www.politicall.com.br/api/webhook/facebook
                       </code>
-                      <p className="text-xs text-muted-foreground">⚠️ IMPORTANTE: A URL DEVE ser HTTPS (SSL válido obrigatório)</p>
-                      <p className="font-medium">📋 Passo 3: Defina um Verify Token (crie uma senha qualquer, ex: "meutoken123")</p>
-                      <p className="font-medium">📋 Passo 4: Inscreva-se nos campos: <code className="text-xs">messages</code>, <code className="text-xs">messaging_postbacks</code></p>
-                      <p className="font-medium">📋 Passo 5: Subscreva sua Página ao webhook (via Graph API ou manualmente)</p>
-                      <p className="text-xs text-muted-foreground">💡 Permissões necessárias: pages_messaging, pages_read_engagement</p>
-                      <p className="text-xs text-muted-foreground">💡 Para produção: Envie seu app para revisão do Meta</p>
+                      <p className="text-xs text-muted-foreground">IMPORTANTE: A URL DEVE ser HTTPS (SSL válido obrigatório)</p>
+                      <p className="font-medium">Passo 3: Defina um Verify Token (crie uma senha qualquer, ex: "meutoken123")</p>
+                      <p className="font-medium">Passo 4: Inscreva-se nos campos: <code className="text-xs">messages</code>, <code className="text-xs">messaging_postbacks</code></p>
+                      <p className="font-medium">Passo 5: Subscreva sua Página ao webhook (via Graph API ou manualmente)</p>
+                      <p className="text-xs text-muted-foreground">Permissões necessárias: pages_messaging, pages_read_engagement</p>
+                      <p className="text-xs text-muted-foreground">Para produção: Envie seu app para revisão do Meta</p>
                     </div>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1112,16 +1112,16 @@ export default function AiAttendance() {
                       Configuração de Webhook do Instagram (Meta)
                     </h4>
                     <div className="space-y-1 text-sm">
-                      <p className="font-medium">📋 Passo 1: Instagram usa o MESMO webhook do Facebook</p>
+                      <p className="font-medium">Passo 1: Instagram usa o MESMO webhook do Facebook</p>
                       <code className="block bg-background px-3 py-2 rounded border text-xs font-mono">
                         https://www.politicall.com.br/api/webhook/facebook
                       </code>
-                      <p className="text-xs text-muted-foreground">⚠️ IMPORTANTE: A URL DEVE ser HTTPS (SSL válido obrigatório)</p>
-                      <p className="font-medium">📋 Passo 2: Configure o webhook igual ao Facebook (veja modal anterior)</p>
-                      <p className="font-medium">📋 Passo 3: Conecte sua conta Instagram Business à Página do Facebook</p>
-                      <p className="font-medium">📋 Passo 4: Inscreva-se nos campos: <code className="text-xs">messages</code>, <code className="text-xs">messaging_postbacks</code></p>
-                      <p className="text-xs text-muted-foreground">💡 Permissões necessárias: instagram_basic, instagram_manage_messages</p>
-                      <p className="text-xs text-muted-foreground">💡 Para produção: Seu app precisa passar por revisão do Meta</p>
+                      <p className="text-xs text-muted-foreground">IMPORTANTE: A URL DEVE ser HTTPS (SSL válido obrigatório)</p>
+                      <p className="font-medium">Passo 2: Configure o webhook igual ao Facebook (veja modal anterior)</p>
+                      <p className="font-medium">Passo 3: Conecte sua conta Instagram Business à Página do Facebook</p>
+                      <p className="font-medium">Passo 4: Inscreva-se nos campos: <code className="text-xs">messages</code>, <code className="text-xs">messaging_postbacks</code></p>
+                      <p className="text-xs text-muted-foreground">Permissões necessárias: instagram_basic, instagram_manage_messages</p>
+                      <p className="text-xs text-muted-foreground">Para produção: Seu app precisa passar por revisão do Meta</p>
                     </div>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1228,16 +1228,16 @@ export default function AiAttendance() {
                       Configuração de Webhook do Twitter/X
                     </h4>
                     <div className="space-y-1 text-sm">
-                      <p className="font-medium">📋 Passo 1: Acesse Twitter Developer Portal → Seu App → Account Activity API</p>
-                      <p className="font-medium">📋 Passo 2: Cole a URL de Callback:</p>
+                      <p className="font-medium">Passo 1: Acesse Twitter Developer Portal → Seu App → Account Activity API</p>
+                      <p className="font-medium">Passo 2: Cole a URL de Callback:</p>
                       <code className="block bg-background px-3 py-2 rounded border text-xs font-mono">
                         https://www.politicall.com.br/api/webhook/twitter
                       </code>
-                      <p className="text-xs text-muted-foreground">⚠️ IMPORTANTE: A URL DEVE ser HTTPS (SSL válido obrigatório)</p>
-                      <p className="font-medium">📋 Passo 3: Twitter fará verificação CRC automática (nosso backend já suporta)</p>
-                      <p className="font-medium">📋 Passo 4: Adicione uma subscription (registro de webhook)</p>
-                      <p className="text-xs text-muted-foreground">💡 Permissões necessárias: Read/Write/Direct Messages (OAuth 1.0a)</p>
-                      <p className="text-xs text-muted-foreground">⚠️ ATENÇÃO: Account Activity API requer assinatura paga no Twitter/X (Premium ou Enterprise)</p>
+                      <p className="text-xs text-muted-foreground">IMPORTANTE: A URL DEVE ser HTTPS (SSL válido obrigatório)</p>
+                      <p className="font-medium">Passo 3: Twitter fará verificação CRC automática (nosso backend já suporta)</p>
+                      <p className="font-medium">Passo 4: Adicione uma subscription (registro de webhook)</p>
+                      <p className="text-xs text-muted-foreground">Permissões necessárias: Read/Write/Direct Messages (OAuth 1.0a)</p>
+                      <p className="text-xs text-muted-foreground">ATENÇÃO: Account Activity API requer assinatura paga no Twitter/X (Premium ou Enterprise)</p>
                     </div>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1370,17 +1370,17 @@ export default function AiAttendance() {
                       Configuração de Webhook do WhatsApp Cloud API
                     </h4>
                     <div className="space-y-1 text-sm">
-                      <p className="font-medium">📋 Passo 1: Acesse Meta Developer → Seu App → WhatsApp → Configuration</p>
-                      <p className="font-medium">📋 Passo 2: Cole a URL de Callback:</p>
+                      <p className="font-medium">Passo 1: Acesse Meta Developer → Seu App → WhatsApp → Configuration</p>
+                      <p className="font-medium">Passo 2: Cole a URL de Callback:</p>
                       <code className="block bg-background px-3 py-2 rounded border text-xs font-mono">
                         https://www.politicall.com.br/api/webhook/whatsapp
                       </code>
-                      <p className="text-xs text-muted-foreground">⚠️ IMPORTANTE: A URL DEVE ser HTTPS (SSL válido obrigatório)</p>
-                      <p className="font-medium">📋 Passo 3: Defina o Webhook Verify Token (mesmo que você definir abaixo)</p>
-                      <p className="font-medium">📋 Passo 4: Clique em "Verify and Save"</p>
-                      <p className="font-medium">📋 Passo 5: Inscreva-se nos campos: <code className="text-xs">messages</code>, <code className="text-xs">message_status</code></p>
-                      <p className="text-xs text-muted-foreground">💡 Permissões necessárias: whatsapp_business_messaging, whatsapp_business_management</p>
-                      <p className="text-xs text-muted-foreground">💡 Você recebe um número de teste gratuito. Para produção, adicione seu próprio número.</p>
+                      <p className="text-xs text-muted-foreground">IMPORTANTE: A URL DEVE ser HTTPS (SSL válido obrigatório)</p>
+                      <p className="font-medium">Passo 3: Defina o Webhook Verify Token (mesmo que você definir abaixo)</p>
+                      <p className="font-medium">Passo 4: Clique em "Verify and Save"</p>
+                      <p className="font-medium">Passo 5: Inscreva-se nos campos: <code className="text-xs">messages</code>, <code className="text-xs">message_status</code></p>
+                      <p className="text-xs text-muted-foreground">Permissões necessárias: whatsapp_business_messaging, whatsapp_business_management</p>
+                      <p className="text-xs text-muted-foreground">Você recebe um número de teste gratuito. Para produção, adicione seu próprio número.</p>
                     </div>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
