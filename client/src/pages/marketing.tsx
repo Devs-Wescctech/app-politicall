@@ -849,10 +849,10 @@ export default function Marketing() {
                           <CardTitle className="text-xl" data-testid={`text-campaign-name-${campaign.id}`}>
                             {campaign.campaignName}
                           </CardTitle>
-                          <Badge className={statusConfig.color} data-testid={`badge-status-${campaign.id}`}>
-                            <StatusIcon className="w-3 h-3 mr-1" />
-                            {statusConfig.label}
-                          </Badge>
+                          <div className="flex items-center gap-1 text-sm" data-testid={`badge-status-${campaign.id}`}>
+                            <StatusIcon className="w-3 h-3" />
+                            <span>{statusConfig.label}</span>
+                          </div>
                           {campaign.responseCount !== undefined && (
                             <Badge variant="outline" data-testid={`badge-responses-${campaign.id}`}>
                               {campaign.responseCount} respostas
