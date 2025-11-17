@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { type Contact, type InsertContact, insertContactSchema } from "@shared/schema";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,8 @@ const BRAZILIAN_STATES = [
 
 export default function Contacts() {
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCity, setSelectedCity] = useState<string>("");
+  const [selectedState, setSelectedState] = useState<string>("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
   const { toast } = useToast();
@@ -45,6 +47,20 @@ export default function Contacts() {
       notes: "",
     },
   });
+
+  // Extract unique cities from contacts
+  const cities = useMemo(() => {
+    if (!contacts) return [];
+    const uniqueCities = [...new Set(contacts.map(c => c.city).filter(Boolean))];
+    return uniqueCities.sort();
+  }, [contacts]);
+
+  // Extract unique states from contacts
+  const states = useMemo(() => {
+    if (!contacts) return [];
+    const uniqueStates = [...new Set(contacts.map(c => c.state).filter(Boolean))];
+    return uniqueStates.sort();
+  }, [contacts]);
 
   const getUniqueCities = () => {
     if (!contacts) return [];
@@ -128,11 +144,22 @@ export default function Contacts() {
     }
   };
 
-  const filteredContacts = contacts?.filter((contact) =>
-    contact.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    contact.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    contact.phone?.includes(searchQuery)
-  );
+  // Filter contacts based on search query, city, and state
+  const filteredContacts = useMemo(() => {
+    if (!contacts) return [];
+    
+    return contacts.filter((contact) => {
+      const matchesSearch = !searchQuery || 
+        contact.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        contact.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        contact.phone?.includes(searchQuery);
+      
+      const matchesCity = !selectedCity || contact.city === selectedCity;
+      const matchesState = !selectedState || contact.state === selectedState;
+      
+      return matchesSearch && matchesCity && matchesState;
+    });
+  }, [contacts, searchQuery, selectedCity, selectedState]);
 
   const handleBulkEmail = () => {
     const emailAddresses = contacts?.filter(c => c.email).map(c => c.email).join(',');
@@ -348,8 +375,34 @@ export default function Contacts() {
                 data-testid="input-search-contacts"
               />
             </div>
+            <Select value={selectedState} onValueChange={(value) => setSelectedState(value === "all" ? "" : value)}>
+              <SelectTrigger className="w-[180px] rounded-full" data-testid="select-state-filter">
+                <SelectValue placeholder="Todos os estados" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os estados</SelectItem>
+                {states.map((state) => (
+                  <SelectItem key={state} value={state}>
+                    {state}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={selectedCity} onValueChange={(value) => setSelectedCity(value === "all" ? "" : value)}>
+              <SelectTrigger className="w-[180px] rounded-full" data-testid="select-city-filter">
+                <SelectValue placeholder="Todas as cidades" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas as cidades</SelectItem>
+                {cities.map((city) => (
+                  <SelectItem key={city} value={city}>
+                    {city}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <div className="text-sm text-muted-foreground" data-testid="text-contact-count">
-              {searchQuery && filteredContacts ? (
+              {(searchQuery || selectedCity || selectedState) && filteredContacts ? (
                 <span>{filteredContacts.length} de {contacts?.length || 0} contatos</span>
               ) : (
                 <span>{contacts?.length || 0} contatos</span>
