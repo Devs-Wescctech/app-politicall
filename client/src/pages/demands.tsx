@@ -498,8 +498,8 @@ export default function Demands() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-x-auto overflow-y-hidden">
-        <div className="flex gap-4 pb-4 min-h-full">
+      <div className="flex-1 overflow-x-auto">
+        <div className="flex gap-4 pb-6 min-h-full">
           {Object.entries(groupedDemands).map(([status, statusDemands]) => (
             <Card 
               key={status} 
@@ -519,7 +519,7 @@ export default function Demands() {
                 </Badge>
               </div>
             </CardHeader>
-            <CardContent className="p-4 pt-0 space-y-3 overflow-y-auto max-h-[600px]">
+            <CardContent className="p-4 pt-0 pb-6 space-y-3">
               {isLoading ? (
                 [...Array(3)].map((_, i) => <Skeleton key={i} className="h-24 w-full" />)
               ) : statusDemands.length > 0 ? (
