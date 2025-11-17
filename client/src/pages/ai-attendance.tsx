@@ -180,7 +180,10 @@ export default function AiAttendance() {
 
   // Test API Status Mutation
   const testApiStatusMutation = useMutation({
-    mutationFn: () => apiRequest("POST", "/api/ai-config/test-openai-status"),
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/ai-config/test-openai-status");
+      return await res.json();
+    },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['/api/ai-config/openai-status'] });
       toast({ title: data.message });
@@ -219,8 +222,10 @@ export default function AiAttendance() {
 
   // Test AI Response Mutation
   const testAiResponseMutation = useMutation({
-    mutationFn: async (data: { message: string }) => 
-      apiRequest("POST", "/api/ai-config/test-response", data),
+    mutationFn: async (data: { message: string }) => {
+      const res = await apiRequest("POST", "/api/ai-config/test-response", data);
+      return await res.json();
+    },
     onSuccess: (response) => {
       setAiTestResponse(response.response);
       setTestHistory(prev => [{
@@ -244,7 +249,10 @@ export default function AiAttendance() {
 
   // OpenAI API Key Mutations
   const saveApiKeyMutation = useMutation({
-    mutationFn: (apiKey: string) => apiRequest("POST", "/api/ai-config/openai-key", { apiKey }),
+    mutationFn: async (apiKey: string) => {
+      const res = await apiRequest("POST", "/api/ai-config/openai-key", { apiKey });
+      return await res.json();
+    },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/ai-config"] });
       toast({ title: data.message || "Chave API configurada com sucesso!" });
@@ -259,7 +267,10 @@ export default function AiAttendance() {
   });
 
   const deleteApiKeyMutation = useMutation({
-    mutationFn: () => apiRequest("DELETE", "/api/ai-config/openai-key"),
+    mutationFn: async () => {
+      const res = await apiRequest("DELETE", "/api/ai-config/openai-key");
+      return await res.json();
+    },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/ai-config"] });
       toast({ title: data.message || "Chave API removida com sucesso!" });
