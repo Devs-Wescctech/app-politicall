@@ -827,6 +827,13 @@ export default function Marketing() {
     if (template) {
       setSelectedTemplate(template);
       form.setValue("templateId", template.id);
+      
+      // Auto-generate campaign name and slug based on template
+      const campaignName = `Pesquisa: ${template.name}`;
+      const generatedSlug = slugify(template.slug + "-" + Date.now().toString().slice(-6));
+      
+      form.setValue("campaignName", campaignName);
+      form.setValue("slug", generatedSlug);
     }
   };
 
@@ -884,13 +891,6 @@ export default function Marketing() {
       await updateMutation.mutateAsync({ id: editingCampaign.id, data });
     } else {
       await createMutation.mutateAsync(data);
-    }
-  };
-
-  const handleCampaignNameChange = (name: string) => {
-    form.setValue("campaignName", name);
-    if (!editingCampaign) {
-      form.setValue("slug", slugify(name));
     }
   };
 
@@ -1217,65 +1217,44 @@ export default function Marketing() {
               {wizardStep === 2 && (
                 <div className="space-y-4">
                   <div>
-                    <h3 className="text-lg font-semibold mb-1">Configuração da Campanha</h3>
-                    <p className="text-sm text-muted-foreground">Defina os detalhes da sua pesquisa</p>
+                    <h3 className="text-lg font-semibold mb-1">Informações Adicionais</h3>
+                    <p className="text-sm text-muted-foreground">O nome e URL da campanha serão gerados automaticamente com base no template escolhido</p>
                   </div>
 
-                  <FormField
-                    control={form.control}
-                    name="campaignName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Nome da Campanha *</FormLabel>
-                        <FormControl>
-                          <Input
-                            {...field}
-                            placeholder="Ex: Pesquisa de Opinião Pública 2025"
-                            onChange={(e) => handleCampaignNameChange(e.target.value)}
-                            data-testid="input-campaign-name"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="slug"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Slug (URL) *</FormLabel>
-                        <FormControl>
-                          <Input
-                            {...field}
-                            placeholder="pesquisa-opiniao-publica-2025"
-                            data-testid="input-slug"
-                          />
-                        </FormControl>
-                        <FormDescription>
-                          URL amigável para a página de pesquisa: politicall.com.br/pesquisa/{field.value || "..."}
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  <Card className="bg-muted/50">
+                    <CardHeader>
+                      <CardTitle className="text-base">Dados Gerados Automaticamente</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Nome da Campanha:</Label>
+                        <p className="text-sm font-medium mt-1">{form.watch("campaignName")}</p>
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">URL da Pesquisa:</Label>
+                        <p className="text-sm font-mono mt-1">politicall.com.br/pesquisa/{form.watch("slug")}</p>
+                      </div>
+                    </CardContent>
+                  </Card>
 
                   <FormField
                     control={form.control}
                     name="targetAudience"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Público-Alvo (Opcional)</FormLabel>
+                        <FormLabel>Observações (Opcional)</FormLabel>
                         <FormControl>
                           <Textarea
                             {...field}
                             value={field.value || ""}
-                            placeholder="Ex: Eleitores da região metropolitana, faixa etária 35+"
-                            className="min-h-20"
+                            placeholder="Adicione observações sobre público-alvo, objetivos ou outras informações relevantes para esta pesquisa..."
+                            className="min-h-32"
                             data-testid="textarea-target-audience"
                           />
                         </FormControl>
+                        <FormDescription>
+                          Essas informações são apenas para controle interno e não serão exibidas publicamente
+                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -1310,7 +1289,7 @@ export default function Marketing() {
                       </div>
                       {form.watch("targetAudience") && (
                         <div>
-                          <Label className="text-xs text-muted-foreground">Público-Alvo:</Label>
+                          <Label className="text-xs text-muted-foreground">Observações:</Label>
                           <p className="text-sm">{form.watch("targetAudience")}</p>
                         </div>
                       )}
@@ -1389,10 +1368,8 @@ export default function Marketing() {
                     setWizardStep(2);
                   }
                 } else if (wizardStep === 2) {
-                  const isValid = await form.trigger(["campaignName", "slug"]);
-                  if (isValid) {
-                    setWizardStep(3);
-                  }
+                  // Step 2 has no required fields, just move to step 3
+                  setWizardStep(3);
                 } else if (wizardStep === 3) {
                   form.handleSubmit(handleSubmit)();
                 }
