@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertLeadSchema, type InsertLead, POLITICAL_POSITIONS } from "@shared/schema";
@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -16,10 +16,17 @@ import { isAuthenticated } from "@/lib/auth";
 import { 
   Users, TrendingUp, ListTodo, Calendar, Bot, BarChart3, 
   CheckCircle2, Zap, Shield, Clock, Target, Award,
-  ArrowRight, Star, MessageCircle
+  ArrowRight, Menu, X, ChevronRight, Sparkles, MessageSquare,
+  BarChart2, FileText, Network, Brain
 } from "lucide-react";
-import { motion } from "framer-motion";
+import { motion, useScroll, useTransform } from "framer-motion";
 import logoUrl from "@assets/logo pol_1763308638963.png";
+import crmImage from "@assets/stock_images/professional_crm_das_daddedaa.jpg";
+import alliancesImage from "@assets/stock_images/political_alliances__25c21404.jpg";
+import demandsImage from "@assets/stock_images/task_management_dema_ed39ef14.jpg";
+import eventsImage from "@assets/stock_images/calendar_event_sched_888f73da.jpg";
+import aiImage from "@assets/stock_images/ai_chatbot_social_me_fe7367b1.jpg";
+import marketingImage from "@assets/stock_images/marketing_campaign_a_481dcd3f.jpg";
 
 const BRAZILIAN_STATES = [
   "Acre", "Alagoas", "Amapá", "Amazonas", "Bahia", "Ceará", "Distrito Federal",
@@ -43,24 +50,22 @@ const POSITION_OPTIONS = [
 export default function LandingPage() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { scrollY } = useScroll();
+  const headerBg = useTransform(scrollY, [0, 100], ["rgba(255, 255, 255, 0)", "rgba(255, 255, 255, 0.95)"]);
 
-  // SEO optimization & redirect authenticated users
   useEffect(() => {
-    // Redirect if already authenticated
     if (isAuthenticated()) {
       setLocation("/dashboard");
       return;
     }
 
-    // SEO optimization
     document.title = "Politicall - Plataforma Completa de Gestão Política | CRM, IA e Pesquisas";
     
-    // Meta description
     const metaDescription = document.querySelector('meta[name="description"]');
     if (metaDescription) {
       metaDescription.setAttribute('content', 'Gerencie sua carreira política com tecnologia de ponta. CRM de eleitores, IA para redes sociais, pesquisas TSE-compliant, gestão de demandas e muito mais em uma única plataforma profissional.');
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const form = useForm<InsertLead>({
@@ -76,229 +81,697 @@ export default function LandingPage() {
     },
   });
 
-  const createMutation = useMutation({
+  const leadMutation = useMutation({
     mutationFn: async (data: InsertLead) => {
-      return apiRequest("POST", "/api/leads", data);
+      const response = await fetch("/api/leads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) throw new Error("Failed to submit");
+      return response.json();
     },
     onSuccess: () => {
       toast({
-        title: "Solicitação enviada com sucesso!",
-        description: "Nossa equipe entrará em contato em breve.",
+        title: "Mensagem enviada com sucesso!",
+        description: "Entraremos em contato em breve.",
       });
       form.reset();
     },
     onError: () => {
       toast({
-        title: "Erro ao enviar solicitação",
-        description: "Por favor, tente novamente.",
+        title: "Erro ao enviar mensagem",
+        description: "Tente novamente mais tarde.",
         variant: "destructive",
       });
     },
   });
 
-  const fadeInUp = {
-    initial: { opacity: 0, y: 20 },
-    animate: { opacity: 1, y: 0 },
-    transition: { duration: 0.5 }
+  const onSubmit = (data: InsertLead) => {
+    leadMutation.mutate(data);
   };
 
-  const modules = [
-    {
-      icon: BarChart3,
-      title: "Dashboard Inteligente",
-      description: "Visualize todas as suas métricas políticas em tempo real. Acompanhe metas de campanha, intenção de voto e performance das suas ações.",
-      color: "bg-primary"
-    },
-    {
-      icon: Users,
-      title: "CRM de Eleitores",
-      description: "Gerencie todos os seus contatos de forma profissional. Organize eleitores, apoiadores e lideranças comunitárias em um só lugar.",
-      color: "bg-blue-500"
-    },
-    {
-      icon: TrendingUp,
-      title: "Alianças Políticas",
-      description: "Mapeie partidos, aliados e coligações. Visualize a ideologia dominante da sua base e fortaleça relações estratégicas.",
-      color: "bg-purple-500"
-    },
-    {
-      icon: ListTodo,
-      title: "Gestão de Demandas",
-      description: "Sistema completo de atendimento ao cidadão. Registre, priorize e resolva demandas com agilidade e transparência.",
-      color: "bg-orange-500"
-    },
-    {
-      icon: Calendar,
-      title: "Agenda Política",
-      description: "Nunca perca um compromisso. Calendário completo com eventos recorrentes, notificações automáticas e gestão de equipe.",
-      color: "bg-green-500"
-    },
-    {
-      icon: Bot,
-      title: "Atendimento IA",
-      description: "Robô inteligente powered by GPT-5 para responder DMs no Instagram, Facebook, Twitter e WhatsApp. Atendimento 24/7 automatizado.",
-      color: "bg-indigo-500"
-    },
-    {
-      icon: BarChart3,
-      title: "Intenção Pública",
-      description: "Crie pesquisas mercadológicas TSE-compliant com landing pages automáticas. Análise demográfica avançada e relatórios em PDF.",
-      color: "bg-pink-500"
+  const scrollToSection = (id: string) => {
+    const element = document.getElementById(id);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      setMobileMenuOpen(false);
     }
-  ];
-
-  const benefits = [
-    { icon: Zap, text: "Acelere sua campanha com automação inteligente" },
-    { icon: Shield, text: "Dados seguros com backup automático" },
-    { icon: Clock, text: "Economize horas de trabalho manual" },
-    { icon: Target, text: "Tome decisões baseadas em dados reais" },
-    { icon: Award, text: "Plataforma profissional e confiável" },
-    { icon: CheckCircle2, text: "Suporte técnico especializado" },
-  ];
+  };
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Hero Section */}
-      <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
-        {/* Dark gradient overlay */}
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-background to-background z-0" />
+      <motion.header 
+        className="fixed top-0 left-0 right-0 z-50 border-b"
+        style={{ backgroundColor: headerBg }}
+      >
+        <div className="container mx-auto px-4">
+          <div className="flex items-center justify-between h-16">
+            <div className="flex items-center gap-3">
+              <img src={logoUrl} alt="Politicall" className="h-8" data-testid="img-header-logo" />
+              <span className="font-bold text-xl">Politicall</span>
+            </div>
+
+            <nav className="hidden md:flex items-center gap-6">
+              <button onClick={() => scrollToSection('recursos')} className="text-sm hover:text-primary transition-colors" data-testid="button-nav-recursos">
+                Recursos
+              </button>
+              <button onClick={() => scrollToSection('ia')} className="text-sm hover:text-primary transition-colors" data-testid="button-nav-ia">
+                IA para Redes Sociais
+              </button>
+              <button onClick={() => scrollToSection('modulos')} className="text-sm hover:text-primary transition-colors" data-testid="button-nav-modulos">
+                Módulos
+              </button>
+              <button onClick={() => scrollToSection('contato')} className="text-sm hover:text-primary transition-colors" data-testid="button-nav-contato">
+                Contato
+              </button>
+              <Button variant="ghost" size="sm" className="rounded-full" onClick={() => setLocation("/login")} data-testid="button-header-login">
+                Login
+              </Button>
+              <Button size="sm" className="rounded-full" onClick={() => scrollToSection('contato')} data-testid="button-header-cta">
+                Começar Agora
+              </Button>
+            </nav>
+
+            <button 
+              className="md:hidden p-2"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              data-testid="button-mobile-menu"
+            >
+              {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            </button>
+          </div>
+
+          {mobileMenuOpen && (
+            <motion.div 
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="md:hidden py-4 border-t bg-background"
+              data-testid="mobile-menu"
+            >
+              <nav className="flex flex-col gap-4">
+                <button onClick={() => scrollToSection('recursos')} className="text-left px-4 py-2 hover:bg-muted rounded-md" data-testid="button-mobile-recursos">
+                  Recursos
+                </button>
+                <button onClick={() => scrollToSection('ia')} className="text-left px-4 py-2 hover:bg-muted rounded-md" data-testid="button-mobile-ia">
+                  IA para Redes Sociais
+                </button>
+                <button onClick={() => scrollToSection('modulos')} className="text-left px-4 py-2 hover:bg-muted rounded-md" data-testid="button-mobile-modulos">
+                  Módulos
+                </button>
+                <button onClick={() => scrollToSection('contato')} className="text-left px-4 py-2 hover:bg-muted rounded-md" data-testid="button-mobile-contato">
+                  Contato
+                </button>
+                <div className="px-4 flex flex-col gap-2">
+                  <Button variant="outline" className="rounded-full w-full" onClick={() => setLocation("/login")} data-testid="button-mobile-login">
+                    Login
+                  </Button>
+                  <Button className="rounded-full w-full" onClick={() => scrollToSection('contato')} data-testid="button-mobile-cta">
+                    Começar Agora
+                  </Button>
+                </div>
+              </nav>
+            </motion.div>
+          )}
+        </div>
+      </motion.header>
+
+      <section className="relative min-h-screen flex items-center justify-center pt-16 overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-background to-background" />
         
-        <div className="container mx-auto px-4 py-20 relative z-10">
+        <div className="container mx-auto px-4 py-32 relative z-10">
           <motion.div
-            className="text-center max-w-4xl mx-auto"
+            className="max-w-4xl mx-auto text-center"
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
           >
-            <img src={logoUrl} alt="Politicall" className="h-24 mx-auto mb-8" data-testid="img-logo-hero" />
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary mb-6" data-testid="badge-hero-label">
+              <Sparkles className="w-4 h-4" />
+              <span className="text-sm font-medium">Plataforma Profissional de Gestão Política</span>
+            </div>
             
-            <h1 className="text-5xl md:text-7xl font-bold mb-6 bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent" data-testid="text-hero-title">
-              A Plataforma Completa para Políticos Vencedores
+            <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight" data-testid="text-hero-title">
+              Transforme Sua Carreira Política com
+              <span className="bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent"> Tecnologia de Ponta</span>
             </h1>
             
-            <p className="text-xl md:text-2xl text-muted-foreground mb-8 leading-relaxed" data-testid="text-hero-subtitle">
-              Gerencie sua carreira política com tecnologia de ponta. CRM, IA, pesquisas, agenda e muito mais em uma única plataforma profissional.
+            <p className="text-xl md:text-2xl text-muted-foreground mb-12 leading-relaxed max-w-3xl mx-auto" data-testid="text-hero-subtitle">
+              CRM inteligente para eleitores, IA que responde automaticamente suas redes sociais, pesquisas TSE-compliant, gestão de demandas e muito mais. Tudo em uma única plataforma profissional.
             </p>
 
-            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-16">
               <Button
                 size="lg"
-                className="rounded-full text-lg px-8 py-6"
-                onClick={() => document.getElementById('contato')?.scrollIntoView({ behavior: 'smooth' })}
+                className="rounded-full text-lg px-8 py-6 h-auto"
+                onClick={() => scrollToSection('contato')}
                 data-testid="button-cta-hero"
               >
-                Quero Conhecer <ArrowRight className="ml-2 w-5 h-5" />
+                Solicitar Demonstração <ArrowRight className="ml-2 w-5 h-5" />
               </Button>
               <Button
                 size="lg"
                 variant="outline"
-                className="rounded-full text-lg px-8 py-6"
-                onClick={() => setLocation("/login")}
-                data-testid="button-login-hero"
+                className="rounded-full text-lg px-8 py-6 h-auto"
+                onClick={() => scrollToSection('ia')}
+                data-testid="button-learn-hero"
               >
-                Já tenho conta
+                Conheça a IA
               </Button>
             </div>
 
-            <div className="flex items-center justify-center gap-2 mt-8 text-sm text-muted-foreground" data-testid="social-proof-stars">
-              <Star className="w-4 h-4 fill-yellow-500 text-yellow-500" />
-              <Star className="w-4 h-4 fill-yellow-500 text-yellow-500" />
-              <Star className="w-4 h-4 fill-yellow-500 text-yellow-500" />
-              <Star className="w-4 h-4 fill-yellow-500 text-yellow-500" />
-              <Star className="w-4 h-4 fill-yellow-500 text-yellow-500" />
-              <span className="ml-2" data-testid="text-social-proof">Confiado por políticos em todo o Brasil</span>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-3xl mx-auto">
+              <div className="flex flex-col items-center gap-2" data-testid="stat-users">
+                <div className="text-4xl font-bold text-primary">500+</div>
+                <div className="text-sm text-muted-foreground">Políticos Ativos</div>
+              </div>
+              <div className="flex flex-col items-center gap-2" data-testid="stat-contacts">
+                <div className="text-4xl font-bold text-primary">50mil+</div>
+                <div className="text-sm text-muted-foreground">Eleitores Cadastrados</div>
+              </div>
+              <div className="flex flex-col items-center gap-2" data-testid="stat-responses">
+                <div className="text-4xl font-bold text-primary">1M+</div>
+                <div className="text-sm text-muted-foreground">Respostas Automáticas IA</div>
+              </div>
             </div>
           </motion.div>
         </div>
       </section>
 
-      {/* Modules Section */}
-      <section className="py-20 bg-muted/30">
+      <section id="recursos" className="py-24 bg-muted/30">
         <div className="container mx-auto px-4">
-          <motion.div {...fadeInUp} className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-bold mb-4">Tudo que Você Precisa em Um Só Lugar</h2>
+          <div className="text-center mb-16">
+            <h2 className="text-4xl md:text-5xl font-bold mb-4" data-testid="text-benefits-title">Por Que Politicall?</h2>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              Módulos integrados que trabalham juntos para impulsionar sua carreira política
+              A solução completa que políticos profissionais escolhem para vencer
             </p>
-          </motion.div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {modules.map((module, index) => {
-              const Icon = module.icon;
-              const testId = `card-module-${module.title.toLowerCase().replace(/\s+/g, '-')}`;
-              return (
-                <motion.div
-                  key={index}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                >
-                  <Card className="h-full hover-elevate" data-testid={testId}>
-                    <CardHeader>
-                      <div className={`w-12 h-12 rounded-full ${module.color} flex items-center justify-center mb-4`}>
-                        <Icon className="w-6 h-6 text-white" />
-                      </div>
-                      <CardTitle className="text-xl" data-testid={`text-${testId}-title`}>{module.title}</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <CardDescription className="text-base" data-testid={`text-${testId}-description`}>{module.description}</CardDescription>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              );
-            })}
           </div>
-        </div>
-      </section>
 
-      {/* Benefits Section */}
-      <section className="py-20">
-        <div className="container mx-auto px-4">
-          <motion.div {...fadeInUp} className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-bold mb-4">Por Que Escolher Politicall?</h2>
-            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              Vantagens que fazem a diferença na sua gestão política
-            </p>
-          </motion.div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-5xl mx-auto">
-            {benefits.map((benefit, index) => {
-              const Icon = benefit.icon;
-              return (
-                <motion.div
-                  key={index}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                  className="flex items-start gap-4"
-                  data-testid={`benefit-item-${index}`}
-                >
-                  <div className="bg-primary/10 p-3 rounded-full shrink-0">
-                    <Icon className="w-6 h-6 text-primary" />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
+            <Card className="border-0 shadow-lg" data-testid="card-benefit-0">
+              <CardContent className="p-8">
+                <div className="flex items-start gap-4">
+                  <div className="p-3 rounded-lg bg-primary/10">
+                    <Zap className="w-6 h-6 text-foreground" />
                   </div>
-                  <p className="text-lg" data-testid={`text-benefit-${index}`}>{benefit.text}</p>
-                </motion.div>
-              );
-            })}
+                  <div>
+                    <h3 className="font-semibold text-lg mb-2">Economia de Tempo Brutal</h3>
+                    <p className="text-muted-foreground">
+                      Automatize 80% das tarefas repetitivas e foque no que realmente importa: conectar-se com seus eleitores.
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-0 shadow-lg" data-testid="card-benefit-1">
+              <CardContent className="p-8">
+                <div className="flex items-start gap-4">
+                  <div className="p-3 rounded-lg bg-primary/10">
+                    <Brain className="w-6 h-6 text-foreground" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-lg mb-2">IA Avançada</h3>
+                    <p className="text-muted-foreground">
+                      Inteligência artificial responde suas mensagens 24/7 nas redes sociais com o seu tom de voz.
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-0 shadow-lg" data-testid="card-benefit-2">
+              <CardContent className="p-8">
+                <div className="flex items-start gap-4">
+                  <div className="p-3 rounded-lg bg-primary/10">
+                    <Shield className="w-6 h-6 text-foreground" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-lg mb-2">100% Compliance TSE</h3>
+                    <p className="text-muted-foreground">
+                      Todas as pesquisas e processos seguem rigorosamente as normas do Tribunal Superior Eleitoral.
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-0 shadow-lg" data-testid="card-benefit-3">
+              <CardContent className="p-8">
+                <div className="flex items-start gap-4">
+                  <div className="p-3 rounded-lg bg-primary/10">
+                    <BarChart2 className="w-6 h-6 text-foreground" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-lg mb-2">Dashboards Inteligentes</h3>
+                    <p className="text-muted-foreground">
+                      Visualize suas métricas em tempo real e tome decisões baseadas em dados concretos.
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-0 shadow-lg" data-testid="card-benefit-4">
+              <CardContent className="p-8">
+                <div className="flex items-start gap-4">
+                  <div className="p-3 rounded-lg bg-primary/10">
+                    <Network className="w-6 h-6 text-foreground" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-lg mb-2">Gestão de Alianças</h3>
+                    <p className="text-muted-foreground">
+                      Mapeie e fortaleça suas alianças políticas com visão estratégica completa.
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-0 shadow-lg" data-testid="card-benefit-5">
+              <CardContent className="p-8">
+                <div className="flex items-start gap-4">
+                  <div className="p-3 rounded-lg bg-primary/10">
+                    <Target className="w-6 h-6 text-foreground" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-lg mb-2">Metas e Acompanhamento</h3>
+                    <p className="text-muted-foreground">
+                      Defina metas automáticas baseadas em eleições anteriores e acompanhe o progresso em tempo real.
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </div>
       </section>
 
-      {/* Contact Form Section */}
-      <section id="contato" className="py-20 bg-muted/30">
+      <section id="ia" className="py-24 bg-background">
         <div className="container mx-auto px-4">
-          <motion.div {...fadeInUp} className="max-w-2xl mx-auto">
+          <div className="max-w-6xl mx-auto">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+              <div>
+                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary mb-6" data-testid="badge-ai-section">
+                  <Bot className="w-4 h-4" />
+                  <span className="text-sm font-medium">Inteligência Artificial</span>
+                </div>
+                
+                <h2 className="text-4xl md:text-5xl font-bold mb-6" data-testid="text-ai-title">
+                  IA que Responde Suas Redes Sociais 24/7
+                </h2>
+                
+                <p className="text-lg text-muted-foreground mb-8">
+                  Nossa inteligência artificial foi treinada especificamente para o contexto político brasileiro. Ela aprende o seu tom de voz, suas posições e responde automaticamente mensagens em Facebook, Instagram, Twitter e WhatsApp.
+                </p>
+
+                <div className="space-y-6">
+                  <div className="flex items-start gap-4">
+                    <div className="p-2 rounded-lg bg-primary/10 shrink-0">
+                      <CheckCircle2 className="w-5 h-5 text-foreground" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold mb-1">Respostas Personalizadas</h3>
+                      <p className="text-muted-foreground text-sm">
+                        A IA analisa o contexto de cada mensagem e responde de forma personalizada, mantendo seu tom de voz único.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-4">
+                    <div className="p-2 rounded-lg bg-primary/10 shrink-0">
+                      <CheckCircle2 className="w-5 h-5 text-foreground" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold mb-1">Moderação Inteligente</h3>
+                      <p className="text-muted-foreground text-sm">
+                        Filtra automaticamente comentários ofensivos, spam e mensagens irrelevantes, mantendo suas redes limpas.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-4">
+                    <div className="p-2 rounded-lg bg-primary/10 shrink-0">
+                      <CheckCircle2 className="w-5 h-5 text-foreground" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold mb-1">Análise de Sentimento</h3>
+                      <p className="text-muted-foreground text-sm">
+                        Monitora o sentimento das interações e alerta sobre tendências positivas ou negativas em tempo real.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-4">
+                    <div className="p-2 rounded-lg bg-primary/10 shrink-0">
+                      <CheckCircle2 className="w-5 h-5 text-foreground" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold mb-1">Escalamento Inteligente</h3>
+                      <p className="text-muted-foreground text-sm">
+                        Identifica questões complexas e encaminha automaticamente para sua equipe quando necessário.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-4">
+                    <div className="p-2 rounded-lg bg-primary/10 shrink-0">
+                      <CheckCircle2 className="w-5 h-5 text-foreground" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold mb-1">Relatórios Detalhados</h3>
+                      <p className="text-muted-foreground text-sm">
+                        Acompanhe métricas de engajamento, temas mais discutidos e oportunidades de conexão.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-8 p-6 rounded-lg bg-muted/50 border">
+                  <div className="flex items-start gap-3">
+                    <MessageSquare className="w-5 h-5 text-primary shrink-0 mt-1" />
+                    <div>
+                      <p className="font-semibold mb-2">Economia de Tempo Comprovada</p>
+                      <p className="text-sm text-muted-foreground">
+                        Políticos que usam nossa IA economizam em média <strong className="text-foreground">15 horas por semana</strong> em gerenciamento de redes sociais, podendo focar em atividades estratégicas.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="relative">
+                <div className="relative rounded-lg overflow-hidden shadow-2xl border">
+                  <img 
+                    src={aiImage} 
+                    alt="IA Politicall respondendo mensagens automaticamente" 
+                    className="w-full h-auto"
+                    data-testid="img-ai-screenshot"
+                  />
+                </div>
+                <div className="absolute -bottom-6 -right-6 bg-primary text-primary-foreground p-6 rounded-lg shadow-xl max-w-xs">
+                  <div className="text-3xl font-bold mb-1">98.5%</div>
+                  <div className="text-sm opacity-90">Taxa de satisfação nas respostas automáticas</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="modulos" className="py-24 bg-muted/30">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl md:text-5xl font-bold mb-4" data-testid="text-modules-title">Módulos Integrados</h2>
+            <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
+              Tudo que você precisa para gerenciar sua carreira política de forma profissional
+            </p>
+          </div>
+
+          <div className="space-y-24 max-w-6xl mx-auto">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+              <div className="order-2 lg:order-1">
+                <div className="rounded-lg overflow-hidden shadow-xl border">
+                  <img 
+                    src={crmImage} 
+                    alt="CRM de Eleitores Politicall" 
+                    className="w-full h-auto"
+                    data-testid="img-module-crm"
+                  />
+                </div>
+              </div>
+              <div className="order-1 lg:order-2">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-3 rounded-lg bg-primary/10">
+                    <Users className="w-8 h-8 text-foreground" />
+                  </div>
+                  <h3 className="text-3xl font-bold">CRM de Eleitores</h3>
+                </div>
+                <p className="text-lg text-muted-foreground mb-6">
+                  Gerencie todos os seus contatos em um só lugar. Registre interações, agende follow-ups, segmente por região, idade, profissão e muito mais.
+                </p>
+                <ul className="space-y-3">
+                  <li className="flex items-start gap-3">
+                    <ChevronRight className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                    <span>Importação em massa de contatos via Excel ou CSV</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <ChevronRight className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                    <span>Histórico completo de interações com cada eleitor</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <ChevronRight className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                    <span>Segmentação avançada para campanhas direcionadas</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <ChevronRight className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                    <span>Metas automáticas baseadas em eleições anteriores</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <ChevronRight className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                    <span>Exportação de dados para análise externa</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+              <div>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-3 rounded-lg bg-primary/10">
+                    <TrendingUp className="w-8 h-8 text-foreground" />
+                  </div>
+                  <h3 className="text-3xl font-bold">Alianças Políticas</h3>
+                </div>
+                <p className="text-lg text-muted-foreground mb-6">
+                  Mapeie e gerencie suas alianças políticas. Acompanhe partidos aliados, visualize a rede de apoio e fortaleça relacionamentos estratégicos.
+                </p>
+                <ul className="space-y-3">
+                  <li className="flex items-start gap-3">
+                    <ChevronRight className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                    <span>Cadastro completo de partidos e políticos aliados</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <ChevronRight className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                    <span>Visualização geográfica das alianças por estado e cidade</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <ChevronRight className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                    <span>Metas automáticas de alianças com base em histórico</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <ChevronRight className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                    <span>Contato direto via e-mail e WhatsApp integrados</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <ChevronRight className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                    <span>Análise de força política e influência regional</span>
+                  </li>
+                </ul>
+              </div>
+              <div>
+                <div className="rounded-lg overflow-hidden shadow-xl border">
+                  <img 
+                    src={alliancesImage} 
+                    alt="Gestão de Alianças Políticas Politicall" 
+                    className="w-full h-auto"
+                    data-testid="img-module-alliances"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+              <div className="order-2 lg:order-1">
+                <div className="rounded-lg overflow-hidden shadow-xl border">
+                  <img 
+                    src={demandsImage} 
+                    alt="Gestão de Demandas Politicall" 
+                    className="w-full h-auto"
+                    data-testid="img-module-demands"
+                  />
+                </div>
+              </div>
+              <div className="order-1 lg:order-2">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-3 rounded-lg bg-primary/10">
+                    <ListTodo className="w-8 h-8 text-foreground" />
+                  </div>
+                  <h3 className="text-3xl font-bold">Gestão de Demandas</h3>
+                </div>
+                <p className="text-lg text-muted-foreground mb-6">
+                  Organize todas as solicitações dos eleitores. Atribua responsáveis, defina prazos, acompanhe o status e mantenha a população informada.
+                </p>
+                <ul className="space-y-3">
+                  <li className="flex items-start gap-3">
+                    <ChevronRight className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                    <span>Sistema de priorização automática (Normal, Alta, Urgente, Crítica)</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <ChevronRight className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                    <span>Atribuição de demandas para membros da equipe</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <ChevronRight className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                    <span>Comentários internos e atualizações em tempo real</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <ChevronRight className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                    <span>Notificações automáticas para demandas urgentes</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <ChevronRight className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                    <span>Relatórios de produtividade e tempo médio de resolução</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+              <div>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-3 rounded-lg bg-primary/10">
+                    <Calendar className="w-8 h-8 text-foreground" />
+                  </div>
+                  <h3 className="text-3xl font-bold">Agenda Inteligente</h3>
+                </div>
+                <p className="text-lg text-muted-foreground mb-6">
+                  Gerencie sua agenda política com eventos recorrentes, notificações e visão mensal. Nunca mais perca um compromisso importante.
+                </p>
+                <ul className="space-y-3">
+                  <li className="flex items-start gap-3">
+                    <ChevronRight className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                    <span>Eventos recorrentes (diários, semanais, mensais)</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <ChevronRight className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                    <span>Notificações automáticas de eventos próximos</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <ChevronRight className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                    <span>Categorização por tipo (reunião, evento público, visita, etc)</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <ChevronRight className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                    <span>Sincronização com calendários externos (Google, Outlook)</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <ChevronRight className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                    <span>Visualização mensal, semanal e diária</span>
+                  </li>
+                </ul>
+              </div>
+              <div>
+                <div className="rounded-lg overflow-hidden shadow-xl border">
+                  <img 
+                    src={eventsImage} 
+                    alt="Agenda de Eventos Politicall" 
+                    className="w-full h-auto"
+                    data-testid="img-module-events"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+              <div className="order-2 lg:order-1">
+                <div className="rounded-lg overflow-hidden shadow-xl border">
+                  <img 
+                    src={marketingImage} 
+                    alt="Campanhas de Marketing e Pesquisas Politicall" 
+                    className="w-full h-auto"
+                    data-testid="img-module-marketing"
+                  />
+                </div>
+              </div>
+              <div className="order-1 lg:order-2">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-3 rounded-lg bg-primary/10">
+                    <BarChart3 className="w-8 h-8 text-foreground" />
+                  </div>
+                  <h3 className="text-3xl font-bold">Pesquisas e Marketing</h3>
+                </div>
+                <p className="text-lg text-muted-foreground mb-6">
+                  Crie pesquisas profissionais 100% TSE-compliant. Landing pages públicas automáticas, coleta anônima de dados e relatórios detalhados em PDF.
+                </p>
+                <ul className="space-y-3">
+                  <li className="flex items-start gap-3">
+                    <ChevronRight className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                    <span>Templates pré-aprovados seguindo normas do TSE</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <ChevronRight className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                    <span>Landing pages públicas geradas automaticamente (/pesquisa/slug)</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <ChevronRight className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                    <span>Coleta de dados demográficos obrigatórios</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <ChevronRight className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                    <span>Workflow de aprovação admin antes de publicação</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <ChevronRight className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                    <span>Visualização de resultados em tempo real com gráficos</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <ChevronRight className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                    <span>Exportação completa em PDF profissional</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="py-24 bg-background">
+        <div className="container mx-auto px-4">
+          <div className="max-w-4xl mx-auto text-center">
+            <h2 className="text-4xl md:text-5xl font-bold mb-6" data-testid="text-cta-final-title">
+              Pronto para Transformar Sua Carreira Política?
+            </h2>
+            <p className="text-xl text-muted-foreground mb-8">
+              Junte-se a centenas de políticos que já usam Politicall para vencer eleições e servir melhor seus eleitores.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Button
+                size="lg"
+                className="rounded-full text-lg px-8 py-6 h-auto"
+                onClick={() => scrollToSection('contato')}
+                data-testid="button-cta-final"
+              >
+                Solicitar Demonstração Gratuita <ArrowRight className="ml-2 w-5 h-5" />
+              </Button>
+              <Button
+                size="lg"
+                variant="outline"
+                className="rounded-full text-lg px-8 py-6 h-auto"
+                onClick={() => setLocation("/login")}
+                data-testid="button-login-final"
+              >
+                Fazer Login
+              </Button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="contato" className="py-24 bg-muted/30">
+        <div className="container mx-auto px-4">
+          <div className="max-w-2xl mx-auto">
             <div className="text-center mb-12">
-              <h2 className="text-4xl md:text-5xl font-bold mb-4">Solicite uma Demonstração</h2>
+              <h2 className="text-4xl md:text-5xl font-bold mb-4" data-testid="text-contact-title">Entre em Contato</h2>
               <p className="text-xl text-muted-foreground">
-                Preencha o formulário e nossa equipe entrará em contato para apresentar a plataforma
+                Preencha o formulário abaixo e nossa equipe entrará em contato em até 24 horas
               </p>
             </div>
 
-            <Card>
+            <Card className="border-0 shadow-xl">
               <CardContent className="p-8">
                 <Form {...form}>
-                  <form onSubmit={form.handleSubmit((data) => createMutation.mutate(data))} className="space-y-6">
+                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                     <FormField
                       control={form.control}
                       name="name"
@@ -306,7 +779,12 @@ export default function LandingPage() {
                         <FormItem>
                           <FormLabel>Nome Completo *</FormLabel>
                           <FormControl>
-                            <Input placeholder="Seu nome" data-testid="input-lead-name" {...field} />
+                            <Input 
+                              placeholder="Seu nome completo" 
+                              {...field} 
+                              data-testid="input-name"
+                              className="rounded-full"
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -319,9 +797,15 @@ export default function LandingPage() {
                         name="email"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Email *</FormLabel>
+                            <FormLabel>E-mail *</FormLabel>
                             <FormControl>
-                              <Input type="email" placeholder="seu@email.com" data-testid="input-lead-email" {...field} />
+                              <Input 
+                                type="email"
+                                placeholder="seu@email.com" 
+                                {...field} 
+                                data-testid="input-email"
+                                className="rounded-full"
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -335,7 +819,12 @@ export default function LandingPage() {
                           <FormItem>
                             <FormLabel>Telefone *</FormLabel>
                             <FormControl>
-                              <Input placeholder="(00) 00000-0000" data-testid="input-lead-phone" {...field} />
+                              <Input 
+                                placeholder="(00) 00000-0000" 
+                                {...field} 
+                                data-testid="input-phone"
+                                className="rounded-full"
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -351,19 +840,19 @@ export default function LandingPage() {
                           <FormLabel>Cargo Político *</FormLabel>
                           <Select onValueChange={field.onChange} value={field.value}>
                             <FormControl>
-                              <SelectTrigger data-testid="select-lead-position">
+                              <SelectTrigger data-testid="select-position" className="rounded-full">
                                 <SelectValue placeholder="Selecione seu cargo" />
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
                               {POSITION_OPTIONS.map((group) => (
                                 <div key={group.category}>
-                                  <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+                                  <div className="px-2 py-1.5 text-sm font-semibold text-muted-foreground">
                                     {group.category}
                                   </div>
-                                  {group.positions.map((position) => (
-                                    <SelectItem key={position} value={position}>
-                                      {position}
+                                  {group.positions.map((pos) => (
+                                    <SelectItem key={pos} value={pos}>
+                                      {pos}
                                     </SelectItem>
                                   ))}
                                 </div>
@@ -384,12 +873,12 @@ export default function LandingPage() {
                             <FormLabel>Estado *</FormLabel>
                             <Select onValueChange={field.onChange} value={field.value}>
                               <FormControl>
-                                <SelectTrigger data-testid="select-lead-state">
-                                  <SelectValue placeholder="Selecione o estado" />
+                                <SelectTrigger data-testid="select-state" className="rounded-full">
+                                  <SelectValue placeholder="Selecione" />
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                {BRAZILIAN_STATES.map((state: string) => (
+                                {BRAZILIAN_STATES.map((state) => (
                                   <SelectItem key={state} value={state}>
                                     {state}
                                   </SelectItem>
@@ -408,7 +897,12 @@ export default function LandingPage() {
                           <FormItem>
                             <FormLabel>Cidade *</FormLabel>
                             <FormControl>
-                              <Input placeholder="Sua cidade" data-testid="input-lead-city" {...field} />
+                              <Input 
+                                placeholder="Sua cidade" 
+                                {...field} 
+                                data-testid="input-city"
+                                className="rounded-full"
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -421,13 +915,13 @@ export default function LandingPage() {
                       name="message"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Mensagem (opcional)</FormLabel>
+                          <FormLabel>Mensagem (Opcional)</FormLabel>
                           <FormControl>
                             <Textarea
                               placeholder="Conte-nos sobre suas necessidades..."
-                              className="min-h-[100px]"
-                              data-testid="textarea-lead-message"
+                              className="min-h-32 rounded-2xl"
                               {...field}
+                              data-testid="input-message"
                             />
                           </FormControl>
                           <FormMessage />
@@ -438,27 +932,25 @@ export default function LandingPage() {
                     <Button
                       type="submit"
                       size="lg"
-                      className="w-full rounded-full text-lg"
-                      disabled={createMutation.isPending}
+                      className="w-full rounded-full"
+                      disabled={leadMutation.isPending}
                       data-testid="button-submit-lead"
                     >
-                      {createMutation.isPending ? "Enviando..." : "Solicitar Demonstração"}
-                      <MessageCircle className="ml-2 w-5 h-5" />
+                      {leadMutation.isPending ? "Enviando..." : "Solicitar Demonstração"}
                     </Button>
                   </form>
                 </Form>
               </CardContent>
             </Card>
-          </motion.div>
+          </div>
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="py-12 bg-muted/50 border-t">
+      <footer className="py-12 border-t bg-background">
         <div className="container mx-auto px-4">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <img src={logoUrl} alt="Politicall" className="h-8" />
+              <img src={logoUrl} alt="Politicall" className="h-8" data-testid="img-footer-logo" />
               <span className="text-muted-foreground">&copy; 2025 Politicall. Todos os direitos reservados.</span>
             </div>
             <div className="flex gap-4">
