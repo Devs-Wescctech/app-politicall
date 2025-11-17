@@ -104,9 +104,9 @@ function App() {
           <SidebarProvider style={style as React.CSSProperties}>
             <div className="flex min-h-screen w-full overflow-hidden">
               {isAuthenticated() && <AppSidebar />}
-              <div className="flex flex-col flex-1 min-w-0">
+              <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
                 {isAuthenticated() && (
-                  <header className="sticky top-0 z-50 flex items-center justify-between p-4 border-b bg-background shrink-0">
+                  <header className="flex items-center justify-between p-4 border-b bg-background shrink-0">
                     <SidebarTrigger data-testid="button-sidebar-toggle" />
                     <img src={logoUrl} alt="Logo" className="h-8" />
                     <div className="flex items-center gap-2">
@@ -115,7 +115,7 @@ function App() {
                     </div>
                   </header>
                 )}
-                <main className="flex-1 overflow-hidden">
+                <main className="flex-1 overflow-y-auto">
                   <Router />
                 </main>
               </div>
