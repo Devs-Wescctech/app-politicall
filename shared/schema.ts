@@ -209,6 +209,28 @@ export const notifications = pgTable("notifications", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Integrations - Email and WhatsApp service configurations
+export const integrations = pgTable("integrations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  service: text("service").notNull(), // 'sendgrid' or 'twilio'
+  enabled: boolean("enabled").default(false).notNull(),
+  
+  // SendGrid fields
+  sendgridApiKey: text("sendgrid_api_key"),
+  fromEmail: text("from_email"),
+  fromName: text("from_name"),
+  
+  // Twilio fields  
+  twilioAccountSid: text("twilio_account_sid"),
+  twilioAuthToken: text("twilio_auth_token"),
+  twilioPhoneNumber: text("twilio_phone_number"), // Format: whatsapp:+5511999999999
+  
+  testMode: boolean("test_mode").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull()
+});
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   contacts: many(contacts),
@@ -352,6 +374,13 @@ export const insertNotificationSchema = createInsertSchema(notifications).omit({
   createdAt: true,
 });
 
+export const insertIntegrationSchema = createInsertSchema(integrations).omit({
+  id: true,
+  userId: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // TypeScript types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -390,3 +419,6 @@ export type InsertMarketingCampaign = z.infer<typeof insertMarketingCampaignSche
 
 export type Notification = typeof notifications.$inferSelect;
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;
+
+export type Integration = typeof integrations.$inferSelect;
+export type InsertIntegration = z.infer<typeof insertIntegrationSchema>;

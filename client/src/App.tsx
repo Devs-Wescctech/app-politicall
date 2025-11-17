@@ -23,6 +23,7 @@ import Demands from "@/pages/demands";
 import Agenda from "@/pages/agenda";
 import AiAttendance from "@/pages/ai-attendance";
 import Marketing from "@/pages/marketing";
+import Integrations from "@/pages/integrations";
 import Settings from "@/pages/settings";
 import UsersManagement from "@/pages/users";
 
@@ -72,6 +73,11 @@ function Router() {
       <Route path="/marketing">
         <ProtectedRoute>
           <Marketing />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/integrations">
+        <ProtectedRoute>
+          <Integrations />
         </ProtectedRoute>
       </Route>
       <Route path="/settings">

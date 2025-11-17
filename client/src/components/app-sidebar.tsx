@@ -8,7 +8,8 @@ import {
   Megaphone,
   Settings,
   LogOut,
-  Shield
+  Shield,
+  Plug
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
@@ -69,6 +70,12 @@ const menuItems = [
     title: "Marketing",
     url: "/marketing",
     icon: Megaphone,
+    adminOnly: false,
+  },
+  {
+    title: "Integrações",
+    url: "/integrations",
+    icon: Plug,
     adminOnly: false,
   },
   {

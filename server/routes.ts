@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import { insertUserSchema, loginSchema, insertContactSchema, insertPoliticalAllianceSchema, insertDemandSchema, insertDemandCommentSchema, insertEventSchema, insertAiConfigurationSchema, insertAiTrainingExampleSchema, insertAiResponseTemplateSchema, insertMarketingCampaignSchema, insertNotificationSchema } from "@shared/schema";
+import { insertUserSchema, loginSchema, insertContactSchema, insertPoliticalAllianceSchema, insertDemandSchema, insertDemandCommentSchema, insertEventSchema, insertAiConfigurationSchema, insertAiTrainingExampleSchema, insertAiResponseTemplateSchema, insertMarketingCampaignSchema, insertNotificationSchema, insertIntegrationSchema } from "@shared/schema";
 import { db } from "./db";
 import { politicalParties, politicalAlliances } from "@shared/schema";
 import { sql, eq } from "drizzle-orm";
@@ -1070,19 +1070,158 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/campaigns/:id/send", authenticateToken, async (req: AuthRequest, res) => {
     try {
       const campaign = await storage.getCampaign(req.params.id);
-      if (!campaign) {
+      
+      if (!campaign || campaign.userId !== req.userId!) {
         return res.status(404).json({ error: "Campanha não encontrada" });
       }
-
-      // Update campaign status
-      await storage.updateCampaign(req.params.id, {
-        status: "sent",
-        sentAt: new Date(),
-      });
-
-      res.json({ success: true, message: "Campanha enviada com sucesso" });
+      
+      const service = campaign.type === 'email' ? 'sendgrid' : 'twilio';
+      const integration = await storage.getIntegration(req.userId!, service);
+      
+      if (!integration || !integration.enabled) {
+        return res.status(400).json({ 
+          error: `Integração ${campaign.type === 'email' ? 'de email' : 'do WhatsApp'} não configurada` 
+        });
+      }
+      
+      try {
+        if (campaign.type === 'email' && integration.sendgridApiKey) {
+          const sgMail = require('@sendgrid/mail');
+          sgMail.setApiKey(integration.sendgridApiKey);
+          
+          await sgMail.sendMultiple({
+            to: campaign.recipients as string[],
+            from: {
+              email: integration.fromEmail!,
+              name: integration.fromName || 'Politicall'
+            },
+            subject: campaign.subject || 'Mensagem do Politicall',
+            html: campaign.message.replace(/\n/g, '<br>')
+          });
+        } else if (campaign.type === 'whatsapp' && integration.twilioAccountSid) {
+          const twilio = require('twilio');
+          const client = twilio(integration.twilioAccountSid, integration.twilioAuthToken);
+          
+          const promises = (campaign.recipients as string[]).map((phone: string) => 
+            client.messages.create({
+              from: integration.twilioPhoneNumber,
+              to: phone.startsWith('whatsapp:') ? phone : `whatsapp:${phone}`,
+              body: campaign.message
+            })
+          );
+          
+          await Promise.allSettled(promises);
+        }
+        
+        await storage.updateCampaign(campaign.id, {
+          status: "sent",
+          sentAt: new Date(),
+        });
+        
+        res.json({ success: true, message: 'Campanha enviada com sucesso!' });
+      } catch (sendError: any) {
+        console.error('Send error:', sendError);
+        res.status(500).json({ error: 'Falha ao enviar campanha', details: sendError.message });
+      }
     } catch (error: any) {
       res.status(400).json({ error: error.message });
+    }
+  });
+
+  // ==================== INTEGRATIONS ====================
+  
+  // Get all integrations for user
+  app.get("/api/integrations", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const integrations = await storage.getIntegrations(req.userId!);
+      // Remove sensitive data from response for security
+      const sanitized = integrations.map(i => ({
+        ...i,
+        sendgridApiKey: i.sendgridApiKey ? '***' : null,
+        twilioAuthToken: i.twilioAuthToken ? '***' : null
+      }));
+      res.json(sanitized);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get specific integration
+  app.get("/api/integrations/:service", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const integration = await storage.getIntegration(req.userId!, req.params.service);
+      if (integration) {
+        // Mask sensitive fields
+        integration.sendgridApiKey = integration.sendgridApiKey ? '***' : null;
+        integration.twilioAuthToken = integration.twilioAuthToken ? '***' : null;
+      }
+      res.json(integration);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Save/update integration
+  app.post("/api/integrations", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const validatedData = insertIntegrationSchema.parse(req.body);
+      const integration = await storage.upsertIntegration({
+        ...validatedData,
+        userId: req.userId!
+      });
+      // Mask sensitive fields in response
+      const sanitized = {
+        ...integration,
+        sendgridApiKey: integration.sendgridApiKey ? '***' : null,
+        twilioAuthToken: integration.twilioAuthToken ? '***' : null
+      };
+      res.json(sanitized);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // Test integration
+  app.post("/api/integrations/:service/test", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const integration = await storage.getIntegration(req.userId!, req.params.service);
+      
+      if (!integration) {
+        return res.status(404).json({ error: 'Integração não encontrada' });
+      }
+      
+      if (req.params.service === 'sendgrid') {
+        // Test SendGrid by verifying API key
+        const sgMail = require('@sendgrid/mail');
+        sgMail.setApiKey(integration.sendgridApiKey);
+        
+        // Try to send test email in sandbox mode
+        await sgMail.send({
+          to: integration.fromEmail,
+          from: integration.fromEmail,
+          subject: 'Teste de Integração - Politicall',
+          text: 'Este é um email de teste da integração com SendGrid.',
+          mailSettings: {
+            sandboxMode: { enable: true } // Don't actually send
+          }
+        });
+        res.json({ success: true, message: 'SendGrid configurado corretamente!' });
+      } else if (req.params.service === 'twilio') {
+        // Test Twilio
+        const twilio = require('twilio');
+        const client = twilio(integration.twilioAccountSid, integration.twilioAuthToken);
+        
+        // Verify credentials by fetching account
+        await client.api.accounts(integration.twilioAccountSid).fetch();
+        res.json({ success: true, message: 'Twilio configurado corretamente!' });
+      } else {
+        res.status(400).json({ error: 'Serviço não suportado' });
+      }
+    } catch (error: any) {
+      res.status(400).json({ 
+        error: 'Falha no teste de integração',
+        details: error.message 
+      });
     }
   });
 

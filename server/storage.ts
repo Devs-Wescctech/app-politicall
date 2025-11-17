@@ -2,7 +2,7 @@
 import { 
   users, contacts, politicalParties, politicalAlliances, demands, demandComments, events,
   aiConfigurations, aiConversations, aiTrainingExamples, aiResponseTemplates, 
-  marketingCampaigns, notifications,
+  marketingCampaigns, notifications, integrations,
   type User, type InsertUser, type Contact, type InsertContact,
   type PoliticalParty, type PoliticalAlliance, type InsertPoliticalAlliance,
   type Demand, type InsertDemand, type DemandComment, type InsertDemandComment,
@@ -10,7 +10,8 @@ import {
   type AiConversation, type AiTrainingExample, type InsertAiTrainingExample,
   type AiResponseTemplate, type InsertAiResponseTemplate,
   type MarketingCampaign, type InsertMarketingCampaign,
-  type Notification, type InsertNotification
+  type Notification, type InsertNotification,
+  type Integration, type InsertIntegration
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, count } from "drizzle-orm";
@@ -99,6 +100,12 @@ export interface IStorage {
   markAsRead(id: string, userId: string): Promise<Notification | null>;
   markAllAsRead(userId: string): Promise<void>;
   deleteNotification(id: string, userId: string): Promise<boolean>;
+
+  // Integrations
+  getIntegrations(userId: string): Promise<Integration[]>;
+  getIntegration(userId: string, service: string): Promise<Integration | null>;
+  upsertIntegration(integration: InsertIntegration & { userId: string }): Promise<Integration>;
+  deleteIntegration(id: string, userId: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -564,6 +571,55 @@ export class DatabaseStorage implements IStorage {
       ))
       .returning();
     return result.length > 0;
+  }
+
+  // Integrations
+  async getIntegrations(userId: string): Promise<Integration[]> {
+    return await db.select()
+      .from(integrations)
+      .where(eq(integrations.userId, userId))
+      .orderBy(integrations.service);
+  }
+
+  async getIntegration(userId: string, service: string): Promise<Integration | null> {
+    const [integration] = await db.select()
+      .from(integrations)
+      .where(and(
+        eq(integrations.userId, userId),
+        eq(integrations.service, service)
+      ));
+    return integration || null;
+  }
+
+  async upsertIntegration(integration: InsertIntegration & { userId: string }): Promise<Integration> {
+    // Check if integration exists
+    const existing = await this.getIntegration(integration.userId, integration.service);
+    
+    if (existing) {
+      // Update existing
+      const [updated] = await db.update(integrations)
+        .set({
+          ...integration,
+          updatedAt: new Date()
+        })
+        .where(eq(integrations.id, existing.id))
+        .returning();
+      return updated;
+    } else {
+      // Insert new
+      const [newIntegration] = await db.insert(integrations)
+        .values(integration)
+        .returning();
+      return newIntegration;
+    }
+  }
+
+  async deleteIntegration(id: string, userId: string): Promise<void> {
+    await db.delete(integrations)
+      .where(and(
+        eq(integrations.id, id),
+        eq(integrations.userId, userId)
+      ));
   }
 }
 
