@@ -72,6 +72,7 @@ export default function Settings() {
         ...data,
         lastElectionVotes: votesNumber,
       };
+      console.log('Payload being sent to API:', payload);
       return await apiRequest("/api/auth/profile", "PATCH", payload);
     },
     onSuccess: () => {
@@ -149,6 +150,7 @@ export default function Settings() {
   };
 
   const onSubmitProfile = (data: ProfileForm) => {
+    console.log('Form data before submit:', data);
     updateProfileMutation.mutate(data);
   };
 
@@ -444,9 +446,13 @@ export default function Settings() {
                         <Input 
                           type="text" 
                           placeholder="0.000.000" 
-                          value={field.value}
+                          value={field.value || ''}
                           onChange={(e) => {
                             const value = e.target.value.replace(/\D/g, '');
+                            if (value === '') {
+                              field.onChange('');
+                              return;
+                            }
                             const formatted = value.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
                             field.onChange(formatted);
                           }}
