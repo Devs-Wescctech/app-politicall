@@ -60,7 +60,7 @@ export function AppSidebar() {
       permissionKey: "contacts",
     },
     {
-      title: "Aliança Política",
+      title: "Alianças Políticas",
       url: "/alliances",
       icon: Handshake,
       permissionKey: "alliances",
@@ -84,7 +84,7 @@ export function AppSidebar() {
       permissionKey: "ai",
     },
     {
-      title: "Marketing",
+      title: "Intenção Pública",
       url: "/marketing",
       icon: Megaphone,
       permissionKey: "marketing",
