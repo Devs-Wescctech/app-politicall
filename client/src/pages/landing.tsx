@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertLeadSchema, type InsertLead, POLITICAL_POSITIONS } from "@shared/schema";
@@ -54,6 +54,7 @@ export default function LandingPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { scrollY } = useScroll();
   const headerBg = useTransform(scrollY, [0, 100], ["rgba(255, 255, 255, 0)", "rgba(255, 255, 255, 0.95)"]);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
     if (isAuthenticated()) {
@@ -66,6 +67,10 @@ export default function LandingPage() {
     const metaDescription = document.querySelector('meta[name="description"]');
     if (metaDescription) {
       metaDescription.setAttribute('content', 'Gerencie sua carreira política com tecnologia de ponta. CRM de eleitores, IA para redes sociais, pesquisas TSE-compliant, gestão de demandas e muito mais em uma única plataforma profissional.');
+    }
+
+    if (videoRef.current) {
+      videoRef.current.playbackRate = 0.5;
     }
   }, []);
 
@@ -198,6 +203,7 @@ export default function LandingPage() {
 
       <section className="relative min-h-screen flex items-center justify-center pt-16 overflow-hidden">
         <video 
+          ref={videoRef}
           autoPlay 
           loop 
           muted 
