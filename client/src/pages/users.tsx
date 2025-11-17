@@ -26,7 +26,7 @@ import {
 } from "@/components/ui/form";
 
 const ROLE_CONFIG = {
-  admin: { label: "Administrador", icon: Shield, color: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200" },
+  admin: { label: "Adm", icon: Shield, color: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200" },
   coordenador: { label: "Coordenador", icon: Users, color: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200" },
   assessor: { label: "Assessor", icon: UserIcon, color: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" },
 };
@@ -257,16 +257,18 @@ export default function UsersManagement() {
                       <span className="hidden sm:inline">{roleConfig.label}</span>
                       <span className="sm:hidden">{roleConfig.label.substring(0, 3)}</span>
                     </Badge>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleEditRole(user)}
-                      data-testid={`button-edit-role-${user.id}`}
-                      className="rounded-full"
-                    >
-                      <Settings className="w-4 h-4 sm:hidden" />
-                      <span className="hidden sm:inline">Alterar Permissão</span>
-                    </Button>
+                    {user.role !== 'admin' && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleEditRole(user)}
+                        data-testid={`button-edit-role-${user.id}`}
+                        className="rounded-full"
+                      >
+                        <Settings className="w-4 h-4 sm:hidden" />
+                        <span className="hidden sm:inline">Alterar Permissão</span>
+                      </Button>
+                    )}
                   </div>
                   <div className="text-xs text-muted-foreground">
                     <span className="hidden sm:inline">Cadastrado em </span>
