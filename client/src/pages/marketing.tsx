@@ -146,20 +146,18 @@ function ImageUploadComponent({ campaignId, onUploadComplete }: ImageUploadProps
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <Label>Imagens da Campanha ({currentCount})</Label>
-        {(
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="rounded-full"
-            onClick={() => document.getElementById(fileInputId)?.click()}
-            disabled={uploadMutation.isPending}
-            data-testid="button-upload-image"
-          >
-            <ImageIcon className="w-4 h-4 mr-2" />
-            {uploadMutation.isPending ? "Enviando..." : "Adicionar Imagem"}
-          </Button>
-        )}
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="rounded-full"
+          onClick={() => document.getElementById(fileInputId)?.click()}
+          disabled={uploadMutation.isPending}
+          data-testid="button-upload-image"
+        >
+          <ImageIcon className="w-4 h-4 mr-2" />
+          {uploadMutation.isPending ? "Enviando..." : "Adicionar Imagem"}
+        </Button>
         <input
           id={fileInputId}
           type="file"
