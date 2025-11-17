@@ -199,7 +199,7 @@ export default function Contacts() {
     <div className="p-4 sm:p-6 md:p-8 space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Contatos</h1>
+          <h1 className="text-3xl font-bold">Eleitores</h1>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button 
@@ -360,7 +360,6 @@ export default function Contacts() {
           </Dialog>
         </div>
       </div>
-
       <Card>
         <CardHeader>
           <div className="flex flex-wrap md:flex-nowrap items-center gap-4">
