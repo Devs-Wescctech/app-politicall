@@ -824,17 +824,7 @@ export default function LandingPage() {
                 </div>
               </div>
 
-              <div className="mt-10 p-6 bg-primary/5 rounded-xl border border-primary/20">
-                <div className="flex items-start gap-4">
-                  <Award className="w-8 h-8 text-primary shrink-0" />
-                  <div>
-                    <p className="font-bold text-lg mb-2">Caso Real: Vereador em São Paulo</p>
-                    <p className="text-muted-foreground">
-                      Precisava de dados sobre intenção de voto em 3 bairros específicos. Criou pesquisa no Politicall, impulsionou no Google Ads segmentando apenas aqueles bairros. Em 5 dias tinha 4.000 respostas qualificadas. Identificou que 62% dos eleitores entre 35-50 anos priorizavam segurança pública. Ajustou toda a campanha baseado nesses dados cirúrgicos e venceu a eleição.
-                    </p>
-                  </div>
-                </div>
-              </div>
+              
             </div>
           </div>
         </div>
