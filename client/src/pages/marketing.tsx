@@ -297,25 +297,15 @@ async function generateSurveyPdfReport(
           margin: [0, 0, 0, 12]
         },
         {
-          columns: [
-            {
-              width: '50%',
-              stack: [
-                { text: 'Nome da Campanha:', style: 'label' },
-                { text: campaign.campaignName, style: 'value', margin: [0, 0, 0, 8] },
-                { text: 'Pergunta:', style: 'label' },
-                { text: template.questionText, style: 'value', margin: [0, 0, 0, 8] }
-              ]
-            },
-            {
-              width: '50%',
-              stack: [
-                { text: 'Data do Relatório:', style: 'label' },
-                { text: currentDate, style: 'value', margin: [0, 0, 0, 8] },
-                { text: 'Total de Respostas:', style: 'label' },
-                { text: totalResponses.toString(), style: 'value', fontSize: 16, bold: true, color: '#40E0D0' }
-              ]
-            }
+          stack: [
+            { text: 'Nome da Campanha:', style: 'label' },
+            { text: campaign.campaignName, style: 'value', margin: [0, 0, 0, 8] },
+            { text: 'Pergunta:', style: 'label' },
+            { text: template.questionText, style: 'value', margin: [0, 0, 0, 8] },
+            { text: 'Data do Relatório:', style: 'label' },
+            { text: currentDate, style: 'value', margin: [0, 0, 0, 8] },
+            { text: 'Total de Respostas:', style: 'label' },
+            { text: totalResponses.toString(), style: 'value', fontSize: 16, bold: true, color: '#40E0D0' }
           ],
           margin: [0, 0, 0, 30]
         },
