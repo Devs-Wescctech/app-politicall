@@ -576,10 +576,13 @@ export const insertSurveyCampaignSchema = createInsertSchema(surveyCampaigns).om
   userId: true,
   createdAt: true,
   updatedAt: true,
+  viewCount: true,
 }).extend({
   campaignName: z.string().min(3, "Nome da campanha deve ter no mínimo 3 caracteres"),
   slug: z.string().min(3, "Slug deve ter no mínimo 3 caracteres"),
   status: z.string().default("under_review"),
+  startDate: z.string().nullable().optional(),
+  endDate: z.string().nullable().optional(),
 });
 
 export const insertSurveyLandingPageSchema = createInsertSchema(surveyLandingPages).omit({
