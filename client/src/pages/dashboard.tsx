@@ -166,8 +166,7 @@ export default function Dashboard() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle className="flex items-center gap-2">
-                  <Target className="h-5 w-5 text-primary" />
+                <CardTitle>
                   Metas de Campanha
                 </CardTitle>
                 <CardDescription className="mt-1">{goals.description}</CardDescription>
