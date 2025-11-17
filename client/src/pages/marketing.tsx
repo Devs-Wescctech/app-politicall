@@ -854,9 +854,9 @@ export default function Marketing() {
                             <span>{statusConfig.label}</span>
                           </div>
                           {campaign.responseCount !== undefined && (
-                            <Badge variant="outline" data-testid={`badge-responses-${campaign.id}`}>
+                            <span className="text-sm text-muted-foreground" data-testid={`badge-responses-${campaign.id}`}>
                               {campaign.responseCount} respostas
-                            </Badge>
+                            </span>
                           )}
                         </div>
                         {campaign.template && (
