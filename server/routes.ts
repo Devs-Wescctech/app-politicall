@@ -1384,7 +1384,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Upload campaign image (base64)
+  // Upload campaign image (base64) - DEPRECATED, use upload-asset instead
   app.post("/api/google-ads-campaigns/:id/upload-image", authenticateToken, requirePermission("marketing"), async (req: AuthRequest, res) => {
     try {
       console.log('[UPLOAD] Starting upload for campaign:', req.params.id);
@@ -1436,6 +1436,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create asset record
       const asset = await storage.createCampaignAsset({
         campaignId: campaign.id,
+        assetType: "image",
+        storageKey,
+        url: `/assets/${storageKey}`,
+        originalFilename: filename,
+        sizeBytes,
+        mimeType,
+        uploadedBy: req.userId!,
+      });
+
+      console.log('[UPLOAD] Success! Asset ID:', asset.id);
+      res.json(asset);
+    } catch (error: any) {
+      console.error('[UPLOAD] Error:', error.message, error.stack);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Upload campaign asset (image or video, base64)
+  app.post("/api/google-ads-campaigns/:id/upload-asset", authenticateToken, requirePermission("marketing"), async (req: AuthRequest, res) => {
+    try {
+      console.log('[UPLOAD] Starting asset upload for campaign:', req.params.id);
+      const campaign = await storage.getGoogleAdsCampaign(req.params.id);
+      
+      if (!campaign || campaign.userId !== req.userId!) {
+        console.log('[UPLOAD] Campaign not found or unauthorized');
+        return res.status(404).json({ error: "Campanha não encontrada" });
+      }
+
+      const { assetData, filename, mimeType, assetType } = req.body;
+      console.log('[UPLOAD] Received:', { filename, mimeType, assetType, dataLength: assetData?.length });
+      
+      if (!assetData || !filename || !mimeType || !assetType) {
+        console.log('[UPLOAD] Missing data');
+        return res.status(400).json({ error: "Dados do arquivo incompletos" });
+      }
+
+      // Validate asset type and mime type
+      if (assetType === "image" && !mimeType.startsWith('image/')) {
+        console.log('[UPLOAD] Invalid image mime type');
+        return res.status(400).json({ error: "Apenas imagens são permitidas" });
+      }
+      if (assetType === "video" && !mimeType.startsWith('video/')) {
+        console.log('[UPLOAD] Invalid video mime type');
+        return res.status(400).json({ error: "Apenas vídeos são permitidos" });
+      }
+
+      console.log('[UPLOAD] Decoding base64...');
+      // Decode base64 and get size
+      const mimePattern = new RegExp(`^data:(image|video)/\\w+;base64,`);
+      const buffer = Buffer.from(assetData.replace(mimePattern, ''), 'base64');
+      const sizeBytes = buffer.length;
+      console.log('[UPLOAD] Buffer size:', sizeBytes);
+
+      // Generate unique filename
+      const timestamp = Date.now();
+      const safeFilename = filename.replace(/[^a-zA-Z0-9.-]/g, '_');
+      const storageKey = `google-ads-campaigns/${campaign.id}/${timestamp}_${safeFilename}`;
+      const fullPath = `attached_assets/${storageKey}`;
+
+      console.log('[UPLOAD] Creating directory...');
+      // Create directory if it doesn't exist
+      const dir = path.dirname(fullPath);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+
+      console.log('[UPLOAD] Writing file to:', fullPath);
+      // Write file
+      fs.writeFileSync(fullPath, buffer);
+
+      console.log('[UPLOAD] Creating asset record...');
+      // Create asset record
+      const asset = await storage.createCampaignAsset({
+        campaignId: campaign.id,
+        assetType,
         storageKey,
         url: `/assets/${storageKey}`,
         originalFilename: filename,

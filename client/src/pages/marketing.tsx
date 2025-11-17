@@ -754,7 +754,7 @@ function GoogleAdsTab() {
         <Dialog open={showImageUpload} onOpenChange={setShowImageUpload}>
           <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col p-0">
             <DialogHeader className="px-6 pt-6 pb-4 border-b">
-              <DialogTitle>Adicionar Imagens</DialogTitle>
+              <DialogTitle>Adicionar Imagens e Vídeos</DialogTitle>
             </DialogHeader>
             <div className="overflow-y-auto px-6 py-4">
               <ImageUploadComponent
