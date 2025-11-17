@@ -338,7 +338,7 @@ function GoogleAdsTab() {
       durationDays: 7,
       lpSlug: "",
       lpUrl: "",
-      status: "submitted",
+      status: "under_review",
       startDate: new Date().toISOString(),
       endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
     },
@@ -718,7 +718,7 @@ function GoogleAdsTab() {
       ) : campaigns && campaigns.length > 0 ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {campaigns.map((campaign) => {
-            const canEdit = campaign.status === "submitted" || campaign.status === "rejected";
+            const canEdit = campaign.status === "under_review" || campaign.status === "rejected";
             const assetCount = campaign.assets?.length || 0;
             const displayAssets = campaign.assets?.slice(0, 3) || [];
 
