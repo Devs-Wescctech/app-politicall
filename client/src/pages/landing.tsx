@@ -1160,6 +1160,14 @@ export default function LandingPage() {
                 data-testid="img-footer-wescc-logo"
               />
               <span>Todos os direitos reservados.</span>
+              <span>|</span>
+              <button 
+                onClick={() => setLocation("/login")}
+                className="text-primary hover:underline"
+                data-testid="link-footer-control-panel"
+              >
+                Painel de Controle
+              </button>
             </p>
           </div>
         </div>
