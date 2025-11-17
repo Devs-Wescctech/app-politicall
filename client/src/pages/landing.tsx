@@ -524,33 +524,33 @@ export default function LandingPage() {
               <div className="order-1 lg:order-2">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="p-3 rounded-lg bg-primary/10">
-                    <Users className="w-8 h-8 text-foreground" />
+                    <ListTodo className="w-8 h-8 text-foreground" />
                   </div>
-                  <h3 className="text-3xl font-bold">CRM de Gabinete</h3>
+                  <h3 className="text-3xl font-bold">Gestão de Demandas</h3>
                 </div>
                 <p className="text-lg text-muted-foreground mb-6">
-                  Gerencie todos os seus contatos em um só lugar. Registre interações, agende follow-ups, segmente por região, idade, profissão e muito mais.
+                  Organize todas as solicitações dos eleitores. Atribua responsáveis, defina prazos, acompanhe o status e mantenha a população informada.
                 </p>
                 <ul className="space-y-3">
                   <li className="flex items-start gap-3">
                     <ChevronRight className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                    <span>Importação em massa de contatos via Excel ou CSV</span>
+                    <span>Sistema de priorização automática (Normal, Alta, Urgente, Crítica)</span>
                   </li>
                   <li className="flex items-start gap-3">
                     <ChevronRight className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                    <span>Histórico completo de interações com cada eleitor</span>
+                    <span>Atribuição de demandas para membros da equipe</span>
                   </li>
                   <li className="flex items-start gap-3">
                     <ChevronRight className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                    <span>Segmentação avançada para campanhas direcionadas</span>
+                    <span>Comentários internos e atualizações em tempo real</span>
                   </li>
                   <li className="flex items-start gap-3">
                     <ChevronRight className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                    <span>Metas automáticas baseadas em eleições anteriores</span>
+                    <span>Notificações automáticas para demandas urgentes</span>
                   </li>
                   <li className="flex items-start gap-3">
                     <ChevronRight className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                    <span>Exportação de dados para análise externa</span>
+                    <span>Relatórios de produtividade e tempo médio de resolução</span>
                   </li>
                 </ul>
               </div>
@@ -607,7 +607,7 @@ export default function LandingPage() {
                 <div className="rounded-lg overflow-hidden shadow-xl border">
                   <img 
                     src={demandsImage} 
-                    alt="Gestão de Demandas Politicall" 
+                    alt="CRM de Gabinete Politicall" 
                     className="w-full h-auto"
                     data-testid="img-module-demands"
                   />
@@ -616,33 +616,33 @@ export default function LandingPage() {
               <div className="order-1 lg:order-2">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="p-3 rounded-lg bg-primary/10">
-                    <ListTodo className="w-8 h-8 text-foreground" />
+                    <Users className="w-8 h-8 text-foreground" />
                   </div>
-                  <h3 className="text-3xl font-bold">Gestão de Demandas</h3>
+                  <h3 className="text-3xl font-bold">CRM de Gabinete</h3>
                 </div>
                 <p className="text-lg text-muted-foreground mb-6">
-                  Organize todas as solicitações dos eleitores. Atribua responsáveis, defina prazos, acompanhe o status e mantenha a população informada.
+                  Gerencie todos os seus contatos em um só lugar. Registre interações, agende follow-ups, segmente por região, idade, profissão e muito mais.
                 </p>
                 <ul className="space-y-3">
                   <li className="flex items-start gap-3">
                     <ChevronRight className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                    <span>Sistema de priorização automática (Normal, Alta, Urgente, Crítica)</span>
+                    <span>Importação em massa de contatos via Excel ou CSV</span>
                   </li>
                   <li className="flex items-start gap-3">
                     <ChevronRight className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                    <span>Atribuição de demandas para membros da equipe</span>
+                    <span>Histórico completo de interações com cada eleitor</span>
                   </li>
                   <li className="flex items-start gap-3">
                     <ChevronRight className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                    <span>Comentários internos e atualizações em tempo real</span>
+                    <span>Segmentação avançada para campanhas direcionadas</span>
                   </li>
                   <li className="flex items-start gap-3">
                     <ChevronRight className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                    <span>Notificações automáticas para demandas urgentes</span>
+                    <span>Metas automáticas baseadas em eleições anteriores</span>
                   </li>
                   <li className="flex items-start gap-3">
                     <ChevronRight className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                    <span>Relatórios de produtividade e tempo médio de resolução</span>
+                    <span>Exportação de dados para análise externa</span>
                   </li>
                 </ul>
               </div>
