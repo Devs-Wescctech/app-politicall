@@ -84,7 +84,21 @@ export default function Dashboard() {
 
   // Calcular metas baseadas no cargo político
   const position = currentUser?.politicalPosition || '';
-  const goals = POSITION_GOALS[position] || { voters: 5000, alliances: 10, description: 'Metas recomendadas para sua campanha' };
+  const baseGoals = POSITION_GOALS[position] || { voters: 5000, alliances: 10, description: 'Metas recomendadas para sua campanha' };
+  
+  // Ajustar meta de votos baseado na última eleição (deve ser maior que votos anteriores)
+  const lastElectionVotes = currentUser?.lastElectionVotes || 0;
+  const voterGoal = lastElectionVotes > 0 
+    ? Math.max(baseGoals.voters, Math.ceil(lastElectionVotes * 1.2)) // 20% acima da última eleição
+    : baseGoals.voters;
+  
+  const goals = {
+    ...baseGoals,
+    voters: voterGoal,
+    description: lastElectionVotes > 0 
+      ? `Meta: superar os ${lastElectionVotes.toLocaleString('pt-BR')} votos da última eleição`
+      : baseGoals.description
+  };
   
   // Taxa de conversão média (percentual de eleitores cadastrados que efetivamente votam)
   // Baixo engajamento: 40%, Médio: 60%, Alto: 80%
@@ -123,7 +137,6 @@ export default function Dashboard() {
   const alliancesGoalStatus = alliancesProgress >= 100 ? 'achieved' : alliancesProgress >= 50 ? 'on-track' : 'needs-attention';
   
   // Crescimento desde última eleição
-  const lastElectionVotes = currentUser?.lastElectionVotes || 0;
   const currentVoters = stats?.totalContacts || 0;
   const growthPercentage = lastElectionVotes > 0 
     ? ((currentVoters - lastElectionVotes) / lastElectionVotes * 100).toFixed(1)
