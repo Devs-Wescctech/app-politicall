@@ -749,8 +749,8 @@ function SurveyResults({ campaignId, template, viewCount = 0 }: SurveyResultsPro
 export default function Marketing() {
   const { user } = useCurrentUser();
   const { toast } = useToast();
-  const [showTemplateDialog, setShowTemplateDialog] = useState(false);
-  const [showCampaignDialog, setShowCampaignDialog] = useState(false);
+  const [showWizard, setShowWizard] = useState(false);
+  const [wizardStep, setWizardStep] = useState(1);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<SurveyTemplate | null>(null);
   const [campaignToDelete, setCampaignToDelete] = useState<string | null>(null);
@@ -764,8 +764,8 @@ export default function Marketing() {
       campaignName: "",
       slug: "",
       status: "under_review",
-      startDate: null,
-      endDate: null,
+      startDate: new Date().toISOString(),
+      endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
       targetAudience: null,
       adminReviewerId: null,
       adminNotes: null,
@@ -784,8 +784,9 @@ export default function Marketing() {
     mutationFn: (data: InsertSurveyCampaign) => apiRequest("POST", "/api/survey-campaigns", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/survey-campaigns"] });
-      toast({ title: "Campanha criada com sucesso!" });
-      setShowCampaignDialog(false);
+      toast({ title: "Campanha criada com sucesso e enviada para aprovação!" });
+      setShowWizard(false);
+      setWizardStep(1);
       setSelectedTemplate(null);
       form.reset();
     },
@@ -800,7 +801,8 @@ export default function Marketing() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/survey-campaigns"] });
       toast({ title: "Campanha atualizada com sucesso!" });
-      setShowCampaignDialog(false);
+      setShowWizard(false);
+      setWizardStep(1);
       setEditingCampaign(null);
       form.reset();
     },
@@ -820,35 +822,48 @@ export default function Marketing() {
     },
   });
 
-  const handleTemplateSelect = (template: SurveyTemplate) => {
-    setSelectedTemplate(template);
-    setShowTemplateDialog(false);
-    setShowCampaignDialog(true);
-    form.setValue("templateId", template.id);
+  const handleTemplateSelect = (templateId: string) => {
+    const template = templates?.find(t => t.id === templateId);
+    if (template) {
+      setSelectedTemplate(template);
+      form.setValue("templateId", template.id);
+    }
   };
 
   const handleCreateClick = () => {
     setEditingCampaign(null);
     setSelectedTemplate(null);
-    form.reset();
-    setShowTemplateDialog(true);
+    setWizardStep(1);
+    form.reset({
+      templateId: "",
+      campaignName: "",
+      slug: "",
+      status: "under_review",
+      startDate: new Date().toISOString(),
+      endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      targetAudience: null,
+      adminReviewerId: null,
+      adminNotes: null,
+    });
+    setShowWizard(true);
   };
 
   const handleEditClick = (campaign: CampaignWithTemplate) => {
     setEditingCampaign(campaign);
     setSelectedTemplate(campaign.template || null);
+    setWizardStep(2);
     form.reset({
       templateId: campaign.templateId,
       campaignName: campaign.campaignName,
       slug: campaign.slug,
       status: campaign.status,
-      startDate: campaign.startDate ? campaign.startDate.toString() : null,
-      endDate: campaign.endDate ? campaign.endDate.toString() : null,
+      startDate: campaign.startDate ? campaign.startDate.toString() : new Date().toISOString(),
+      endDate: campaign.endDate ? campaign.endDate.toString() : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
       targetAudience: campaign.targetAudience,
       adminReviewerId: campaign.adminReviewerId,
       adminNotes: campaign.adminNotes,
     });
-    setShowCampaignDialog(true);
+    setShowWizard(true);
   };
 
   const handleDeleteClick = (campaignId: string) => {
@@ -1089,165 +1104,135 @@ export default function Marketing() {
         )}
       </div>
 
-      <Dialog open={showTemplateDialog} onOpenChange={setShowTemplateDialog}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Selecione um Template de Pesquisa</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            {templatesLoading ? (
-              <div className="space-y-4">
-                {[1, 2, 3].map((i) => (
-                  <Skeleton key={i} className="h-24 rounded-lg" />
-                ))}
-              </div>
-            ) : templates && templates.length > 0 ? (
-              templates.map((template) => (
-                <Card
-                  key={template.id}
-                  className="cursor-pointer hover-elevate active-elevate-2"
-                  onClick={() => handleTemplateSelect(template)}
-                  data-testid={`card-template-${template.id}`}
-                >
-                  <CardHeader>
-                    <CardTitle className="text-lg" data-testid={`text-template-name-${template.id}`}>
-                      {template.name}
-                    </CardTitle>
-                    {template.description && (
-                      <CardDescription data-testid={`text-template-description-${template.id}`}>
-                        {template.description}
-                      </CardDescription>
-                    )}
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium">Pergunta:</Label>
-                      <p className="text-sm" data-testid={`text-template-question-${template.id}`}>
-                        {template.questionText}
-                      </p>
-                      {template.options && template.options.length > 0 && (
-                        <div className="mt-2">
-                          <Label className="text-sm font-medium">Opções:</Label>
-                          <ul className="list-disc list-inside text-sm text-muted-foreground">
-                            {template.options.map((option, idx) => (
-                              <li key={idx}>{option}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
-            ) : (
-              <p className="text-center text-muted-foreground py-8">
-                Nenhum template disponível
-              </p>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={showCampaignDialog} onOpenChange={setShowCampaignDialog}>
-        <DialogContent className="max-w-md max-h-[90vh] flex flex-col">
-          <DialogHeader className="flex-shrink-0">
-            <DialogTitle>
+      <Dialog open={showWizard} onOpenChange={setShowWizard}>
+        <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col p-0">
+          {/* Fixed Header */}
+          <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
+            <DialogTitle className="text-2xl">
               {editingCampaign ? "Editar Campanha" : "Nova Campanha de Pesquisa"}
             </DialogTitle>
-          </DialogHeader>
-          <div className="flex-1 overflow-y-auto">
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-                {selectedTemplate && (
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium">Template Selecionado:</Label>
-                    <Card>
-                      <CardContent className="pt-4">
-                        <p className="font-medium" data-testid="text-selected-template-name">
-                          {selectedTemplate.name}
-                        </p>
-                        <p className="text-sm text-muted-foreground" data-testid="text-selected-template-question">
-                          {selectedTemplate.questionText}
-                        </p>
-                      </CardContent>
-                    </Card>
+            <div className="flex items-center gap-2 mt-4">
+              {[1, 2, 3].map((step) => (
+                <div key={step} className="flex items-center flex-1">
+                  <div className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium ${
+                    wizardStep === step
+                      ? "bg-[#40E0D0] text-white"
+                      : wizardStep > step
+                      ? "bg-green-500 text-white"
+                      : "bg-muted text-muted-foreground"
+                  }`}>
+                    {wizardStep > step ? "✓" : step}
                   </div>
-                )}
+                  <div className={`flex-1 h-1 mx-2 ${step < 3 ? (wizardStep > step ? "bg-green-500" : "bg-muted") : "hidden"}`} />
+                </div>
+              ))}
+            </div>
+          </DialogHeader>
 
-                <FormField
-                  control={form.control}
-                  name="campaignName"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Nome da Campanha *</FormLabel>
-                      <FormControl>
-                        <Input
-                          {...field}
-                          placeholder="Ex: Pesquisa de Opinião Pública 2025"
-                          onChange={(e) => handleCampaignNameChange(e.target.value)}
-                          data-testid="input-campaign-name"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+          {/* Scrollable Content */}
+          <div className="flex-1 overflow-y-auto px-6 py-6">
+            <Form {...form}>
+              {/* Step 1: Selecionar Template */}
+              {wizardStep === 1 && !editingCampaign && (
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="text-lg font-semibold mb-1">Escolha o Tipo de Pesquisa</h3>
+                    <p className="text-sm text-muted-foreground">Selecione abaixo o template que melhor se adequa ao objetivo da sua pesquisa</p>
+                  </div>
 
-                <FormField
-                  control={form.control}
-                  name="slug"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Slug (URL) *</FormLabel>
-                      <FormControl>
-                        <Input
-                          {...field}
-                          placeholder="pesquisa-opiniao-publica-2025"
-                          data-testid="input-slug"
-                        />
-                      </FormControl>
-                      <FormDescription>
-                        URL amigável para a página de pesquisa
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="targetAudience"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Público-Alvo (Opcional)</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          {...field}
-                          value={field.value || ""}
-                          placeholder="Descreva o público-alvo desta pesquisa..."
-                          className="min-h-20"
-                          data-testid="textarea-target-audience"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
-                    name="startDate"
+                    name="templateId"
+                    render={({ field }) => (
+                      <FormItem className="space-y-3">
+                        <FormControl>
+                          <div className="space-y-2">
+                            {templatesLoading ? (
+                              <div className="space-y-2">
+                                {[1, 2, 3].map((i) => (
+                                  <Skeleton key={i} className="h-12 w-full" />
+                                ))}
+                              </div>
+                            ) : templates && templates.length > 0 ? (
+                              templates.map((template) => (
+                                <label
+                                  key={template.id}
+                                  className={`flex items-center gap-3 p-4 border rounded-lg cursor-pointer transition-all hover-elevate ${
+                                    field.value === template.id ? "border-[#40E0D0] bg-[#40E0D0]/5" : "border-border"
+                                  }`}
+                                  onClick={() => handleTemplateSelect(template.id)}
+                                  data-testid={`radio-template-${template.id}`}
+                                >
+                                  <input
+                                    type="radio"
+                                    className="w-4 h-4 text-[#40E0D0]"
+                                    checked={field.value === template.id}
+                                    onChange={() => handleTemplateSelect(template.id)}
+                                  />
+                                  <div className="flex-1">
+                                    <p className="font-medium">{template.name}</p>
+                                    {template.description && (
+                                      <p className="text-sm text-muted-foreground mt-0.5">{template.description}</p>
+                                    )}
+                                  </div>
+                                </label>
+                              ))
+                            ) : (
+                              <p className="text-center text-muted-foreground py-8">Nenhum template disponível</p>
+                            )}
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {selectedTemplate && (
+                    <Card className="bg-muted/50">
+                      <CardHeader>
+                        <CardTitle className="text-base">Preview do Template</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-2">
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Pergunta Principal:</Label>
+                          <p className="text-sm mt-1">{selectedTemplate.questionText}</p>
+                        </div>
+                        {selectedTemplate.options && selectedTemplate.options.length > 0 && (
+                          <div>
+                            <Label className="text-xs text-muted-foreground">Opções de Resposta:</Label>
+                            <ul className="list-disc list-inside text-sm mt-1 space-y-0.5">
+                              {selectedTemplate.options.map((option, idx) => (
+                                <li key={idx}>{option}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
+              )}
+
+              {/* Step 2: Configurar Campanha */}
+              {wizardStep === 2 && (
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="text-lg font-semibold mb-1">Configuração da Campanha</h3>
+                    <p className="text-sm text-muted-foreground">Defina os detalhes da sua pesquisa</p>
+                  </div>
+
+                  <FormField
+                    control={form.control}
+                    name="campaignName"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Data de Início</FormLabel>
+                        <FormLabel>Nome da Campanha *</FormLabel>
                         <FormControl>
                           <Input
-                            type="date"
                             {...field}
-                            value={field.value ? new Date(field.value).toISOString().split('T')[0] : ""}
-                            onChange={(e) => field.onChange(e.target.value ? new Date(e.target.value) : null)}
-                            data-testid="input-start-date"
+                            placeholder="Ex: Pesquisa de Opinião Pública 2025"
+                            onChange={(e) => handleCampaignNameChange(e.target.value)}
+                            data-testid="input-campaign-name"
                           />
                         </FormControl>
                         <FormMessage />
@@ -1257,17 +1242,38 @@ export default function Marketing() {
 
                   <FormField
                     control={form.control}
-                    name="endDate"
+                    name="slug"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Data de Término</FormLabel>
+                        <FormLabel>Slug (URL) *</FormLabel>
                         <FormControl>
                           <Input
-                            type="date"
                             {...field}
-                            value={field.value ? new Date(field.value).toISOString().split('T')[0] : ""}
-                            onChange={(e) => field.onChange(e.target.value ? new Date(e.target.value) : null)}
-                            data-testid="input-end-date"
+                            placeholder="pesquisa-opiniao-publica-2025"
+                            data-testid="input-slug"
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          URL amigável para a página de pesquisa: politicall.com.br/pesquisa/{field.value || "..."}
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="targetAudience"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Público-Alvo (Opcional)</FormLabel>
+                        <FormControl>
+                          <Textarea
+                            {...field}
+                            value={field.value || ""}
+                            placeholder="Ex: Eleitores da região metropolitana, faixa etária 35+"
+                            className="min-h-20"
+                            data-testid="textarea-target-audience"
                           />
                         </FormControl>
                         <FormMessage />
@@ -1275,29 +1281,136 @@ export default function Marketing() {
                     )}
                   />
                 </div>
-              </form>
+              )}
+
+              {/* Step 3: Revisar e Confirmar */}
+              {wizardStep === 3 && (
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="text-lg font-semibold mb-1">Revisão e Confirmação</h3>
+                    <p className="text-sm text-muted-foreground">Revise os detalhes antes de criar sua campanha</p>
+                  </div>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base">Resumo da Campanha</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Template:</Label>
+                        <p className="text-sm font-medium">{selectedTemplate?.name}</p>
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Nome:</Label>
+                        <p className="text-sm font-medium">{form.watch("campaignName")}</p>
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">URL:</Label>
+                        <p className="text-sm font-mono">politicall.com.br/pesquisa/{form.watch("slug")}</p>
+                      </div>
+                      {form.watch("targetAudience") && (
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Público-Alvo:</Label>
+                          <p className="text-sm">{form.watch("targetAudience")}</p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border-[#40E0D0] bg-[#40E0D0]/5">
+                    <CardHeader>
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <CheckCircle className="w-5 h-5 text-[#40E0D0]" />
+                        Detalhes da Pesquisa
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-sm">Prazo de Coleta:</Label>
+                        <p className="text-sm font-semibold">7 dias corridos</p>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <Label className="text-sm">Investimento:</Label>
+                        <p className="text-lg font-bold text-[#40E0D0]">R$ 1.250,00</p>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Valor será cobrado na próxima fatura do seu plano
+                      </p>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="bg-muted/30">
+                    <CardHeader>
+                      <CardTitle className="text-base">Conformidade e Distribuição</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2 text-sm">
+                      <p>
+                        ✓ Esta campanha está em <strong>conformidade com as diretrizes do TSE</strong> (Tribunal Superior Eleitoral)
+                      </p>
+                      <p>
+                        ✓ Respeita as <strong>políticas de tráfego pago do Google Ads</strong>
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-3">
+                        As respostas serão coletadas através de distribuição paga no Google Ads, 
+                        garantindo alcance qualificado e conformidade com todas as regulamentações aplicáveis.
+                      </p>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
             </Form>
           </div>
-          <DialogFooter className="flex-shrink-0">
+
+          {/* Fixed Footer */}
+          <DialogFooter className="flex-shrink-0 px-6 py-4 border-t flex items-center justify-between">
             <Button
+              type="button"
               variant="outline"
-              onClick={() => setShowCampaignDialog(false)}
+              onClick={() => {
+                if (wizardStep === 1) {
+                  setShowWizard(false);
+                  setWizardStep(1);
+                } else {
+                  setWizardStep(wizardStep - 1);
+                }
+              }}
               className="rounded-full"
-              data-testid="button-cancel-campaign"
+              data-testid="button-wizard-back"
             >
-              Cancelar
+              {wizardStep === 1 ? "Cancelar" : "Voltar"}
             </Button>
+
             <Button
-              onClick={form.handleSubmit(handleSubmit)}
-              disabled={createMutation.isPending || updateMutation.isPending}
+              type="button"
+              onClick={async () => {
+                if (wizardStep === 1) {
+                  const isValid = await form.trigger("templateId");
+                  if (isValid && form.watch("templateId")) {
+                    setWizardStep(2);
+                  }
+                } else if (wizardStep === 2) {
+                  const isValid = await form.trigger(["campaignName", "slug"]);
+                  if (isValid) {
+                    setWizardStep(3);
+                  }
+                } else if (wizardStep === 3) {
+                  form.handleSubmit(handleSubmit)();
+                }
+              }}
+              disabled={
+                (wizardStep === 1 && !form.watch("templateId")) ||
+                (wizardStep === 3 && (createMutation.isPending || updateMutation.isPending))
+              }
               className="rounded-full bg-[#40E0D0] hover:bg-[#48D1CC] text-white"
-              data-testid="button-submit-campaign"
+              data-testid="button-wizard-next"
             >
-              {createMutation.isPending || updateMutation.isPending
-                ? "Salvando..."
-                : editingCampaign
-                ? "Atualizar Campanha"
-                : "Criar Campanha"}
+              {wizardStep === 3
+                ? createMutation.isPending || updateMutation.isPending
+                  ? "Criando..."
+                  : editingCampaign
+                  ? "Atualizar Campanha"
+                  : "Criar e Enviar para Aprovação"
+                : "Próximo"}
             </Button>
           </DialogFooter>
         </DialogContent>
