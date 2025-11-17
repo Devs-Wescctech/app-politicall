@@ -848,6 +848,7 @@ export default function Marketing() {
       status: "under_review",
       startDate: new Date().toISOString(),
       endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      region: null,
       targetAudience: null,
       adminReviewerId: null,
       adminNotes: null,
@@ -866,6 +867,7 @@ export default function Marketing() {
       status: campaign.status,
       startDate: campaign.startDate ? campaign.startDate.toString() : new Date().toISOString(),
       endDate: campaign.endDate ? campaign.endDate.toString() : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      region: campaign.region,
       targetAudience: campaign.targetAudience,
       adminReviewerId: campaign.adminReviewerId,
       adminNotes: campaign.adminNotes,
@@ -1112,7 +1114,7 @@ export default function Marketing() {
               {editingCampaign ? "Editar Campanha" : "Pesquisa Mercadológica"}
             </DialogTitle>
             <div className="flex items-center gap-2 mt-4">
-              {[1, 2, 3].map((step) => (
+              {[1, 2, 3, 4].map((step) => (
                 <div key={step} className="flex items-center flex-1">
                   <div className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium ${
                     wizardStep === step
@@ -1123,7 +1125,7 @@ export default function Marketing() {
                   }`}>
                     {wizardStep > step ? "✓" : step}
                   </div>
-                  <div className={`flex-1 h-1 mx-2 ${step < 3 ? (wizardStep > step ? "bg-green-500" : "bg-muted") : "hidden"}`} />
+                  <div className={`flex-1 h-1 mx-2 ${step < 4 ? (wizardStep > step ? "bg-green-500" : "bg-muted") : "hidden"}`} />
                 </div>
               ))}
             </div>
@@ -1213,8 +1215,40 @@ export default function Marketing() {
                 </div>
               )}
 
-              {/* Step 2: Configurar Campanha */}
+              {/* Step 2: Selecionar Região */}
               {wizardStep === 2 && (
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="text-lg font-semibold mb-1">Região da Pesquisa</h3>
+                    <p className="text-sm text-muted-foreground">Onde será realizada esta pesquisa mercadológica?</p>
+                  </div>
+
+                  <FormField
+                    control={form.control}
+                    name="region"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Região da Pesquisa *</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            value={field.value || ""}
+                            placeholder="Ex: São Paulo - SP, Belo Horizonte - MG, Rio de Janeiro - RJ"
+                            data-testid="input-region"
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          Especifique a cidade, estado ou região onde a pesquisa será realizada
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              )}
+
+              {/* Step 3: Configurar Campanha */}
+              {wizardStep === 3 && (
                 <div className="space-y-4">
                   <div>
                     <h3 className="text-lg font-semibold mb-1">Informações Adicionais</h3>
@@ -1262,8 +1296,8 @@ export default function Marketing() {
                 </div>
               )}
 
-              {/* Step 3: Revisar e Confirmar */}
-              {wizardStep === 3 && (
+              {/* Step 4: Revisar e Confirmar */}
+              {wizardStep === 4 && (
                 <div className="space-y-4">
                   <div>
                     <h3 className="text-lg font-semibold mb-1">Revisão e Confirmação</h3>
@@ -1286,6 +1320,10 @@ export default function Marketing() {
                       <div>
                         <Label className="text-xs text-muted-foreground">URL:</Label>
                         <p className="text-sm font-mono">politicall.com.br/pesquisa/{form.watch("slug")}</p>
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Região:</Label>
+                        <p className="text-sm font-medium">{form.watch("region")}</p>
                       </div>
                       {form.watch("targetAudience") && (
                         <div>
@@ -1368,20 +1406,26 @@ export default function Marketing() {
                     setWizardStep(2);
                   }
                 } else if (wizardStep === 2) {
-                  // Step 2 has no required fields, just move to step 3
-                  setWizardStep(3);
+                  const isValid = await form.trigger("region");
+                  if (isValid && form.watch("region")) {
+                    setWizardStep(3);
+                  }
                 } else if (wizardStep === 3) {
+                  // Step 3 has no required fields, just move to step 4
+                  setWizardStep(4);
+                } else if (wizardStep === 4) {
                   form.handleSubmit(handleSubmit)();
                 }
               }}
               disabled={
                 (wizardStep === 1 && !form.watch("templateId")) ||
-                (wizardStep === 3 && (createMutation.isPending || updateMutation.isPending))
+                (wizardStep === 2 && !form.watch("region")) ||
+                (wizardStep === 4 && (createMutation.isPending || updateMutation.isPending))
               }
               className="rounded-full bg-[#40E0D0] hover:bg-[#48D1CC] text-white"
               data-testid="button-wizard-next"
             >
-              {wizardStep === 3
+              {wizardStep === 4
                 ? createMutation.isPending || updateMutation.isPending
                   ? "Criando..."
                   : editingCampaign

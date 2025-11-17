@@ -325,6 +325,7 @@ export const surveyCampaigns = pgTable("survey_campaigns", {
   adminNotes: text("admin_notes"),
   startDate: timestamp("start_date"),
   endDate: timestamp("end_date"),
+  region: text("region"), // Region where the survey will be conducted (city, state, etc)
   targetAudience: text("target_audience"), // Optional description of target
   viewCount: integer("view_count").default(0).notNull(), // Track landing page views
   createdAt: timestamp("created_at").defaultNow().notNull(),
