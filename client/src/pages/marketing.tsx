@@ -199,7 +199,7 @@ export default function Marketing() {
         : alliances.filter(a => a.phone).map(a => a.phone!)) : [];
       
       // Remove duplicados usando Set
-      recipients = [...new Set([...voterRecipients, ...allianceRecipients])];
+      recipients = Array.from(new Set([...voterRecipients, ...allianceRecipients]));
     }
     
     setRecipientsText(recipients.join(", "));
@@ -279,7 +279,7 @@ export default function Marketing() {
                       <FormItem>
                         <FormLabel>Assunto *</FormLabel>
                         <FormControl>
-                          <Input placeholder="Assunto do email" data-testid="input-subject" {...field} />
+                          <Input placeholder="Assunto do email" data-testid="input-subject" {...field} value={field.value || ""} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -384,68 +384,6 @@ export default function Marketing() {
             </Form>
           </DialogContent>
         </Dialog>
-      </div>
-
-      <div className="space-y-4">
-        {isLoading ? (
-          [...Array(5)].map((_, i) => <Skeleton key={i} className="h-32 w-full" />)
-        ) : campaigns && campaigns.length > 0 ? (
-          campaigns.map((campaign) => (
-            <Card key={campaign.id} data-testid={`campaign-${campaign.id}`}>
-              <CardHeader>
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 space-y-2">
-                    <div className="flex items-center gap-3 flex-wrap">
-                      <CardTitle className="text-lg">{campaign.name}</CardTitle>
-                      <Badge className={STATUS_CONFIG[campaign.status as keyof typeof STATUS_CONFIG]?.color}>
-                        {STATUS_CONFIG[campaign.status as keyof typeof STATUS_CONFIG]?.label}
-                      </Badge>
-                      <Badge variant="outline">
-                        {campaign.type === "email" ? (
-                          <><Mail className="w-3 h-3 mr-1" /> Email</>
-                        ) : (
-                          <><MessageCircle className="w-3 h-3 mr-1" /> WhatsApp</>
-                        )}
-                      </Badge>
-                    </div>
-                    {campaign.subject && (
-                      <p className="text-sm text-muted-foreground">Assunto: {campaign.subject}</p>
-                    )}
-                  </div>
-                  {campaign.status === "draft" && (
-                    <Button onClick={() => handleSend(campaign.id)} disabled={sendMutation.isPending} data-testid={`button-send-${campaign.id}`}>
-                      <Send className="w-4 h-4 mr-2" />
-                      Enviar Agora
-                    </Button>
-                  )}
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <p className="text-sm line-clamp-2">{campaign.message}</p>
-                <div className="flex items-center gap-6 text-sm text-muted-foreground flex-wrap">
-                  <span>{Array.isArray(campaign.recipients) ? campaign.recipients.length : 0} destinatários</span>
-                  {campaign.scheduledFor && (
-                    <span className="flex items-center gap-1">
-                      <CalendarIcon className="w-4 h-4" />
-                      Agendado para {format(new Date(campaign.scheduledFor), "dd/MM/yyyy HH:mm", { locale: ptBR })}
-                    </span>
-                  )}
-                  {campaign.sentAt && (
-                    <span>
-                      Enviado em {format(new Date(campaign.sentAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}
-                    </span>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          ))
-        ) : (
-          <Card>
-            <CardContent className="p-12 text-center text-muted-foreground">
-              Nenhuma campanha criada. Clique em "Nova Campanha" para começar.
-            </CardContent>
-          </Card>
-        )}
       </div>
     </div>
   );

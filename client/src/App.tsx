@@ -106,7 +106,7 @@ function App() {
               {isAuthenticated() && <AppSidebar />}
               <div className="flex flex-col flex-1 min-w-0">
                 {isAuthenticated() && (
-                  <header className="flex items-center justify-between p-4 border-b bg-background shrink-0">
+                  <header className="sticky top-0 z-50 flex items-center justify-between p-4 border-b bg-background shrink-0">
                     <SidebarTrigger data-testid="button-sidebar-toggle" />
                     <img src={logoUrl} alt="Logo" className="h-8" />
                     <div className="flex items-center gap-2">
