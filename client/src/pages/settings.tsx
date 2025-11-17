@@ -7,12 +7,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { User, Edit } from "lucide-react";
+import { User, Edit, Camera } from "lucide-react";
 import { getAuthUser } from "@/lib/auth";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { PoliticalParty } from "@shared/schema";
@@ -42,12 +42,15 @@ export default function Settings() {
     name: string;
     email: string;
     phone?: string;
+    avatar?: string;
     partyId?: string;
     politicalPosition?: string;
     lastElectionVotes?: number;
   }>({
     queryKey: ["/api/auth/me"],
   });
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<ProfileForm>({
     resolver: zodResolver(profileSchema),
@@ -84,6 +87,63 @@ export default function Settings() {
       });
     },
   });
+
+  const uploadAvatarMutation = useMutation({
+    mutationFn: async (avatar: string) => {
+      return await apiRequest("/api/auth/profile", "PATCH", { avatar });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+      toast({
+        title: "Sucesso",
+        description: "Foto de perfil atualizada",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: error.message || "Erro ao enviar foto",
+      });
+    },
+  });
+
+  const handleAvatarClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Por favor, selecione uma imagem",
+      });
+      return;
+    }
+
+    // Validate file size (max 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "A imagem deve ter no máximo 2MB",
+      });
+      return;
+    }
+
+    // Convert to base64
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const base64 = e.target?.result as string;
+      uploadAvatarMutation.mutate(base64);
+    };
+    reader.readAsDataURL(file);
+  };
 
   const onSubmitProfile = (data: ProfileForm) => {
     updateProfileMutation.mutate(data);
@@ -208,13 +268,36 @@ export default function Settings() {
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex items-center justify-center">
-                <div className="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center">
-                  <User className="w-12 h-12 text-primary" />
+                <div 
+                  className="relative w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center cursor-pointer hover-elevate group"
+                  onClick={handleAvatarClick}
+                  data-testid="avatar-upload"
+                >
+                  {currentUser?.avatar ? (
+                    <img 
+                      src={currentUser.avatar} 
+                      alt="Avatar" 
+                      className="w-full h-full rounded-full object-cover"
+                    />
+                  ) : (
+                    <User className="w-12 h-12 text-primary" />
+                  )}
+                  <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Camera className="w-8 h-8 text-white" />
+                  </div>
                 </div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileChange}
+                  className="hidden"
+                  data-testid="input-avatar"
+                />
               </div>
               <div className="text-center">
-                <p className="font-semibold text-lg">{user?.name}</p>
-                <p className="text-sm text-muted-foreground">{user?.email}</p>
+                <p className="font-semibold text-lg">{currentUser?.name}</p>
+                <p className="text-sm text-muted-foreground">{currentUser?.email}</p>
               </div>
             </CardContent>
           </Card>

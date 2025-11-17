@@ -76,6 +76,7 @@ export const users = pgTable("users", {
   role: text("role").notNull().default("assessor"), // admin, coordenador, assessor
   permissions: jsonb("permissions").$type<UserPermissions>(),
   phone: text("phone"),
+  avatar: text("avatar"), // Base64 encoded image or URL
   partyId: varchar("party_id").references(() => politicalParties.id),
   politicalPosition: text("political_position"),
   lastElectionVotes: integer("last_election_votes"),
@@ -361,6 +362,7 @@ export const insertUserSchema = createInsertSchema(users).pick({
   role: true,
   permissions: true,
   phone: true,
+  avatar: true,
   partyId: true,
   politicalPosition: true,
   lastElectionVotes: true,
@@ -380,6 +382,7 @@ export const insertUserSchema = createInsertSchema(users).pick({
     users: z.boolean(),
   }).optional(),
   phone: z.string().optional(),
+  avatar: z.string().optional(),
   partyId: z.string().optional(),
   politicalPosition: z.string().optional(),
   lastElectionVotes: z.number().int().nonnegative().optional(),
