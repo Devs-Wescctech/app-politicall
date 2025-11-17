@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { setAuthToken, setAuthUser } from "@/lib/auth";
 import { apiRequest } from "@/lib/queryClient";
 import logoUrl from "@assets/logo pol_1763308638963.png";
+import backgroundUrl from "@assets/242_1763395274317.jpg";
 
 export default function Login() {
   const [, setLocation] = useLocation();
@@ -44,8 +45,19 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 to-background p-4">
-      <Card className="w-full max-w-md">
+    <div 
+      className="min-h-screen flex items-center justify-center p-4 relative"
+      style={{
+        backgroundImage: `url(${backgroundUrl})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat'
+      }}
+    >
+      {/* Dark overlay for better readability */}
+      <div className="absolute inset-0 bg-black/50"></div>
+      
+      <Card className="w-full max-w-md relative z-10">
         <CardHeader className="space-y-4 text-center">
           <div className="flex justify-center">
             <img src={logoUrl} alt="Logo" className="h-12" />
