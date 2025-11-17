@@ -120,6 +120,7 @@ export interface IStorage {
   getSurveyCampaigns(userId: string): Promise<SurveyCampaign[]>;
   getAllSurveyCampaigns(): Promise<SurveyCampaign[]>;
   getSurveyCampaign(id: string): Promise<SurveyCampaign | undefined>;
+  getSurveyCampaignBySlug(slug: string): Promise<SurveyCampaign | undefined>;
   createSurveyCampaign(campaign: InsertSurveyCampaign & { userId: string }): Promise<SurveyCampaign>;
   updateSurveyCampaign(id: string, campaign: Partial<InsertSurveyCampaign>): Promise<SurveyCampaign>;
   deleteSurveyCampaign(id: string): Promise<void>;
@@ -684,6 +685,13 @@ export class DatabaseStorage implements IStorage {
     const [campaign] = await db.select()
       .from(surveyCampaigns)
       .where(eq(surveyCampaigns.id, id));
+    return campaign || undefined;
+  }
+
+  async getSurveyCampaignBySlug(slug: string): Promise<SurveyCampaign | undefined> {
+    const [campaign] = await db.select()
+      .from(surveyCampaigns)
+      .where(eq(surveyCampaigns.slug, slug));
     return campaign || undefined;
   }
 

@@ -1578,6 +1578,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get survey campaign by slug for public landing page (PUBLIC - no auth required)
+  app.get("/api/survey/:slug", async (req, res) => {
+    try {
+      const { slug } = req.params;
+      
+      const campaign = await storage.getSurveyCampaignBySlug(slug);
+      
+      if (!campaign) {
+        return res.status(404).json({ error: "Pesquisa não encontrada" });
+      }
+
+      // Only allow access to approved or active campaigns
+      if (campaign.status !== "approved" && campaign.status !== "active") {
+        return res.status(403).json({ error: "Esta pesquisa não está disponível" });
+      }
+
+      const template = await storage.getSurveyTemplate(campaign.templateId);
+      
+      if (!template) {
+        return res.status(404).json({ error: "Template da pesquisa não encontrado" });
+      }
+
+      res.json({
+        campaign: {
+          id: campaign.id,
+          campaignName: campaign.campaignName,
+          slug: campaign.slug,
+          status: campaign.status,
+        },
+        template: {
+          questionText: template.questionText,
+          questionType: template.questionType,
+          options: template.options,
+        }
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Submit survey response (PUBLIC - no auth required, anonymous)
+  app.post("/api/survey/:slug/submit", async (req, res) => {
+    try {
+      const { slug } = req.params;
+      const { responseData } = req.body;
+
+      const campaign = await storage.getSurveyCampaignBySlug(slug);
+      
+      if (!campaign) {
+        return res.status(404).json({ error: "Pesquisa não encontrada" });
+      }
+
+      // Only allow submissions to approved or active campaigns
+      if (campaign.status !== "approved" && campaign.status !== "active") {
+        return res.status(403).json({ error: "Esta pesquisa não está aceitando respostas" });
+      }
+
+      const response = await storage.createSurveyResponse({
+        campaignId: campaign.id,
+        responseData: responseData,
+      });
+
+      res.json({ 
+        success: true, 
+        message: "Resposta enviada com sucesso!",
+        responseId: response.id 
+      });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
   // Get all survey campaigns for user
   app.get("/api/survey-campaigns", authenticateToken, requirePermission("marketing"), async (req: AuthRequest, res) => {
     try {

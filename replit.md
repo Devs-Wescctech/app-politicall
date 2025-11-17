@@ -36,6 +36,7 @@ Preferred communication style: Simple, everyday language.
 - **Notifications System:** In-app notifications with various types and priority levels, stored in a database. Backend API for creation, retrieval, and management. Frontend NotificationBell component with real-time updates and bulk actions. Automatic triggers for urgent demands, demand comments, and upcoming events.
 - **Event Recurrence System:** Events table includes a `recurrence` field (none/daily/weekly/monthly). Backend expands recurring events dynamically for up to 3 months, creating unique occurrences while maintaining the original event as the source of truth. Frontend supports recurrence in forms and displays generated occurrences across views.
 - **Admin Campaign Management:** Admin panel with a tab system ("Todas", "Pendentes", "Aprovadas", "Rejeitadas") for organizing campaigns. Campaign cards display status with color-coded badges. Campaigns remain visible after approval/rejection. User panel synchronizes with admin actions, showing updated campaign statuses.
+- **Public Survey Landing Pages:** Public-facing survey response collection at /survey/:slug. Supports 4 question types (open_text, single_choice, multiple_choice, rating). Anonymous response submission to survey_responses table. GET /api/survey/:slug and POST /api/survey/:slug/submit public endpoints. Only approved/active campaigns accessible. Responsive design with SEO optimization.
 
 ## External Dependencies
 
