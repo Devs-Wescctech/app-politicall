@@ -946,38 +946,6 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section className="py-24 bg-background">
-        <div className="container mx-auto px-4">
-          <div className="max-w-4xl mx-auto text-center">
-            <h2 className="text-4xl md:text-5xl font-bold mb-6" data-testid="text-cta-final-title">
-              Pronto para Transformar Sua Carreira Política?
-            </h2>
-            <p className="text-xl text-muted-foreground mb-8">
-              Junte-se a centenas de políticos que já usam Politicall para vencer eleições e servir melhor seus eleitores.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button
-                size="lg"
-                className="rounded-full text-lg px-8 py-6 h-auto"
-                onClick={() => scrollToSection('contato')}
-                data-testid="button-cta-final"
-              >
-                Solicitar Demonstração Gratuita <ArrowRight className="ml-2 w-5 h-5" />
-              </Button>
-              <Button
-                size="lg"
-                variant="outline"
-                className="rounded-full text-lg px-8 py-6 h-auto"
-                onClick={() => setLocation("/login")}
-                data-testid="button-login-final"
-              >
-                Fazer Login
-              </Button>
-            </div>
-          </div>
-        </div>
-      </section>
-
       <section id="contato" className="py-24 bg-muted/30">
         <div className="container mx-auto px-4">
           <div className="max-w-2xl mx-auto">
