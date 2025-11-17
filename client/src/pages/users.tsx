@@ -15,7 +15,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useCurrentUser } from "@/hooks/use-current-user";
-import { Shield, User as UserIcon, Users, Plus, Settings, Eye, EyeOff } from "lucide-react";
+import { Shield, User as UserIcon, Users, Plus, Settings, Eye, EyeOff, Trash2 } from "lucide-react";
 import {
   Form,
   FormControl,
@@ -51,6 +51,7 @@ export default function UsersManagement() {
   const { toast } = useToast();
   const { isAdmin } = useCurrentUser();
   const [selectedUser, setSelectedUser] = useState<Omit<User, "password"> | null>(null);
+  const [userToDelete, setUserToDelete] = useState<Omit<User, "password"> | null>(null);
   const [newRole, setNewRole] = useState<string>("");
   const [showAddUserDialog, setShowAddUserDialog] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -163,6 +164,27 @@ export default function UsersManagement() {
     },
   });
 
+  const deleteUserMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      return await apiRequest("DELETE", `/api/users/${userId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      setUserToDelete(null);
+      toast({
+        title: "Usuário excluído",
+        description: "O usuário foi removido do sistema com sucesso.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        variant: "destructive",
+        title: "Erro ao excluir usuário",
+        description: error.message || "Não foi possível excluir o usuário",
+      });
+    },
+  });
+
   const handleEditRole = (user: Omit<User, "password">) => {
     setSelectedUser(user);
     setNewRole(user.role);
@@ -245,6 +267,17 @@ export default function UsersManagement() {
                         <CardTitle className="text-base">{user.name}</CardTitle>
                       </div>
                     </div>
+                    {user.role !== 'admin' && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setUserToDelete(user)}
+                        data-testid={`button-delete-user-${user.id}`}
+                        className="rounded-full text-destructive hover:text-destructive"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                 </CardHeader>
                 <CardContent className="p-6 pt-0 space-y-3">
@@ -586,6 +619,46 @@ export default function UsersManagement() {
               </DialogFooter>
             </form>
           </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete User Confirmation Dialog */}
+      <Dialog open={!!userToDelete} onOpenChange={(open) => !open && setUserToDelete(null)}>
+        <DialogContent className="max-w-md" data-testid="dialog-delete-user">
+          <DialogHeader className="pb-4">
+            <DialogTitle>Excluir Usuário</DialogTitle>
+          </DialogHeader>
+          {userToDelete && (
+            <>
+              <div className="py-4">
+                <p className="text-sm text-muted-foreground">
+                  Tem certeza que deseja excluir o usuário <strong>{userToDelete.name}</strong> ({userToDelete.email})?
+                </p>
+                <p className="text-sm text-destructive mt-4">
+                  Esta ação não pode ser desfeita.
+                </p>
+              </div>
+              <DialogFooter className="grid grid-cols-2 gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setUserToDelete(null)}
+                  data-testid="button-cancel-delete"
+                  className="rounded-full w-full"
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={() => deleteUserMutation.mutate(userToDelete.id)}
+                  disabled={deleteUserMutation.isPending}
+                  data-testid="button-confirm-delete"
+                  className="rounded-full w-full"
+                >
+                  {deleteUserMutation.isPending ? "Excluindo..." : "Excluir"}
+                </Button>
+              </DialogFooter>
+            </>
+          )}
         </DialogContent>
       </Dialog>
     </div>

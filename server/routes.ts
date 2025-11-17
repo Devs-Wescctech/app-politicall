@@ -317,6 +317,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Delete user (admin only)
+  app.delete("/api/users/:id", authenticateToken, requireRole("admin"), requirePermission("users"), async (req: AuthRequest, res) => {
+    try {
+      const userId = req.params.id;
+      
+      // Prevent admin from deleting themselves
+      if (userId === req.userId) {
+        return res.status(400).json({ error: "Você não pode excluir sua própria conta" });
+      }
+      
+      // Get user to check if it exists and get role
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: "Usuário não encontrado" });
+      }
+      
+      // Prevent deleting admin users
+      if (user.role === "admin") {
+        return res.status(403).json({ error: "Não é permitido excluir usuários administradores" });
+      }
+      
+      await storage.deleteUser(userId);
+      res.json({ message: "Usuário excluído com sucesso" });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Erro ao excluir usuário" });
+    }
+  });
+
   // ==================== CONTACTS ====================
   
   app.get("/api/contacts", authenticateToken, requirePermission("contacts"), async (req: AuthRequest, res) => {
