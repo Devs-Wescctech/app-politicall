@@ -389,7 +389,7 @@ export default function Alliances() {
             className="rounded-full"
           >
             <Copy className="w-4 h-4 mr-2" />
-            Copiar WhatsApp
+            WhatsApp
           </Button>
 
           <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
