@@ -472,7 +472,7 @@ export default function Marketing() {
                   )}
                 />
                 </div>
-                <DialogFooter className="px-6 py-4 border-t gap-2">
+                <DialogFooter className="px-6 py-4 border-t grid grid-cols-2 gap-2">
                   <Button 
                     type="button" 
                     variant="outline" 
@@ -482,6 +482,7 @@ export default function Marketing() {
                     }}
                     disabled={createMutation.isPending}
                     data-testid="button-save-draft"
+                    className="rounded-full w-full"
                   >
                     Salvar Rascunho
                   </Button>
@@ -490,6 +491,7 @@ export default function Marketing() {
                     onClick={() => form.setValue("status", form.watch("scheduledFor") ? "scheduled" : "draft")}
                     disabled={createMutation.isPending}
                     data-testid="button-save-campaign"
+                    className="rounded-full w-full"
                   >
                     {createMutation.isPending ? "Salvando..." : "Criar Campanha"}
                   </Button>

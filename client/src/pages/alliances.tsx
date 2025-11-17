@@ -593,8 +593,8 @@ export default function Alliances() {
                     )}
                   />
                 </div>
-                <DialogFooter className="px-6 py-4 border-t">
-                  <Button type="submit" disabled={createMutation.isPending} data-testid="button-save-alliance" className="rounded-full">
+                <DialogFooter className="px-6 py-4 border-t grid grid-cols-1 gap-2">
+                  <Button type="submit" disabled={createMutation.isPending} data-testid="button-save-alliance" className="rounded-full w-full">
                     {createMutation.isPending ? "Salvando..." : "Salvar"}
                   </Button>
                 </DialogFooter>
@@ -821,12 +821,12 @@ export default function Alliances() {
               )}
             </div>
           </div>
-          <DialogFooter className="flex gap-2 px-6 py-4 border-t">
+          <DialogFooter className="px-6 py-4 border-t grid grid-cols-2 gap-2">
             <Button
               variant="outline"
               onClick={handleEditClick}
               data-testid="button-edit-alliance"
-              className="rounded-full"
+              className="rounded-full w-full"
             >
               <Edit className="w-4 h-4 mr-2" />
               Editar
@@ -835,7 +835,7 @@ export default function Alliances() {
               variant="destructive"
               onClick={() => selectedAlliance && handleDelete(selectedAlliance.id)}
               data-testid="button-delete-alliance"
-              className="rounded-full"
+              className="rounded-full w-full"
             >
               <Trash2 className="w-4 h-4 mr-2" />
               Excluir
@@ -1016,8 +1016,8 @@ export default function Alliances() {
                   )}
                 />
               </div>
-              <DialogFooter className="px-6 py-4 border-t">
-                <Button type="submit" disabled={updateMutation.isPending} data-testid="button-update-alliance" className="rounded-full">
+              <DialogFooter className="px-6 py-4 border-t grid grid-cols-1 gap-2">
+                <Button type="submit" disabled={updateMutation.isPending} data-testid="button-update-alliance" className="rounded-full w-full">
                   {updateMutation.isPending ? "Atualizando..." : "Atualizar"}
                 </Button>
               </DialogFooter>

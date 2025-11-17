@@ -350,8 +350,8 @@ export default function Contacts() {
                     )}
                   />
                 </div>
-                <DialogFooter className="px-6 py-4 border-t">
-                  <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending} data-testid="button-save-contact" className="rounded-full">
+                <DialogFooter className="px-6 py-4 border-t grid grid-cols-1 gap-2">
+                  <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending} data-testid="button-save-contact" className="rounded-full w-full">
                     {(createMutation.isPending || updateMutation.isPending) ? "Salvando..." : "Salvar"}
                   </Button>
                 </DialogFooter>

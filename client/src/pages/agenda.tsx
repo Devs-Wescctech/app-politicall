@@ -580,8 +580,8 @@ export default function Agenda() {
                     />
                   )}
                   </div>
-                  <DialogFooter className="px-6 py-4 border-t">
-                    <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending} data-testid="button-save-event">
+                  <DialogFooter className="px-6 py-4 border-t grid grid-cols-1 gap-2">
+                    <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending} data-testid="button-save-event" className="rounded-full w-full">
                       {(createMutation.isPending || updateMutation.isPending) ? "Salvando..." : "Salvar"}
                     </Button>
                   </DialogFooter>

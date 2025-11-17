@@ -950,7 +950,7 @@ export default function AiAttendance() {
                 )}
               />
 
-              <DialogFooter>
+              <DialogFooter className="px-6 py-4 border-t grid grid-cols-2 gap-2">
                 <Button 
                   type="button" 
                   variant="outline" 
@@ -959,7 +959,7 @@ export default function AiAttendance() {
                     setEditingTraining(null);
                     trainingForm.reset();
                   }}
-                  className="rounded-full"
+                  className="rounded-full w-full"
                   data-testid="button-cancel-training"
                 >
                   <X className="w-4 h-4 mr-2" />
@@ -967,7 +967,7 @@ export default function AiAttendance() {
                 </Button>
                 <Button 
                   type="submit" 
-                  className="rounded-full"
+                  className="rounded-full w-full"
                   disabled={createTrainingMutation.isPending || updateTrainingMutation.isPending}
                   data-testid="button-save-training"
                 >
@@ -1068,8 +1068,8 @@ export default function AiAttendance() {
                     )}
                   />
                 </div>
-                <DialogFooter>
-                  <Button type="submit" className="rounded-full" data-testid="button-save-fb-config">
+                <DialogFooter className="px-6 py-4 border-t grid grid-cols-1 gap-2">
+                  <Button type="submit" className="rounded-full w-full" data-testid="button-save-fb-config">
                     Salvar Configuração
                   </Button>
                 </DialogFooter>

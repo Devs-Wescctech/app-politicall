@@ -366,12 +366,12 @@ export default function UsersManagement() {
                   </ul>
                 </div>
               </div>
-              <DialogFooter className="px-6 py-4 border-t">
+              <DialogFooter className="px-6 py-4 border-t grid grid-cols-2 gap-2">
                 <Button 
                   variant="outline" 
                   onClick={() => setSelectedUser(null)} 
                   data-testid="button-cancel"
-                  className="rounded-full"
+                  className="rounded-full w-full"
                 >
                   Cancelar
                 </Button>
@@ -379,7 +379,7 @@ export default function UsersManagement() {
                   onClick={handleSaveRole}
                   disabled={!newRole || updateRoleMutation.isPending}
                   data-testid="button-save-role"
-                  className="rounded-full"
+                  className="rounded-full w-full"
                 >
                   {updateRoleMutation.isPending ? "Salvando..." : "Salvar"}
                 </Button>
@@ -560,7 +560,7 @@ export default function UsersManagement() {
                 </div>
               </div>
               
-              <DialogFooter className="px-6 py-4 border-t">
+              <DialogFooter className="px-6 py-4 border-t grid grid-cols-2 gap-2">
                 <Button
                   type="button"
                   variant="outline"
@@ -571,7 +571,7 @@ export default function UsersManagement() {
                     setShowConfirmPassword(false);
                   }}
                   data-testid="button-cancel-add-user"
-                  className="rounded-full"
+                  className="rounded-full w-full"
                 >
                   Cancelar
                 </Button>
@@ -579,7 +579,7 @@ export default function UsersManagement() {
                   type="submit"
                   disabled={createUserMutation.isPending}
                   data-testid="button-submit-add-user"
-                  className="rounded-full"
+                  className="rounded-full w-full"
                 >
                   {createUserMutation.isPending ? "Criando..." : "Criar Usuário"}
                 </Button>

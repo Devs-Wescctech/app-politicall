@@ -487,8 +487,8 @@ export default function Demands() {
                   )}
                 />
                 </div>
-                <DialogFooter className="px-6 py-4 border-t">
-                  <Button type="submit" disabled={createMutation.isPending} data-testid="button-save-demand">
+                <DialogFooter className="px-6 py-4 border-t grid grid-cols-1 gap-2">
+                  <Button type="submit" disabled={createMutation.isPending} data-testid="button-save-demand" className="rounded-full w-full">
                     {createMutation.isPending ? "Salvando..." : "Salvar"}
                   </Button>
                 </DialogFooter>
