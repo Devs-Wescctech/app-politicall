@@ -17,6 +17,9 @@ app.use(express.json({
 }));
 app.use(express.urlencoded({ limit: '50mb', extended: false }));
 
+// Serve uploaded assets
+app.use('/assets', express.static('attached_assets'));
+
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
