@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { 
   type AiConfiguration, 
@@ -20,9 +20,10 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Settings, CheckCircle2, XCircle, Plus, Edit, Trash2, Save, X } from "lucide-react";
+import { Settings, CheckCircle2, XCircle, Plus, Edit, Trash2, Save, X, AlertCircle, HelpCircle, RefreshCw } from "lucide-react";
 import { SiFacebook, SiInstagram, SiX, SiWhatsapp } from "react-icons/si";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -70,6 +71,13 @@ export default function AiAttendance() {
 
   const { data: responseTemplates = [], isLoading: loadingTemplates } = useQuery<AiResponseTemplate[]>({
     queryKey: ["/api/ai-response-templates"],
+  });
+
+  // API Status Query
+  const { data: apiStatus, isLoading: loadingStatus } = useQuery({
+    queryKey: ['/api/ai-config/openai-status'],
+    enabled: !!config?.openaiApiKey,
+    refetchInterval: false, // Don't auto-refresh
   });
 
   // Forms
@@ -148,6 +156,17 @@ export default function AiAttendance() {
     },
   });
 
+  // Auto-check API status on page load if last check was > 15 minutes ago
+  useEffect(() => {
+    if (config?.openaiApiKey && apiStatus?.checkedAt) {
+      const lastCheck = new Date(apiStatus.checkedAt);
+      const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
+      if (lastCheck < fifteenMinutesAgo) {
+        testApiStatusMutation.mutate();
+      }
+    }
+  }, [config?.openaiApiKey]);
+
   // Mutations
   const updateConfigMutation = useMutation({
     mutationFn: (data: any) => apiRequest("POST", "/api/ai-config", data),
@@ -166,6 +185,15 @@ export default function AiAttendance() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/ai-config"] });
       toast({ title: "Modo alterado com sucesso!" });
+    },
+  });
+
+  // Test API Status Mutation
+  const testApiStatusMutation = useMutation({
+    mutationFn: () => apiRequest("POST", "/api/ai-config/test-openai-status"),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/ai-config/openai-status'] });
+      toast({ title: data.message });
     },
   });
 
@@ -444,13 +472,63 @@ export default function AiAttendance() {
                         <>OpenAI</>
                       )}
                     </p>
+                    {config?.hasCustomKey && apiStatus?.checkedAt && (
+                      <p className="text-xs text-muted-foreground">
+                        Última verificação: {format(new Date(apiStatus.checkedAt), "dd/MM HH:mm", { locale: ptBR })}
+                      </p>
+                    )}
                   </div>
-                  {config?.hasCustomKey && (
-                    <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-                      <CheckCircle2 className="w-3 h-3 mr-1" />
-                      Configurada
-                    </Badge>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {config?.hasCustomKey ? (
+                      <>
+                        {loadingStatus || testApiStatusMutation.isPending ? (
+                          <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
+                            <Settings className="w-3 h-3 mr-1 animate-spin" />
+                            Verificando...
+                          </Badge>
+                        ) : apiStatus?.status === 'active' ? (
+                          <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                            <CheckCircle2 className="w-3 h-3 mr-1" />
+                            Ativa
+                          </Badge>
+                        ) : apiStatus?.status === 'error' ? (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Badge className="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
+                                  <AlertCircle className="w-3 h-3 mr-1" />
+                                  Erro
+                                </Badge>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>{apiStatus?.message || 'Erro desconhecido'}</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        ) : (
+                          <Badge variant="secondary">
+                            <HelpCircle className="w-3 h-3 mr-1" />
+                            Desconhecido
+                          </Badge>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => testApiStatusMutation.mutate()}
+                          disabled={testApiStatusMutation.isPending}
+                          className="rounded-full"
+                          data-testid="button-test-api-status"
+                        >
+                          <RefreshCw className={`w-3 h-3 ${testApiStatusMutation.isPending ? 'animate-spin' : ''}`} />
+                        </Button>
+                      </>
+                    ) : (
+                      <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                        <CheckCircle2 className="w-3 h-3 mr-1" />
+                        Integração Replit
+                      </Badge>
+                    )}
+                  </div>
                 </div>
                 
                 <div className="space-y-4">

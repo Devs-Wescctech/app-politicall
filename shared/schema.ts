@@ -139,6 +139,10 @@ export const aiConfigurations = pgTable("ai_configurations", {
   openaiApiKey: text("openai_api_key"),
   openaiApiKeyLast4: text("openai_api_key_last4"),
   openaiApiKeyUpdatedAt: timestamp("openai_api_key_updated_at"),
+  // OpenAI API status fields
+  openaiApiStatus: text("openai_api_status").default("unknown"), // unknown, active, error
+  openaiApiStatusMessage: text("openai_api_status_message"), // error message if status is error
+  openaiApiStatusCheckedAt: timestamp("openai_api_status_checked_at"), // last check timestamp
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 

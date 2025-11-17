@@ -15,6 +15,22 @@ const defaultOpenai = aiBaseUrl && aiApiKey ? new OpenAI({
   apiKey: aiApiKey
 }) : null;
 
+export async function testOpenAiApiKey(apiKey: string): Promise<{ success: boolean; message: string }> {
+  try {
+    const testClient = new OpenAI({ apiKey });
+    await testClient.models.list(); // Cheap API call to test the key
+    return { success: true, message: 'API key válida e ativa' };
+  } catch (error: any) {
+    if (error.status === 401) {
+      return { success: false, message: 'Chave API inválida' };
+    }
+    if (error.status === 429) {
+      return { success: false, message: 'Limite de requisições excedido' };
+    }
+    return { success: false, message: error.message || 'Erro ao verificar API key' };
+  }
+}
+
 export async function generateAiResponse(
   userMessage: string, 
   postContent: string | null, 

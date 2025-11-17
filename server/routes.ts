@@ -7,7 +7,7 @@ import { insertUserSchema, loginSchema, insertContactSchema, insertPoliticalAlli
 import { db } from "./db";
 import { politicalParties, politicalAlliances } from "@shared/schema";
 import { sql, eq } from "drizzle-orm";
-import { generateAiResponse } from "./openai";
+import { generateAiResponse, testOpenAiApiKey } from "./openai";
 import { requireRole } from "./authorization";
 import { z } from "zod";
 
@@ -642,13 +642,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Store the encrypted API key
       await storage.setOpenAiApiKey(req.userId!, apiKey);
       
+      // Test the API key and update status
+      const testResult = await testOpenAiApiKey(apiKey);
+      const status = testResult.success ? 'active' : 'error';
+      await storage.updateOpenAiApiStatus(req.userId!, status, testResult.message);
+      
       // Get updated config to return
       const config = await storage.getAiConfig(req.userId!);
       
       res.json({ 
         success: true,
-        message: "Chave API configurada com sucesso",
-        openaiApiKeyLast4: config?.openaiApiKeyLast4
+        message: testResult.success ? "Chave API configurada e validada com sucesso" : "Chave API configurada mas com erro",
+        openaiApiKeyLast4: config?.openaiApiKeyLast4,
+        status,
+        statusMessage: testResult.message
       });
     } catch (error: any) {
       console.error("Error setting OpenAI API key:", error);
@@ -662,6 +669,101 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true, message: "Chave API removida com sucesso" });
     } catch (error: any) {
       res.status(500).json({ error: "Erro ao remover chave API" });
+    }
+  });
+
+  // GET OpenAI API Status
+  app.get("/api/ai-config/openai-status", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const config = await storage.getAiConfig(req.userId!);
+      
+      // Check if using custom key or Replit integration
+      const hasCustomKey = !!config?.openaiApiKey;
+      
+      if (!hasCustomKey) {
+        // Using Replit AI Integration
+        return res.json({
+          status: 'active',
+          message: 'Usando Integração Replit AI',
+          hasCustomKey: false,
+          checkedAt: new Date()
+        });
+      }
+      
+      // Return stored status for custom key
+      res.json({
+        status: config.openaiApiStatus || 'unknown',
+        message: config.openaiApiStatusMessage || null,
+        hasCustomKey: true,
+        checkedAt: config.openaiApiStatusCheckedAt || null
+      });
+    } catch (error: any) {
+      console.error("Error getting OpenAI status:", error);
+      res.status(500).json({ error: "Erro ao obter status da API" });
+    }
+  });
+
+  // POST Test OpenAI API Status
+  app.post("/api/ai-config/test-openai-status", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const config = await storage.getAiConfig(req.userId!);
+      
+      // Check if using custom key or Replit integration
+      const hasCustomKey = !!config?.openaiApiKey;
+      
+      if (!hasCustomKey) {
+        // Using Replit AI Integration - always active
+        return res.json({
+          status: 'active',
+          message: 'Usando Integração Replit AI',
+          hasCustomKey: false,
+          checkedAt: new Date()
+        });
+      }
+      
+      // Test custom API key
+      const apiKey = await storage.getDecryptedApiKey(req.userId!);
+      
+      if (!apiKey) {
+        const status = 'error';
+        const message = 'Chave API não encontrada';
+        await storage.updateOpenAiApiStatus(req.userId!, status, message);
+        
+        return res.json({
+          status,
+          message,
+          hasCustomKey: true,
+          checkedAt: new Date()
+        });
+      }
+      
+      // Test the API key
+      const testResult = await testOpenAiApiKey(apiKey);
+      const status = testResult.success ? 'active' : 'error';
+      const checkedAt = new Date();
+      
+      // Update status in database
+      await storage.updateOpenAiApiStatus(req.userId!, status, testResult.message, checkedAt);
+      
+      res.json({
+        status,
+        message: testResult.message,
+        hasCustomKey: true,
+        checkedAt
+      });
+    } catch (error: any) {
+      console.error("Error testing OpenAI API:", error);
+      
+      // Update status to error
+      const errorMessage = "Erro ao testar API";
+      await storage.updateOpenAiApiStatus(req.userId!, 'error', errorMessage);
+      
+      res.status(500).json({ 
+        status: 'error',
+        message: errorMessage,
+        hasCustomKey: true,
+        checkedAt: new Date()
+      });
     }
   });
 

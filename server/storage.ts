@@ -65,6 +65,7 @@ export interface IStorage {
   setOpenAiApiKey(userId: string, apiKey: string): Promise<void>;
   getDecryptedApiKey(userId: string): Promise<string | null>;
   deleteOpenAiApiKey(userId: string): Promise<void>;
+  updateOpenAiApiStatus(userId: string, status: string, message?: string | null, checkedAt?: Date): Promise<void>;
 
   // AI Conversations
   getAiConversations(userId: string): Promise<AiConversation[]>;
@@ -400,6 +401,31 @@ export class DatabaseStorage implements IStorage {
           updatedAt: new Date()
         })
         .where(eq(aiConfigurations.userId, userId));
+    }
+  }
+
+  async updateOpenAiApiStatus(userId: string, status: string, message?: string | null, checkedAt?: Date): Promise<void> {
+    const existing = await this.getAiConfig(userId);
+    
+    if (existing) {
+      await db.update(aiConfigurations)
+        .set({
+          openaiApiStatus: status,
+          openaiApiStatusMessage: message || null,
+          openaiApiStatusCheckedAt: checkedAt || new Date(),
+          updatedAt: new Date()
+        })
+        .where(eq(aiConfigurations.userId, userId));
+    } else {
+      // Create a new config if it doesn't exist
+      await db.insert(aiConfigurations)
+        .values({
+          userId,
+          mode: "compliance",
+          openaiApiStatus: status,
+          openaiApiStatusMessage: message || null,
+          openaiApiStatusCheckedAt: checkedAt || new Date()
+        });
     }
   }
 
