@@ -296,6 +296,40 @@ async function seedSurveyTemplates() {
   }
 }
 
+// Seed default admin user
+async function seedAdminUser() {
+  try {
+    const adminEmail = 'adm@politicall.com.br';
+    
+    const existingAdmin = await storage.getUserByEmail(adminEmail);
+    if (existingAdmin) {
+      const hashedPassword = await bcrypt.hash('admin123', 10);
+      await db.update(users).set({ password: hashedPassword }).where(eq(users.email, adminEmail));
+      console.log("✓ Admin user password updated");
+      return;
+    }
+    
+    const hashedPassword = await bcrypt.hash('admin123', 10);
+    await db.execute(sql`
+      INSERT INTO users (id, email, name, password, role, political_position, permissions, created_at)
+      VALUES (
+        'd0476e06-f1b0-4204-8280-111fa6478fc9',
+        ${adminEmail},
+        'Carlos Nedel',
+        ${hashedPassword},
+        'admin',
+        'Vereador',
+        ${JSON.stringify(DEFAULT_PERMISSIONS.admin)}::jsonb,
+        NOW()
+      )
+    `);
+    
+    console.log("✓ Admin user created");
+  } catch (error) {
+    console.error("Error seeding admin user:", error);
+  }
+}
+
 // Seed test marketing campaign for demonstration
 async function seedTestCampaign() {
   try {
@@ -335,6 +369,9 @@ async function seedTestCampaign() {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Seed admin user on startup
+  await seedAdminUser();
+  
   // Seed political parties on startup
   await seedPoliticalParties();
   
