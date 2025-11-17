@@ -1374,6 +1374,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get campaign assets/images
+  app.get("/api/google-ads-campaigns/:id/assets", authenticateToken, requirePermission("marketing"), async (req: AuthRequest, res) => {
+    try {
+      const assets = await storage.getCampaignAssets(req.params.id);
+      res.json(assets);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Upload campaign image (base64)
   app.post("/api/google-ads-campaigns/:id/upload-image", authenticateToken, requirePermission("marketing"), async (req: AuthRequest, res) => {
     try {
