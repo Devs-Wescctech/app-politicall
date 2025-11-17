@@ -95,31 +95,19 @@ export default function Settings() {
               <div className="space-y-3 text-sm">
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Eleitores</span>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="secondary">Ilimitado</Badge>
-                    <Badge className="bg-green-500/10 text-green-500 hover:bg-green-500/20">Ativo</Badge>
-                  </div>
+                  <Badge className="bg-green-500/10 text-green-500 hover:bg-green-500/20">Ativo</Badge>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Demandas</span>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="secondary">Ilimitado</Badge>
-                    <Badge className="bg-green-500/10 text-green-500 hover:bg-green-500/20">Ativo</Badge>
-                  </div>
+                  <Badge className="bg-green-500/10 text-green-500 hover:bg-green-500/20">Ativo</Badge>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Eventos</span>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="secondary">Ilimitado</Badge>
-                    <Badge className="bg-green-500/10 text-green-500 hover:bg-green-500/20">Ativo</Badge>
-                  </div>
+                  <Badge className="bg-green-500/10 text-green-500 hover:bg-green-500/20">Ativo</Badge>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Campanhas</span>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="secondary">Ilimitado</Badge>
-                    <Badge className="bg-green-500/10 text-green-500 hover:bg-green-500/20">Ativo</Badge>
-                  </div>
+                  <Badge className="bg-green-500/10 text-green-500 hover:bg-green-500/20">Ativo</Badge>
                 </div>
               </div>
             </CardContent>
