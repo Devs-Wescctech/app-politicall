@@ -556,7 +556,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/admin/survey-campaigns/:id/approve", authenticateAdminToken, async (req: AuthRequest, res) => {
     try {
       const { id } = req.params;
+      const campaign = await storage.getSurveyCampaign(id);
+      
+      if (!campaign) {
+        return res.status(404).json({ error: "Campanha não encontrada" });
+      }
+      
       const updated = await storage.updateSurveyCampaign(id, { status: "approved" });
+      
+      // Create notification for the user
+      await storage.createNotification({
+        userId: campaign.userId,
+        type: "campaign_approved",
+        priority: "high",
+        title: "Pesquisa Aprovada!",
+        message: `Sua pesquisa "${campaign.campaignName}" foi aprovada e já está disponível para coleta de respostas. A pesquisa estará ativa por 7 dias corridos.`,
+        isRead: false,
+      });
+      
       res.json(updated);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -571,10 +588,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       const { adminNotes } = rejectSchema.parse(req.body);
       const { id } = req.params;
+      
+      const campaign = await storage.getSurveyCampaign(id);
+      
+      if (!campaign) {
+        return res.status(404).json({ error: "Campanha não encontrada" });
+      }
+      
+      const rejectionReason = adminNotes || "Rejeitado pelo administrador";
       const updated = await storage.updateSurveyCampaign(id, { 
         status: "rejected",
-        adminNotes: adminNotes || "Rejeitado pelo administrador"
+        adminNotes: rejectionReason
       });
+      
+      // Create notification for the user
+      await storage.createNotification({
+        userId: campaign.userId,
+        type: "campaign_rejected",
+        priority: "high",
+        title: "Pesquisa Não Aprovada",
+        message: `Sua pesquisa "${campaign.campaignName}" não foi aprovada. Motivo: ${rejectionReason}`,
+        isRead: false,
+      });
+      
       res.json(updated);
     } catch (error: any) {
       res.status(400).json({ error: error.message });

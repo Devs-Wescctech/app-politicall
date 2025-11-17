@@ -176,7 +176,10 @@ export function NotificationBell() {
       case "warning":
         return <AlertTriangle className="h-4 w-4 text-orange-500" />;
       case "success":
+      case "campaign_approved":
         return <CheckCircle className="h-4 w-4 text-green-500" />;
+      case "campaign_rejected":
+        return <AlertCircle className="h-4 w-4 text-red-500" />;
       case "info":
       default:
         return <Info className="h-4 w-4 text-[#40E0D0]" />;
@@ -193,6 +196,8 @@ export function NotificationBell() {
       case "event": return "Evento";
       case "comment": return "Comentário";
       case "system": return "Sistema";
+      case "campaign_approved": return "Pesquisa Aprovada";
+      case "campaign_rejected": return "Pesquisa Rejeitada";
       default: return type;
     }
   };
