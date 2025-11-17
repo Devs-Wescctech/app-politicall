@@ -36,7 +36,7 @@ const menuItems = [
     adminOnly: false,
   },
   {
-    title: "Contatos",
+    title: "Eleitores",
     url: "/contacts",
     icon: Users,
     adminOnly: false,
