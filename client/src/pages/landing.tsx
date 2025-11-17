@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from "react";
+import { useInView } from "framer-motion";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertLeadSchema, type InsertLead, POLITICAL_POSITIONS } from "@shared/schema";
@@ -47,6 +48,50 @@ const POSITION_OPTIONS = [
   { category: "Candidatura", positions: ["Candidato", "Pré-Candidato"] },
   { category: "Outros", positions: ["Outro"] }
 ];
+
+function AnimatedNumber({ value, suffix = "" }: { value: number; suffix?: string }) {
+  const [count, setCount] = useState(0);
+  const ref = useRef<HTMLDivElement>(null);
+  const isInView = useInView(ref, { once: true });
+
+  useEffect(() => {
+    if (!isInView) return;
+    
+    const duration = 2000;
+    const steps = 60;
+    const increment = value / steps;
+    const stepDuration = duration / steps;
+    
+    let current = 0;
+    const timer = setInterval(() => {
+      current += increment;
+      if (current >= value) {
+        setCount(value);
+        clearInterval(timer);
+      } else {
+        setCount(Math.floor(current));
+      }
+    }, stepDuration);
+    
+    return () => clearInterval(timer);
+  }, [value, isInView]);
+
+  const formatNumber = (num: number) => {
+    if (num >= 1000000) {
+      return (num / 1000000).toFixed(1).replace('.0', '') + 'M';
+    }
+    if (num >= 1000) {
+      return (num / 1000).toFixed(0) + 'mil';
+    }
+    return num.toString();
+  };
+
+  return (
+    <div ref={ref} className="text-4xl font-bold text-primary">
+      {formatNumber(count)}{suffix}
+    </div>
+  );
+}
 
 export default function LandingPage() {
   const { toast } = useToast();
@@ -242,15 +287,15 @@ export default function LandingPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-3xl mx-auto">
               <div className="flex flex-col items-center gap-2" data-testid="stat-users">
-                <div className="text-4xl font-bold text-primary">500+</div>
+                <AnimatedNumber value={500} suffix="+" />
                 <div className="text-sm text-white/80">Políticos Ativos</div>
               </div>
               <div className="flex flex-col items-center gap-2" data-testid="stat-contacts">
-                <div className="text-4xl font-bold text-primary">50mil+</div>
+                <AnimatedNumber value={50000} suffix="+" />
                 <div className="text-sm text-white/80">Eleitores Cadastrados</div>
               </div>
               <div className="flex flex-col items-center gap-2" data-testid="stat-responses">
-                <div className="text-4xl font-bold text-primary">1M+</div>
+                <AnimatedNumber value={1000000} suffix="+" />
                 <div className="text-sm text-white/80">Respostas Automáticas IA</div>
               </div>
             </div>
