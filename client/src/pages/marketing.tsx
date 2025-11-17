@@ -203,20 +203,6 @@ export default function Marketing() {
     }
   };
 
-  const handleApprove = async (campaignId: string) => {
-    await updateMutation.mutateAsync({
-      id: campaignId,
-      data: { status: "approved", adminReviewerId: user?.id },
-    });
-  };
-
-  const handleReject = async (campaignId: string, notes: string) => {
-    await updateMutation.mutateAsync({
-      id: campaignId,
-      data: { status: "rejected", adminReviewerId: user?.id, adminNotes: notes },
-    });
-  };
-
   const copyToClipboard = async (text: string) => {
     try {
       await navigator.clipboard.writeText(text);
@@ -359,34 +345,6 @@ export default function Marketing() {
                         <p className="text-sm text-muted-foreground" data-testid={`text-admin-notes-${campaign.id}`}>
                           {campaign.adminNotes}
                         </p>
-                      </div>
-                    )}
-
-                    {user?.role === "admin" && campaign.status === "under_review" && (
-                      <div className="flex gap-2 pt-4 border-t">
-                        <Button
-                          variant="default"
-                          className="rounded-full flex-1 bg-[#40E0D0] hover:bg-[#48D1CC] text-white"
-                          onClick={() => handleApprove(campaign.id)}
-                          disabled={updateMutation.isPending}
-                          data-testid={`button-approve-${campaign.id}`}
-                        >
-                          <CheckCircle className="w-4 h-4 mr-2" />
-                          Aprovar Campanha
-                        </Button>
-                        <Button
-                          variant="destructive"
-                          className="rounded-full flex-1"
-                          onClick={() => {
-                            const notes = prompt("Motivo da rejeição:");
-                            if (notes) handleReject(campaign.id, notes);
-                          }}
-                          disabled={updateMutation.isPending}
-                          data-testid={`button-reject-${campaign.id}`}
-                        >
-                          <XCircle className="w-4 h-4 mr-2" />
-                          Rejeitar Campanha
-                        </Button>
                       </div>
                     )}
                   </CardContent>
