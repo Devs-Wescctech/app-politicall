@@ -98,6 +98,7 @@ export default function LandingPage() {
   const [, setLocation] = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [fullscreenImage, setFullscreenImage] = useState<{ src: string; alt: string } | null>(null);
   const { scrollY } = useScroll();
   const headerBg = useTransform(scrollY, [0, 100], ["rgba(255, 255, 255, 0)", "rgba(255, 255, 255, 0.95)"]);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -126,6 +127,16 @@ export default function LandingPage() {
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && fullscreenImage) {
+        setFullscreenImage(null);
+      }
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, [fullscreenImage]);
 
   const form = useForm<InsertLead>({
     resolver: zodResolver(insertLeadSchema),
@@ -496,7 +507,8 @@ export default function LandingPage() {
               <img 
                 src={aiImage} 
                 alt="IA Politicall respondendo mensagens automaticamente" 
-                className="w-full h-auto max-w-sm mx-auto"
+                className="w-full h-auto max-w-sm mx-auto cursor-pointer hover:opacity-90 transition-opacity"
+                onClick={() => setFullscreenImage({ src: aiImage, alt: "IA Politicall respondendo mensagens automaticamente" })}
                 data-testid="img-ai-screenshot"
               />
             </div>
@@ -518,7 +530,8 @@ export default function LandingPage() {
               <img 
                 src={crmImage} 
                 alt="CRM de Gabinete Politicall" 
-                className="w-full h-auto order-2 lg:order-1"
+                className="w-full h-auto order-2 lg:order-1 cursor-pointer hover:opacity-90 transition-opacity"
+                onClick={() => setFullscreenImage({ src: crmImage, alt: "CRM de Gabinete Politicall" })}
                 data-testid="img-module-crm"
               />
               <div className="order-1 lg:order-2">
@@ -593,7 +606,8 @@ export default function LandingPage() {
               <img 
                 src={alliancesImage} 
                 alt="Gestão de Alianças Políticas Politicall" 
-                className="w-full h-auto"
+                className="w-full h-auto cursor-pointer hover:opacity-90 transition-opacity"
+                onClick={() => setFullscreenImage({ src: alliancesImage, alt: "Gestão de Alianças Políticas Politicall" })}
                 data-testid="img-module-alliances"
               />
             </div>
@@ -602,7 +616,8 @@ export default function LandingPage() {
               <img 
                 src={demandsImage} 
                 alt="Pesquisas Eleitorais TSE-Compliant Politicall" 
-                className="w-full h-auto order-2 lg:order-1"
+                className="w-full h-auto order-2 lg:order-1 cursor-pointer hover:opacity-90 transition-opacity"
+                onClick={() => setFullscreenImage({ src: demandsImage, alt: "Pesquisas Eleitorais TSE-Compliant Politicall" })}
                 data-testid="img-module-demands"
               />
               <div className="order-1 lg:order-2">
@@ -677,7 +692,8 @@ export default function LandingPage() {
               <img 
                 src={eventsImage} 
                 alt="Agenda de Eventos Politicall" 
-                className="w-full h-auto"
+                className="w-full h-auto cursor-pointer hover:opacity-90 transition-opacity"
+                onClick={() => setFullscreenImage({ src: eventsImage, alt: "Agenda de Eventos Politicall" })}
                 data-testid="img-module-events"
               />
             </div>
@@ -1081,6 +1097,29 @@ export default function LandingPage() {
           </div>
         </div>
       </footer>
+
+      {fullscreenImage && (
+        <div 
+          className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center p-4"
+          onClick={() => setFullscreenImage(null)}
+          data-testid="overlay-fullscreen"
+        >
+          <button
+            className="absolute top-4 right-4 text-white hover:text-primary transition-colors p-2"
+            onClick={() => setFullscreenImage(null)}
+            data-testid="button-close-fullscreen"
+          >
+            <X className="w-8 h-8" />
+          </button>
+          <img 
+            src={fullscreenImage.src}
+            alt={fullscreenImage.alt}
+            className="max-w-full max-h-full object-contain"
+            onClick={(e) => e.stopPropagation()}
+            data-testid="img-fullscreen"
+          />
+        </div>
+      )}
     </div>
   );
 }
