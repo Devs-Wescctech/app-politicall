@@ -1083,7 +1083,7 @@ export default function LandingPage() {
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-12 mb-8">
             <div>
-              <img src={logoUrl} alt="Politicall" className="h-8 mb-4" data-testid="img-footer-logo" />
+              <img src={logoUrl} alt="Politicall" className="h-4 mb-4" data-testid="img-footer-logo" />
               <p className="text-sm text-muted-foreground">
                 Plataforma completa de gestão política com CRM inteligente, IA para redes sociais, pesquisas TSE-compliant e muito mais.
               </p>
