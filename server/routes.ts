@@ -3,9 +3,9 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import { insertUserSchema, loginSchema, insertContactSchema, insertPoliticalAllianceSchema, insertDemandSchema, insertDemandCommentSchema, insertEventSchema, insertAiConfigurationSchema, insertAiTrainingExampleSchema, insertAiResponseTemplateSchema, insertMarketingCampaignSchema, insertNotificationSchema, insertIntegrationSchema, insertGoogleAdsCampaignSchema, DEFAULT_PERMISSIONS } from "@shared/schema";
+import { insertUserSchema, loginSchema, insertContactSchema, insertPoliticalAllianceSchema, insertDemandSchema, insertDemandCommentSchema, insertEventSchema, insertAiConfigurationSchema, insertAiTrainingExampleSchema, insertAiResponseTemplateSchema, insertMarketingCampaignSchema, insertNotificationSchema, insertIntegrationSchema, insertSurveyCampaignSchema, insertSurveyLandingPageSchema, insertSurveyResponseSchema, DEFAULT_PERMISSIONS } from "@shared/schema";
 import { db } from "./db";
-import { politicalParties, politicalAlliances, googleAdsCampaigns, googleAdsCampaignAssets } from "@shared/schema";
+import { politicalParties, politicalAlliances, surveyTemplates, surveyCampaigns, surveyLandingPages, surveyResponses, type SurveyTemplate, type SurveyCampaign, type InsertSurveyCampaign, type SurveyLandingPage, type InsertSurveyLandingPage, type SurveyResponse, type InsertSurveyResponse } from "@shared/schema";
 import { sql, eq } from "drizzle-orm";
 import { generateAiResponse, testOpenAiApiKey } from "./openai";
 import { requireRole } from "./authorization";
@@ -75,6 +75,114 @@ async function seedPoliticalParties() {
   }
 }
 
+// Seed survey templates
+async function seedSurveyTemplates() {
+  try {
+    const existingTemplates = await storage.getSurveyTemplates();
+    if (existingTemplates.length > 0) {
+      console.log("Survey templates already seeded");
+      return;
+    }
+
+    await db.insert(surveyTemplates).values([
+      {
+        name: "Intenção de voto (neutra)",
+        slug: "intencao-voto",
+        description: "Pesquisa neutra sobre intenção de voto",
+        questionText: "Qual candidato você acha que tem mais chances de vencer a eleição?",
+        questionType: "open_text",
+        options: null,
+        order: 1
+      },
+      {
+        name: "Temas prioritários para a população",
+        slug: "temas-prioritarios",
+        description: "Identifique quais temas são mais importantes para os eleitores",
+        questionText: "Qual destes temas é mais importante para você nas próximas eleições?",
+        questionType: "single_choice",
+        options: ["Saúde", "Educação", "Segurança", "Emprego", "Meio Ambiente"],
+        order: 2
+      },
+      {
+        name: "Avaliação de políticas públicas",
+        slug: "avaliacao-politicas",
+        description: "Avalie a percepção sobre políticas públicas atuais",
+        questionText: "Como você avalia as políticas públicas atuais em sua cidade/estado?",
+        questionType: "single_choice",
+        options: ["Ótimas", "Boas", "Regulares", "Ruins"],
+        order: 3
+      },
+      {
+        name: "Meios de informação preferidos",
+        slug: "meios-informacao",
+        description: "Descubra como a população se informa sobre política",
+        questionText: "Qual é sua principal fonte de informação política?",
+        questionType: "single_choice",
+        options: ["TV", "Rádio", "Redes sociais", "Sites de notícias", "Amigos/família"],
+        order: 4
+      },
+      {
+        name: "Confiança em instituições",
+        slug: "confianca-instituicoes",
+        description: "Meça o nível de confiança nas instituições",
+        questionText: "Qual nível de confiança você tem nas seguintes instituições?",
+        questionType: "rating",
+        options: ["Governo", "Câmara", "Justiça", "Polícia"],
+        order: 5
+      },
+      {
+        name: "Temas de interesse para programas de governo",
+        slug: "temas-programas-governo",
+        description: "Identifique áreas prioritárias para investimento",
+        questionText: "Em qual área você gostaria de ver mais investimento pelo governo?",
+        questionType: "single_choice",
+        options: ["Saúde", "Educação", "Transporte", "Segurança", "Cultura"],
+        order: 6
+      },
+      {
+        name: "Preocupações da população",
+        slug: "preocupacoes-populacao",
+        description: "Entenda as principais preocupações dos cidadãos",
+        questionText: "Qual é sua maior preocupação atualmente?",
+        questionType: "single_choice",
+        options: ["Economia", "Emprego", "Segurança", "Saúde", "Educação"],
+        order: 7
+      },
+      {
+        name: "Participação política",
+        slug: "participacao-politica",
+        description: "Avalie o nível de engajamento político da população",
+        questionText: "Você costuma participar de discussões ou votações sobre política?",
+        questionType: "single_choice",
+        options: ["Sempre", "Às vezes", "Raramente", "Nunca"],
+        order: 8
+      },
+      {
+        name: "Avaliação da comunicação política",
+        slug: "comunicacao-politica",
+        description: "Descubra preferências de canal de comunicação",
+        questionText: "Como você prefere receber informações de políticos ou partidos?",
+        questionType: "single_choice",
+        options: ["WhatsApp", "E-mail", "Redes sociais", "TV", "Rádio"],
+        order: 9
+      },
+      {
+        name: "Engajamento em ações comunitárias",
+        slug: "engajamento-comunitario",
+        description: "Meça o nível de participação em ações comunitárias",
+        questionText: "Você participa de ações ou projetos da sua comunidade?",
+        questionType: "single_choice",
+        options: ["Sim, frequentemente", "Sim, ocasionalmente", "Não"],
+        order: 10
+      }
+    ]);
+
+    console.log("✓ Survey templates seeded successfully");
+  } catch (error) {
+    console.error("Error seeding survey templates:", error);
+  }
+}
+
 // Seed test marketing campaign for demonstration
 async function seedTestCampaign() {
   try {
@@ -116,6 +224,9 @@ async function seedTestCampaign() {
 export async function registerRoutes(app: Express): Promise<Server> {
   // Seed political parties on startup
   await seedPoliticalParties();
+  
+  // Seed survey templates on startup
+  await seedSurveyTemplates();
   
   // Seed test campaign on startup
   await seedTestCampaign();
@@ -1243,325 +1354,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // ==================== GOOGLE ADS CAMPAIGNS ====================
-  
-  // Utility function to generate slug from campaign name
-  function generateSlug(name: string): string {
-    return name
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '') // Remove diacritics
-      .replace(/[^a-z0-9\s-]/g, '') // Remove special chars
-      .replace(/\s+/g, '-') // Replace spaces with hyphens
-      .replace(/-+/g, '-') // Collapse multiple hyphens
-      .replace(/^-|-$/g, ''); // Trim hyphens from edges
-  }
-
-  // Get all Google Ads campaigns for user
-  app.get("/api/google-ads-campaigns", authenticateToken, requirePermission("marketing"), async (req: AuthRequest, res) => {
-    try {
-      const campaigns = await storage.getGoogleAdsCampaigns(req.userId!);
-      res.json(campaigns);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  // Get single Google Ads campaign
-  app.get("/api/google-ads-campaigns/:id", authenticateToken, requirePermission("marketing"), async (req: AuthRequest, res) => {
-    try {
-      const campaign = await storage.getGoogleAdsCampaign(req.params.id);
-      
-      if (!campaign || campaign.userId !== req.userId!) {
-        return res.status(404).json({ error: "Campanha não encontrada" });
-      }
-
-      // Get assets for this campaign
-      const assets = await storage.getCampaignAssets(campaign.id);
-      
-      res.json({ ...campaign, assets });
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  // Create new Google Ads campaign
-  app.post("/api/google-ads-campaigns", authenticateToken, requirePermission("marketing"), async (req: AuthRequest, res) => {
-    try {
-      const validatedData = insertGoogleAdsCampaignSchema.parse(req.body);
-      
-      // Generate unique slug
-      let slug = generateSlug(validatedData.campaignName);
-      let counter = 1;
-      let finalSlug = slug;
-      
-      // Check for slug uniqueness and append counter if needed
-      while (true) {
-        const existing = await db.query.googleAdsCampaigns.findFirst({
-          where: eq(googleAdsCampaigns.lpSlug, finalSlug)
-        });
-        if (!existing) break;
-        finalSlug = `${slug}-${counter}`;
-        counter++;
-      }
-
-      // Calculate management fee (15% of budget)
-      const budget = parseFloat(validatedData.budget);
-      const managementFee = (budget * 0.15).toFixed(2);
-
-      // Generate LP URL
-      const lpUrl = `https://www.politicall.com.br/${finalSlug}`;
-
-      const campaign = await storage.createGoogleAdsCampaign({
-        ...validatedData,
-        managementFee,
-        lpSlug: finalSlug,
-        lpUrl,
-        userId: req.userId!,
-      });
-      
-      res.json(campaign);
-    } catch (error: any) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: error.errors });
-      }
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  // Update Google Ads campaign
-  app.patch("/api/google-ads-campaigns/:id", authenticateToken, async (req: AuthRequest, res) => {
-    try {
-      const campaign = await storage.getGoogleAdsCampaign(req.params.id);
-      
-      if (!campaign) {
-        return res.status(404).json({ error: "Campanha não encontrada" });
-      }
-
-      // Only campaign owner or admin can update
-      const user = await storage.getUser(req.userId!);
-      if (campaign.userId !== req.userId! && user?.role !== 'admin') {
-        return res.status(403).json({ error: "Sem permissão para atualizar esta campanha" });
-      }
-
-      // Recalculate management fee if budget changes
-      const updates: any = { ...req.body };
-      if (req.body.budget) {
-        const budget = parseFloat(req.body.budget);
-        updates.managementFee = (budget * 0.15).toFixed(2);
-      }
-
-      const updated = await storage.updateGoogleAdsCampaign(req.params.id, updates);
-      res.json(updated);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  // Delete Google Ads campaign
-  app.delete("/api/google-ads-campaigns/:id", authenticateToken, requirePermission("marketing"), async (req: AuthRequest, res) => {
-    try {
-      const campaign = await storage.getGoogleAdsCampaign(req.params.id);
-      
-      if (!campaign || campaign.userId !== req.userId!) {
-        return res.status(404).json({ error: "Campanha não encontrada" });
-      }
-
-      await storage.deleteGoogleAdsCampaign(req.params.id);
-      res.json({ success: true });
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  // Get campaign assets/images
-  app.get("/api/google-ads-campaigns/:id/assets", authenticateToken, requirePermission("marketing"), async (req: AuthRequest, res) => {
-    try {
-      const assets = await storage.getCampaignAssets(req.params.id);
-      res.json(assets);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  // Upload campaign image (base64) - DEPRECATED, use upload-asset instead
-  app.post("/api/google-ads-campaigns/:id/upload-image", authenticateToken, requirePermission("marketing"), async (req: AuthRequest, res) => {
-    try {
-      console.log('[UPLOAD] Starting upload for campaign:', req.params.id);
-      const campaign = await storage.getGoogleAdsCampaign(req.params.id);
-      
-      if (!campaign || campaign.userId !== req.userId!) {
-        console.log('[UPLOAD] Campaign not found or unauthorized');
-        return res.status(404).json({ error: "Campanha não encontrada" });
-      }
-
-      const { imageData, filename, mimeType } = req.body;
-      console.log('[UPLOAD] Received:', { filename, mimeType, dataLength: imageData?.length });
-      
-      if (!imageData || !filename || !mimeType) {
-        console.log('[UPLOAD] Missing data');
-        return res.status(400).json({ error: "Dados da imagem incompletos" });
-      }
-
-      // Validate mime type
-      if (!mimeType.startsWith('image/')) {
-        console.log('[UPLOAD] Invalid mime type');
-        return res.status(400).json({ error: "Apenas imagens são permitidas" });
-      }
-
-      console.log('[UPLOAD] Decoding base64...');
-      // Decode base64 and get size
-      const buffer = Buffer.from(imageData.replace(/^data:image\/\w+;base64,/, ''), 'base64');
-      const sizeBytes = buffer.length;
-      console.log('[UPLOAD] Buffer size:', sizeBytes);
-
-      // Generate unique filename
-      const timestamp = Date.now();
-      const safeFilename = filename.replace(/[^a-zA-Z0-9.-]/g, '_');
-      const storageKey = `google-ads-campaigns/${campaign.id}/${timestamp}_${safeFilename}`;
-      const fullPath = `attached_assets/${storageKey}`;
-
-      console.log('[UPLOAD] Creating directory...');
-      // Create directory if it doesn't exist
-      const dir = path.dirname(fullPath);
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-      }
-
-      console.log('[UPLOAD] Writing file to:', fullPath);
-      // Write file
-      fs.writeFileSync(fullPath, buffer);
-
-      console.log('[UPLOAD] Creating asset record...');
-      // Create asset record
-      const asset = await storage.createCampaignAsset({
-        campaignId: campaign.id,
-        assetType: "image",
-        storageKey,
-        url: `/assets/${storageKey}`,
-        originalFilename: filename,
-        sizeBytes,
-        mimeType,
-        uploadedBy: req.userId!,
-      });
-
-      console.log('[UPLOAD] Success! Asset ID:', asset.id);
-      res.json(asset);
-    } catch (error: any) {
-      console.error('[UPLOAD] Error:', error.message, error.stack);
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  // Upload campaign asset (image or video, base64)
-  app.post("/api/google-ads-campaigns/:id/upload-asset", authenticateToken, requirePermission("marketing"), async (req: AuthRequest, res) => {
-    try {
-      console.log('[UPLOAD] Starting asset upload for campaign:', req.params.id);
-      const campaign = await storage.getGoogleAdsCampaign(req.params.id);
-      
-      if (!campaign || campaign.userId !== req.userId!) {
-        console.log('[UPLOAD] Campaign not found or unauthorized');
-        return res.status(404).json({ error: "Campanha não encontrada" });
-      }
-
-      const { assetData, filename, mimeType, assetType } = req.body;
-      console.log('[UPLOAD] Received:', { filename, mimeType, assetType, dataLength: assetData?.length });
-      
-      if (!assetData || !filename || !mimeType || !assetType) {
-        console.log('[UPLOAD] Missing data');
-        return res.status(400).json({ error: "Dados do arquivo incompletos" });
-      }
-
-      // Validate asset type and mime type
-      if (assetType === "image" && !mimeType.startsWith('image/')) {
-        console.log('[UPLOAD] Invalid image mime type');
-        return res.status(400).json({ error: "Apenas imagens são permitidas" });
-      }
-      if (assetType === "video" && !mimeType.startsWith('video/')) {
-        console.log('[UPLOAD] Invalid video mime type');
-        return res.status(400).json({ error: "Apenas vídeos são permitidos" });
-      }
-
-      console.log('[UPLOAD] Decoding base64...');
-      // Decode base64 and get size
-      const mimePattern = new RegExp(`^data:(image|video)/\\w+;base64,`);
-      const buffer = Buffer.from(assetData.replace(mimePattern, ''), 'base64');
-      const sizeBytes = buffer.length;
-      console.log('[UPLOAD] Buffer size:', sizeBytes);
-
-      // Generate unique filename
-      const timestamp = Date.now();
-      const safeFilename = filename.replace(/[^a-zA-Z0-9.-]/g, '_');
-      const storageKey = `google-ads-campaigns/${campaign.id}/${timestamp}_${safeFilename}`;
-      const fullPath = `attached_assets/${storageKey}`;
-
-      console.log('[UPLOAD] Creating directory...');
-      // Create directory if it doesn't exist
-      const dir = path.dirname(fullPath);
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-      }
-
-      console.log('[UPLOAD] Writing file to:', fullPath);
-      // Write file
-      fs.writeFileSync(fullPath, buffer);
-
-      console.log('[UPLOAD] Creating asset record...');
-      // Create asset record
-      const asset = await storage.createCampaignAsset({
-        campaignId: campaign.id,
-        assetType,
-        storageKey,
-        url: `/assets/${storageKey}`,
-        originalFilename: filename,
-        sizeBytes,
-        mimeType,
-        uploadedBy: req.userId!,
-      });
-
-      console.log('[UPLOAD] Success! Asset ID:', asset.id);
-      res.json(asset);
-    } catch (error: any) {
-      console.error('[UPLOAD] Error:', error.message, error.stack);
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  // Delete campaign image
-  app.delete("/api/google-ads-campaign-assets/:id", authenticateToken, requirePermission("marketing"), async (req: AuthRequest, res) => {
-    try {
-      // Get asset to verify ownership
-      const assets = await db.select()
-        .from(googleAdsCampaignAssets)
-        .where(eq(googleAdsCampaignAssets.id, req.params.id));
-      
-      if (assets.length === 0) {
-        return res.status(404).json({ error: "Imagem não encontrada" });
-      }
-
-      const asset = assets[0];
-
-      // Verify campaign ownership
-      const campaign = await storage.getGoogleAdsCampaign(asset.campaignId);
-      if (!campaign || campaign.userId !== req.userId!) {
-        return res.status(403).json({ error: "Sem permissão para deletar esta imagem" });
-      }
-
-      // Delete file from filesystem
-      const fullPath = `attached_assets/${asset.storageKey}`;
-      if (fs.existsSync(fullPath)) {
-        fs.unlinkSync(fullPath);
-      }
-
-      // Delete record
-      await storage.deleteCampaignAsset(req.params.id);
-      
-      res.json({ success: true });
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-
   // ==================== INTEGRATIONS ====================
   
   // Get all integrations for user
@@ -1656,6 +1448,217 @@ export async function registerRoutes(app: Express): Promise<Server> {
         error: 'Falha no teste de integração',
         details: error.message 
       });
+    }
+  });
+
+  // ==================== SURVEY CAMPAIGNS ====================
+  
+  // Get all survey templates (PUBLIC - no auth required)
+  app.get("/api/survey-templates", async (req, res) => {
+    try {
+      const templates = await storage.getSurveyTemplates();
+      res.json(templates);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get all survey campaigns for user
+  app.get("/api/survey-campaigns", authenticateToken, requirePermission("marketing"), async (req: AuthRequest, res) => {
+    try {
+      const campaigns = await storage.getSurveyCampaigns(req.userId!);
+      res.json(campaigns);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get single survey campaign
+  app.get("/api/survey-campaigns/:id", authenticateToken, requirePermission("marketing"), async (req: AuthRequest, res) => {
+    try {
+      const campaign = await storage.getSurveyCampaign(req.params.id);
+      
+      if (!campaign) {
+        return res.status(404).json({ error: "Campanha não encontrada" });
+      }
+
+      // Check ownership
+      if (campaign.userId !== req.userId!) {
+        return res.status(403).json({ error: "Sem permissão para visualizar esta campanha" });
+      }
+
+      res.json(campaign);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Create survey campaign
+  app.post("/api/survey-campaigns", authenticateToken, requirePermission("marketing"), async (req: AuthRequest, res) => {
+    try {
+      const validatedData = insertSurveyCampaignSchema.parse(req.body);
+      
+      const campaign = await storage.createSurveyCampaign({
+        ...validatedData,
+        userId: req.userId!,
+      });
+      
+      res.json(campaign);
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // Update survey campaign
+  app.patch("/api/survey-campaigns/:id", authenticateToken, requirePermission("marketing"), async (req: AuthRequest, res) => {
+    try {
+      const campaign = await storage.getSurveyCampaign(req.params.id);
+      
+      if (!campaign) {
+        return res.status(404).json({ error: "Campanha não encontrada" });
+      }
+
+      // Check ownership
+      if (campaign.userId !== req.userId!) {
+        return res.status(403).json({ error: "Sem permissão para atualizar esta campanha" });
+      }
+
+      const validatedData = insertSurveyCampaignSchema.partial().parse(req.body);
+      const updated = await storage.updateSurveyCampaign(req.params.id, validatedData);
+      
+      res.json(updated);
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // Delete survey campaign
+  app.delete("/api/survey-campaigns/:id", authenticateToken, requirePermission("marketing"), async (req: AuthRequest, res) => {
+    try {
+      const campaign = await storage.getSurveyCampaign(req.params.id);
+      
+      if (!campaign) {
+        return res.status(404).json({ error: "Campanha não encontrada" });
+      }
+
+      // Check ownership
+      if (campaign.userId !== req.userId!) {
+        return res.status(403).json({ error: "Sem permissão para deletar esta campanha" });
+      }
+
+      await storage.deleteSurveyCampaign(req.params.id);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get public survey landing page by slug (PUBLIC - no auth required)
+  app.get("/api/survey/:slug", async (req, res) => {
+    try {
+      // First find the campaign by slug with template data
+      const campaigns = await db.select({
+        campaign: surveyCampaigns,
+        template: surveyTemplates
+      })
+        .from(surveyCampaigns)
+        .innerJoin(surveyTemplates, eq(surveyCampaigns.templateId, surveyTemplates.id))
+        .where(eq(surveyCampaigns.slug, req.params.slug));
+      
+      if (campaigns.length === 0) {
+        return res.status(404).json({ error: "Pesquisa não encontrada" });
+      }
+
+      const { campaign, template } = campaigns[0];
+
+      // Check if campaign is approved
+      if (campaign.status !== "active" && campaign.status !== "approved") {
+        return res.status(400).json({ error: "Esta pesquisa não está disponível no momento" });
+      }
+
+      res.json({
+        campaign: {
+          id: campaign.id,
+          campaignName: campaign.campaignName,
+          slug: campaign.slug,
+          status: campaign.status,
+        },
+        template: {
+          questionText: template.questionText,
+          questionType: template.questionType,
+          options: template.options,
+        }
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Submit survey response (PUBLIC - no auth required)
+  app.post("/api/survey/:slug/submit", async (req, res) => {
+    try {
+      // Find the campaign by slug
+      const campaigns = await db.select()
+        .from(surveyCampaigns)
+        .where(eq(surveyCampaigns.slug, req.params.slug));
+      
+      if (campaigns.length === 0) {
+        return res.status(404).json({ error: "Pesquisa não encontrada" });
+      }
+
+      const campaign = campaigns[0];
+
+      // Check if campaign is active
+      if (campaign.status !== "active") {
+        return res.status(400).json({ error: "Esta pesquisa não está mais aceitando respostas" });
+      }
+
+      // Validate response data
+      const validatedData = insertSurveyResponseSchema.parse(req.body);
+
+      // Create the response
+      const response = await storage.createSurveyResponse({
+        ...validatedData,
+        campaignId: campaign.id,
+      });
+      
+      res.json({ 
+        success: true, 
+        message: "Resposta enviada com sucesso!",
+        responseId: response.id 
+      });
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Dados da resposta inválidos", details: error.errors });
+      }
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // Get survey campaign responses
+  app.get("/api/survey-campaigns/:id/responses", authenticateToken, requirePermission("marketing"), async (req: AuthRequest, res) => {
+    try {
+      const campaign = await storage.getSurveyCampaign(req.params.id);
+      
+      if (!campaign) {
+        return res.status(404).json({ error: "Campanha não encontrada" });
+      }
+
+      // Check ownership
+      if (campaign.userId !== req.userId!) {
+        return res.status(403).json({ error: "Sem permissão para visualizar as respostas desta campanha" });
+      }
+
+      const responses = await storage.getSurveyResponses(req.params.id);
+      res.json(responses);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
     }
   });
 

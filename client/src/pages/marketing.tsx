@@ -1,53 +1,59 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { 
-  type GoogleAdsCampaign,
-  type InsertGoogleAdsCampaign,
-  type GoogleAdsCampaignAsset,
-  insertGoogleAdsCampaignSchema
+  type SurveyTemplate,
+  type SurveyCampaign,
+  type InsertSurveyCampaign,
+  insertSurveyCampaignSchema
 } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, Trash2, Edit, X, Image as ImageIcon, Video } from "lucide-react";
+import { Plus, Trash2, Edit, ExternalLink, Copy, CheckCircle, XCircle, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Skeleton } from "@/components/ui/skeleton";
+import { useCurrentUser } from "@/hooks/use-current-user";
 
-const GOOGLE_ADS_STATUS_CONFIG = {
-  submitted: { label: "Enviado", color: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200" },
-  under_review: { label: "Em Análise", color: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200" },
-  approved: { label: "Aprovado", color: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" },
-  rejected: { label: "Rejeitado", color: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200" },
-  scheduled: { label: "Agendado", color: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200" },
-  running: { label: "Em Execução", color: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200" },
-  paused: { label: "Pausado", color: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200" },
-  completed: { label: "Concluído", color: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" },
-};
-
-const OBJECTIVE_LABELS = {
-  gerar_novo_eleitor: "Gerar Novo Eleitor",
-  pesquisa_satisfacao: "Pesquisa de Satisfação",
-  pesquisa_social: "Pesquisa Social",
-};
-
-const TARGET_SCOPE_LABELS = {
-  bairro: "Bairro(s)",
-  cidade: "Cidade(s)",
-  estado: "Estado",
-  brasil: "Brasil",
+const SURVEY_STATUS_CONFIG = {
+  under_review: { 
+    label: "Em Análise", 
+    color: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
+    icon: Clock
+  },
+  approved: { 
+    label: "Aprovado", 
+    color: "bg-[#40E0D0] text-white dark:bg-[#48D1CC] dark:text-gray-900",
+    icon: CheckCircle
+  },
+  rejected: { 
+    label: "Rejeitado", 
+    color: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
+    icon: XCircle
+  },
+  active: { 
+    label: "Ativo", 
+    color: "bg-[#40E0D0] text-white dark:bg-[#48D1CC] dark:text-gray-900",
+    icon: CheckCircle
+  },
+  paused: { 
+    label: "Pausado", 
+    color: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200",
+    icon: Clock
+  },
+  completed: { 
+    label: "Concluído", 
+    color: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+    icon: CheckCircle
+  },
 };
 
 function slugify(text: string): string {
@@ -59,870 +65,589 @@ function slugify(text: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
-function calculateManagementFee(budget: number): number {
-  return budget * 0.15;
-}
-
-function calculateTotalCost(budget: number): number {
-  return budget * 1.15;
+interface CampaignWithTemplate extends SurveyCampaign {
+  template?: SurveyTemplate;
+  responseCount?: number;
 }
 
 
-interface ImageUploadProps {
-  campaignId: string;
-  onUploadComplete: () => void;
-}
-
-function ImageUploadComponent({ campaignId, onUploadComplete }: ImageUploadProps) {
-  const [selectedAssets, setSelectedAssets] = useState<string[]>([]);
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [assetToDelete, setAssetToDelete] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"images" | "videos">("images");
+export default function Marketing() {
+  const { user } = useCurrentUser();
   const { toast } = useToast();
-  const imageInputId = `image-input-${campaignId}`;
-  const videoInputId = `video-input-${campaignId}`;
+  const [showTemplateDialog, setShowTemplateDialog] = useState(false);
+  const [showCampaignDialog, setShowCampaignDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<SurveyTemplate | null>(null);
+  const [campaignToDelete, setCampaignToDelete] = useState<string | null>(null);
+  const [editingCampaign, setEditingCampaign] = useState<CampaignWithTemplate | null>(null);
 
-  const { data: assets, isLoading: assetsLoading } = useQuery<GoogleAdsCampaignAsset[]>({
-    queryKey: ["/api/google-ads-campaigns", campaignId, "assets"],
-    enabled: !!campaignId,
+  const form = useForm<InsertSurveyCampaign>({
+    resolver: zodResolver(insertSurveyCampaignSchema),
+    defaultValues: {
+      templateId: "",
+      campaignName: "",
+      slug: "",
+      status: "under_review",
+      startDate: null,
+      endDate: null,
+      targetAudience: null,
+      adminReviewerId: null,
+      adminNotes: null,
+    },
   });
 
-  const imageAssets = assets?.filter(a => a.assetType === "image") || [];
-  const videoAssets = assets?.filter(a => a.assetType === "video") || [];
+  const { data: templates, isLoading: templatesLoading } = useQuery<SurveyTemplate[]>({
+    queryKey: ["/api/survey-templates"],
+  });
 
-  const uploadMutation = useMutation({
-    mutationFn: async ({ file, assetType }: { file: File; assetType: "image" | "video" }) => {
-      const isImage = assetType === "image";
-      const isVideo = assetType === "video";
+  const { data: campaigns, isLoading: campaignsLoading } = useQuery<CampaignWithTemplate[]>({
+    queryKey: ["/api/survey-campaigns"],
+  });
 
-      if (isImage && !file.type.startsWith("image/")) {
-        throw new Error("Apenas imagens são permitidas.");
-      }
-      if (isVideo && !file.type.startsWith("video/")) {
-        throw new Error("Apenas vídeos são permitidos.");
-      }
-
-      const reader = new FileReader();
-      return new Promise((resolve, reject) => {
-        reader.onload = async () => {
-          try {
-            const fileData = reader.result as string;
-            const response = await apiRequest("POST", `/api/google-ads-campaigns/${campaignId}/upload-asset`, {
-              assetData: fileData,
-              filename: file.name,
-              mimeType: file.type,
-              assetType,
-            });
-            resolve(response);
-          } catch (error) {
-            reject(error);
-          }
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-    },
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/google-ads-campaigns", campaignId, "assets"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/google-ads-campaigns"] });
-      const assetTypeName = variables.assetType === "image" ? "Imagem" : "Vídeo";
-      toast({ title: `${assetTypeName} enviado com sucesso!` });
-      onUploadComplete();
+  const createMutation = useMutation({
+    mutationFn: (data: InsertSurveyCampaign) => apiRequest("POST", "/api/survey-campaigns", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/survey-campaigns"] });
+      toast({ title: "Campanha criada com sucesso!" });
+      setShowCampaignDialog(false);
+      setSelectedTemplate(null);
+      form.reset();
     },
     onError: (error: Error) => {
-      toast({ title: error.message || "Erro ao enviar arquivo", variant: "destructive" });
+      toast({ title: error.message || "Erro ao criar campanha", variant: "destructive" });
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<InsertSurveyCampaign> }) => 
+      apiRequest("PATCH", `/api/survey-campaigns/${id}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/survey-campaigns"] });
+      toast({ title: "Campanha atualizada com sucesso!" });
+      setShowCampaignDialog(false);
+      setEditingCampaign(null);
+      form.reset();
+    },
+    onError: (error: Error) => {
+      toast({ title: error.message || "Erro ao atualizar campanha", variant: "destructive" });
     },
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (assetId: string) => apiRequest("DELETE", `/api/google-ads-campaign-assets/${assetId}`),
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/survey-campaigns/${id}`),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/google-ads-campaigns", campaignId, "assets"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/google-ads-campaigns"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/survey-campaigns"] });
+      toast({ title: "Campanha removida com sucesso!" });
     },
-    onError: () => {
-      toast({ title: "Erro ao remover arquivo", variant: "destructive" });
+    onError: (error: Error) => {
+      toast({ title: error.message || "Erro ao remover campanha", variant: "destructive" });
     },
   });
 
-  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    files.forEach(file => uploadMutation.mutate({ file, assetType: "image" }));
+  const handleTemplateSelect = (template: SurveyTemplate) => {
+    setSelectedTemplate(template);
+    setShowTemplateDialog(false);
+    setShowCampaignDialog(true);
+    form.setValue("templateId", template.id);
   };
 
-  const handleVideoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    files.forEach(file => uploadMutation.mutate({ file, assetType: "video" }));
+  const handleCreateClick = () => {
+    setEditingCampaign(null);
+    setSelectedTemplate(null);
+    form.reset();
+    setShowTemplateDialog(true);
   };
 
-  const handleDeleteClick = (assetId: string) => {
-    setAssetToDelete(assetId);
+  const handleEditClick = (campaign: CampaignWithTemplate) => {
+    setEditingCampaign(campaign);
+    setSelectedTemplate(campaign.template || null);
+    form.reset({
+      templateId: campaign.templateId,
+      campaignName: campaign.campaignName,
+      slug: campaign.slug,
+      status: campaign.status,
+      startDate: campaign.startDate,
+      endDate: campaign.endDate,
+      targetAudience: campaign.targetAudience,
+      adminReviewerId: campaign.adminReviewerId,
+      adminNotes: campaign.adminNotes,
+    });
+    setShowCampaignDialog(true);
+  };
+
+  const handleDeleteClick = (campaignId: string) => {
+    setCampaignToDelete(campaignId);
     setShowDeleteDialog(true);
   };
 
   const handleConfirmDelete = async () => {
-    if (assetToDelete) {
-      await deleteMutation.mutateAsync(assetToDelete);
-      const assetTypeName = activeTab === "images" ? "Imagem" : "Vídeo";
-      toast({ title: `${assetTypeName} removido com sucesso!` });
+    if (campaignToDelete) {
+      await deleteMutation.mutateAsync(campaignToDelete);
     }
     setShowDeleteDialog(false);
-    setAssetToDelete(null);
+    setCampaignToDelete(null);
   };
 
-  const handleToggleSelect = (assetId: string) => {
-    setSelectedAssets(prev => 
-      prev.includes(assetId) 
-        ? prev.filter(id => id !== assetId)
-        : [...prev, assetId]
-    );
-  };
-
-  const handleSelectAll = (currentAssets: GoogleAdsCampaignAsset[]) => {
-    if (selectedAssets.length === currentAssets.length && currentAssets.length > 0) {
-      setSelectedAssets([]);
+  const handleSubmit = async (data: InsertSurveyCampaign) => {
+    if (editingCampaign) {
+      await updateMutation.mutateAsync({ id: editingCampaign.id, data });
     } else {
-      setSelectedAssets(currentAssets.map(a => a.id));
+      await createMutation.mutateAsync(data);
     }
   };
 
-  const handleDeleteSelected = async () => {
-    const count = selectedAssets.length;
-    const assetTypeName = activeTab === "images" ? "imagem" : "vídeo";
+  const handleCampaignNameChange = (name: string) => {
+    form.setValue("campaignName", name);
+    if (!editingCampaign) {
+      form.setValue("slug", slugify(name));
+    }
+  };
+
+  const handleApprove = async (campaignId: string) => {
+    await updateMutation.mutateAsync({
+      id: campaignId,
+      data: { status: "approved", adminReviewerId: user?.id },
+    });
+  };
+
+  const handleReject = async (campaignId: string, notes: string) => {
+    await updateMutation.mutateAsync({
+      id: campaignId,
+      data: { status: "rejected", adminReviewerId: user?.id, adminNotes: notes },
+    });
+  };
+
+  const copyToClipboard = async (text: string) => {
     try {
-      for (const assetId of selectedAssets) {
-        await deleteMutation.mutateAsync(assetId);
-      }
-      toast({ title: `${count} ${assetTypeName}(ns) removida(s) com sucesso!` });
+      await navigator.clipboard.writeText(text);
+      toast({ title: "URL copiada para área de transferência!" });
     } catch (error) {
-      toast({ title: `Erro ao remover ${assetTypeName}s`, variant: "destructive" });
+      toast({ title: "Erro ao copiar URL", variant: "destructive" });
     }
-    setSelectedAssets([]);
-    setShowDeleteDialog(false);
   };
 
-  const renderAssetList = (currentAssets: GoogleAdsCampaignAsset[], assetType: "image" | "video") => {
-    const currentCount = currentAssets.length;
-    const hasSelection = selectedAssets.length > 0;
-    const allSelected = selectedAssets.length === currentCount && currentCount > 0;
-    const isImage = assetType === "image";
-    const inputId = isImage ? imageInputId : videoInputId;
-    const Icon = isImage ? ImageIcon : Video;
-    const label = isImage ? "Imagem" : "Vídeo";
-    const labelPlural = isImage ? "Imagens" : "Vídeos";
-
-    return (
-      <div className="space-y-4">
-        <div className="flex items-center justify-between gap-2 flex-wrap">
-          <Label>{labelPlural} da Campanha ({currentCount})</Label>
-          <div className="flex gap-2">
-            {currentCount > 0 && (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="rounded-full"
-                onClick={() => handleSelectAll(currentAssets)}
-                data-testid={`button-select-all-${assetType}`}
-              >
-                {allSelected ? "Desmarcar Todas" : "Selecionar Todas"}
-              </Button>
-            )}
-            {hasSelection && (
-              <Button
-                type="button"
-                variant="destructive"
-                size="sm"
-                className="rounded-full"
-                onClick={() => setShowDeleteDialog(true)}
-                disabled={deleteMutation.isPending}
-                data-testid={`button-delete-selected-${assetType}`}
-              >
-                <Trash2 className="w-4 h-4 mr-2" />
-                Excluir Selecionadas ({selectedAssets.length})
-              </Button>
-            )}
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="rounded-full"
-              onClick={() => document.getElementById(inputId)?.click()}
-              disabled={uploadMutation.isPending}
-              data-testid={`button-upload-${assetType}`}
-            >
-              <Icon className="w-4 h-4 mr-2" />
-              {uploadMutation.isPending ? "Enviando..." : `Adicionar ${label}`}
-            </Button>
-          </div>
-        </div>
-
-        {assetsLoading ? (
-          <div className="grid grid-cols-3 gap-4">
-            {[1, 2, 3].map((i) => (
-              <Skeleton key={i} className="aspect-square rounded-lg" />
-            ))}
-          </div>
-        ) : (
-          <div className="grid grid-cols-3 gap-4">
-            {currentAssets.map((asset) => (
-              <div key={asset.id} className="relative group">
-                <div className="absolute top-2 left-2 z-10">
-                  <Checkbox
-                    checked={selectedAssets.includes(asset.id)}
-                    onCheckedChange={() => handleToggleSelect(asset.id)}
-                    className="bg-white dark:bg-gray-800"
-                    data-testid={`checkbox-select-${assetType}-${asset.id}`}
-                  />
-                </div>
-                {isImage ? (
-                  <img
-                    src={asset.url}
-                    alt={asset.originalFilename}
-                    className="w-full aspect-square object-cover rounded-lg"
-                  />
-                ) : (
-                  <video
-                    src={asset.url}
-                    className="w-full aspect-square object-cover rounded-lg"
-                    controls
-                  />
-                )}
-                <Button
-                  type="button"
-                  variant="destructive"
-                  size="icon"
-                  className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity rounded-full"
-                  onClick={() => handleDeleteClick(asset.id)}
-                  disabled={deleteMutation.isPending}
-                  data-testid={`button-delete-${assetType}-${asset.id}`}
-                >
-                  <X className="w-4 h-4" />
-                </Button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {currentCount === 0 && !assetsLoading && (
-          <div className="text-center py-8 text-muted-foreground">
-            <Icon className="w-12 h-12 mx-auto mb-2 opacity-50" />
-            <p>Nenhum {label.toLowerCase()} adicionado ainda</p>
-          </div>
-        )}
-      </div>
-    );
+  const getLandingPageUrl = (slug: string) => {
+    return `https://www.politicall.com.br/survey/${slug}`;
   };
-
-  const assetTypeName = activeTab === "images" ? "imagem" : "vídeo";
 
   return (
-    <div className="space-y-4">
-      <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v as "images" | "videos"); setSelectedAssets([]); }}>
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="images" data-testid="tab-images">
-            <ImageIcon className="w-4 h-4 mr-2" />
-            Imagens ({imageAssets.length})
-          </TabsTrigger>
-          <TabsTrigger value="videos" data-testid="tab-videos">
-            <Video className="w-4 h-4 mr-2" />
-            Vídeos ({videoAssets.length})
-          </TabsTrigger>
-        </TabsList>
+    <div className="container mx-auto p-6 max-w-7xl">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-3xl font-bold">Campanhas de Pesquisa</h1>
+          <p className="text-muted-foreground mt-2">
+            Crie e gerencie pesquisas de opinião pública
+          </p>
+        </div>
+        <Button
+          onClick={handleCreateClick}
+          className="rounded-full"
+          data-testid="button-create-campaign"
+        >
+          <Plus className="w-4 h-4 mr-2" />
+          Nova Campanha
+        </Button>
+      </div>
 
-        <TabsContent value="images">
-          {renderAssetList(imageAssets, "image")}
-        </TabsContent>
+      <div className="grid lg:grid-cols-1 gap-6">
+        {campaignsLoading ? (
+          <div className="space-y-4">
+            {[1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-32 rounded-xl" />
+            ))}
+          </div>
+        ) : campaigns && campaigns.length > 0 ? (
+          <div className="space-y-4">
+            {campaigns.map((campaign) => {
+              const statusConfig = SURVEY_STATUS_CONFIG[campaign.status as keyof typeof SURVEY_STATUS_CONFIG];
+              const StatusIcon = statusConfig.icon;
+              const isApproved = campaign.status === "approved" || campaign.status === "active";
+              const landingUrl = getLandingPageUrl(campaign.slug);
 
-        <TabsContent value="videos">
-          {renderAssetList(videoAssets, "video")}
-        </TabsContent>
-      </Tabs>
+              return (
+                <Card key={campaign.id} className="hover-elevate" data-testid={`card-campaign-${campaign.id}`}>
+                  <CardHeader>
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          <CardTitle className="text-xl" data-testid={`text-campaign-name-${campaign.id}`}>
+                            {campaign.campaignName}
+                          </CardTitle>
+                          <Badge className={statusConfig.color} data-testid={`badge-status-${campaign.id}`}>
+                            <StatusIcon className="w-3 h-3 mr-1" />
+                            {statusConfig.label}
+                          </Badge>
+                          {campaign.responseCount !== undefined && (
+                            <Badge variant="outline" data-testid={`badge-responses-${campaign.id}`}>
+                              {campaign.responseCount} respostas
+                            </Badge>
+                          )}
+                        </div>
+                        {campaign.template && (
+                          <CardDescription className="text-sm" data-testid={`text-template-${campaign.id}`}>
+                            Template: {campaign.template.name}
+                          </CardDescription>
+                        )}
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="rounded-full"
+                          onClick={() => handleEditClick(campaign)}
+                          data-testid={`button-edit-${campaign.id}`}
+                        >
+                          <Edit className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="icon"
+                          className="rounded-full"
+                          onClick={() => handleDeleteClick(campaign.id)}
+                          data-testid={`button-delete-${campaign.id}`}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {isApproved && (
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">URL da Página de Pesquisa:</Label>
+                        <div className="flex gap-2">
+                          <Input
+                            value={landingUrl}
+                            readOnly
+                            className="font-mono text-sm"
+                            data-testid={`input-landing-url-${campaign.id}`}
+                          />
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="rounded-full flex-shrink-0"
+                            onClick={() => copyToClipboard(landingUrl)}
+                            data-testid={`button-copy-url-${campaign.id}`}
+                          >
+                            <Copy className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="rounded-full flex-shrink-0"
+                            onClick={() => window.open(landingUrl, "_blank")}
+                            data-testid={`button-open-url-${campaign.id}`}
+                          >
+                            <ExternalLink className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    )}
 
-      <input
-        id={imageInputId}
-        type="file"
-        accept="image/*"
-        multiple
-        onChange={handleImageSelect}
-        className="hidden"
-        data-testid="input-image-upload"
-      />
-      <input
-        id={videoInputId}
-        type="file"
-        accept="video/*"
-        multiple
-        onChange={handleVideoSelect}
-        className="hidden"
-        data-testid="input-video-upload"
-      />
+                    {campaign.targetAudience && (
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">Público-Alvo:</Label>
+                        <p className="text-sm text-muted-foreground" data-testid={`text-target-audience-${campaign.id}`}>
+                          {campaign.targetAudience}
+                        </p>
+                      </div>
+                    )}
+
+                    {campaign.adminNotes && (
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">Notas do Administrador:</Label>
+                        <p className="text-sm text-muted-foreground" data-testid={`text-admin-notes-${campaign.id}`}>
+                          {campaign.adminNotes}
+                        </p>
+                      </div>
+                    )}
+
+                    {user?.role === "admin" && campaign.status === "under_review" && (
+                      <div className="flex gap-2 pt-4 border-t">
+                        <Button
+                          variant="default"
+                          className="rounded-full flex-1 bg-[#40E0D0] hover:bg-[#48D1CC] text-white"
+                          onClick={() => handleApprove(campaign.id)}
+                          disabled={updateMutation.isPending}
+                          data-testid={`button-approve-${campaign.id}`}
+                        >
+                          <CheckCircle className="w-4 h-4 mr-2" />
+                          Aprovar Campanha
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          className="rounded-full flex-1"
+                          onClick={() => {
+                            const notes = prompt("Motivo da rejeição:");
+                            if (notes) handleReject(campaign.id, notes);
+                          }}
+                          disabled={updateMutation.isPending}
+                          data-testid={`button-reject-${campaign.id}`}
+                        >
+                          <XCircle className="w-4 h-4 mr-2" />
+                          Rejeitar Campanha
+                        </Button>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        ) : (
+          <Card className="text-center py-12">
+            <CardContent>
+              <p className="text-muted-foreground mb-4">Nenhuma campanha criada ainda</p>
+              <Button
+                onClick={handleCreateClick}
+                className="rounded-full"
+                data-testid="button-create-first-campaign"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Criar Primeira Campanha
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
+      <Dialog open={showTemplateDialog} onOpenChange={setShowTemplateDialog}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Selecione um Template de Pesquisa</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {templatesLoading ? (
+              <div className="space-y-4">
+                {[1, 2, 3].map((i) => (
+                  <Skeleton key={i} className="h-24 rounded-lg" />
+                ))}
+              </div>
+            ) : templates && templates.length > 0 ? (
+              templates.map((template) => (
+                <Card
+                  key={template.id}
+                  className="cursor-pointer hover-elevate active-elevate-2"
+                  onClick={() => handleTemplateSelect(template)}
+                  data-testid={`card-template-${template.id}`}
+                >
+                  <CardHeader>
+                    <CardTitle className="text-lg" data-testid={`text-template-name-${template.id}`}>
+                      {template.name}
+                    </CardTitle>
+                    {template.description && (
+                      <CardDescription data-testid={`text-template-description-${template.id}`}>
+                        {template.description}
+                      </CardDescription>
+                    )}
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Pergunta:</Label>
+                      <p className="text-sm" data-testid={`text-template-question-${template.id}`}>
+                        {template.questionText}
+                      </p>
+                      {template.options && template.options.length > 0 && (
+                        <div className="mt-2">
+                          <Label className="text-sm font-medium">Opções:</Label>
+                          <ul className="list-disc list-inside text-sm text-muted-foreground">
+                            {template.options.map((option, idx) => (
+                              <li key={idx}>{option}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            ) : (
+              <p className="text-center text-muted-foreground py-8">
+                Nenhum template disponível
+              </p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showCampaignDialog} onOpenChange={setShowCampaignDialog}>
+        <DialogContent className="max-w-md max-h-[90vh] flex flex-col">
+          <DialogHeader className="flex-shrink-0">
+            <DialogTitle>
+              {editingCampaign ? "Editar Campanha" : "Nova Campanha de Pesquisa"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto">
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+                {selectedTemplate && (
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Template Selecionado:</Label>
+                    <Card>
+                      <CardContent className="pt-4">
+                        <p className="font-medium" data-testid="text-selected-template-name">
+                          {selectedTemplate.name}
+                        </p>
+                        <p className="text-sm text-muted-foreground" data-testid="text-selected-template-question">
+                          {selectedTemplate.questionText}
+                        </p>
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
+
+                <FormField
+                  control={form.control}
+                  name="campaignName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Nome da Campanha *</FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          placeholder="Ex: Pesquisa de Opinião Pública 2025"
+                          onChange={(e) => handleCampaignNameChange(e.target.value)}
+                          data-testid="input-campaign-name"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="slug"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Slug (URL) *</FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          placeholder="pesquisa-opiniao-publica-2025"
+                          data-testid="input-slug"
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        URL amigável para a página de pesquisa
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="targetAudience"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Público-Alvo (Opcional)</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          {...field}
+                          value={field.value || ""}
+                          placeholder="Descreva o público-alvo desta pesquisa..."
+                          className="min-h-20"
+                          data-testid="textarea-target-audience"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="startDate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Data de Início</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="date"
+                            {...field}
+                            value={field.value ? new Date(field.value).toISOString().split('T')[0] : ""}
+                            onChange={(e) => field.onChange(e.target.value ? new Date(e.target.value) : null)}
+                            data-testid="input-start-date"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="endDate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Data de Término</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="date"
+                            {...field}
+                            value={field.value ? new Date(field.value).toISOString().split('T')[0] : ""}
+                            onChange={(e) => field.onChange(e.target.value ? new Date(e.target.value) : null)}
+                            data-testid="input-end-date"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </form>
+            </Form>
+          </div>
+          <DialogFooter className="flex-shrink-0">
+            <Button
+              variant="outline"
+              onClick={() => setShowCampaignDialog(false)}
+              className="rounded-full"
+              data-testid="button-cancel-campaign"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={form.handleSubmit(handleSubmit)}
+              disabled={createMutation.isPending || updateMutation.isPending}
+              className="rounded-full bg-[#40E0D0] hover:bg-[#48D1CC] text-white"
+              data-testid="button-submit-campaign"
+            >
+              {createMutation.isPending || updateMutation.isPending
+                ? "Salvando..."
+                : editingCampaign
+                ? "Atualizar Campanha"
+                : "Criar Campanha"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
             <AlertDialogDescription>
-              {assetToDelete 
-                ? `Tem certeza que deseja excluir este ${assetTypeName}? Esta ação não pode ser desfeita.`
-                : `Tem certeza que deseja excluir ${selectedAssets.length} ${assetTypeName}(ns)? Esta ação não pode ser desfeita.`
-              }
+              Tem certeza que deseja excluir esta campanha? Esta ação não pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="rounded-full" disabled={deleteMutation.isPending}>
+            <AlertDialogCancel className="rounded-full" data-testid="button-cancel-delete">
               Cancelar
             </AlertDialogCancel>
-            <AlertDialogAction 
-              className="rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={assetToDelete ? handleConfirmDelete : handleDeleteSelected}
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
               disabled={deleteMutation.isPending}
+              className="rounded-full bg-red-600 hover:bg-red-700 text-white"
+              data-testid="button-confirm-delete"
             >
               {deleteMutation.isPending ? "Excluindo..." : "Excluir"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
-  );
-}
-
-
-function GoogleAdsTab() {
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingCampaign, setEditingCampaign] = useState<GoogleAdsCampaign | null>(null);
-  const [showImageUpload, setShowImageUpload] = useState(false);
-  const [selectedCampaignId, setSelectedCampaignId] = useState<string>("");
-  const { toast } = useToast();
-
-  const { data: campaigns, isLoading } = useQuery<(GoogleAdsCampaign & { assets?: GoogleAdsCampaignAsset[] })[]>({
-    queryKey: ["/api/google-ads-campaigns"],
-  });
-
-  const form = useForm<InsertGoogleAdsCampaign>({
-    resolver: zodResolver(insertGoogleAdsCampaignSchema),
-    defaultValues: {
-      campaignName: "",
-      objective: "gerar_novo_eleitor",
-      targetScope: "brasil",
-      targetLocations: [],
-      budget: "0",
-      managementFee: "0",
-      durationDays: 7,
-      lpSlug: "",
-      lpUrl: "",
-      status: "under_review",
-      startDate: new Date().toISOString(),
-      endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-    },
-  });
-
-  const campaignName = form.watch("campaignName");
-  const budget = form.watch("budget");
-  const targetScope = form.watch("targetScope");
-  const durationDays = form.watch("durationDays");
-
-  useEffect(() => {
-    if (campaignName) {
-      const slug = slugify(campaignName);
-      form.setValue("lpSlug", slug);
-      form.setValue("lpUrl", `https://www.politicall.com.br/${slug}`);
-    }
-  }, [campaignName, form]);
-
-  useEffect(() => {
-    const budgetNum = parseFloat(budget) || 0;
-    const fee = calculateManagementFee(budgetNum);
-    form.setValue("managementFee", fee.toFixed(2));
-  }, [budget, form]);
-
-  useEffect(() => {
-    if (durationDays) {
-      const startDate = new Date();
-      const endDate = new Date(startDate);
-      endDate.setDate(endDate.getDate() + durationDays);
-      
-      form.setValue("startDate", startDate.toISOString());
-      form.setValue("endDate", endDate.toISOString());
-    }
-  }, [durationDays, form]);
-
-  const createMutation = useMutation({
-    mutationFn: (data: InsertGoogleAdsCampaign) => apiRequest("POST", "/api/google-ads-campaigns", data),
-    onSuccess: (data: any) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/google-ads-campaigns"] });
-      toast({ title: "Campanha criada com sucesso!" });
-      setIsDialogOpen(false);
-      setSelectedCampaignId(data.id);
-      setShowImageUpload(true);
-      form.reset();
-    },
-    onError: () => {
-      toast({ title: "Erro ao criar campanha", variant: "destructive" });
-    },
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<InsertGoogleAdsCampaign> }) =>
-      apiRequest("PATCH", `/api/google-ads-campaigns/${id}`, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/google-ads-campaigns"] });
-      toast({ title: "Campanha atualizada com sucesso!" });
-      setIsDialogOpen(false);
-      setEditingCampaign(null);
-      form.reset();
-    },
-    onError: () => {
-      toast({ title: "Erro ao atualizar campanha", variant: "destructive" });
-    },
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) => apiRequest("DELETE", `/api/google-ads-campaigns/${id}`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/google-ads-campaigns"] });
-      toast({ title: "Campanha excluída com sucesso!" });
-    },
-    onError: () => {
-      toast({ title: "Erro ao excluir campanha", variant: "destructive" });
-    },
-  });
-
-  const handleSubmit = (data: InsertGoogleAdsCampaign) => {
-    if (editingCampaign) {
-      updateMutation.mutate({ id: editingCampaign.id, data });
-    } else {
-      createMutation.mutate(data);
-    }
-  };
-
-  const handleEdit = (campaign: GoogleAdsCampaign) => {
-    setEditingCampaign(campaign);
-    form.reset({
-      campaignName: campaign.campaignName,
-      objective: campaign.objective as "gerar_novo_eleitor" | "pesquisa_satisfacao" | "pesquisa_social",
-      targetScope: campaign.targetScope as "bairro" | "cidade" | "estado" | "brasil",
-      targetLocations: campaign.targetLocations as string[] || [],
-      budget: campaign.budget,
-      managementFee: campaign.managementFee,
-      durationDays: campaign.durationDays,
-      lpSlug: campaign.lpSlug,
-      lpUrl: campaign.lpUrl,
-      status: campaign.status,
-      startDate: campaign.startDate as any,
-      endDate: campaign.endDate as any,
-    });
-    setIsDialogOpen(true);
-  };
-
-  const handleDelete = (id: string) => {
-    if (confirm("Tem certeza que deseja excluir esta campanha?")) {
-      deleteMutation.mutate(id);
-    }
-  };
-
-  const handleAddImages = (campaignId: string) => {
-    setSelectedCampaignId(campaignId);
-    setShowImageUpload(true);
-  };
-
-  const budgetNum = parseFloat(budget) || 0;
-  const managementFee = calculateManagementFee(budgetNum);
-  const totalCost = calculateTotalCost(budgetNum);
-
-  const needsLocationInput = targetScope !== "brasil";
-
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <p className="text-muted-foreground">Gerencie suas campanhas do Google Ads</p>
-        <Button 
-          onClick={() => {
-            setEditingCampaign(null);
-            form.reset();
-            setIsDialogOpen(true);
-          }}
-          className="rounded-full"
-          data-testid="button-new-google-ads-campaign"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Nova Campanha Google Ads
-        </Button>
-
-        <Dialog open={isDialogOpen} onOpenChange={(open) => {
-          setIsDialogOpen(open);
-          if (!open) {
-            setEditingCampaign(null);
-            form.reset();
-          }
-        }}>
-          <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col p-0">
-            <DialogHeader className="px-6 pt-6 pb-4 border-b">
-              <DialogTitle>{editingCampaign ? "Editar Campanha" : "Nova Campanha Google Ads"}</DialogTitle>
-            </DialogHeader>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(handleSubmit)} className="flex flex-col flex-1 overflow-hidden">
-                <div className="overflow-y-auto px-6 py-4 space-y-4">
-                  <FormField
-                    control={form.control}
-                    name="campaignName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Nome da Campanha *</FormLabel>
-                        <FormControl>
-                          <Input 
-                            placeholder="Ex: Campanha Eleitoral 2025" 
-                            data-testid="input-google-campaign-name" 
-                            {...field} 
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="objective"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Objetivo *</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger data-testid="select-objective">
-                              <SelectValue />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="gerar_novo_eleitor">Gerar Novo Eleitor</SelectItem>
-                            <SelectItem value="pesquisa_satisfacao">Pesquisa de Satisfação</SelectItem>
-                            <SelectItem value="pesquisa_social">Pesquisa Social</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="targetScope"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Localização Alvo *</FormLabel>
-                        <RadioGroup
-                          value={field.value}
-                          onValueChange={field.onChange}
-                          className="flex flex-wrap gap-4"
-                        >
-                          <div className="flex items-center space-x-2">
-                            <RadioGroupItem value="bairro" id="bairro" data-testid="radio-target-bairro" />
-                            <Label htmlFor="bairro">Bairro(s)</Label>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <RadioGroupItem value="cidade" id="cidade" data-testid="radio-target-cidade" />
-                            <Label htmlFor="cidade">Cidade(s)</Label>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <RadioGroupItem value="estado" id="estado" data-testid="radio-target-estado" />
-                            <Label htmlFor="estado">Estado</Label>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <RadioGroupItem value="brasil" id="brasil" data-testid="radio-target-brasil" />
-                            <Label htmlFor="brasil">Brasil</Label>
-                          </div>
-                        </RadioGroup>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  {needsLocationInput && (
-                    <FormField
-                      control={form.control}
-                      name="targetLocations"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>
-                            {targetScope === "bairro" ? "Nome dos Bairros" : 
-                             targetScope === "cidade" ? "Nome das Cidades" : "Nome do Estado"}
-                          </FormLabel>
-                          <FormControl>
-                            <Input
-                              placeholder="Separe por vírgula. Ex: Centro, Jardins, Vila Nova"
-                              data-testid="input-target-locations"
-                              value={field.value?.join(", ") || ""}
-                              onChange={(e) => {
-                                const locations = e.target.value
-                                  .split(",")
-                                  .map(l => l.trim())
-                                  .filter(l => l);
-                                field.onChange(locations);
-                              }}
-                            />
-                          </FormControl>
-                          <FormDescription>
-                            Digite os nomes separados por vírgula
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  )}
-
-                  <FormField
-                    control={form.control}
-                    name="budget"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Orçamento (R$) *</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            placeholder="1000.00"
-                            data-testid="input-budget"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <div className="p-4 bg-muted rounded-lg space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span>Orçamento Base:</span>
-                      <span data-testid="text-base-budget">R$ {budgetNum.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span>Taxa de Gerenciamento (15%):</span>
-                      <span data-testid="text-management-fee">R$ {managementFee.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between font-semibold border-t pt-2">
-                      <span>Custo Total:</span>
-                      <span data-testid="text-total-cost">R$ {totalCost.toFixed(2)}</span>
-                    </div>
-                  </div>
-
-                  <FormField
-                    control={form.control}
-                    name="durationDays"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Duração (dias) *</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            min="7"
-                            max="30"
-                            placeholder="7"
-                            data-testid="input-duration"
-                            {...field}
-                            onChange={(e) => field.onChange(parseInt(e.target.value))}
-                          />
-                        </FormControl>
-                        <FormDescription>
-                          Mínimo 7 dias, máximo 30 dias
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <DialogFooter className="px-6 py-4 border-t">
-                  <Button
-                    type="submit"
-                    disabled={createMutation.isPending || updateMutation.isPending}
-                    className="rounded-full w-full"
-                    data-testid="button-submit-google-campaign"
-                  >
-                    {createMutation.isPending || updateMutation.isPending
-                      ? "Salvando..."
-                      : editingCampaign
-                      ? "Atualizar Campanha"
-                      : "Criar Campanha"}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </Form>
-          </DialogContent>
-        </Dialog>
-
-        <Dialog open={showImageUpload} onOpenChange={setShowImageUpload}>
-          <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col p-0">
-            <DialogHeader className="px-6 pt-6 pb-4 border-b">
-              <DialogTitle>Adicionar Imagens e Vídeos</DialogTitle>
-            </DialogHeader>
-            <div className="overflow-y-auto px-6 py-4">
-              <ImageUploadComponent
-                campaignId={selectedCampaignId}
-                onUploadComplete={() => {}}
-              />
-            </div>
-            <DialogFooter className="px-6 py-4 border-t">
-              <Button
-                onClick={() => setShowImageUpload(false)}
-                className="rounded-full w-full"
-                data-testid="button-close-image-upload"
-              >
-                Concluir
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </div>
-
-      {isLoading ? (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {[1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-64 rounded-xl" />
-          ))}
-        </div>
-      ) : campaigns && campaigns.length > 0 ? (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {campaigns.map((campaign) => {
-            const canEdit = campaign.status === "under_review" || campaign.status === "rejected";
-            const assetCount = campaign.assets?.length || 0;
-            const displayAssets = campaign.assets?.slice(0, 3) || [];
-
-            return (
-              <Card key={campaign.id} data-testid={`card-google-campaign-${campaign.id}`}>
-                <CardHeader>
-                  <div className="flex items-start justify-between gap-2">
-                    <CardTitle className="text-lg">{campaign.campaignName}</CardTitle>
-                    <Badge className={GOOGLE_ADS_STATUS_CONFIG[campaign.status as keyof typeof GOOGLE_ADS_STATUS_CONFIG]?.color}>
-                      {GOOGLE_ADS_STATUS_CONFIG[campaign.status as keyof typeof GOOGLE_ADS_STATUS_CONFIG]?.label || campaign.status}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div>
-                    <Badge variant="outline" className="mb-2">
-                      {OBJECTIVE_LABELS[campaign.objective as keyof typeof OBJECTIVE_LABELS]}
-                    </Badge>
-                  </div>
-                  
-                  <div className="text-sm">
-                    <span className="text-muted-foreground">Localização: </span>
-                    <span>
-                      {campaign.targetScope === "brasil" 
-                        ? "Todo o Brasil" 
-                        : `${TARGET_SCOPE_LABELS[campaign.targetScope as keyof typeof TARGET_SCOPE_LABELS]}: ${(campaign.targetLocations as string[] || []).join(", ")}`}
-                    </span>
-                  </div>
-
-                  <div className="text-sm space-y-1">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Orçamento:</span>
-                      <span>R$ {parseFloat(campaign.budget).toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Taxa (15%):</span>
-                      <span>R$ {parseFloat(campaign.managementFee).toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between font-semibold">
-                      <span>Total:</span>
-                      <span data-testid={`text-campaign-total-${campaign.id}`}>
-                        R$ {(parseFloat(campaign.budget) + parseFloat(campaign.managementFee)).toFixed(2)}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="text-sm text-muted-foreground">
-                    Duração: {campaign.durationDays} dias
-                  </div>
-
-                  {displayAssets.length > 0 && (
-                    <div>
-                      <p className="text-xs text-muted-foreground mb-2">
-                        Imagens ({assetCount})
-                      </p>
-                      <div className="grid grid-cols-3 gap-2">
-                        {displayAssets.map((asset) => (
-                          <img
-                            key={asset.id}
-                            src={asset.url}
-                            alt={asset.originalFilename}
-                            className="w-full aspect-square object-cover rounded"
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="text-xs text-muted-foreground">
-                    <a 
-                      href={campaign.lpUrl} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="text-primary hover:underline"
-                      data-testid={`link-lp-${campaign.id}`}
-                    >
-                      {campaign.lpUrl}
-                    </a>
-                  </div>
-                </CardContent>
-                <CardFooter className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="rounded-full flex-1"
-                    onClick={() => handleAddImages(campaign.id)}
-                    data-testid={`button-add-images-${campaign.id}`}
-                  >
-                    <ImageIcon className="w-4 h-4 mr-2" />
-                    Imagens
-                  </Button>
-                  {canEdit && (
-                    <>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="rounded-full"
-                        onClick={() => handleEdit(campaign)}
-                        data-testid={`button-edit-${campaign.id}`}
-                      >
-                        <Edit className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        className="rounded-full"
-                        onClick={() => handleDelete(campaign.id)}
-                        disabled={deleteMutation.isPending}
-                        data-testid={`button-delete-${campaign.id}`}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </>
-                  )}
-                </CardFooter>
-              </Card>
-            );
-          })}
-        </div>
-      ) : (
-        <div className="text-center py-12 text-muted-foreground">
-          <ImageIcon className="w-12 h-12 mx-auto mb-4 opacity-50" />
-          <p>Nenhuma campanha Google Ads criada ainda</p>
-        </div>
-      )}
-    </div>
-  );
-}
-
-export default function Marketing() {
-  return (
-    <div className="p-4 sm:p-6 md:p-8 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Marketing</h1>
-        <p className="text-muted-foreground mt-2">Gerencie suas campanhas do Google Ads</p>
-      </div>
-
-      <GoogleAdsTab />
     </div>
   );
 }

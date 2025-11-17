@@ -300,40 +300,53 @@ export const integrations = pgTable("integrations", {
   updatedAt: timestamp("updated_at").defaultNow().notNull()
 });
 
-// Google Ads Campaign Requests
-export const googleAdsCampaigns = pgTable("google_ads_campaigns", {
+// Survey Templates - Predefined survey types
+export const surveyTemplates = pgTable("survey_templates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(), // "Intenção de voto", "Temas prioritários", etc
+  slug: text("slug").notNull().unique(), // URL-friendly identifier
+  description: text("description"),
+  questionText: text("question_text").notNull(), // The survey question
+  questionType: text("question_type").notNull(), // "open_text", "single_choice", "multiple_choice", "rating"
+  options: jsonb("options").$type<string[]>(), // Array of answer options (for choice questions)
+  order: integer("order").notNull(), // Display order
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Survey Campaigns - User-created survey instances
+export const surveyCampaigns = pgTable("survey_campaigns", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  templateId: varchar("template_id").notNull().references(() => surveyTemplates.id),
   campaignName: text("campaign_name").notNull(),
-  objective: text("objective").notNull(), // gerar_novo_eleitor, pesquisa_satisfacao, pesquisa_social
-  targetScope: text("target_scope").notNull(), // bairro, cidade, estado, brasil
-  targetLocations: jsonb("target_locations").$type<string[]>(), // Array of location names
-  budget: numeric("budget", { precision: 10, scale: 2 }).notNull(), // Total budget
-  managementFee: numeric("management_fee", { precision: 10, scale: 2 }).notNull(), // 15% of budget
-  startDate: timestamp("start_date").notNull(),
-  endDate: timestamp("end_date").notNull(),
-  durationDays: integer("duration_days").notNull(), // 7-30 days
-  lpSlug: text("lp_slug").notNull().unique(), // URL-friendly slug
-  lpUrl: text("lp_url").notNull(), // Full LP URL
-  status: text("status").notNull().default("submitted"), // submitted, under_review, approved, rejected, scheduled, running, paused, completed
+  slug: text("slug").notNull().unique(), // URL slug for landing page
+  status: text("status").notNull().default("under_review"), // under_review, approved, rejected, active, paused, completed
   adminReviewerId: varchar("admin_reviewer_id").references(() => users.id),
-  adminNotes: text("admin_notes"), // Admin comments/feedback
+  adminNotes: text("admin_notes"),
+  startDate: timestamp("start_date"),
+  endDate: timestamp("end_date"),
+  targetAudience: text("target_audience"), // Optional description of target
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-// Google Ads Campaign Assets (Images and Videos)
-export const googleAdsCampaignAssets = pgTable("google_ads_campaign_assets", {
+// Survey Landing Pages - Generated HTML for each campaign
+export const surveyLandingPages = pgTable("survey_landing_pages", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  campaignId: varchar("campaign_id").notNull().references(() => googleAdsCampaigns.id, { onDelete: "cascade" }),
-  assetType: text("asset_type").notNull().default("image"), // image or video
-  storageKey: text("storage_key").notNull(), // Path in attached_assets
-  url: text("url").notNull(), // Full URL to access the asset
-  originalFilename: text("original_filename").notNull(),
-  sizeBytes: integer("size_bytes").notNull(),
-  mimeType: text("mime_type").notNull(),
-  uploadedAt: timestamp("uploaded_at").defaultNow().notNull(),
-  uploadedBy: varchar("uploaded_by").notNull().references(() => users.id),
+  campaignId: varchar("campaign_id").notNull().unique().references(() => surveyCampaigns.id, { onDelete: "cascade" }),
+  htmlContent: text("html_content").notNull(), // Pre-rendered HTML for compliance
+  version: integer("version").notNull().default(1), // For tracking changes
+  generatedAt: timestamp("generated_at").defaultNow().notNull(),
+});
+
+// Survey Responses - Collected answers
+export const surveyResponses = pgTable("survey_responses", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  campaignId: varchar("campaign_id").notNull().references(() => surveyCampaigns.id, { onDelete: "cascade" }),
+  responseData: jsonb("response_data").notNull(), // { answer: "text" } or { answers: ["option1", "option2"] }
+  respondentIp: text("respondent_ip"), // For duplicate prevention
+  respondentMetadata: jsonb("respondent_metadata").$type<Record<string, any>>(), // Optional: location, device, etc
+  submittedAt: timestamp("submitted_at").defaultNow().notNull(),
 });
 
 // Relations
@@ -343,7 +356,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   demands: many(demands),
   events: many(events),
   campaigns: many(marketingCampaigns),
-  googleAdsCampaigns: many(googleAdsCampaigns),
+  surveyCampaigns: many(surveyCampaigns),
   notifications: many(notifications),
 }));
 
@@ -391,26 +404,38 @@ export const eventsRelations = relations(events, ({ one }) => ({
   }),
 }));
 
-export const googleAdsCampaignsRelations = relations(googleAdsCampaigns, ({ one, many }) => ({
-  user: one(users, {
-    fields: [googleAdsCampaigns.userId],
-    references: [users.id],
-  }),
-  adminReviewer: one(users, {
-    fields: [googleAdsCampaigns.adminReviewerId],
-    references: [users.id],
-  }),
-  assets: many(googleAdsCampaignAssets),
+export const surveyTemplatesRelations = relations(surveyTemplates, ({ many }) => ({
+  campaigns: many(surveyCampaigns),
 }));
 
-export const googleAdsCampaignAssetsRelations = relations(googleAdsCampaignAssets, ({ one }) => ({
-  campaign: one(googleAdsCampaigns, {
-    fields: [googleAdsCampaignAssets.campaignId],
-    references: [googleAdsCampaigns.id],
-  }),
-  uploader: one(users, {
-    fields: [googleAdsCampaignAssets.uploadedBy],
+export const surveyCampaignsRelations = relations(surveyCampaigns, ({ one, many }) => ({
+  user: one(users, {
+    fields: [surveyCampaigns.userId],
     references: [users.id],
+  }),
+  template: one(surveyTemplates, {
+    fields: [surveyCampaigns.templateId],
+    references: [surveyTemplates.id],
+  }),
+  adminReviewer: one(users, {
+    fields: [surveyCampaigns.adminReviewerId],
+    references: [users.id],
+  }),
+  landingPage: one(surveyLandingPages),
+  responses: many(surveyResponses),
+}));
+
+export const surveyLandingPagesRelations = relations(surveyLandingPages, ({ one }) => ({
+  campaign: one(surveyCampaigns, {
+    fields: [surveyLandingPages.campaignId],
+    references: [surveyCampaigns.id],
+  }),
+}));
+
+export const surveyResponsesRelations = relations(surveyResponses, ({ one }) => ({
+  campaign: one(surveyCampaigns, {
+    fields: [surveyResponses.campaignId],
+    references: [surveyCampaigns.id],
   }),
 }));
 
@@ -531,31 +556,30 @@ export const insertIntegrationSchema = createInsertSchema(integrations).omit({
   updatedAt: true,
 });
 
-export const insertGoogleAdsCampaignSchema = createInsertSchema(googleAdsCampaigns).omit({
+export const insertSurveyTemplateSchema = createInsertSchema(surveyTemplates).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertSurveyCampaignSchema = createInsertSchema(surveyCampaigns).omit({
   id: true,
   userId: true,
   createdAt: true,
   updatedAt: true,
 }).extend({
   campaignName: z.string().min(3, "Nome da campanha deve ter no mínimo 3 caracteres"),
-  objective: z.enum(["gerar_novo_eleitor", "pesquisa_satisfacao", "pesquisa_social"]),
-  targetScope: z.enum(["bairro", "cidade", "estado", "brasil"]),
-  targetLocations: z.array(z.string()).optional(),
-  budget: z.string().refine((val) => !isNaN(Number(val)) && Number(val) > 0, {
-    message: "Orçamento deve ser maior que zero",
-  }),
-  managementFee: z.string(),
-  startDate: z.string().or(z.date()),
-  endDate: z.string().or(z.date()),
-  durationDays: z.number().min(7, "Duração mínima de 7 dias").max(30, "Duração máxima de 30 dias"),
-  lpSlug: z.string(),
-  lpUrl: z.string(),
-  status: z.string().default("submitted"),
+  slug: z.string().min(3, "Slug deve ter no mínimo 3 caracteres"),
+  status: z.string().default("under_review"),
 });
 
-export const insertGoogleAdsCampaignAssetSchema = createInsertSchema(googleAdsCampaignAssets).omit({
+export const insertSurveyLandingPageSchema = createInsertSchema(surveyLandingPages).omit({
   id: true,
-  uploadedAt: true,
+  generatedAt: true,
+});
+
+export const insertSurveyResponseSchema = createInsertSchema(surveyResponses).omit({
+  id: true,
+  submittedAt: true,
 });
 
 // TypeScript types
@@ -600,8 +624,14 @@ export type InsertNotification = z.infer<typeof insertNotificationSchema>;
 export type Integration = typeof integrations.$inferSelect;
 export type InsertIntegration = z.infer<typeof insertIntegrationSchema>;
 
-export type GoogleAdsCampaign = typeof googleAdsCampaigns.$inferSelect;
-export type InsertGoogleAdsCampaign = z.infer<typeof insertGoogleAdsCampaignSchema>;
+export type SurveyTemplate = typeof surveyTemplates.$inferSelect;
+export type InsertSurveyTemplate = z.infer<typeof insertSurveyTemplateSchema>;
 
-export type GoogleAdsCampaignAsset = typeof googleAdsCampaignAssets.$inferSelect;
-export type InsertGoogleAdsCampaignAsset = z.infer<typeof insertGoogleAdsCampaignAssetSchema>;
+export type SurveyCampaign = typeof surveyCampaigns.$inferSelect;
+export type InsertSurveyCampaign = z.infer<typeof insertSurveyCampaignSchema>;
+
+export type SurveyLandingPage = typeof surveyLandingPages.$inferSelect;
+export type InsertSurveyLandingPage = z.infer<typeof insertSurveyLandingPageSchema>;
+
+export type SurveyResponse = typeof surveyResponses.$inferSelect;
+export type InsertSurveyResponse = z.infer<typeof insertSurveyResponseSchema>;

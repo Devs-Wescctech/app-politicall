@@ -2,7 +2,7 @@
 import { 
   users, contacts, politicalParties, politicalAlliances, demands, demandComments, events,
   aiConfigurations, aiConversations, aiTrainingExamples, aiResponseTemplates, 
-  marketingCampaigns, notifications, integrations, googleAdsCampaigns, googleAdsCampaignAssets,
+  marketingCampaigns, notifications, integrations, surveyTemplates, surveyCampaigns, surveyLandingPages, surveyResponses,
   type User, type InsertUser, type Contact, type InsertContact,
   type PoliticalParty, type PoliticalAlliance, type InsertPoliticalAlliance,
   type Demand, type InsertDemand, type DemandComment, type InsertDemandComment,
@@ -12,8 +12,10 @@ import {
   type MarketingCampaign, type InsertMarketingCampaign,
   type Notification, type InsertNotification,
   type Integration, type InsertIntegration,
-  type GoogleAdsCampaign, type InsertGoogleAdsCampaign,
-  type GoogleAdsCampaignAsset, type InsertGoogleAdsCampaignAsset
+  type SurveyTemplate, type InsertSurveyTemplate,
+  type SurveyCampaign, type InsertSurveyCampaign,
+  type SurveyLandingPage, type InsertSurveyLandingPage,
+  type SurveyResponse, type InsertSurveyResponse
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, count } from "drizzle-orm";
@@ -110,17 +112,25 @@ export interface IStorage {
   upsertIntegration(integration: InsertIntegration & { userId: string }): Promise<Integration>;
   deleteIntegration(id: string, userId: string): Promise<void>;
 
-  // Google Ads Campaigns
-  getGoogleAdsCampaigns(userId: string): Promise<GoogleAdsCampaign[]>;
-  getGoogleAdsCampaign(id: string): Promise<GoogleAdsCampaign | undefined>;
-  createGoogleAdsCampaign(campaign: InsertGoogleAdsCampaign & { userId: string }): Promise<GoogleAdsCampaign>;
-  updateGoogleAdsCampaign(id: string, campaign: Partial<InsertGoogleAdsCampaign>): Promise<GoogleAdsCampaign>;
-  deleteGoogleAdsCampaign(id: string): Promise<void>;
+  // Survey Templates
+  getSurveyTemplates(): Promise<SurveyTemplate[]>;
+  getSurveyTemplate(id: string): Promise<SurveyTemplate | undefined>;
 
-  // Google Ads Campaign Assets
-  getCampaignAssets(campaignId: string): Promise<GoogleAdsCampaignAsset[]>;
-  createCampaignAsset(asset: InsertGoogleAdsCampaignAsset): Promise<GoogleAdsCampaignAsset>;
-  deleteCampaignAsset(id: string): Promise<void>;
+  // Survey Campaigns
+  getSurveyCampaigns(userId: string): Promise<SurveyCampaign[]>;
+  getSurveyCampaign(id: string): Promise<SurveyCampaign | undefined>;
+  createSurveyCampaign(campaign: InsertSurveyCampaign & { userId: string }): Promise<SurveyCampaign>;
+  updateSurveyCampaign(id: string, campaign: Partial<InsertSurveyCampaign>): Promise<SurveyCampaign>;
+  deleteSurveyCampaign(id: string): Promise<void>;
+
+  // Survey Landing Pages
+  getSurveyLandingPage(campaignId: string): Promise<SurveyLandingPage | undefined>;
+  createSurveyLandingPage(landingPage: InsertSurveyLandingPage): Promise<SurveyLandingPage>;
+  updateSurveyLandingPage(id: string, landingPage: Partial<InsertSurveyLandingPage>): Promise<SurveyLandingPage>;
+
+  // Survey Responses
+  getSurveyResponses(campaignId: string): Promise<SurveyResponse[]>;
+  createSurveyResponse(response: InsertSurveyResponse): Promise<SurveyResponse>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -641,79 +651,109 @@ export class DatabaseStorage implements IStorage {
       ));
   }
 
-  // Google Ads Campaigns
-  async getGoogleAdsCampaigns(userId: string): Promise<GoogleAdsCampaign[]> {
+  // Survey Templates
+  async getSurveyTemplates(): Promise<SurveyTemplate[]> {
     return await db.select()
-      .from(googleAdsCampaigns)
-      .where(eq(googleAdsCampaigns.userId, userId))
-      .orderBy(desc(googleAdsCampaigns.createdAt));
+      .from(surveyTemplates)
+      .orderBy(surveyTemplates.order);
   }
 
-  async getGoogleAdsCampaign(id: string): Promise<GoogleAdsCampaign | undefined> {
+  async getSurveyTemplate(id: string): Promise<SurveyTemplate | undefined> {
+    const [template] = await db.select()
+      .from(surveyTemplates)
+      .where(eq(surveyTemplates.id, id));
+    return template || undefined;
+  }
+
+  // Survey Campaigns
+  async getSurveyCampaigns(userId: string): Promise<SurveyCampaign[]> {
+    return await db.select()
+      .from(surveyCampaigns)
+      .where(eq(surveyCampaigns.userId, userId))
+      .orderBy(desc(surveyCampaigns.createdAt));
+  }
+
+  async getSurveyCampaign(id: string): Promise<SurveyCampaign | undefined> {
     const [campaign] = await db.select()
-      .from(googleAdsCampaigns)
-      .where(eq(googleAdsCampaigns.id, id));
+      .from(surveyCampaigns)
+      .where(eq(surveyCampaigns.id, id));
     return campaign || undefined;
   }
 
-  async createGoogleAdsCampaign(campaign: InsertGoogleAdsCampaign & { userId: string }): Promise<GoogleAdsCampaign> {
-    // Ensure dates are Date objects
+  async createSurveyCampaign(campaign: InsertSurveyCampaign & { userId: string }): Promise<SurveyCampaign> {
     const values = {
       ...campaign,
-      startDate: typeof campaign.startDate === 'string' ? new Date(campaign.startDate) : campaign.startDate,
-      endDate: typeof campaign.endDate === 'string' ? new Date(campaign.endDate) : campaign.endDate,
+      startDate: campaign.startDate ? (typeof campaign.startDate === 'string' ? new Date(campaign.startDate) : campaign.startDate) : null,
+      endDate: campaign.endDate ? (typeof campaign.endDate === 'string' ? new Date(campaign.endDate) : campaign.endDate) : null,
     };
 
-    const [newCampaign] = await db.insert(googleAdsCampaigns)
+    const [newCampaign] = await db.insert(surveyCampaigns)
       .values(values)
       .returning();
     return newCampaign;
   }
 
-  async updateGoogleAdsCampaign(id: string, campaign: Partial<InsertGoogleAdsCampaign>): Promise<GoogleAdsCampaign> {
+  async updateSurveyCampaign(id: string, campaign: Partial<InsertSurveyCampaign>): Promise<SurveyCampaign> {
     const values: any = {
       ...campaign,
       updatedAt: new Date()
     };
 
-    // Convert string dates to Date objects if present
-    if (campaign.startDate) {
-      values.startDate = typeof campaign.startDate === 'string' ? new Date(campaign.startDate) : campaign.startDate;
+    if (campaign.startDate !== undefined) {
+      values.startDate = campaign.startDate ? (typeof campaign.startDate === 'string' ? new Date(campaign.startDate) : campaign.startDate) : null;
     }
-    if (campaign.endDate) {
-      values.endDate = typeof campaign.endDate === 'string' ? new Date(campaign.endDate) : campaign.endDate;
+    if (campaign.endDate !== undefined) {
+      values.endDate = campaign.endDate ? (typeof campaign.endDate === 'string' ? new Date(campaign.endDate) : campaign.endDate) : null;
     }
 
-    const [updated] = await db.update(googleAdsCampaigns)
+    const [updated] = await db.update(surveyCampaigns)
       .set(values)
-      .where(eq(googleAdsCampaigns.id, id))
+      .where(eq(surveyCampaigns.id, id))
       .returning();
     return updated;
   }
 
-  async deleteGoogleAdsCampaign(id: string): Promise<void> {
-    await db.delete(googleAdsCampaigns)
-      .where(eq(googleAdsCampaigns.id, id));
+  async deleteSurveyCampaign(id: string): Promise<void> {
+    await db.delete(surveyCampaigns)
+      .where(eq(surveyCampaigns.id, id));
   }
 
-  // Google Ads Campaign Assets
-  async getCampaignAssets(campaignId: string): Promise<GoogleAdsCampaignAsset[]> {
-    return await db.select()
-      .from(googleAdsCampaignAssets)
-      .where(eq(googleAdsCampaignAssets.campaignId, campaignId))
-      .orderBy(googleAdsCampaignAssets.uploadedAt);
+  // Survey Landing Pages
+  async getSurveyLandingPage(campaignId: string): Promise<SurveyLandingPage | undefined> {
+    const [landingPage] = await db.select()
+      .from(surveyLandingPages)
+      .where(eq(surveyLandingPages.campaignId, campaignId));
+    return landingPage || undefined;
   }
 
-  async createCampaignAsset(asset: InsertGoogleAdsCampaignAsset): Promise<GoogleAdsCampaignAsset> {
-    const [newAsset] = await db.insert(googleAdsCampaignAssets)
-      .values(asset)
+  async createSurveyLandingPage(landingPage: InsertSurveyLandingPage): Promise<SurveyLandingPage> {
+    const [newLandingPage] = await db.insert(surveyLandingPages)
+      .values(landingPage)
       .returning();
-    return newAsset;
+    return newLandingPage;
   }
 
-  async deleteCampaignAsset(id: string): Promise<void> {
-    await db.delete(googleAdsCampaignAssets)
-      .where(eq(googleAdsCampaignAssets.id, id));
+  async updateSurveyLandingPage(id: string, landingPage: Partial<InsertSurveyLandingPage>): Promise<SurveyLandingPage> {
+    const [updated] = await db.update(surveyLandingPages)
+      .set(landingPage)
+      .where(eq(surveyLandingPages.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Survey Responses
+  async getSurveyResponses(campaignId: string): Promise<SurveyResponse[]> {
+    return await db.select()
+      .from(surveyResponses)
+      .where(eq(surveyResponses.campaignId, campaignId))
+      .orderBy(desc(surveyResponses.submittedAt));
+  }
+
+  async createSurveyResponse(response: InsertSurveyResponse): Promise<SurveyResponse> {
+    const [newResponse] = await db.insert(surveyResponses)
+      .values(response)
+      .returning();
+    return newResponse;
   }
 }
 

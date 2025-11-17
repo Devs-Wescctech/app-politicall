@@ -25,6 +25,7 @@ import AiAttendance from "@/pages/ai-attendance";
 import Marketing from "@/pages/marketing";
 import Settings from "@/pages/settings";
 import UsersManagement from "@/pages/users";
+import SurveyLanding from "@/pages/survey-landing";
 
 function Router() {
   return (
@@ -86,6 +87,7 @@ function Router() {
           </AdminRoute>
         </ProtectedRoute>
       </Route>
+      <Route path="/survey/:slug" component={SurveyLanding} />
       <Route component={NotFound} />
     </Switch>
   );
