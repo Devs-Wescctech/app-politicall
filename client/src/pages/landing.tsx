@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { motion, useScroll, useTransform } from "framer-motion";
 import logoUrl from "@assets/logo pol_1763308638963.png";
+import wesccLogo from "@assets/logo wesccTECH_1763415124546.png";
 import heroBackgroundVideo from "@assets/grok-video-d39a8f83-9488-4450-a920-1ca2b1507b3e (1)_1763410752455.mp4";
 import crmImage from "@assets/Técnico- Luis Flores (4)_1763413287476.png";
 import alliancesImage from "@assets/Técnico- Luis Flores (5)_1763413674690.png";
@@ -1149,8 +1150,16 @@ export default function LandingPage() {
           </div>
 
           <div className="pt-8 border-t text-center">
-            <p className="text-sm text-muted-foreground">
-              &copy; 2025 Politicall. Todos os direitos reservados.
+            <p className="text-sm text-muted-foreground flex items-center justify-center gap-2">
+              <span>&copy; 2025</span>
+              <img 
+                src={wesccLogo} 
+                alt="Wescc Tech" 
+                className="h-5 inline-block"
+                style={{ filter: 'invert(1)' }}
+                data-testid="img-footer-wescc-logo"
+              />
+              <span>Todos os direitos reservados.</span>
             </p>
           </div>
         </div>
