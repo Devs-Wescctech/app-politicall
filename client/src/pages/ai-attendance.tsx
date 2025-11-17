@@ -794,23 +794,6 @@ export default function AiAttendance() {
                   />
                 </div>
                 
-                <div className="space-y-2">
-                  <Label>Plataforma (opcional)</Label>
-                  <Select value={testPlatform} onValueChange={setTestPlatform}>
-                    <SelectTrigger data-testid="select-test-platform">
-                      <SelectValue placeholder="Selecione uma plataforma" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todas as Plataformas</SelectItem>
-                      {PLATFORMS.map(platform => (
-                        <SelectItem key={platform.id} value={platform.id}>
-                          {platform.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                
                 <Button
                   onClick={() => testAiResponseMutation.mutate({ message: testMessage, platform: testPlatform })}
                   disabled={!testMessage || testAiResponseMutation.isPending}
