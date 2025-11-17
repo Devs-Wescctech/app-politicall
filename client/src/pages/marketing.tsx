@@ -1379,60 +1379,62 @@ export default function Marketing() {
           </div>
 
           {/* Fixed Footer */}
-          <DialogFooter className="flex-shrink-0 px-6 py-4 border-t flex items-center justify-between">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                if (wizardStep === 1) {
-                  setShowWizard(false);
-                  setWizardStep(1);
-                } else {
-                  setWizardStep(wizardStep - 1);
-                }
-              }}
-              className="rounded-full"
-              data-testid="button-wizard-back"
-            >
-              {wizardStep === 1 ? "Cancelar" : "Voltar"}
-            </Button>
+          <DialogFooter className="flex-shrink-0 px-6 py-4 border-t">
+            <div className="flex items-center gap-3 w-full">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  if (wizardStep === 1) {
+                    setShowWizard(false);
+                    setWizardStep(1);
+                  } else {
+                    setWizardStep(wizardStep - 1);
+                  }
+                }}
+                className="rounded-full flex-1"
+                data-testid="button-wizard-back"
+              >
+                {wizardStep === 1 ? "Cancelar" : "Voltar"}
+              </Button>
 
-            <Button
-              type="button"
-              onClick={async () => {
-                if (wizardStep === 1) {
-                  const isValid = await form.trigger("templateId");
-                  if (isValid && form.watch("templateId")) {
-                    setWizardStep(2);
+              <Button
+                type="button"
+                onClick={async () => {
+                  if (wizardStep === 1) {
+                    const isValid = await form.trigger("templateId");
+                    if (isValid && form.watch("templateId")) {
+                      setWizardStep(2);
+                    }
+                  } else if (wizardStep === 2) {
+                    const isValid = await form.trigger("region");
+                    if (isValid && form.watch("region")) {
+                      setWizardStep(3);
+                    }
+                  } else if (wizardStep === 3) {
+                    // Step 3 has no required fields, just move to step 4
+                    setWizardStep(4);
+                  } else if (wizardStep === 4) {
+                    form.handleSubmit(handleSubmit)();
                   }
-                } else if (wizardStep === 2) {
-                  const isValid = await form.trigger("region");
-                  if (isValid && form.watch("region")) {
-                    setWizardStep(3);
-                  }
-                } else if (wizardStep === 3) {
-                  // Step 3 has no required fields, just move to step 4
-                  setWizardStep(4);
-                } else if (wizardStep === 4) {
-                  form.handleSubmit(handleSubmit)();
+                }}
+                disabled={
+                  (wizardStep === 1 && !form.watch("templateId")) ||
+                  (wizardStep === 2 && !form.watch("region")) ||
+                  (wizardStep === 4 && (createMutation.isPending || updateMutation.isPending))
                 }
-              }}
-              disabled={
-                (wizardStep === 1 && !form.watch("templateId")) ||
-                (wizardStep === 2 && !form.watch("region")) ||
-                (wizardStep === 4 && (createMutation.isPending || updateMutation.isPending))
-              }
-              className="rounded-full bg-[#40E0D0] hover:bg-[#48D1CC] text-white"
-              data-testid="button-wizard-next"
-            >
-              {wizardStep === 4
-                ? createMutation.isPending || updateMutation.isPending
-                  ? "Criando..."
-                  : editingCampaign
-                  ? "Atualizar Campanha"
-                  : "Criar e Enviar para Aprovação"
-                : "Próximo"}
-            </Button>
+                className="rounded-full bg-[#40E0D0] hover:bg-[#48D1CC] text-white flex-1"
+                data-testid="button-wizard-next"
+              >
+                {wizardStep === 4
+                  ? createMutation.isPending || updateMutation.isPending
+                    ? "Criando..."
+                    : editingCampaign
+                    ? "Atualizar Campanha"
+                    : "Criar e Enviar para Aprovação"
+                  : "Próximo"}
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
