@@ -54,7 +54,7 @@ export default function Settings() {
               <div>
                 <label className="text-sm font-medium text-muted-foreground">Módulos Ativos</label>
                 <div className="flex flex-wrap gap-2 mt-2">
-                  <Badge>Contatos</Badge>
+                  <Badge>Eleitores</Badge>
                   <Badge>Aliança Política</Badge>
                   <Badge>Demandas</Badge>
                   <Badge>Agenda</Badge>
@@ -94,20 +94,32 @@ export default function Settings() {
             <CardContent>
               <div className="space-y-3 text-sm">
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Contatos</span>
-                  <Badge variant="secondary">Ilimitado</Badge>
+                  <span className="text-muted-foreground">Eleitores</span>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary">Ilimitado</Badge>
+                    <Badge className="bg-green-500/10 text-green-500 hover:bg-green-500/20">Ativo</Badge>
+                  </div>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Demandas</span>
-                  <Badge variant="secondary">Ilimitado</Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary">Ilimitado</Badge>
+                    <Badge className="bg-green-500/10 text-green-500 hover:bg-green-500/20">Ativo</Badge>
+                  </div>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Eventos</span>
-                  <Badge variant="secondary">Ilimitado</Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary">Ilimitado</Badge>
+                    <Badge className="bg-green-500/10 text-green-500 hover:bg-green-500/20">Ativo</Badge>
+                  </div>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Campanhas</span>
-                  <Badge variant="secondary">Ilimitado</Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary">Ilimitado</Badge>
+                    <Badge className="bg-green-500/10 text-green-500 hover:bg-green-500/20">Ativo</Badge>
+                  </div>
                 </div>
               </div>
             </CardContent>
