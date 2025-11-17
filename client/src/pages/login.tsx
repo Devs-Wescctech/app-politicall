@@ -60,7 +60,7 @@ export default function Login() {
       <Card className="w-full max-w-md relative z-10">
         <CardHeader className="space-y-4 text-center">
           <div className="flex justify-center">
-            <img src={logoUrl} alt="Logo" className="h-12" />
+            <img src={logoUrl} alt="Logo" className="h-8" />
           </div>
           <CardDescription className="text-base">
             Entre na sua conta para acessar a plataforma
