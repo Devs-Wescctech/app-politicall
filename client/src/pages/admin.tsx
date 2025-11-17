@@ -219,8 +219,117 @@ export default function Admin() {
     return null;
   }
 
-  // Filter campaigns for under_review status
-  const pendingCampaigns = campaigns?.filter(c => c.status === "under_review") || [];
+  // Filter campaigns by status
+  const allCampaigns = campaigns || [];
+  const pendingCampaigns = allCampaigns.filter(c => c.status === "under_review");
+  const approvedCampaigns = allCampaigns.filter(c => c.status === "approved");
+  const rejectedCampaigns = allCampaigns.filter(c => c.status === "rejected");
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case "under_review":
+        return <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">Em Análise</Badge>;
+      case "approved":
+        return <Badge className="bg-[#40E0D0] text-white">Aprovado</Badge>;
+      case "rejected":
+        return <Badge variant="destructive">Rejeitado</Badge>;
+      default:
+        return <Badge variant="secondary">{status}</Badge>;
+    }
+  };
+
+  const renderCampaignCard = (campaign: CampaignWithTemplate) => (
+    <Card key={campaign.id} className="hover-elevate" data-testid={`card-campaign-${campaign.id}`}>
+      <CardHeader>
+        <div className="flex items-start justify-between gap-2">
+          <CardTitle className="text-lg" data-testid={`text-campaign-name-${campaign.id}`}>
+            {campaign.campaignName}
+          </CardTitle>
+          {getStatusBadge(campaign.status)}
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="space-y-2">
+          {campaign.template && (
+            <div data-testid={`text-template-${campaign.id}`}>
+              <p className="text-sm font-medium text-muted-foreground">Template</p>
+              <p className="text-sm">{campaign.template.name}</p>
+            </div>
+          )}
+          
+          <div data-testid={`text-created-${campaign.id}`}>
+            <p className="text-sm font-medium text-muted-foreground">Data de criação</p>
+            <p className="text-sm">
+              {format(new Date(campaign.createdAt), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+            </p>
+          </div>
+
+          {campaign.targetAudience && (
+            <div data-testid={`text-audience-${campaign.id}`}>
+              <p className="text-sm font-medium text-muted-foreground">Público-alvo</p>
+              <p className="text-sm">{campaign.targetAudience}</p>
+            </div>
+          )}
+
+          {campaign.startDate && (
+            <div data-testid={`text-start-date-${campaign.id}`}>
+              <p className="text-sm font-medium text-muted-foreground">Data de início</p>
+              <p className="text-sm">
+                {format(new Date(campaign.startDate), "dd/MM/yyyy")}
+              </p>
+            </div>
+          )}
+
+          {campaign.endDate && (
+            <div data-testid={`text-end-date-${campaign.id}`}>
+              <p className="text-sm font-medium text-muted-foreground">Data de término</p>
+              <p className="text-sm">
+                {format(new Date(campaign.endDate), "dd/MM/yyyy")}
+              </p>
+            </div>
+          )}
+
+          {campaign.adminNotes && (
+            <div data-testid={`text-admin-notes-${campaign.id}`}>
+              <p className="text-sm font-medium text-muted-foreground">Notas do Admin</p>
+              <p className="text-sm">{campaign.adminNotes}</p>
+            </div>
+          )}
+
+          <div data-testid={`text-slug-${campaign.id}`}>
+            <p className="text-sm font-medium text-muted-foreground">URL da Pesquisa</p>
+            <p className="text-xs text-[#40E0D0] break-all">
+              https://politicall.com.br/pesquisa/{campaign.slug}
+            </p>
+          </div>
+        </div>
+
+        {campaign.status === "under_review" && (
+          <div className="flex gap-2 pt-2">
+            <Button
+              onClick={() => handleApprove(campaign)}
+              disabled={approveMutation.isPending}
+              className="rounded-full flex-1 bg-[#40E0D0] hover:bg-[#48D1CC] text-white"
+              data-testid={`button-approve-${campaign.id}`}
+            >
+              <CheckCircle2 className="w-4 h-4 mr-2" />
+              Aprovar
+            </Button>
+            <Button
+              onClick={() => handleRejectClick(campaign)}
+              disabled={rejectMutation.isPending}
+              variant="destructive"
+              className="rounded-full flex-1"
+              data-testid={`button-reject-${campaign.id}`}
+            >
+              <XCircle className="w-4 h-4 mr-2" />
+              Rejeitar
+            </Button>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
 
   return (
     <div className="min-h-screen bg-background">
@@ -242,14 +351,64 @@ export default function Admin() {
 
       {/* Main Content */}
       <main className="container mx-auto p-6">
-        <Tabs defaultValue="approval" className="w-full">
+        <Tabs defaultValue="all" className="w-full">
           <TabsList data-testid="tabs-admin">
-            <TabsTrigger value="approval" data-testid="tab-approval">
-              Aprovação de Campanhas
+            <TabsTrigger value="all" data-testid="tab-all">
+              Todas ({allCampaigns.length})
+            </TabsTrigger>
+            <TabsTrigger value="pending" data-testid="tab-pending">
+              Pendentes ({pendingCampaigns.length})
+            </TabsTrigger>
+            <TabsTrigger value="approved" data-testid="tab-approved">
+              Aprovadas ({approvedCampaigns.length})
+            </TabsTrigger>
+            <TabsTrigger value="rejected" data-testid="tab-rejected">
+              Rejeitadas ({rejectedCampaigns.length})
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="approval" className="mt-6">
+          <TabsContent value="all" className="mt-6">
+            {isLoading && (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {[1, 2, 3].map((i) => (
+                  <Card key={i} data-testid={`skeleton-card-${i}`}>
+                    <CardHeader>
+                      <Skeleton className="h-6 w-3/4" />
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <Skeleton className="h-4 w-full" />
+                      <Skeleton className="h-4 w-2/3" />
+                      <Skeleton className="h-4 w-1/2" />
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+
+            {error && (
+              <Card className="p-6" data-testid="card-error">
+                <p className="text-center text-destructive" data-testid="text-error">
+                  Erro ao carregar campanhas: {error.message}
+                </p>
+              </Card>
+            )}
+
+            {!isLoading && !error && allCampaigns.length === 0 && (
+              <Card className="p-8" data-testid="card-empty">
+                <p className="text-center text-muted-foreground text-lg" data-testid="text-empty">
+                  Nenhuma campanha criada ainda
+                </p>
+              </Card>
+            )}
+
+            {!isLoading && !error && allCampaigns.length > 0 && (
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {allCampaigns.map(renderCampaignCard)}
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="pending" className="mt-6">
             {isLoading && (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {[1, 2, 3].map((i) => (
@@ -285,84 +444,39 @@ export default function Admin() {
 
             {!isLoading && !error && pendingCampaigns.length > 0 && (
               <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                {pendingCampaigns.map((campaign) => (
-                  <Card key={campaign.id} className="hover-elevate" data-testid={`card-campaign-${campaign.id}`}>
-                    <CardHeader>
-                      <div className="flex items-start justify-between gap-2">
-                        <CardTitle className="text-lg" data-testid={`text-campaign-name-${campaign.id}`}>
-                          {campaign.campaignName}
-                        </CardTitle>
-                        <Badge variant="secondary" data-testid={`badge-status-${campaign.id}`}>
-                          Em Análise
-                        </Badge>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="space-y-2">
-                        {campaign.template && (
-                          <div data-testid={`text-template-${campaign.id}`}>
-                            <p className="text-sm font-medium text-muted-foreground">Template</p>
-                            <p className="text-sm">{campaign.template.name}</p>
-                          </div>
-                        )}
-                        
-                        <div data-testid={`text-created-${campaign.id}`}>
-                          <p className="text-sm font-medium text-muted-foreground">Data de criação</p>
-                          <p className="text-sm">
-                            {format(new Date(campaign.createdAt), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
-                          </p>
-                        </div>
+                {pendingCampaigns.map(renderCampaignCard)}
+              </div>
+            )}
+          </TabsContent>
 
-                        {campaign.targetAudience && (
-                          <div data-testid={`text-audience-${campaign.id}`}>
-                            <p className="text-sm font-medium text-muted-foreground">Público-alvo</p>
-                            <p className="text-sm">{campaign.targetAudience}</p>
-                          </div>
-                        )}
+          <TabsContent value="approved" className="mt-6">
+            {!isLoading && !error && approvedCampaigns.length === 0 && (
+              <Card className="p-8" data-testid="card-empty-approved">
+                <p className="text-center text-muted-foreground text-lg" data-testid="text-empty">
+                  Nenhuma campanha aprovada ainda
+                </p>
+              </Card>
+            )}
 
-                        {campaign.startDate && (
-                          <div data-testid={`text-start-date-${campaign.id}`}>
-                            <p className="text-sm font-medium text-muted-foreground">Data de início</p>
-                            <p className="text-sm">
-                              {format(new Date(campaign.startDate), "dd/MM/yyyy", { locale: ptBR })}
-                            </p>
-                          </div>
-                        )}
+            {!isLoading && !error && approvedCampaigns.length > 0 && (
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {approvedCampaigns.map(renderCampaignCard)}
+              </div>
+            )}
+          </TabsContent>
 
-                        {campaign.endDate && (
-                          <div data-testid={`text-end-date-${campaign.id}`}>
-                            <p className="text-sm font-medium text-muted-foreground">Data de término</p>
-                            <p className="text-sm">
-                              {format(new Date(campaign.endDate), "dd/MM/yyyy", { locale: ptBR })}
-                            </p>
-                          </div>
-                        )}
-                      </div>
+          <TabsContent value="rejected" className="mt-6">
+            {!isLoading && !error && rejectedCampaigns.length === 0 && (
+              <Card className="p-8" data-testid="card-empty-rejected">
+                <p className="text-center text-muted-foreground text-lg" data-testid="text-empty">
+                  Nenhuma campanha rejeitada
+                </p>
+              </Card>
+            )}
 
-                      <div className="flex gap-2 pt-2">
-                        <Button
-                          onClick={() => handleApprove(campaign)}
-                          disabled={approveMutation.isPending}
-                          className="flex-1 rounded-full bg-[#40E0D0] hover:bg-[#48D1CC] text-white"
-                          data-testid={`button-approve-${campaign.id}`}
-                        >
-                          <CheckCircle2 className="h-4 w-4 mr-2" />
-                          Aprovar
-                        </Button>
-                        <Button
-                          onClick={() => handleRejectClick(campaign)}
-                          disabled={rejectMutation.isPending}
-                          variant="outline"
-                          className="flex-1 rounded-full border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
-                          data-testid={`button-reject-${campaign.id}`}
-                        >
-                          <XCircle className="h-4 w-4 mr-2" />
-                          Rejeitar
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+            {!isLoading && !error && rejectedCampaigns.length > 0 && (
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {rejectedCampaigns.map(renderCampaignCard)}
               </div>
             )}
           </TabsContent>
