@@ -301,7 +301,7 @@ function SurveyResults({ campaignId, template, viewCount = 0 }: SurveyResultsPro
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm">{DEMOGRAPHIC_TITLES[field]}</CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="space-y-4">
                   <ResponsiveContainer width="100%" height={200}>
                     <PieChart>
                       <Pie
@@ -321,6 +321,23 @@ function SurveyResults({ campaignId, template, viewCount = 0 }: SurveyResultsPro
                       <Tooltip />
                     </PieChart>
                   </ResponsiveContainer>
+                  <div className="space-y-2 pt-2 border-t">
+                    {data.map((entry, index) => (
+                      <div key={index} className="flex items-center justify-between text-sm">
+                        <div className="flex items-center gap-2">
+                          <div 
+                            className="w-3 h-3 rounded-full flex-shrink-0" 
+                            style={{ backgroundColor: CHART_COLORS[index % CHART_COLORS.length] }}
+                          />
+                          <span className="text-muted-foreground">{entry.name}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{entry.value}</span>
+                          <span className="text-muted-foreground">({entry.percentage}%)</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </CardContent>
               </Card>
             );
