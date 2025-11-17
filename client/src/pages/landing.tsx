@@ -87,7 +87,7 @@ function AnimatedNumber({ value, suffix = "" }: { value: number; suffix?: string
   };
 
   return (
-    <div ref={ref} className="text-4xl font-bold text-primary">
+    <div ref={ref} className="text-4xl font-bold mb-3">
       {formatNumber(count)}{suffix}
     </div>
   );
@@ -708,7 +708,7 @@ export default function LandingPage() {
                   <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-6">
                     <Target className="w-8 h-8 text-primary" />
                   </div>
-                  <div className="text-4xl font-bold mb-3">72h</div>
+                  <AnimatedNumber value={72} suffix="h" />
                   <div className="text-lg font-semibold mb-2">Para 10 Mil Respostas</div>
                   <p className="text-muted-foreground text-sm">
                     Coleta massiva e rápida de dados que levaria meses em pesquisas tradicionais
@@ -721,7 +721,7 @@ export default function LandingPage() {
                   <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-6">
                     <Users className="w-8 h-8 text-primary" />
                   </div>
-                  <div className="text-4xl font-bold mb-3">100%</div>
+                  <AnimatedNumber value={100} suffix="%" />
                   <div className="text-lg font-semibold mb-2">Segmentação Precisa</div>
                   <p className="text-muted-foreground text-sm">
                     Alcance exatamente o perfil demográfico que você precisa para vencer
@@ -734,7 +734,7 @@ export default function LandingPage() {
                   <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-6">
                     <BarChart2 className="w-8 h-8 text-primary" />
                   </div>
-                  <div className="text-4xl font-bold mb-3">95%</div>
+                  <AnimatedNumber value={95} suffix="%" />
                   <div className="text-lg font-semibold mb-2">Mais Barato</div>
                   <p className="text-muted-foreground text-sm">
                     Economia brutal comparado a pesquisas tradicionais por telefone ou presenciais
