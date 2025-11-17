@@ -118,6 +118,7 @@ export interface IStorage {
 
   // Survey Campaigns
   getSurveyCampaigns(userId: string): Promise<SurveyCampaign[]>;
+  getAllSurveyCampaigns(): Promise<SurveyCampaign[]>;
   getSurveyCampaign(id: string): Promise<SurveyCampaign | undefined>;
   createSurveyCampaign(campaign: InsertSurveyCampaign & { userId: string }): Promise<SurveyCampaign>;
   updateSurveyCampaign(id: string, campaign: Partial<InsertSurveyCampaign>): Promise<SurveyCampaign>;
@@ -670,6 +671,12 @@ export class DatabaseStorage implements IStorage {
     return await db.select()
       .from(surveyCampaigns)
       .where(eq(surveyCampaigns.userId, userId))
+      .orderBy(desc(surveyCampaigns.createdAt));
+  }
+
+  async getAllSurveyCampaigns(): Promise<SurveyCampaign[]> {
+    return await db.select()
+      .from(surveyCampaigns)
       .orderBy(desc(surveyCampaigns.createdAt));
   }
 

@@ -19,6 +19,24 @@ if (!process.env.SESSION_SECRET) {
 }
 const JWT_SECRET = process.env.SESSION_SECRET;
 
+// Admin authentication middleware
+function authenticateAdminToken(req: AuthRequest, res: Response, next: NextFunction) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({ error: "Token não fornecido" });
+  }
+  const token = authHeader.substring(7);
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET) as { isAdmin?: boolean };
+    if (decoded.isAdmin !== true) {
+      return res.status(403).json({ error: "Acesso negado" });
+    }
+    next();
+  } catch (error) {
+    return res.status(401).json({ error: "Token inválido" });
+  }
+}
+
 // Seed political parties data - All 29 Brazilian political parties from 2025
 async function seedPoliticalParties() {
   const parties = [
@@ -424,6 +442,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     } catch (error: any) {
       res.status(401).json({ valid: false });
+    }
+  });
+
+  // ==================== ADMIN SURVEY CAMPAIGNS MANAGEMENT ====================
+
+  // List all survey campaigns (admin only)
+  app.get("/api/admin/survey-campaigns", authenticateAdminToken, async (req: AuthRequest, res) => {
+    try {
+      const campaigns = await storage.getAllSurveyCampaigns();
+      res.json(campaigns);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Approve survey campaign (admin only)
+  app.patch("/api/admin/survey-campaigns/:id/approve", authenticateAdminToken, async (req: AuthRequest, res) => {
+    try {
+      const { id } = req.params;
+      const updated = await storage.updateSurveyCampaign(id, { status: "approved" });
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Reject survey campaign (admin only)
+  app.patch("/api/admin/survey-campaigns/:id/reject", authenticateAdminToken, async (req: AuthRequest, res) => {
+    try {
+      const rejectSchema = z.object({
+        adminNotes: z.string().optional(),
+      });
+      const { adminNotes } = rejectSchema.parse(req.body);
+      const { id } = req.params;
+      const updated = await storage.updateSurveyCampaign(id, { 
+        status: "rejected",
+        adminNotes: adminNotes || "Rejeitado pelo administrador"
+      });
+      res.json(updated);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
     }
   });
 

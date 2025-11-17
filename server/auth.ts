@@ -8,6 +8,18 @@ if (!process.env.SESSION_SECRET) {
 }
 const JWT_SECRET = process.env.SESSION_SECRET;
 
+// Default permissions if user has none
+const DEFAULT_USER_PERMISSIONS: UserPermissions = {
+  dashboard: true,
+  contacts: true,
+  alliances: true,
+  demands: true,
+  agenda: true,
+  ai: false,
+  marketing: false,
+  users: false,
+};
+
 // Extended request interface with user data
 export interface AuthRequest extends Request {
   userId?: string;
@@ -47,7 +59,7 @@ export async function authenticateToken(req: AuthRequest, res: Response, next: N
       email: user.email,
       name: user.name,
       role: user.role,
-      permissions: user.permissions
+      permissions: user.permissions || DEFAULT_USER_PERMISSIONS
     };
     
     next();
