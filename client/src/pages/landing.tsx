@@ -231,11 +231,6 @@ export default function LandingPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
           >
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur-sm text-white mb-6" data-testid="badge-hero-label">
-              <Sparkles className="w-4 h-4" />
-              <span className="text-sm font-medium">Plataforma Profissional de Gestão Política</span>
-            </div>
-            
             <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight text-white" data-testid="text-hero-title">
               Transforme Sua Carreira Política com
               <span className="bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent"> Tecnologia de Ponta</span>
