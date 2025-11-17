@@ -247,6 +247,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Create new user (admin only)
+  app.post("/api/users/create", authenticateToken, requireRole("admin"), async (req: AuthRequest, res) => {
+    try {
+      // Admin-specific user creation schema that includes role
+      const adminCreateUserSchema = z.object({
+        email: z.string().email(),
+        password: z.string().min(6),
+        name: z.string().min(2),
+        role: z.enum(["admin", "coordenador", "assessor"]),
+      });
+      
+      const validatedData = adminCreateUserSchema.parse(req.body);
+      
+      // Check if user already exists
+      const existingUser = await storage.getUserByEmail(validatedData.email);
+      if (existingUser) {
+        return res.status(400).json({ error: "Email já cadastrado" });
+      }
+
+      // Hash password
+      const hashedPassword = await bcrypt.hash(validatedData.password, 10);
+      
+      // Create user with specified role
+      const user = await storage.createUser({
+        ...validatedData,
+        password: hashedPassword,
+      });
+
+      // Don't send password to frontend
+      const { password, ...sanitizedUser } = user;
+      res.json(sanitizedUser);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message || "Erro ao criar usuário" });
+    }
+  });
+
   // Update user role (admin only)
   app.patch("/api/users/:id", authenticateToken, requireRole("admin"), async (req: AuthRequest, res) => {
     try {

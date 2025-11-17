@@ -1,15 +1,28 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { type User } from "@shared/schema";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Shield, User as UserIcon, Users } from "lucide-react";
+import { useCurrentUser } from "@/hooks/use-current-user";
+import { Shield, User as UserIcon, Users, Plus, Settings, Eye, EyeOff } from "lucide-react";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 
 const ROLE_CONFIG = {
   admin: { label: "Administrador", icon: Shield, color: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200" },
@@ -17,10 +30,41 @@ const ROLE_CONFIG = {
   assessor: { label: "Assessor", icon: UserIcon, color: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" },
 };
 
+// Form validation schema
+const createUserSchema = z.object({
+  name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
+  email: z.string().email("Email inválido"),
+  password: z.string().min(6, "Senha deve ter pelo menos 6 caracteres"),
+  confirmPassword: z.string(),
+  role: z.enum(["admin", "coordenador", "assessor"], {
+    required_error: "Selecione um nível de acesso",
+  }),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "As senhas não coincidem",
+  path: ["confirmPassword"],
+});
+
+type CreateUserForm = z.infer<typeof createUserSchema>;
+
 export default function UsersManagement() {
   const { toast } = useToast();
+  const { isAdmin } = useCurrentUser();
   const [selectedUser, setSelectedUser] = useState<Omit<User, "password"> | null>(null);
   const [newRole, setNewRole] = useState<string>("");
+  const [showAddUserDialog, setShowAddUserDialog] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  const form = useForm<CreateUserForm>({
+    resolver: zodResolver(createUserSchema),
+    defaultValues: {
+      name: "",
+      email: "",
+      password: "",
+      confirmPassword: "",
+      role: "assessor",
+    },
+  });
 
   const { data: users, isLoading } = useQuery<Omit<User, "password">[]>({
     queryKey: ["/api/users"],
@@ -60,6 +104,31 @@ export default function UsersManagement() {
     },
   });
 
+  const createUserMutation = useMutation({
+    mutationFn: async (data: CreateUserForm) => {
+      const { confirmPassword, ...userData } = data;
+      return await apiRequest("POST", "/api/users/create", userData);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      setShowAddUserDialog(false);
+      form.reset();
+      setShowPassword(false);
+      setShowConfirmPassword(false);
+      toast({
+        title: "Usuário criado",
+        description: "O novo usuário foi criado com sucesso.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        variant: "destructive",
+        title: "Erro ao criar usuário",
+        description: error.message || "Não foi possível criar o usuário",
+      });
+    },
+  });
+
   const handleEditRole = (user: Omit<User, "password">) => {
     setSelectedUser(user);
     setNewRole(user.role);
@@ -71,6 +140,10 @@ export default function UsersManagement() {
     }
   };
 
+  const onSubmitCreateUser = (data: CreateUserForm) => {
+    createUserMutation.mutate(data);
+  };
+
   return (
     <div className="p-4 sm:p-6 md:p-8 space-y-6">
       <div className="flex items-center justify-between">
@@ -79,6 +152,16 @@ export default function UsersManagement() {
           <p className="text-muted-foreground mt-2">Gerencie permissões e acessos dos usuários</p>
         </div>
         <div className="flex items-center gap-2">
+          {isAdmin && (
+            <Button
+              onClick={() => setShowAddUserDialog(true)}
+              className="rounded-full"
+              data-testid="button-add-user"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Adicionar Usuário
+            </Button>
+          )}
           <Badge variant="outline" className="text-sm">
             <Shield className="w-3 h-3 mr-1" />
             Apenas Administradores
@@ -102,30 +185,36 @@ export default function UsersManagement() {
                       <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
                         <UserIcon className="h-5 w-5 text-primary" />
                       </div>
-                      <div>
+                      <div className="min-w-0 flex-1">
                         <CardTitle className="text-base">{user.name}</CardTitle>
-                        <p className="text-sm text-muted-foreground">{user.email}</p>
                       </div>
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <Badge className={roleConfig.color}>
+                <CardContent className="p-6 pt-0 space-y-3">
+                  <p className="text-sm text-muted-foreground truncate" title={user.email}>
+                    {user.email}
+                  </p>
+                  <div className="flex items-center justify-between gap-2">
+                    <Badge className={`${roleConfig.color} shrink-0`}>
                       <RoleIcon className="w-3 h-3 mr-1" />
-                      {roleConfig.label}
+                      <span className="hidden sm:inline">{roleConfig.label}</span>
+                      <span className="sm:hidden">{roleConfig.label.substring(0, 3)}</span>
                     </Badge>
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => handleEditRole(user)}
                       data-testid={`button-edit-role-${user.id}`}
+                      className="rounded-full"
                     >
-                      Alterar Permissão
+                      <Settings className="w-4 h-4 sm:hidden" />
+                      <span className="hidden sm:inline">Alterar Permissão</span>
                     </Button>
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    Cadastrado em {new Date(user.createdAt).toLocaleDateString("pt-BR")}
+                    <span className="hidden sm:inline">Cadastrado em </span>
+                    {new Date(user.createdAt).toLocaleDateString("pt-BR")}
                   </div>
                 </CardContent>
               </Card>
@@ -139,6 +228,7 @@ export default function UsersManagement() {
         )}
       </div>
 
+      {/* Edit Role Dialog */}
       <Dialog open={!!selectedUser} onOpenChange={(open) => !open && setSelectedUser(null)}>
         <DialogContent data-testid="dialog-edit-role">
           <DialogHeader>
@@ -193,6 +283,165 @@ export default function UsersManagement() {
               {updateRoleMutation.isPending ? "Salvando..." : "Salvar"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add User Dialog */}
+      <Dialog open={showAddUserDialog} onOpenChange={setShowAddUserDialog}>
+        <DialogContent className="sm:max-w-[500px]" data-testid="dialog-add-user">
+          <DialogHeader>
+            <DialogTitle>Adicionar Novo Usuário</DialogTitle>
+          </DialogHeader>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmitCreateUser)} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nome</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Nome completo" {...field} data-testid="input-name" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email</FormLabel>
+                    <FormControl>
+                      <Input type="email" placeholder="email@exemplo.com" {...field} data-testid="input-email" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Senha</FormLabel>
+                    <FormControl>
+                      <div className="relative">
+                        <Input
+                          type={showPassword ? "text" : "password"}
+                          placeholder="Mínimo 6 caracteres"
+                          {...field}
+                          data-testid="input-password"
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                          onClick={() => setShowPassword(!showPassword)}
+                          data-testid="button-toggle-password"
+                        >
+                          {showPassword ? (
+                            <EyeOff className="h-4 w-4 text-muted-foreground" />
+                          ) : (
+                            <Eye className="h-4 w-4 text-muted-foreground" />
+                          )}
+                        </Button>
+                      </div>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="confirmPassword"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Confirmar Senha</FormLabel>
+                    <FormControl>
+                      <div className="relative">
+                        <Input
+                          type={showConfirmPassword ? "text" : "password"}
+                          placeholder="Digite a senha novamente"
+                          {...field}
+                          data-testid="input-confirm-password"
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                          data-testid="button-toggle-confirm-password"
+                        >
+                          {showConfirmPassword ? (
+                            <EyeOff className="h-4 w-4 text-muted-foreground" />
+                          ) : (
+                            <Eye className="h-4 w-4 text-muted-foreground" />
+                          )}
+                        </Button>
+                      </div>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="role"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nível de Acesso</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-new-user-role">
+                          <SelectValue placeholder="Selecione o nível de acesso" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {Object.entries(ROLE_CONFIG).map(([role, config]) => {
+                          const Icon = config.icon;
+                          return (
+                            <SelectItem key={role} value={role}>
+                              <div className="flex items-center gap-2">
+                                <Icon className="w-4 h-4" />
+                                {config.label}
+                              </div>
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setShowAddUserDialog(false);
+                    form.reset();
+                    setShowPassword(false);
+                    setShowConfirmPassword(false);
+                  }}
+                  data-testid="button-cancel-add-user"
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={createUserMutation.isPending}
+                  data-testid="button-submit-add-user"
+                >
+                  {createUserMutation.isPending ? "Criando..." : "Criar Usuário"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
         </DialogContent>
       </Dialog>
     </div>
