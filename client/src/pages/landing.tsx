@@ -1081,19 +1081,83 @@ export default function LandingPage() {
 
       <footer className="py-12 border-t bg-background">
         <div className="container mx-auto px-4">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <img src={logoUrl} alt="Politicall" className="h-8" data-testid="img-footer-logo" />
-              <span className="text-muted-foreground">&copy; 2025 Politicall. Todos os direitos reservados.</span>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-12 mb-8">
+            <div>
+              <img src={logoUrl} alt="Politicall" className="h-8 mb-4" data-testid="img-footer-logo" />
+              <p className="text-sm text-muted-foreground">
+                Plataforma completa de gestão política com CRM inteligente, IA para redes sociais, pesquisas TSE-compliant e muito mais.
+              </p>
             </div>
-            <div className="flex gap-4">
-              <Button variant="ghost" className="rounded-full" onClick={() => setLocation("/login")} data-testid="button-footer-login">
-                Login
-              </Button>
-              <Button variant="ghost" className="rounded-full" onClick={() => setLocation("/register")} data-testid="button-footer-register">
-                Criar Conta
-              </Button>
+
+            <div>
+              <h3 className="font-semibold mb-4">Links Úteis</h3>
+              <ul className="space-y-2">
+                <li>
+                  <button 
+                    onClick={() => scrollToSection('recursos')} 
+                    className="text-sm text-muted-foreground hover:text-primary transition-colors"
+                    data-testid="link-footer-recursos"
+                  >
+                    Recursos
+                  </button>
+                </li>
+                <li>
+                  <button 
+                    onClick={() => scrollToSection('ia')} 
+                    className="text-sm text-muted-foreground hover:text-primary transition-colors"
+                    data-testid="link-footer-ia"
+                  >
+                    IA para Redes Sociais
+                  </button>
+                </li>
+                <li>
+                  <button 
+                    onClick={() => scrollToSection('modulos')} 
+                    className="text-sm text-muted-foreground hover:text-primary transition-colors"
+                    data-testid="link-footer-modulos"
+                  >
+                    Módulos
+                  </button>
+                </li>
+                <li>
+                  <button 
+                    onClick={() => scrollToSection('contato')} 
+                    className="text-sm text-muted-foreground hover:text-primary transition-colors"
+                    data-testid="link-footer-contato"
+                  >
+                    Contato
+                  </button>
+                </li>
+              </ul>
             </div>
+
+            <div>
+              <h3 className="font-semibold mb-4">Acesso</h3>
+              <div className="space-y-3">
+                <Button 
+                  variant="ghost" 
+                  className="rounded-full w-full justify-start" 
+                  onClick={() => setLocation("/login")} 
+                  data-testid="button-footer-login"
+                >
+                  Login
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  className="rounded-full w-full justify-start" 
+                  onClick={() => setLocation("/register")} 
+                  data-testid="button-footer-register"
+                >
+                  Criar Conta
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          <div className="pt-8 border-t text-center">
+            <p className="text-sm text-muted-foreground">
+              &copy; 2025 Politicall. Todos os direitos reservados.
+            </p>
           </div>
         </div>
       </footer>
