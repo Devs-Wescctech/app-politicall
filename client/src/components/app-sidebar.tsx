@@ -117,12 +117,25 @@ export function AppSidebar() {
     window.location.href = "/login";
   };
 
+  // Extract first and last name
+  const getShortName = (fullName?: string) => {
+    if (!fullName) return "";
+    const parts = fullName.trim().split(/\s+/);
+    if (parts.length === 1) return parts[0];
+    return `${parts[0]} ${parts[parts.length - 1]}`;
+  };
+
   return (
     <Sidebar>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel className="mb-4 px-2">
+          <SidebarGroupLabel className="mb-4 px-2 flex items-center gap-3">
             <img src={logoUrl} alt="Logo" className="h-8 w-auto" />
+            {user?.name && (
+              <span className="text-sm font-semibold text-foreground" data-testid="text-user-name">
+                {getShortName(user.name)}
+              </span>
+            )}
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu className="gap-2">
