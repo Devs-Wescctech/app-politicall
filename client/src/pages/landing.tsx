@@ -688,35 +688,43 @@ export default function LandingPage() {
                   <div className="p-3 rounded-lg bg-primary/10">
                     <BarChart3 className="w-8 h-8 text-foreground" />
                   </div>
-                  <h3 className="text-3xl font-bold">Pesquisas e Marketing</h3>
+                  <h3 className="text-3xl font-bold">Pesquisas Eleitorais com Google Ads</h3>
                 </div>
                 <p className="text-lg text-muted-foreground mb-6">
-                  Crie pesquisas profissionais 100% TSE-compliant. Landing pages públicas automáticas, coleta anônima de dados e relatórios detalhados em PDF.
+                  Revolucione suas pesquisas eleitorais combinando metodologia TSE-compliant com o poder dos anúncios pagos do Google. Alcance milhares de eleitores qualificados, gere leads massivamente e obtenha insights demográficos profundos com ROI mensurável em cada real investido.
                 </p>
                 <ul className="space-y-3">
                   <li className="flex items-start gap-3">
                     <ChevronRight className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                    <span>Templates pré-aprovados seguindo normas do TSE</span>
+                    <span><strong>Integração Total com Google Ads:</strong> Crie campanhas de pesquisa diretamente na plataforma e impulsione-as com anúncios segmentados por localização, idade, interesses políticos e histórico de engajamento eleitoral</span>
                   </li>
                   <li className="flex items-start gap-3">
                     <ChevronRight className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                    <span>Landing pages públicas geradas automaticamente (/pesquisa/slug)</span>
+                    <span><strong>Landing Pages de Alta Conversão:</strong> Páginas públicas otimizadas automaticamente (/pesquisa/slug) com design responsivo, loading ultrarrápido e copy persuasivo que converte visitantes em respondentes</span>
                   </li>
                   <li className="flex items-start gap-3">
                     <ChevronRight className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                    <span>Coleta de dados demográficos obrigatórios</span>
+                    <span><strong>Geração Massiva de Leads Qualificados:</strong> Capture milhares de respostas em dias (não meses) através de tráfego pago segmentado, expandindo exponencialmente seu alcance além das redes orgânicas</span>
                   </li>
                   <li className="flex items-start gap-3">
                     <ChevronRight className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                    <span>Workflow de aprovação admin antes de publicação</span>
+                    <span><strong>ROI e Custo por Resposta em Tempo Real:</strong> Dashboard analítico mostra exatamente quanto você está pagando por cada respondente, CTR dos anúncios, taxa de conversão e projeções de custo total da pesquisa</span>
                   </li>
                   <li className="flex items-start gap-3">
                     <ChevronRight className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                    <span>Visualização de resultados em tempo real com gráficos</span>
+                    <span><strong>Segmentação Demográfica Avançada:</strong> Coleta automática de dados demográficos obrigatórios (idade, gênero, escolaridade, renda, profissão) para análises cruzadas e insights estratégicos profundos</span>
                   </li>
                   <li className="flex items-start gap-3">
                     <ChevronRight className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                    <span>Exportação completa em PDF profissional</span>
+                    <span><strong>100% Compliance com TSE:</strong> Templates pré-aprovados, workflow de moderação administrativa, registro de IP anônimo e todos os requisitos legais para pesquisas eleitorais registradas</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <ChevronRight className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                    <span><strong>Analytics em Tempo Real:</strong> Acompanhe respostas entrando ao vivo, visualize gráficos dinâmicos, cruze dados demográficos e identifique tendências antes mesmo da pesquisa terminar</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <ChevronRight className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                    <span><strong>Relatórios PDF Profissionais:</strong> Exportação automática de relatórios executivos com gráficos coloridos, tabelas demográficas detalhadas, análise de sentimento e recomendações estratégicas para sua campanha</span>
                   </li>
                 </ul>
               </div>
