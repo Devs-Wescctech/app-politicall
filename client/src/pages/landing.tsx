@@ -515,16 +515,12 @@ export default function LandingPage() {
 
           <div className="space-y-24 max-w-6xl mx-auto">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-              <div className="order-2 lg:order-1">
-                <div className="rounded-lg overflow-hidden shadow-xl border">
-                  <img 
-                    src={crmImage} 
-                    alt="CRM de Gabinete Politicall" 
-                    className="w-full h-auto"
-                    data-testid="img-module-crm"
-                  />
-                </div>
-              </div>
+              <img 
+                src={crmImage} 
+                alt="CRM de Gabinete Politicall" 
+                className="w-full h-auto order-2 lg:order-1"
+                data-testid="img-module-crm"
+              />
               <div className="order-1 lg:order-2">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="p-3 rounded-lg bg-primary/10">
