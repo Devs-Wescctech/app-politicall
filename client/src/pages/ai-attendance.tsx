@@ -47,6 +47,7 @@ const TRAINING_CATEGORIES = [
 // Extended type to include server-computed properties
 type AiConfigurationWithCustomKey = AiConfiguration & {
   hasCustomKey?: boolean;
+  openaiApiKeyLast4?: string;
 };
 
 export default function AiAttendance() {
@@ -66,7 +67,7 @@ export default function AiAttendance() {
   const { toast } = useToast();
 
   // Queries
-  const { data: config, isLoading: loadingConfig } = useQuery<AiConfiguration>({
+  const { data: config, isLoading: loadingConfig } = useQuery<AiConfigurationWithCustomKey>({
     queryKey: ["/api/ai-config"],
   });
 
@@ -399,7 +400,11 @@ export default function AiAttendance() {
                   <Card key={platform.id} data-testid={`platform-${platform.id}`}>
                     <CardHeader className="pb-3">
                       <div className="flex items-center justify-between">
-                        <platform.icon className="w-8 h-8" style={{ color: platform.color }} />
+                        {platform.id === 'twitter' ? (
+                          <platform.icon className="w-8 h-8 text-black dark:text-white" />
+                        ) : (
+                          <platform.icon className="w-8 h-8" style={{ color: platform.color }} />
+                        )}
                         {connected ? (
                           <CheckCircle2 className="w-4 h-4" />
                         ) : (
