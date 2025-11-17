@@ -10,11 +10,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -71,8 +73,9 @@ interface ImageUploadProps {
 }
 
 function ImageUploadComponent({ campaignId, onUploadComplete }: ImageUploadProps) {
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [previews, setPreviews] = useState<string[]>([]);
+  const [selectedAssets, setSelectedAssets] = useState<string[]>([]);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [assetToDelete, setAssetToDelete] = useState<string | null>(null);
   const { toast } = useToast();
   const fileInputId = `file-input-${campaignId}`;
 
@@ -123,6 +126,7 @@ function ImageUploadComponent({ campaignId, onUploadComplete }: ImageUploadProps
       queryClient.invalidateQueries({ queryKey: ["/api/google-ads-campaigns", campaignId, "assets"] });
       queryClient.invalidateQueries({ queryKey: ["/api/google-ads-campaigns"] });
       toast({ title: "Imagem removida com sucesso!" });
+      setSelectedAssets([]);
     },
     onError: () => {
       toast({ title: "Erro ao remover imagem", variant: "destructive" });
@@ -134,30 +138,91 @@ function ImageUploadComponent({ campaignId, onUploadComplete }: ImageUploadProps
     files.forEach(file => uploadMutation.mutate(file));
   };
 
-  const handleDelete = (assetId: string) => {
-    if (confirm("Tem certeza que deseja remover esta imagem?")) {
-      deleteMutation.mutate(assetId);
+  const handleDeleteClick = (assetId: string) => {
+    setAssetToDelete(assetId);
+    setShowDeleteDialog(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (assetToDelete) {
+      deleteMutation.mutate(assetToDelete);
+    }
+    setShowDeleteDialog(false);
+    setAssetToDelete(null);
+  };
+
+  const handleToggleSelect = (assetId: string) => {
+    setSelectedAssets(prev => 
+      prev.includes(assetId) 
+        ? prev.filter(id => id !== assetId)
+        : [...prev, assetId]
+    );
+  };
+
+  const handleSelectAll = () => {
+    if (selectedAssets.length === assets?.length) {
+      setSelectedAssets([]);
+    } else {
+      setSelectedAssets(assets?.map(a => a.id) || []);
     }
   };
 
+  const handleDeleteSelected = async () => {
+    for (const assetId of selectedAssets) {
+      await deleteMutation.mutateAsync(assetId);
+    }
+    setSelectedAssets([]);
+    setShowDeleteDialog(false);
+  };
+
   const currentCount = assets?.length || 0;
+  const hasSelection = selectedAssets.length > 0;
+  const allSelected = selectedAssets.length === currentCount && currentCount > 0;
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
         <Label>Imagens da Campanha ({currentCount})</Label>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="rounded-full"
-          onClick={() => document.getElementById(fileInputId)?.click()}
-          disabled={uploadMutation.isPending}
-          data-testid="button-upload-image"
-        >
-          <ImageIcon className="w-4 h-4 mr-2" />
-          {uploadMutation.isPending ? "Enviando..." : "Adicionar Imagem"}
-        </Button>
+        <div className="flex gap-2">
+          {currentCount > 0 && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="rounded-full"
+              onClick={handleSelectAll}
+              data-testid="button-select-all"
+            >
+              {allSelected ? "Desmarcar Todas" : "Selecionar Todas"}
+            </Button>
+          )}
+          {hasSelection && (
+            <Button
+              type="button"
+              variant="destructive"
+              size="sm"
+              className="rounded-full"
+              onClick={() => setShowDeleteDialog(true)}
+              disabled={deleteMutation.isPending}
+              data-testid="button-delete-selected"
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Excluir Selecionadas ({selectedAssets.length})
+            </Button>
+          )}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="rounded-full"
+            onClick={() => document.getElementById(fileInputId)?.click()}
+            disabled={uploadMutation.isPending}
+            data-testid="button-upload-image"
+          >
+            <ImageIcon className="w-4 h-4 mr-2" />
+            {uploadMutation.isPending ? "Enviando..." : "Adicionar Imagem"}
+          </Button>
+        </div>
         <input
           id={fileInputId}
           type="file"
@@ -179,6 +244,14 @@ function ImageUploadComponent({ campaignId, onUploadComplete }: ImageUploadProps
         <div className="grid grid-cols-3 gap-4">
           {assets?.map((asset) => (
             <div key={asset.id} className="relative group">
+              <div className="absolute top-2 left-2 z-10">
+                <Checkbox
+                  checked={selectedAssets.includes(asset.id)}
+                  onCheckedChange={() => handleToggleSelect(asset.id)}
+                  className="bg-white dark:bg-gray-800"
+                  data-testid={`checkbox-select-image-${asset.id}`}
+                />
+              </div>
               <img
                 src={asset.url}
                 alt={asset.originalFilename}
@@ -189,7 +262,7 @@ function ImageUploadComponent({ campaignId, onUploadComplete }: ImageUploadProps
                 variant="destructive"
                 size="icon"
                 className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity rounded-full"
-                onClick={() => handleDelete(asset.id)}
+                onClick={() => handleDeleteClick(asset.id)}
                 disabled={deleteMutation.isPending}
                 data-testid={`button-delete-image-${asset.id}`}
               >
@@ -206,6 +279,29 @@ function ImageUploadComponent({ campaignId, onUploadComplete }: ImageUploadProps
           <p>Nenhuma imagem adicionada ainda</p>
         </div>
       )}
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              {assetToDelete 
+                ? "Tem certeza que deseja excluir esta imagem? Esta ação não pode ser desfeita."
+                : `Tem certeza que deseja excluir ${selectedAssets.length} imagem(ns)? Esta ação não pode ser desfeita.`
+              }
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-full">Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              className="rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={assetToDelete ? handleConfirmDelete : handleDeleteSelected}
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
