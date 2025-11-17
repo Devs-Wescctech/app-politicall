@@ -381,12 +381,12 @@ async function generateSurveyPdfReport(
           ],
           margin: [0, 0, 0, 10]
         },
-        createDemographicTable('Gênero', demographicStats.gender, demographicLabels.gender),
-        createDemographicTable('Faixa Etária', demographicStats.ageRange, demographicLabels.ageRange),
-        createDemographicTable('Tipo de Emprego', demographicStats.employmentType, demographicLabels.employmentType),
-        createDemographicTable('Tipo de Moradia', demographicStats.housingType, demographicLabels.housingType),
-        createDemographicTable('Possui Filhos', demographicStats.hasChildren, demographicLabels.hasChildren),
-        createDemographicTable('Ideologia Política', demographicStats.politicalIdeology, demographicLabels.politicalIdeology),
+        createDemographicTable('Gênero', demographicStats.gender, DEMOGRAPHIC_LABELS.gender),
+        createDemographicTable('Faixa Etária', demographicStats.ageRange, DEMOGRAPHIC_LABELS.ageRange),
+        createDemographicTable('Tipo de Emprego', demographicStats.employmentType, DEMOGRAPHIC_LABELS.employmentType),
+        createDemographicTable('Tipo de Moradia', demographicStats.housingType, DEMOGRAPHIC_LABELS.housingType),
+        createDemographicTable('Possui Filhos', demographicStats.hasChildren, DEMOGRAPHIC_LABELS.hasChildren),
+        createDemographicTable('Ideologia Política', demographicStats.politicalIdeology, DEMOGRAPHIC_LABELS.politicalIdeology),
         {
           canvas: [
             {
