@@ -208,6 +208,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update current user's profile
+  app.patch("/api/auth/profile", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const profileUpdateSchema = z.object({
+        name: z.string().min(2, "Nome deve ter no mínimo 2 caracteres").optional(),
+        phone: z.string().optional(),
+        partyId: z.string().optional(),
+        politicalPosition: z.string().optional(),
+        lastElectionVotes: z.number().int().nonnegative().optional(),
+      });
+
+      const validatedData = profileUpdateSchema.parse(req.body);
+      const updated = await storage.updateUser(req.userId!, validatedData);
+      const { password, ...sanitizedUser } = updated;
+      res.json(sanitizedUser);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message || "Erro ao atualizar perfil" });
+    }
+  });
+
   // ==================== USER MANAGEMENT (Admin Only) ====================
   
   // List all users (admin only)

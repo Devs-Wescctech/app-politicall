@@ -50,6 +50,23 @@ export const DEFAULT_PERMISSIONS = {
   }
 } as const;
 
+// Political positions available in Brazil
+export const POLITICAL_POSITIONS = [
+  "Vereador",
+  "Prefeito",
+  "Vice-Prefeito",
+  "Deputado Estadual",
+  "Deputado Federal",
+  "Senador",
+  "Governador",
+  "Vice-Governador",
+  "Presidente",
+  "Vice-Presidente",
+  "Candidato",
+  "Pré-Candidato",
+  "Outro"
+] as const;
+
 // Users table - Custom authentication with email/password
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -58,6 +75,10 @@ export const users = pgTable("users", {
   name: text("name").notNull(),
   role: text("role").notNull().default("assessor"), // admin, coordenador, assessor
   permissions: jsonb("permissions").$type<UserPermissions>(),
+  phone: text("phone"),
+  partyId: varchar("party_id").references(() => politicalParties.id),
+  politicalPosition: text("political_position"),
+  lastElectionVotes: integer("last_election_votes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -339,6 +360,10 @@ export const insertUserSchema = createInsertSchema(users).pick({
   name: true,
   role: true,
   permissions: true,
+  phone: true,
+  partyId: true,
+  politicalPosition: true,
+  lastElectionVotes: true,
 }).extend({
   email: z.string().email("Email inválido"),
   password: z.string().min(6, "Senha deve ter no mínimo 6 caracteres"),
@@ -354,6 +379,10 @@ export const insertUserSchema = createInsertSchema(users).pick({
     marketing: z.boolean(),
     users: z.boolean(),
   }).optional(),
+  phone: z.string().optional(),
+  partyId: z.string().optional(),
+  politicalPosition: z.string().optional(),
+  lastElectionVotes: z.number().int().nonnegative().optional(),
 });
 
 export const loginSchema = z.object({
