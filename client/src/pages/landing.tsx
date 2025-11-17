@@ -1162,7 +1162,7 @@ export default function LandingPage() {
               <span>Todos os direitos reservados.</span>
               <span>|</span>
               <button 
-                onClick={() => setLocation("/login")}
+                onClick={() => setLocation("/admin-login")}
                 className="text-primary hover:underline"
                 data-testid="link-footer-control-panel"
               >
