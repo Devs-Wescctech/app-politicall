@@ -770,7 +770,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Test AI Response Endpoint
   app.post("/api/ai-config/test-response", authenticateToken, async (req: AuthRequest, res) => {
     try {
-      const { message, platform } = req.body;
+      const { message } = req.body;
       
       if (!message) {
         return res.status(400).json({ error: "Mensagem é obrigatória" });
@@ -800,20 +800,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Add platform context if specified
-      let platformContext = "";
-      if (platform && platform !== 'all') {
-        const platformNames: Record<string, string> = {
-          facebook: "Facebook",
-          instagram: "Instagram",
-          twitter: "X (Twitter)",
-          whatsapp: "WhatsApp"
-        };
-        platformContext = `\nConsidere que esta mensagem está sendo enviada via ${platformNames[platform] || platform}.`;
-      }
-
       // Create enhanced message with context
-      const enhancedMessage = message + platformContext + trainingContext;
+      const enhancedMessage = message + trainingContext;
 
       // Generate AI response using existing function
       const aiResponse = await generateAiResponse(
@@ -831,8 +819,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json({ 
         response: aiResponse,
-        message: message,
-        platform: platform || 'all'
+        message: message
       });
     } catch (error: any) {
       console.error("Error generating test response:", error);

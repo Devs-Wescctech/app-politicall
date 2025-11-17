@@ -72,6 +72,7 @@ export interface IStorage {
   createAiConversation(conversation: Omit<AiConversation, "id" | "createdAt">): Promise<AiConversation>;
 
   // AI Training Examples
+  getAiTrainingExamples(userId: string): Promise<AiTrainingExample[]>;
   getTrainingExamples(userId: string): Promise<AiTrainingExample[]>;
   getTrainingExample(id: string): Promise<AiTrainingExample | undefined>;
   createTrainingExample(example: InsertAiTrainingExample & { userId: string }): Promise<AiTrainingExample>;
@@ -440,6 +441,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   // AI Training Examples
+  async getAiTrainingExamples(userId: string): Promise<AiTrainingExample[]> {
+    return await db.select().from(aiTrainingExamples).where(eq(aiTrainingExamples.userId, userId)).orderBy(desc(aiTrainingExamples.createdAt));
+  }
+
   async getTrainingExamples(userId: string): Promise<AiTrainingExample[]> {
     return await db.select().from(aiTrainingExamples).where(eq(aiTrainingExamples.userId, userId)).orderBy(desc(aiTrainingExamples.createdAt));
   }

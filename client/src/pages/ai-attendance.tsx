@@ -53,11 +53,9 @@ export default function AiAttendance() {
   const [isTestingKey, setIsTestingKey] = useState(false);
   // New test-related state variables
   const [testMessage, setTestMessage] = useState('');
-  const [testPlatform, setTestPlatform] = useState('all');
   const [aiTestResponse, setAiTestResponse] = useState('');
   const [testHistory, setTestHistory] = useState<Array<{
     message: string;
-    platform: string;
     response: string;
     timestamp: Date;
   }>>([]);
@@ -221,13 +219,12 @@ export default function AiAttendance() {
 
   // Test AI Response Mutation
   const testAiResponseMutation = useMutation({
-    mutationFn: async (data: { message: string; platform: string }) => 
+    mutationFn: async (data: { message: string }) => 
       apiRequest("POST", "/api/ai-config/test-response", data),
     onSuccess: (response) => {
       setAiTestResponse(response.response);
       setTestHistory(prev => [{
         message: testMessage,
-        platform: testPlatform,
         response: response.response,
         timestamp: new Date()
       }, ...prev].slice(0, 10)); // Keep last 10 tests
@@ -795,7 +792,7 @@ export default function AiAttendance() {
                 </div>
                 
                 <Button
-                  onClick={() => testAiResponseMutation.mutate({ message: testMessage, platform: testPlatform })}
+                  onClick={() => testAiResponseMutation.mutate({ message: testMessage })}
                   disabled={!testMessage || testAiResponseMutation.isPending}
                   className="rounded-full"
                   data-testid="button-test-ai"
@@ -834,16 +831,9 @@ export default function AiAttendance() {
                     <div className="space-y-2 max-h-[300px] overflow-y-auto">
                       {testHistory.map((test, index) => (
                         <div key={index} className="p-3 bg-muted/50 rounded-lg space-y-2">
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <p className="text-sm font-medium">Pergunta:</p>
-                              <p className="text-sm text-muted-foreground">{test.message}</p>
-                            </div>
-                            {test.platform !== 'all' && (
-                              <Badge variant="outline" className="rounded-full ml-2">
-                                {PLATFORMS.find(p => p.id === test.platform)?.name}
-                              </Badge>
-                            )}
+                          <div className="flex-1">
+                            <p className="text-sm font-medium">Pergunta:</p>
+                            <p className="text-sm text-muted-foreground">{test.message}</p>
                           </div>
                           <div>
                             <p className="text-sm font-medium">Resposta:</p>
