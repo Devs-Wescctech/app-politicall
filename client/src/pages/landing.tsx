@@ -946,6 +946,19 @@ export default function LandingPage() {
         </div>
       </section>
 
+      <section className="py-24 bg-background">
+        <div className="container mx-auto px-4">
+          <div className="max-w-4xl mx-auto text-center">
+            <h2 className="text-4xl md:text-5xl font-bold mb-6" data-testid="text-cta-final-title">
+              Pronto para Transformar Sua Carreira Política?
+            </h2>
+            <p className="text-xl text-muted-foreground mb-8">
+              Junte-se a centenas de políticos que já usam Politicall para vencer eleições e servir melhor seus eleitores.
+            </p>
+          </div>
+        </div>
+      </section>
+
       <section id="contato" className="py-24 bg-muted/30">
         <div className="container mx-auto px-4">
           <div className="max-w-2xl mx-auto">
