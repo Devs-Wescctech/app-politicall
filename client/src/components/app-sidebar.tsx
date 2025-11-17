@@ -141,9 +141,16 @@ export function AppSidebar() {
               <img src={logoUrl} alt="Logo" className="h-8 w-auto" />
             )}
             {user?.name && (
-              <span className="text-sm font-semibold text-foreground" data-testid="text-user-name">
-                {getShortName(user.name)}
-              </span>
+              <div className="flex flex-col">
+                <span className="text-sm font-semibold text-foreground" data-testid="text-user-name">
+                  {getShortName(user.name)}
+                </span>
+                {user?.party && (
+                  <span className="text-xs text-muted-foreground" data-testid="text-party-ideology">
+                    {user.party.acronym} | {user.party.ideology}
+                  </span>
+                )}
+              </div>
             )}
           </SidebarGroupLabel>
           <SidebarGroupContent>

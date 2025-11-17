@@ -12,6 +12,12 @@ export interface CurrentUser {
   partyId?: string;
   politicalPosition?: string;
   lastElectionVotes?: number;
+  party?: {
+    id: string;
+    name: string;
+    acronym: string;
+    ideology: string;
+  };
 }
 
 export function useCurrentUser() {

@@ -427,8 +427,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!user) {
         return res.status(404).json({ error: "Usuário não encontrado" });
       }
+      
+      // Get party information if user has a party
+      let party = null;
+      if (user.partyId) {
+        const [partyData] = await db.select().from(politicalParties).where(eq(politicalParties.id, user.partyId));
+        if (partyData) {
+          party = {
+            id: partyData.id,
+            name: partyData.name,
+            acronym: partyData.acronym,
+            ideology: partyData.ideology,
+          };
+        }
+      }
+      
       const { password, ...sanitizedUser } = user;
-      res.json(sanitizedUser);
+      res.json({ ...sanitizedUser, party });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
