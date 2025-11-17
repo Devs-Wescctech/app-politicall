@@ -24,6 +24,33 @@ const profileSchema = z.object({
   partyId: z.string().optional(),
   politicalPosition: z.string().optional(),
   lastElectionVotes: z.string().optional(),
+  currentPassword: z.string().optional(),
+  newPassword: z.string().optional(),
+  confirmPassword: z.string().optional(),
+}).refine((data) => {
+  if (data.newPassword && !data.currentPassword) {
+    return false;
+  }
+  return true;
+}, {
+  message: "Senha atual é obrigatória para alterar a senha",
+  path: ["currentPassword"],
+}).refine((data) => {
+  if (data.newPassword && data.newPassword.length < 6) {
+    return false;
+  }
+  return true;
+}, {
+  message: "Nova senha deve ter no mínimo 6 caracteres",
+  path: ["newPassword"],
+}).refine((data) => {
+  if (data.newPassword && data.newPassword !== data.confirmPassword) {
+    return false;
+  }
+  return true;
+}, {
+  message: "As senhas não coincidem",
+  path: ["confirmPassword"],
 });
 
 type ProfileForm = z.infer<typeof profileSchema>;
@@ -60,6 +87,9 @@ export default function Settings() {
       partyId: currentUser?.partyId || "",
       politicalPosition: currentUser?.politicalPosition || "",
       lastElectionVotes: currentUser?.lastElectionVotes?.toString() || "",
+      currentPassword: "",
+      newPassword: "",
+      confirmPassword: "",
     },
   });
 
@@ -68,13 +98,19 @@ export default function Settings() {
       const cleanedVotes = data.lastElectionVotes?.replace(/\D/g, '') || '';
       const votesNumber = cleanedVotes ? parseInt(cleanedVotes, 10) : undefined;
       
-      const payload = {
+      const payload: any = {
         name: data.name,
         phone: data.phone || undefined,
         partyId: data.partyId || undefined,
         politicalPosition: data.politicalPosition || undefined,
         lastElectionVotes: votesNumber,
       };
+
+      if (data.newPassword && data.currentPassword) {
+        payload.currentPassword = data.currentPassword;
+        payload.newPassword = data.newPassword;
+      }
+
       return await apiRequest("PATCH", "/api/auth/profile", payload);
     },
     onSuccess: () => {
@@ -166,6 +202,9 @@ export default function Settings() {
       partyId: currentUser?.partyId || "",
       politicalPosition: currentUser?.politicalPosition || "",
       lastElectionVotes: formattedVotes,
+      currentPassword: "",
+      newPassword: "",
+      confirmPassword: "",
     });
     setShowEditDialog(true);
   };
@@ -458,6 +497,65 @@ export default function Settings() {
                             field.onChange(formatted);
                           }}
                           data-testid="input-votes" 
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <Separator className="my-4" />
+                <div className="space-y-2">
+                  <h3 className="text-sm font-medium">Alterar Senha (Opcional)</h3>
+                  <p className="text-xs text-muted-foreground">Deixe em branco para manter a senha atual</p>
+                </div>
+                <FormField
+                  control={form.control}
+                  name="currentPassword"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Senha Atual</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="password" 
+                          placeholder="Digite sua senha atual" 
+                          {...field} 
+                          data-testid="input-current-password" 
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="newPassword"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Nova Senha</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="password" 
+                          placeholder="Digite a nova senha (mín. 6 caracteres)" 
+                          {...field} 
+                          data-testid="input-new-password" 
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="confirmPassword"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Confirmar Nova Senha</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="password" 
+                          placeholder="Digite a nova senha novamente" 
+                          {...field} 
+                          data-testid="input-confirm-password" 
                         />
                       </FormControl>
                       <FormMessage />

@@ -218,10 +218,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
         partyId: z.string().optional(),
         politicalPosition: z.string().optional(),
         lastElectionVotes: z.number().int().nonnegative().optional(),
+        currentPassword: z.string().optional(),
+        newPassword: z.string().min(6, "Nova senha deve ter no mínimo 6 caracteres").optional(),
       });
 
       const validatedData = profileUpdateSchema.parse(req.body);
-      const updated = await storage.updateUser(req.userId!, validatedData);
+      
+      // If changing password, validate current password
+      if (validatedData.newPassword) {
+        if (!validatedData.currentPassword) {
+          return res.status(400).json({ error: "Senha atual é obrigatória para alterar a senha" });
+        }
+
+        const user = await storage.getUserById(req.userId!);
+        if (!user) {
+          return res.status(404).json({ error: "Usuário não encontrado" });
+        }
+
+        const isPasswordValid = await bcrypt.compare(validatedData.currentPassword, user.password);
+        if (!isPasswordValid) {
+          return res.status(400).json({ error: "Senha atual incorreta" });
+        }
+
+        // Hash new password
+        const hashedPassword = await bcrypt.hash(validatedData.newPassword, 10);
+        const { currentPassword, newPassword, ...profileData } = validatedData;
+        const updated = await storage.updateUser(req.userId!, { ...profileData, password: hashedPassword });
+        const { password, ...sanitizedUser } = updated;
+        return res.json(sanitizedUser);
+      }
+
+      // Update without password change
+      const { currentPassword, newPassword, ...profileData } = validatedData;
+      const updated = await storage.updateUser(req.userId!, profileData);
       const { password, ...sanitizedUser } = updated;
       res.json(sanitizedUser);
     } catch (error: any) {
