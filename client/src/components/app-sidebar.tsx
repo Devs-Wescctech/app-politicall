@@ -143,32 +143,34 @@ export function AppSidebar() {
 
   return (
     <Sidebar>
+      <div className="sticky top-0 z-50 bg-sidebar px-4 py-6 border-b shadow-md">
+        <div className="flex items-center gap-3">
+          {user?.avatar ? (
+            <img 
+              src={user.avatar} 
+              alt="Foto de Perfil" 
+              className="h-12 w-12 rounded-full object-cover"
+              data-testid="avatar-image"
+            />
+          ) : (
+            <img src={logoUrl} alt="Logo" className="h-12 w-auto" />
+          )}
+          {user?.name && (
+            <div className="flex flex-col">
+              <span className="text-base font-semibold text-foreground" data-testid="text-user-name">
+                {getShortName(user.name)}
+              </span>
+              {user?.party && (
+                <span className="text-[11px] text-muted-foreground" data-testid="text-party-ideology">
+                  {user.party.acronym} | {user.party.ideology} | {getRoleLabel(user.role)}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel className="sticky top-0 z-50 bg-sidebar mt-2 mb-4 px-2 pb-4 flex items-center gap-3 shadow-sm border-b">
-            {user?.avatar ? (
-              <img 
-                src={user.avatar} 
-                alt="Foto de Perfil" 
-                className="h-8 w-8 rounded-full object-cover"
-                data-testid="avatar-image"
-              />
-            ) : (
-              <img src={logoUrl} alt="Logo" className="h-8 w-auto" />
-            )}
-            {user?.name && (
-              <div className="flex flex-col">
-                <span className="text-sm font-semibold text-foreground" data-testid="text-user-name">
-                  {getShortName(user.name)}
-                </span>
-                {user?.party && (
-                  <span className="text-[10px] text-muted-foreground" data-testid="text-party-ideology">
-                    {user.party.acronym} | {user.party.ideology} | {getRoleLabel(user.role)}
-                  </span>
-                )}
-              </div>
-            )}
-          </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu className="gap-2">
               {visibleItems.map((item) => {
