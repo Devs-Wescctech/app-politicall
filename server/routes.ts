@@ -648,6 +648,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           id: users.id,
           name: users.name,
           email: users.email,
+          avatar: users.avatar,
         }
       })
         .from(surveyCampaigns)

@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { CheckCircle2, XCircle, ChevronLeft, ChevronRight } from "lucide-react";
+import { CheckCircle2, XCircle, ChevronLeft, ChevronRight, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import logoUrl from "@assets/logo pol_1763308638963.png";
@@ -50,6 +51,7 @@ type CampaignWithTemplate = SurveyCampaign & {
     id: string;
     name: string;
     email: string;
+    avatar: string | null;
   };
 };
 
@@ -307,19 +309,29 @@ export default function Admin() {
     return (
       <Card key={campaign.id} className="hover-elevate" data-testid={`card-campaign-${campaign.id}`}>
         <CardHeader>
-          <CardTitle className="text-base" data-testid={`text-campaign-name-${campaign.id}`}>
-            {campaign.campaignName}
-          </CardTitle>
+          <div className="flex items-start gap-3">
+            {campaign.user && (
+              <Avatar className="w-10 h-10 flex-shrink-0" data-testid={`avatar-user-${campaign.id}`}>
+                <AvatarImage src={campaign.user.avatar || undefined} alt={campaign.user.name} />
+                <AvatarFallback>
+                  <User className="w-5 h-5" />
+                </AvatarFallback>
+              </Avatar>
+            )}
+            <div className="flex-1 min-w-0">
+              <CardTitle className="text-base" data-testid={`text-campaign-name-${campaign.id}`}>
+                {campaign.campaignName}
+              </CardTitle>
+              {campaign.user && (
+                <p className="text-xs text-muted-foreground mt-1" data-testid={`text-user-name-${campaign.id}`}>
+                  {campaign.user.name}
+                </p>
+              )}
+            </div>
+          </div>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="space-y-2">
-            {campaign.user && (
-              <div data-testid={`text-user-${campaign.id}`}>
-                <p className="text-xs font-medium text-muted-foreground">Criado por</p>
-                <p className="text-sm">{campaign.user.name}</p>
-              </div>
-            )}
-            
             <div data-testid={`text-created-${campaign.id}`}>
               <p className="text-xs font-medium text-muted-foreground">Data de criação</p>
               <p className="text-sm">
