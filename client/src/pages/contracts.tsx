@@ -62,11 +62,6 @@ type User = {
 
 // Helper function to calculate payment status based on expiry date
 function calculatePaymentStatus(user: User): "pago" | "atrasado" | null {
-  // If already marked as paid, return pago
-  if (user.paymentStatus === "pago") {
-    return "pago";
-  }
-  
   // If no expiry date, can't calculate
   if (!user.expiryDate) {
     return null;
@@ -90,7 +85,8 @@ function calculatePaymentStatus(user: User): "pago" | "atrasado" | null {
     return "atrasado";
   }
   
-  return null;
+  // If within the expiry period, it's paid
+  return "pago";
 }
 
 const createUserSchema = z.object({
