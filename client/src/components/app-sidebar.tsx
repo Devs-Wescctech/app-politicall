@@ -109,7 +109,11 @@ export function AppSidebar() {
     if (item.adminOnly) {
       return user?.role === 'admin';
     }
-    // Todos os outros menus são visíveis para todos
+    // Verifica se o usuário tem permissão para este menu
+    if (item.permissionKey) {
+      return permissions[item.permissionKey] === true;
+    }
+    // Se não tem permissionKey nem adminOnly, mostra por padrão
     return true;
   });
 
