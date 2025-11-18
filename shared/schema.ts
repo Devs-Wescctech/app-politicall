@@ -36,17 +36,17 @@ export const DEFAULT_PERMISSIONS = {
     agenda: true,
     ai: true,
     marketing: true,
-    users: true
+    users: false  // Coordenador NÃO gerencia usuários
   },
   assessor: {
     dashboard: true,
     contacts: true,
-    alliances: true,
+    alliances: false,   // Assessor NÃO acessa alianças políticas
     demands: true,
     agenda: true,
-    ai: true,
-    marketing: true,
-    users: true
+    ai: false,          // Assessor NÃO usa IA
+    marketing: false,   // Assessor NÃO faz marketing
+    users: false        // Assessor NÃO gerencia usuários
   }
 } as const;
 

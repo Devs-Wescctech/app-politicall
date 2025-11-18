@@ -338,20 +338,20 @@ async function seedAdminUser() {
   }
 }
 
-// Update all users to have full permissions
+// Update all users permissions based on their role
 async function updateAllUserPermissions() {
   try {
-    // Update coordenadores with full permissions
+    // Update coordenadores with coordenador permissions
     await db.update(users).set({ 
       permissions: DEFAULT_PERMISSIONS.coordenador 
     }).where(eq(users.role, 'coordenador'));
     
-    // Update assessores with full permissions
+    // Update assessores with assessor permissions (limited access)
     await db.update(users).set({ 
       permissions: DEFAULT_PERMISSIONS.assessor 
     }).where(eq(users.role, 'assessor'));
     
-    console.log("✓ All user permissions updated to full access");
+    console.log("✓ All user permissions updated based on their roles");
   } catch (error) {
     console.error("❌ ERROR updating user permissions:", error);
   }
