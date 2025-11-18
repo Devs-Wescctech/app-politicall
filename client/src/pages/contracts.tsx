@@ -569,19 +569,6 @@ export default function ContractsPage() {
               </Button>
             </div>
 
-            {/* WhatsApp field (only visible when editing) */}
-            {isEditingUser && (
-              <div className="space-y-2">
-                <label className="text-sm font-medium">WhatsApp</label>
-                <Input
-                  value={editWhatsapp}
-                  onChange={(e) => setEditWhatsapp(e.target.value)}
-                  placeholder="5511999999999"
-                  data-testid="input-edit-whatsapp"
-                />
-              </div>
-            )}
-
             {/* Plan Details */}
             <div className="space-y-3">
               <div className="space-y-2">
