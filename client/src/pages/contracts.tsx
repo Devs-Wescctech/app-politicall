@@ -268,18 +268,26 @@ export default function ContractsPage() {
 
   const updateContractMutation = useMutation({
     mutationFn: async (data: { userId: string; whatsapp: string; planValue: string; expiryDate: string }) => {
-      return apiRequest(`/api/admin/users/${data.userId}/contract`, {
+      const token = localStorage.getItem('admin_token');
+      const response = await fetch(`/api/admin/users/${data.userId}/contract`, {
         method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
         body: JSON.stringify({
           whatsapp: data.whatsapp,
           planValue: data.planValue,
           expiryDate: data.expiryDate,
         }),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('admin_token')}`,
-        },
       });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Erro ao salvar');
+      }
+      
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
