@@ -296,6 +296,12 @@ export default function ContractsPage() {
                         R$ 0.000,00
                       </span>
                     </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Vencimento</span>
+                      <span className="font-semibold" data-testid={`user-expiry-${user.id}`}>
+                        00/00/0000
+                      </span>
+                    </div>
                     <div className="text-xs text-muted-foreground pt-2">
                       Criado em: {new Date(user.createdAt).toLocaleDateString('pt-BR')}
                     </div>
