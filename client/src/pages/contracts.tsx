@@ -49,6 +49,8 @@ type User = {
   whatsapp?: string;
   planValue?: string;
   expiryDate?: string;
+  paymentStatus?: string;
+  lastPaymentDate?: string;
   politicalPosition?: string;
   party?: {
     id: string;
@@ -57,6 +59,39 @@ type User = {
     ideology?: string;
   };
 };
+
+// Helper function to calculate payment status based on expiry date
+function calculatePaymentStatus(user: User): "pago" | "atrasado" | null {
+  // If already marked as paid, return pago
+  if (user.paymentStatus === "pago") {
+    return "pago";
+  }
+  
+  // If no expiry date, can't calculate
+  if (!user.expiryDate) {
+    return null;
+  }
+  
+  // Parse DD/MM/YYYY format
+  const [day, month, year] = user.expiryDate.split('/').map(Number);
+  if (!day || !month || !year) {
+    return null;
+  }
+  
+  const expiryDate = new Date(year, month - 1, day);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0); // Reset time to compare only dates
+  
+  // Check if expiry date has passed (one day after expiry)
+  const oneDayAfterExpiry = new Date(expiryDate);
+  oneDayAfterExpiry.setDate(oneDayAfterExpiry.getDate() + 1);
+  
+  if (today >= oneDayAfterExpiry) {
+    return "atrasado";
+  }
+  
+  return null;
+}
 
 const createUserSchema = z.object({
   email: z.string().email("Email inválido"),
@@ -74,7 +109,6 @@ export default function ContractsPage() {
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  const [userStatuses, setUserStatuses] = useState<Record<string, "pago" | "atrasado">>({});
   const [isEditingUser, setIsEditingUser] = useState(false);
   const [editPlanValue, setEditPlanValue] = useState("");
   const [editExpiryDate, setEditExpiryDate] = useState("");
@@ -324,10 +358,46 @@ export default function ContractsPage() {
     });
   };
 
+  // Payment mutation
+  const paymentMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      const token = localStorage.getItem('admin_token');
+      const response = await fetch(`/api/admin/users/${userId}/payment`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Erro ao confirmar pagamento');
+      }
+      
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
+      toast({
+        title: "Pagamento confirmado!",
+        description: `O status foi atualizado para Pago.`,
+      });
+      setPaymentDialogOpen(false);
+      setSelectedUser(null);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro ao confirmar pagamento",
+        description: error.message || "Não foi possível confirmar o pagamento.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handlePaymentClick = (user: User, e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent card click
-    const status = userStatuses[user.id] || "pago";
-    if (status === "atrasado") {
+    const status = calculatePaymentStatus(user);
+    if (status !== "pago") {
       setSelectedUser(user);
       setPaymentDialogOpen(true);
     }
@@ -335,16 +405,7 @@ export default function ContractsPage() {
 
   const handlePaymentConfirm = () => {
     if (selectedUser) {
-      setUserStatuses(prev => ({
-        ...prev,
-        [selectedUser.id]: "pago"
-      }));
-      toast({
-        title: "Pagamento confirmado!",
-        description: `O status de ${selectedUser.name} foi atualizado para Pago.`,
-      });
-      setPaymentDialogOpen(false);
-      setSelectedUser(null);
+      paymentMutation.mutate(selectedUser.id);
     }
   };
 
@@ -445,7 +506,7 @@ export default function ContractsPage() {
               </Card>
             ) : (
               adminUsers.map((user) => {
-                const status = userStatuses[user.id] || "pago";
+                const status = calculatePaymentStatus(user);
                 const isPaid = status === "pago";
                 
                 return (
@@ -460,7 +521,7 @@ export default function ContractsPage() {
                         <CardTitle className="text-base font-semibold" data-testid={`user-name-${user.id}`}>
                           {user.name}
                         </CardTitle>
-                        <div className="flex items-center gap-2">
+                        {status && (
                           <Badge 
                             variant="default" 
                             className={isPaid ? "bg-green-500 text-white" : "bg-red-500 text-white"} 
@@ -468,40 +529,7 @@ export default function ContractsPage() {
                           >
                             {isPaid ? "Pago" : "Atrasado"}
                           </Badge>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                className="h-8 w-8" 
-                                data-testid={`button-menu-${user.id}`}
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <MoreVertical className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem
-                                onClick={() => setUserStatuses(prev => ({
-                                  ...prev,
-                                  [user.id]: "atrasado"
-                                }))}
-                                data-testid={`menu-set-delayed-${user.id}`}
-                              >
-                                Marcar como Atrasado
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => setUserStatuses(prev => ({
-                                  ...prev,
-                                  [user.id]: "pago"
-                                }))}
-                                data-testid={`menu-set-paid-${user.id}`}
-                              >
-                                Marcar como Pago
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
+                        )}
                       </div>
                     </CardHeader>
                   <CardContent className="space-y-2">

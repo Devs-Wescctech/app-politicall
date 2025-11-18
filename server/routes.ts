@@ -814,6 +814,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         whatsapp: users.whatsapp,
         planValue: users.planValue,
         expiryDate: users.expiryDate,
+        paymentStatus: users.paymentStatus,
+        lastPaymentDate: users.lastPaymentDate,
         createdAt: users.createdAt,
         partyAbbreviation: politicalParties.acronym,
         partyName: politicalParties.name,
@@ -875,6 +877,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             whatsapp: row.whatsapp,
             planValue: row.planValue,
             expiryDate: row.expiryDate,
+            paymentStatus: row.paymentStatus,
+            lastPaymentDate: row.lastPaymentDate,
             createdAt: row.createdAt,
             party: row.partyName ? {
               id: row.partyId!,
