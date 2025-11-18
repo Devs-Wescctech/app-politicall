@@ -542,7 +542,7 @@ export default function ContractsPage() {
               {selectedUser?.name}
             </DialogTitle>
             <DialogDescription data-testid="text-dialog-details-description">
-              Informações e contato do usuário
+              PP | Direita | Admin
             </DialogDescription>
           </DialogHeader>
 
