@@ -2383,6 +2383,136 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Generate AI comparative analysis
+  app.post("/api/statistics/analyze", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      // Get candidate profile
+      const [profile] = await db
+        .select()
+        .from(candidateProfiles)
+        .where(eq(candidateProfiles.userId, req.userId!))
+        .limit(1);
+
+      if (!profile) {
+        return res.status(404).json({ error: "Perfil de candidato não encontrado. Por favor, preencha seu perfil primeiro." });
+      }
+
+      // Generate AI analysis using OpenAI with knowledge about Brazilian elections
+      const aiPrompt = `Você é um especialista em análise política e estratégias eleitorais brasileiras com amplo conhecimento sobre eleições passadas no Brasil. 
+
+Analise o perfil do candidato abaixo e compare com padrões de candidatos eleitos em eleições anteriores no Brasil, considerando dados históricos do TSE, perfis de vitoriosos, e estratégias bem-sucedidas.
+
+PERFIL DO CANDIDATO:
+- Nome: ${profile.fullName}
+- Cargo pretendido: ${profile.targetPosition}
+- Estado: ${profile.targetState}
+- Cidade: ${profile.targetCity || "Não especificado"}
+- Ano da eleição: ${profile.electionYear}
+- Ideologia: ${profile.ideology || "Não especificada"}
+- Orçamento de campanha: ${profile.campaignBudget ? `R$ ${profile.campaignBudget.toLocaleString('pt-BR')}` : "Não especificado"}
+- Valores principais: ${profile.mainValues?.join(", ") || "Não especificados"}
+- Propostas-chave: ${profile.keyProposals?.join(", ") || "Não especificadas"}
+- Alianças políticas: ${profile.politicalAlliances?.join(", ") || "Não especificadas"}
+- Problemas principais: ${profile.mainIssues?.join(", ") || "Não especificados"}
+- Perfil do eleitor-alvo: ${profile.targetVoterProfile || "Não especificado"}
+- Pontos fortes: ${profile.strengths?.join(", ") || "Não especificados"}
+- Pontos fracos: ${profile.weaknesses?.join(", ") || "Não especificados"}
+- Experiência anterior: ${profile.previousExperience || "Não especificada"}
+- Conquistas: ${profile.achievements?.join(", ") || "Não especificadas"}
+- Reconhecimento público: ${profile.publicRecognition || "Não especificado"}
+
+Com base no seu conhecimento sobre eleições brasileiras e perfis de candidatos eleitos similares, forneça uma análise DETALHADA em formato JSON com a seguinte estrutura:
+{
+  "comparison": {
+    "similarities": ["lista de semelhanças com candidatos eleitos"],
+    "differences": ["lista de diferenças em relação a candidatos eleitos"],
+    "successFactors": ["fatores de sucesso identificados em candidatos eleitos"]
+  },
+  "insights": {
+    "strengths": ["análise dos pontos fortes do candidato"],
+    "weaknesses": ["análise dos pontos fracos e áreas de melhoria"],
+    "opportunities": ["oportunidades identificadas"],
+    "threats": ["ameaças e desafios potenciais"]
+  },
+  "recommendations": {
+    "strategic": ["recomendações estratégicas gerais"],
+    "campaign": ["recomendações específicas para campanha"],
+    "communication": ["recomendações de comunicação e mensagens"],
+    "alliances": ["recomendações sobre alianças e parcerias"],
+    "budget": ["recomendações sobre alocação de recursos"]
+  },
+  "winProbabilityFactors": {
+    "favorable": ["fatores que aumentam chances de vitória"],
+    "unfavorable": ["fatores que diminuem chances de vitória"],
+    "estimated_score": "uma pontuação de 0-100 estimando viabilidade eleitoral"
+  }
+}
+
+Seja específico, prático e baseado em dados. Use exemplos concretos quando possível.`;
+
+      const openaiResponse = await fetch(`${process.env.AI_INTEGRATIONS_OPENAI_BASE_URL}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.AI_INTEGRATIONS_OPENAI_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o',
+          messages: [
+            {
+              role: 'system',
+              content: 'Você é um especialista em análise política e estratégias eleitorais brasileiras. Forneça análises detalhadas e práticas baseadas em dados.'
+            },
+            {
+              role: 'user',
+              content: aiPrompt
+            }
+          ],
+          response_format: { type: "json_object" },
+          temperature: 0.7,
+        }),
+      });
+
+      if (!openaiResponse.ok) {
+        throw new Error(`OpenAI API error: ${openaiResponse.statusText}`);
+      }
+
+      const aiResult = await openaiResponse.json();
+      const analysisData = JSON.parse(aiResult.choices[0].message.content);
+
+      // Save analysis to database
+      const [analysis] = await db
+        .insert(statisticsAnalyses)
+        .values({
+          userId: req.userId!,
+          candidateProfileId: profile.id,
+          analysisData: analysisData,
+        })
+        .returning();
+
+      res.json(analysis);
+    } catch (error: any) {
+      console.error("Analysis generation error:", error);
+      res.status(500).json({ error: error.message || "Erro ao gerar análise" });
+    }
+  });
+
+  // Get latest analysis
+  app.get("/api/statistics/analysis/latest", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const [analysis] = await db
+        .select()
+        .from(statisticsAnalyses)
+        .where(eq(statisticsAnalyses.userId, req.userId!))
+        .orderBy(desc(statisticsAnalyses.createdAt))
+        .limit(1);
+
+      res.json(analysis || null);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // ==================== DASHBOARD STATS ====================
   
   app.get("/api/dashboard/stats", authenticateToken, async (req: AuthRequest, res) => {
