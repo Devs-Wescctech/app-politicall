@@ -727,7 +727,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Campanha não encontrada" });
       }
       
-      const updated = await storage.updateSurveyCampaign(id, { campaignStage });
+      // Set production start date when moving to "em_producao" stage
+      const updateData: any = { campaignStage };
+      if (campaignStage === "em_producao" && !campaign.productionStartDate) {
+        updateData.productionStartDate = new Date();
+      }
+      
+      const updated = await storage.updateSurveyCampaign(id, updateData);
       
       res.json(updated);
     } catch (error: any) {

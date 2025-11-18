@@ -993,20 +993,20 @@ export default function Marketing() {
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    {isApproved && campaign.updatedAt && (
+                    {campaign.productionStartDate && (
                       <div className="flex items-start gap-3">
                         <Calendar className="w-5 h-5 text-[#40E0D0] mt-0.5" />
                         <div className="flex-1 space-y-2">
                           <div className="flex items-center justify-between">
-                            <Label className="text-xs text-muted-foreground">Data de Aprovação:</Label>
+                            <Label className="text-xs text-muted-foreground">Data de Início:</Label>
                             <p className="text-sm font-medium">
-                              {format(new Date(campaign.updatedAt), "dd/MM/yyyy", { locale: ptBR })}
+                              {format(new Date(campaign.productionStartDate), "dd/MM/yyyy", { locale: ptBR })}
                             </p>
                           </div>
                           <div className="flex items-center justify-between">
                             <Label className="text-xs text-muted-foreground">Data de Término:</Label>
                             <p className="text-sm font-bold text-[#40E0D0]">
-                              {format(addDays(new Date(campaign.updatedAt), 7), "dd/MM/yyyy", { locale: ptBR })}
+                              {format(addDays(new Date(campaign.productionStartDate), 7), "dd/MM/yyyy", { locale: ptBR })}
                             </p>
                           </div>
                         </div>
