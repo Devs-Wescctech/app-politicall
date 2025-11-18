@@ -214,6 +214,7 @@ export default function Admin() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/survey-campaigns"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/survey-campaigns"] });
       toast({
         title: "Estágio atualizado",
         description: "O estágio da campanha foi atualizado com sucesso.",

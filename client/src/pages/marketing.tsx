@@ -35,35 +35,25 @@ if (typeof window !== 'undefined') {
   });
 }
 
-const SURVEY_STATUS_CONFIG = {
-  under_review: { 
-    label: "Em Análise", 
-    color: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
+const CAMPAIGN_STAGE_CONFIG = {
+  aguardando: { 
+    label: "Aguardando", 
+    color: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100",
     icon: Clock
   },
-  approved: { 
+  aprovado: { 
     label: "Aprovado", 
     color: "bg-[#40E0D0] text-white dark:bg-[#48D1CC] dark:text-gray-900",
     icon: CheckCircle
   },
-  rejected: { 
-    label: "Rejeitado", 
-    color: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
-    icon: XCircle
+  em_producao: { 
+    label: "Em Produção", 
+    color: "bg-blue-500 text-white dark:bg-blue-600 dark:text-white",
+    icon: BarChart3
   },
-  active: { 
-    label: "Ativo", 
-    color: "bg-[#40E0D0] text-white dark:bg-[#48D1CC] dark:text-gray-900",
-    icon: CheckCircle
-  },
-  paused: { 
-    label: "Pausado", 
-    color: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200",
-    icon: Clock
-  },
-  completed: { 
-    label: "Concluído", 
-    color: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+  finalizado: { 
+    label: "Finalizado", 
+    color: "bg-green-500 text-white dark:bg-green-600 dark:text-white",
     icon: CheckCircle
   },
 };
@@ -950,8 +940,8 @@ export default function Marketing() {
         ) : campaigns && campaigns.length > 0 ? (
           <div className="space-y-4">
             {campaigns.map((campaign) => {
-              const statusConfig = SURVEY_STATUS_CONFIG[campaign.status as keyof typeof SURVEY_STATUS_CONFIG];
-              const StatusIcon = statusConfig.icon;
+              const stageConfig = CAMPAIGN_STAGE_CONFIG[campaign.campaignStage as keyof typeof CAMPAIGN_STAGE_CONFIG] || CAMPAIGN_STAGE_CONFIG.aguardando;
+              const StageIcon = stageConfig.icon;
               const isApproved = campaign.status === "approved" || campaign.status === "active";
               const landingUrl = getLandingPageUrl(campaign.slug);
 
@@ -964,9 +954,9 @@ export default function Marketing() {
                           <CardTitle className="text-xl" data-testid={`text-campaign-name-${campaign.id}`}>
                             {campaign.campaignName}
                           </CardTitle>
-                          <div className="flex items-center gap-1 text-sm" data-testid={`badge-status-${campaign.id}`}>
-                            <StatusIcon className="w-3 h-3" />
-                            <span>{statusConfig.label}</span>
+                          <div className={`flex items-center gap-1 text-sm px-2 py-1 rounded-md ${stageConfig.color}`} data-testid={`badge-stage-${campaign.id}`}>
+                            <StageIcon className="w-3 h-3" />
+                            <span>{stageConfig.label}</span>
                           </div>
                           {campaign.responseCount !== undefined && (
                             <span className="text-sm text-muted-foreground" data-testid={`badge-responses-${campaign.id}`}>
