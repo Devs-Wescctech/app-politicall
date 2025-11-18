@@ -161,11 +161,12 @@ export function AppSidebar() {
               <span className="text-base font-semibold text-foreground" data-testid="text-user-name">
                 {getShortName(user.name)}
               </span>
-              {user?.party && (
-                <span className="text-[11px] text-muted-foreground" data-testid="text-party-ideology">
-                  {user.party.acronym} | {user.party.ideology} | {getRoleLabel(user.role)}
-                </span>
-              )}
+              <span className="text-[11px] text-muted-foreground" data-testid="text-party-ideology">
+                {user?.party 
+                  ? `${user.party.acronym} | ${user.party.ideology} | ${getRoleLabel(user.role)}`
+                  : getRoleLabel(user.role)
+                }
+              </span>
             </div>
           )}
         </div>
