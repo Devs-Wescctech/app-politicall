@@ -15,7 +15,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useCurrentUser } from "@/hooks/use-current-user";
-import { Shield, User as UserIcon, Users, Plus, Settings, Eye, EyeOff, Trash2, ChevronDown, ChevronUp } from "lucide-react";
+import { Shield, User as UserIcon, Users, Plus, Settings, Eye, EyeOff, Trash2, ChevronDown, ChevronUp, Trophy, Award } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Cell, Tooltip } from "recharts";
 import {
   Form,
   FormControl,
@@ -63,6 +65,7 @@ export default function UsersManagement() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
+  const [rankingPeriod, setRankingPeriod] = useState<string>("all");
   
   // Edit dialog password states
   const [newPassword, setNewPassword] = useState("");
@@ -126,6 +129,23 @@ export default function UsersManagement() {
 
   const { data: users, isLoading } = useQuery<Omit<User, "password">[]>({
     queryKey: ["/api/users"],
+  });
+
+  // Query for activity ranking with period filter
+  const { data: ranking, isLoading: isRankingLoading } = useQuery<Array<{
+    id: string;
+    name: string;
+    role: string;
+    activityCount: number;
+  }>>({
+    queryKey: ["/api/users/activity-ranking", rankingPeriod],
+    queryFn: async () => {
+      const response = await fetch(`/api/users/activity-ranking?period=${rankingPeriod}`, {
+        credentials: "include",
+      });
+      if (!response.ok) throw new Error("Erro ao carregar ranking");
+      return response.json();
+    },
   });
 
   const updateRoleMutation = useMutation({
@@ -403,6 +423,83 @@ export default function UsersManagement() {
           </Card>
         )}
       </div>
+
+      {/* Activity Ranking Section */}
+      <Card className="mt-8">
+        <CardHeader>
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div className="flex items-center gap-2">
+              <Trophy className="h-6 w-6 text-primary" />
+              <CardTitle>Ranking de Atividades</CardTitle>
+            </div>
+            <Tabs value={rankingPeriod} onValueChange={setRankingPeriod}>
+              <TabsList>
+                <TabsTrigger value="today" data-testid="filter-today">Hoje</TabsTrigger>
+                <TabsTrigger value="week" data-testid="filter-week">Semana</TabsTrigger>
+                <TabsTrigger value="month" data-testid="filter-month">Mês</TabsTrigger>
+                <TabsTrigger value="all" data-testid="filter-all">Todo Período</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {isRankingLoading ? (
+            <div className="space-y-3">
+              {[...Array(5)].map((_, i) => (
+                <Skeleton key={i} className="h-16 w-full" />
+              ))}
+            </div>
+          ) : ranking && ranking.length > 0 ? (
+            <div className="space-y-3">
+              {ranking.map((user, index) => {
+                const roleConfig = ROLE_CONFIG[user.role as keyof typeof ROLE_CONFIG];
+                const isTopUser = index === 0;
+                const maxActivity = ranking[0]?.activityCount || 1;
+                const percentage = (user.activityCount / maxActivity) * 100;
+                
+                return (
+                  <div
+                    key={user.id}
+                    className={`p-4 rounded-md border ${
+                      isTopUser ? "border-primary bg-primary/5" : "border-border"
+                    }`}
+                    data-testid={`ranking-user-${user.id}`}
+                  >
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        {isTopUser && (
+                          <Award className="h-5 w-5 text-primary shrink-0" />
+                        )}
+                        <span className="font-semibold text-lg shrink-0">#{index + 1}</span>
+                        <span className="font-medium truncate">{user.name}</span>
+                        <Badge className={`${roleConfig.color} shrink-0`}>
+                          {roleConfig.label}
+                        </Badge>
+                      </div>
+                      <span className="font-bold text-lg shrink-0">
+                        {user.activityCount}
+                      </span>
+                    </div>
+                    <div className="relative h-2 bg-muted rounded-full overflow-hidden">
+                      <div
+                        className={`absolute top-0 left-0 h-full ${
+                          isTopUser ? "bg-primary" : "bg-primary/60"
+                        } transition-all duration-500`}
+                        style={{ width: `${percentage}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="text-center py-12 text-muted-foreground">
+              Nenhuma atividade registrada no período selecionado
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Edit Role Dialog */}
       <Dialog open={!!selectedUser} onOpenChange={(open) => {
         if (!open) {

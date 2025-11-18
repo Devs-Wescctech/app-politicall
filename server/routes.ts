@@ -714,6 +714,104 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ==================== USER MANAGEMENT (Admin Only) ====================
   
+  // Get user activity ranking with period filter
+  app.get("/api/users/activity-ranking", authenticateToken, requireRole("admin"), requirePermission("users"), async (req: AuthRequest, res) => {
+    try {
+      const period = req.query.period as string || 'all';
+      const allUsers = await storage.getAllUsers();
+      
+      // Calculate date range based on period
+      let startDate: Date | null = null;
+      const now = new Date();
+      
+      switch(period) {
+        case 'today':
+          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          break;
+        case 'week':
+          startDate = new Date(now);
+          startDate.setDate(now.getDate() - 7);
+          break;
+        case 'month':
+          startDate = new Date(now);
+          startDate.setMonth(now.getMonth() - 1);
+          break;
+        case 'all':
+        default:
+          startDate = null;
+      }
+      
+      // Get activity count for each user with date filter
+      const usersWithActivityCount = await Promise.all(
+        allUsers.map(async (user) => {
+          let eventsQuery = db.select({ count: sql<number>`count(*)::int` })
+            .from(events)
+            .where(eq(events.userId, user.id));
+          
+          let demandsQuery = db.select({ count: sql<number>`count(*)::int` })
+            .from(demands)
+            .where(eq(demands.userId, user.id));
+          
+          let commentsQuery = db.select({ count: sql<number>`count(*)::int` })
+            .from(demandComments)
+            .where(eq(demandComments.userId, user.id));
+          
+          let contactsQuery = db.select({ count: sql<number>`count(*)::int` })
+            .from(contacts)
+            .where(eq(contacts.userId, user.id));
+          
+          let alliancesQuery = db.select({ count: sql<number>`count(*)::int` })
+            .from(politicalAlliances)
+            .where(eq(politicalAlliances.userId, user.id));
+          
+          let campaignsQuery = db.select({ count: sql<number>`count(*)::int` })
+            .from(surveyCampaigns)
+            .where(eq(surveyCampaigns.userId, user.id));
+          
+          // Apply date filter if not 'all'
+          if (startDate) {
+            eventsQuery = eventsQuery.where(sql`${events.createdAt} >= ${startDate}`);
+            demandsQuery = demandsQuery.where(sql`${demands.createdAt} >= ${startDate}`);
+            commentsQuery = commentsQuery.where(sql`${demandComments.createdAt} >= ${startDate}`);
+            contactsQuery = contactsQuery.where(sql`${contacts.createdAt} >= ${startDate}`);
+            alliancesQuery = alliancesQuery.where(sql`${politicalAlliances.createdAt} >= ${startDate}`);
+            campaignsQuery = campaignsQuery.where(sql`${surveyCampaigns.createdAt} >= ${startDate}`);
+          }
+          
+          const [eventsCount] = await eventsQuery;
+          const [demandsCount] = await demandsQuery;
+          const [commentsCount] = await commentsQuery;
+          const [contactsCount] = await contactsQuery;
+          const [alliancesCount] = await alliancesQuery;
+          const [campaignsCount] = await campaignsQuery;
+          
+          const totalActivities = 
+            (eventsCount?.count || 0) +
+            (demandsCount?.count || 0) +
+            (commentsCount?.count || 0) +
+            (contactsCount?.count || 0) +
+            (alliancesCount?.count || 0) +
+            (campaignsCount?.count || 0);
+          
+          return {
+            id: user.id,
+            name: user.name,
+            role: user.role,
+            activityCount: totalActivities
+          };
+        })
+      );
+      
+      // Sort by activity count (descending)
+      const ranking = usersWithActivityCount
+        .sort((a, b) => b.activityCount - a.activityCount);
+      
+      res.json(ranking);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
   // List all users (admin only)
   app.get("/api/users", authenticateToken, requireRole("admin"), requirePermission("users"), async (req: AuthRequest, res) => {
     try {
