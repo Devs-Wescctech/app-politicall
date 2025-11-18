@@ -1,9 +1,9 @@
 // Storage implementation using blueprint javascript_database
 import { 
-  users, contacts, politicalParties, politicalAlliances, demands, demandComments, events,
+  accounts, users, contacts, politicalParties, politicalAlliances, demands, demandComments, events,
   aiConfigurations, aiConversations, aiTrainingExamples, aiResponseTemplates, 
   marketingCampaigns, notifications, integrations, surveyTemplates, surveyCampaigns, surveyLandingPages, surveyResponses, leads,
-  type User, type InsertUser, type Contact, type InsertContact,
+  type Account, type User, type InsertUser, type Contact, type InsertContact,
   type PoliticalParty, type PoliticalAlliance, type InsertPoliticalAlliance,
   type Demand, type InsertDemand, type DemandComment, type InsertDemandComment,
   type Event, type InsertEvent, type AiConfiguration, type InsertAiConfiguration,
@@ -23,113 +23,116 @@ import { eq, desc, and, count, inArray } from "drizzle-orm";
 import { encryptApiKey, decryptApiKey } from "./crypto";
 
 export interface IStorage {
+  // Accounts
+  createAccount(account: { name: string }): Promise<Account>;
+
   // Users
   getUser(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
-  getAllUsers(): Promise<User[]>;
-  updateUser(id: string, user: Partial<Omit<User, "id" | "password" | "createdAt">>): Promise<User>;
-  deleteUser(id: string): Promise<void>;
+  getAllUsers(accountId: string): Promise<User[]>;
+  updateUser(id: string, accountId: string, user: Partial<Omit<User, "id" | "password" | "createdAt">>): Promise<User>;
+  deleteUser(id: string, accountId: string): Promise<void>;
 
   // Contacts
-  getContacts(userId: string): Promise<Contact[]>;
-  getContact(id: string): Promise<Contact | undefined>;
-  createContact(contact: InsertContact & { userId: string }): Promise<Contact>;
-  updateContact(id: string, contact: Partial<InsertContact>): Promise<Contact>;
-  deleteContact(id: string): Promise<void>;
+  getContacts(accountId: string): Promise<Contact[]>;
+  getContact(id: string, accountId: string): Promise<Contact | undefined>;
+  createContact(contact: InsertContact & { userId: string; accountId: string }): Promise<Contact>;
+  updateContact(id: string, accountId: string, contact: Partial<InsertContact>): Promise<Contact>;
+  deleteContact(id: string, accountId: string): Promise<void>;
 
   // Political Parties
   getAllParties(): Promise<PoliticalParty[]>;
   createParty(party: Omit<PoliticalParty, "id">): Promise<PoliticalParty>;
 
   // Political Alliances
-  getAlliances(userId: string): Promise<PoliticalAlliance[]>;
-  createAlliance(alliance: InsertPoliticalAlliance & { userId: string }): Promise<PoliticalAlliance>;
-  updateAlliance(id: string, alliance: Partial<InsertPoliticalAlliance>): Promise<PoliticalAlliance>;
-  deleteAlliance(id: string): Promise<void>;
+  getAlliances(accountId: string): Promise<PoliticalAlliance[]>;
+  createAlliance(alliance: InsertPoliticalAlliance & { userId: string; accountId: string }): Promise<PoliticalAlliance>;
+  updateAlliance(id: string, accountId: string, alliance: Partial<InsertPoliticalAlliance>): Promise<PoliticalAlliance>;
+  deleteAlliance(id: string, accountId: string): Promise<void>;
 
   // Demands
-  getDemands(userId: string): Promise<Demand[]>;
-  getDemand(id: string): Promise<Demand | undefined>;
-  createDemand(demand: InsertDemand & { userId: string }): Promise<Demand>;
-  updateDemand(id: string, demand: Partial<InsertDemand>): Promise<Demand>;
-  deleteDemand(id: string): Promise<void>;
+  getDemands(accountId: string): Promise<Demand[]>;
+  getDemand(id: string, accountId: string): Promise<Demand | undefined>;
+  createDemand(demand: InsertDemand & { userId: string; accountId: string }): Promise<Demand>;
+  updateDemand(id: string, accountId: string, demand: Partial<InsertDemand>): Promise<Demand>;
+  deleteDemand(id: string, accountId: string): Promise<void>;
 
   // Demand Comments
-  getDemandComments(demandId: string): Promise<(DemandComment & { userName: string })[]>;
-  createDemandComment(comment: InsertDemandComment & { userId: string }): Promise<DemandComment>;
+  getDemandComments(demandId: string, accountId: string): Promise<(DemandComment & { userName: string })[]>;
+  createDemandComment(comment: InsertDemandComment & { userId: string; accountId: string }): Promise<DemandComment>;
 
   // Events
-  getEvents(userId: string): Promise<Event[]>;
-  getEvent(id: string): Promise<Event | undefined>;
-  createEvent(event: InsertEvent & { userId: string }): Promise<Event>;
-  updateEvent(id: string, event: Partial<InsertEvent>): Promise<Event>;
-  deleteEvent(id: string): Promise<void>;
+  getEvents(accountId: string): Promise<Event[]>;
+  getEvent(id: string, accountId: string): Promise<Event | undefined>;
+  createEvent(event: InsertEvent & { userId: string; accountId: string }): Promise<Event>;
+  updateEvent(id: string, accountId: string, event: Partial<InsertEvent>): Promise<Event>;
+  deleteEvent(id: string, accountId: string): Promise<void>;
 
   // AI Configuration
-  getAiConfig(userId: string): Promise<AiConfiguration | undefined>;
-  upsertAiConfig(config: InsertAiConfiguration & { userId: string }): Promise<AiConfiguration>;
+  getAiConfig(userId: string, accountId: string): Promise<AiConfiguration | undefined>;
+  upsertAiConfig(config: InsertAiConfiguration & { userId: string; accountId: string }): Promise<AiConfiguration>;
   setOpenAiApiKey(userId: string, apiKey: string): Promise<void>;
   getDecryptedApiKey(userId: string): Promise<string | null>;
   deleteOpenAiApiKey(userId: string): Promise<void>;
   updateOpenAiApiStatus(userId: string, status: string, message?: string | null, checkedAt?: Date): Promise<void>;
 
   // AI Conversations
-  getAiConversations(userId: string): Promise<AiConversation[]>;
+  getAiConversations(accountId: string): Promise<AiConversation[]>;
   createAiConversation(conversation: Omit<AiConversation, "id" | "createdAt">): Promise<AiConversation>;
 
   // AI Training Examples
-  getAiTrainingExamples(userId: string): Promise<AiTrainingExample[]>;
-  getTrainingExamples(userId: string): Promise<AiTrainingExample[]>;
-  getTrainingExample(id: string): Promise<AiTrainingExample | undefined>;
-  createTrainingExample(example: InsertAiTrainingExample & { userId: string }): Promise<AiTrainingExample>;
-  updateTrainingExample(id: string, example: Partial<InsertAiTrainingExample>): Promise<AiTrainingExample>;
-  deleteTrainingExample(id: string): Promise<void>;
+  getAiTrainingExamples(accountId: string): Promise<AiTrainingExample[]>;
+  getTrainingExamples(accountId: string): Promise<AiTrainingExample[]>;
+  getTrainingExample(id: string, accountId: string): Promise<AiTrainingExample | undefined>;
+  createTrainingExample(example: InsertAiTrainingExample & { userId: string; accountId: string }): Promise<AiTrainingExample>;
+  updateTrainingExample(id: string, accountId: string, example: Partial<InsertAiTrainingExample>): Promise<AiTrainingExample>;
+  deleteTrainingExample(id: string, accountId: string): Promise<void>;
 
   // AI Response Templates
-  getResponseTemplates(userId: string): Promise<AiResponseTemplate[]>;
-  getResponseTemplate(id: string): Promise<AiResponseTemplate | undefined>;
-  createResponseTemplate(template: InsertAiResponseTemplate & { userId: string }): Promise<AiResponseTemplate>;
-  updateResponseTemplate(id: string, template: Partial<InsertAiResponseTemplate>): Promise<AiResponseTemplate>;
-  deleteResponseTemplate(id: string): Promise<void>;
+  getResponseTemplates(accountId: string): Promise<AiResponseTemplate[]>;
+  getResponseTemplate(id: string, accountId: string): Promise<AiResponseTemplate | undefined>;
+  createResponseTemplate(template: InsertAiResponseTemplate & { userId: string; accountId: string }): Promise<AiResponseTemplate>;
+  updateResponseTemplate(id: string, accountId: string, template: Partial<InsertAiResponseTemplate>): Promise<AiResponseTemplate>;
+  deleteResponseTemplate(id: string, accountId: string): Promise<void>;
 
   // Marketing Campaigns
-  getCampaigns(userId: string): Promise<MarketingCampaign[]>;
-  getCampaign(id: string): Promise<MarketingCampaign | undefined>;
-  createCampaign(campaign: InsertMarketingCampaign & { userId: string }): Promise<MarketingCampaign>;
-  updateCampaign(id: string, campaign: Partial<InsertMarketingCampaign> & { sentAt?: Date }): Promise<MarketingCampaign>;
+  getCampaigns(accountId: string): Promise<MarketingCampaign[]>;
+  getCampaign(id: string, accountId: string): Promise<MarketingCampaign | undefined>;
+  createCampaign(campaign: InsertMarketingCampaign & { userId: string; accountId: string }): Promise<MarketingCampaign>;
+  updateCampaign(id: string, accountId: string, campaign: Partial<InsertMarketingCampaign> & { sentAt?: Date }): Promise<MarketingCampaign>;
 
   // Notifications
-  getNotifications(userId: string, limit?: number): Promise<Notification[]>;
-  getUnreadCount(userId: string): Promise<number>;
+  getNotifications(userId: string, accountId: string, limit?: number): Promise<Notification[]>;
+  getUnreadCount(userId: string, accountId: string): Promise<number>;
   createNotification(notification: InsertNotification & { userId: string }): Promise<Notification>;
-  markAsRead(id: string, userId: string): Promise<Notification | null>;
-  markAllAsRead(userId: string): Promise<void>;
-  deleteNotification(id: string, userId: string): Promise<boolean>;
+  markAsRead(id: string, userId: string, accountId: string): Promise<Notification | null>;
+  markAllAsRead(userId: string, accountId: string): Promise<void>;
+  deleteNotification(id: string, userId: string, accountId: string): Promise<boolean>;
 
   // Integrations
-  getIntegrations(userId: string): Promise<Integration[]>;
-  getIntegration(userId: string, service: string): Promise<Integration | null>;
-  upsertIntegration(integration: InsertIntegration & { userId: string }): Promise<Integration>;
-  deleteIntegration(id: string, userId: string): Promise<void>;
+  getIntegrations(userId: string, accountId: string): Promise<Integration[]>;
+  getIntegration(userId: string, accountId: string, service: string): Promise<Integration | null>;
+  upsertIntegration(integration: InsertIntegration & { userId: string; accountId: string }): Promise<Integration>;
+  deleteIntegration(id: string, userId: string, accountId: string): Promise<void>;
 
   // Survey Templates
   getSurveyTemplates(): Promise<SurveyTemplate[]>;
   getSurveyTemplate(id: string): Promise<SurveyTemplate | undefined>;
 
   // Survey Campaigns
-  getSurveyCampaigns(userId: string): Promise<SurveyCampaign[]>;
+  getSurveyCampaigns(accountId: string): Promise<SurveyCampaign[]>;
   getAllSurveyCampaigns(): Promise<SurveyCampaign[]>;
-  getSurveyCampaign(id: string): Promise<SurveyCampaign | undefined>;
+  getSurveyCampaign(id: string, accountId: string): Promise<SurveyCampaign | undefined>;
   getSurveyCampaignBySlug(slug: string): Promise<SurveyCampaign | undefined>;
-  createSurveyCampaign(campaign: InsertSurveyCampaign & { userId: string }): Promise<SurveyCampaign>;
-  updateSurveyCampaign(id: string, campaign: Partial<InsertSurveyCampaign>): Promise<SurveyCampaign>;
-  deleteSurveyCampaign(id: string): Promise<void>;
+  createSurveyCampaign(campaign: InsertSurveyCampaign & { userId: string; accountId: string }): Promise<SurveyCampaign>;
+  updateSurveyCampaign(id: string, accountId: string, campaign: Partial<InsertSurveyCampaign>): Promise<SurveyCampaign>;
+  deleteSurveyCampaign(id: string, accountId: string): Promise<void>;
 
   // Survey Landing Pages
-  getSurveyLandingPage(campaignId: string): Promise<SurveyLandingPage | undefined>;
+  getSurveyLandingPage(campaignId: string, accountId: string): Promise<SurveyLandingPage | undefined>;
   createSurveyLandingPage(landingPage: InsertSurveyLandingPage): Promise<SurveyLandingPage>;
-  updateSurveyLandingPage(id: string, landingPage: Partial<InsertSurveyLandingPage>): Promise<SurveyLandingPage>;
+  updateSurveyLandingPage(id: string, accountId: string, landingPage: Partial<InsertSurveyLandingPage>): Promise<SurveyLandingPage>;
 
   // Survey Responses
   getSurveyResponses(campaignId: string): Promise<SurveyResponse[]>;
@@ -137,12 +140,18 @@ export interface IStorage {
 
   // Leads
   createLead(lead: InsertLead): Promise<Lead>;
-  getLeads(): Promise<Lead[]>;
-  deleteLead(id: string): Promise<void>;
-  deleteLeads(ids: string[]): Promise<void>;
+  getLeads(accountId: string): Promise<Lead[]>;
+  deleteLead(id: string, accountId: string): Promise<void>;
+  deleteLeads(ids: string[], accountId: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
+  // Accounts
+  async createAccount(account: { name: string }): Promise<Account> {
+    const [newAccount] = await db.insert(accounts).values(account).returning();
+    return newAccount;
+  }
+
   // Users
   async getUser(id: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
@@ -159,41 +168,75 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async getAllUsers(): Promise<User[]> {
-    return await db.select().from(users).orderBy(desc(users.createdAt));
+  async getAllUsers(accountId: string): Promise<User[]> {
+    return await db.select()
+      .from(users)
+      .where(eq(users.accountId, accountId))
+      .orderBy(desc(users.createdAt));
   }
 
-  async updateUser(id: string, userData: Partial<Omit<User, "id" | "password" | "createdAt">>): Promise<User> {
-    const [updated] = await db.update(users).set(userData).where(eq(users.id, id)).returning();
+  async updateUser(id: string, accountId: string, userData: Partial<Omit<User, "id" | "password" | "createdAt">>): Promise<User> {
+    const [updated] = await db.update(users)
+      .set(userData)
+      .where(and(
+        eq(users.id, id),
+        eq(users.accountId, accountId)
+      ))
+      .returning();
+    if (!updated) throw new Error('User not found or access denied');
     return updated;
   }
 
-  async deleteUser(id: string): Promise<void> {
-    await db.delete(users).where(eq(users.id, id));
+  async deleteUser(id: string, accountId: string): Promise<void> {
+    const result = await db.delete(users)
+      .where(and(
+        eq(users.id, id),
+        eq(users.accountId, accountId)
+      ))
+      .returning();
+    if (result.length === 0) throw new Error('User not found or access denied');
   }
 
   // Contacts
-  async getContacts(userId: string): Promise<Contact[]> {
-    return await db.select().from(contacts).where(eq(contacts.userId, userId)).orderBy(desc(contacts.createdAt));
+  async getContacts(accountId: string): Promise<Contact[]> {
+    return await db.select().from(contacts).where(eq(contacts.accountId, accountId)).orderBy(desc(contacts.createdAt));
   }
 
-  async getContact(id: string): Promise<Contact | undefined> {
-    const [contact] = await db.select().from(contacts).where(eq(contacts.id, id));
+  async getContact(id: string, accountId: string): Promise<Contact | undefined> {
+    const [contact] = await db.select()
+      .from(contacts)
+      .where(and(
+        eq(contacts.id, id),
+        eq(contacts.accountId, accountId)
+      ));
     return contact || undefined;
   }
 
-  async createContact(contact: InsertContact & { userId: string }): Promise<Contact> {
+  async createContact(contact: InsertContact & { userId: string; accountId: string }): Promise<Contact> {
     const [newContact] = await db.insert(contacts).values(contact).returning();
     return newContact;
   }
 
-  async updateContact(id: string, contact: Partial<InsertContact>): Promise<Contact> {
-    const [updated] = await db.update(contacts).set(contact).where(eq(contacts.id, id)).returning();
+  async updateContact(id: string, accountId: string, contact: Partial<InsertContact>): Promise<Contact> {
+    const [updated] = await db.update(contacts)
+      .set(contact)
+      .where(and(
+        eq(contacts.id, id),
+        eq(contacts.accountId, accountId)
+      ))
+      .returning();
+    if (!updated) throw new Error('Contact not found or access denied');
     return updated;
   }
 
-  async deleteContact(id: string): Promise<void> {
-    await db.delete(contacts).where(eq(contacts.id, id));
+  async deleteContact(id: string, accountId: string): Promise<void> {
+    const result = await db.delete(contacts)
+      .where(and(
+        eq(contacts.id, id),
+        eq(contacts.accountId, accountId)
+      ))
+      .returning();
+    if (result.length === 0) throw new Error('Contact not found or access denied');
   }
 
   // Political Parties
@@ -207,35 +250,53 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Political Alliances
-  async getAlliances(userId: string): Promise<PoliticalAlliance[]> {
-    return await db.select().from(politicalAlliances).where(eq(politicalAlliances.userId, userId)).orderBy(desc(politicalAlliances.createdAt));
+  async getAlliances(accountId: string): Promise<PoliticalAlliance[]> {
+    return await db.select().from(politicalAlliances).where(eq(politicalAlliances.accountId, accountId)).orderBy(desc(politicalAlliances.createdAt));
   }
 
-  async createAlliance(alliance: InsertPoliticalAlliance & { userId: string }): Promise<PoliticalAlliance> {
+  async createAlliance(alliance: InsertPoliticalAlliance & { userId: string; accountId: string }): Promise<PoliticalAlliance> {
     const [newAlliance] = await db.insert(politicalAlliances).values(alliance).returning();
     return newAlliance;
   }
 
-  async updateAlliance(id: string, alliance: Partial<InsertPoliticalAlliance>): Promise<PoliticalAlliance> {
-    const [updated] = await db.update(politicalAlliances).set(alliance).where(eq(politicalAlliances.id, id)).returning();
+  async updateAlliance(id: string, accountId: string, alliance: Partial<InsertPoliticalAlliance>): Promise<PoliticalAlliance> {
+    const [updated] = await db.update(politicalAlliances)
+      .set(alliance)
+      .where(and(
+        eq(politicalAlliances.id, id),
+        eq(politicalAlliances.accountId, accountId)
+      ))
+      .returning();
+    if (!updated) throw new Error('Alliance not found or access denied');
     return updated;
   }
 
-  async deleteAlliance(id: string): Promise<void> {
-    await db.delete(politicalAlliances).where(eq(politicalAlliances.id, id));
+  async deleteAlliance(id: string, accountId: string): Promise<void> {
+    const result = await db.delete(politicalAlliances)
+      .where(and(
+        eq(politicalAlliances.id, id),
+        eq(politicalAlliances.accountId, accountId)
+      ))
+      .returning();
+    if (result.length === 0) throw new Error('Alliance not found or access denied');
   }
 
   // Demands
-  async getDemands(userId: string): Promise<Demand[]> {
-    return await db.select().from(demands).where(eq(demands.userId, userId)).orderBy(desc(demands.createdAt));
+  async getDemands(accountId: string): Promise<Demand[]> {
+    return await db.select().from(demands).where(eq(demands.accountId, accountId)).orderBy(desc(demands.createdAt));
   }
 
-  async getDemand(id: string): Promise<Demand | undefined> {
-    const [demand] = await db.select().from(demands).where(eq(demands.id, id));
+  async getDemand(id: string, accountId: string): Promise<Demand | undefined> {
+    const [demand] = await db.select()
+      .from(demands)
+      .where(and(
+        eq(demands.id, id),
+        eq(demands.accountId, accountId)
+      ));
     return demand || undefined;
   }
 
-  async createDemand(demand: InsertDemand & { userId: string }): Promise<Demand> {
+  async createDemand(demand: InsertDemand & { userId: string; accountId: string }): Promise<Demand> {
     // Convert dueDate string to Date if it exists
     const demandData = {
       ...demand,
@@ -245,28 +306,51 @@ export class DatabaseStorage implements IStorage {
     return newDemand;
   }
 
-  async updateDemand(id: string, demand: Partial<InsertDemand>): Promise<Demand> {
+  async updateDemand(id: string, accountId: string, demand: Partial<InsertDemand>): Promise<Demand> {
     // Convert dueDate string to Date if it exists
     const updateData = {
       ...demand,
       dueDate: demand.dueDate ? new Date(demand.dueDate) : demand.dueDate === null ? null : undefined,
       updatedAt: new Date()
     };
-    const [updated] = await db.update(demands).set(updateData).where(eq(demands.id, id)).returning();
+    const [updated] = await db.update(demands)
+      .set(updateData)
+      .where(and(
+        eq(demands.id, id),
+        eq(demands.accountId, accountId)
+      ))
+      .returning();
+    if (!updated) throw new Error('Demand not found or access denied');
     return updated;
   }
 
-  async deleteDemand(id: string): Promise<void> {
-    await db.delete(demands).where(eq(demands.id, id));
+  async deleteDemand(id: string, accountId: string): Promise<void> {
+    const result = await db.delete(demands)
+      .where(and(
+        eq(demands.id, id),
+        eq(demands.accountId, accountId)
+      ))
+      .returning();
+    if (result.length === 0) throw new Error('Demand not found or access denied');
   }
 
   // Demand Comments
-  async getDemandComments(demandId: string): Promise<(DemandComment & { userName: string })[]> {
+  async getDemandComments(demandId: string, accountId: string): Promise<(DemandComment & { userName: string })[]> {
+    // First verify if demand belongs to the accountId
+    const [demand] = await db.select().from(demands)
+      .where(and(
+        eq(demands.id, demandId),
+        eq(demands.accountId, accountId)
+      ));
+    
+    if (!demand) throw new Error('Demand not found or access denied');
+    
     const results = await db
       .select({
         id: demandComments.id,
         demandId: demandComments.demandId,
         userId: demandComments.userId,
+        accountId: demandComments.accountId,
         comment: demandComments.comment,
         createdAt: demandComments.createdAt,
         userName: users.name,
@@ -282,14 +366,14 @@ export class DatabaseStorage implements IStorage {
     }));
   }
 
-  async createDemandComment(comment: InsertDemandComment & { userId: string }): Promise<DemandComment> {
+  async createDemandComment(comment: InsertDemandComment & { userId: string; accountId: string }): Promise<DemandComment> {
     const [newComment] = await db.insert(demandComments).values(comment).returning();
     return newComment;
   }
 
   // Events
-  async getEvents(userId: string): Promise<Event[]> {
-    const baseEvents = await db.select().from(events).where(eq(events.userId, userId)).orderBy(events.startDate);
+  async getEvents(accountId: string): Promise<Event[]> {
+    const baseEvents = await db.select().from(events).where(eq(events.accountId, accountId)).orderBy(events.startDate);
     
     // Expandir eventos recorrentes
     const expandedEvents: Event[] = [];
@@ -349,38 +433,64 @@ export class DatabaseStorage implements IStorage {
     );
   }
 
-  async getEvent(id: string): Promise<Event | undefined> {
-    const [event] = await db.select().from(events).where(eq(events.id, id));
+  async getEvent(id: string, accountId: string): Promise<Event | undefined> {
+    const [event] = await db.select()
+      .from(events)
+      .where(and(
+        eq(events.id, id),
+        eq(events.accountId, accountId)
+      ));
     return event || undefined;
   }
 
-  async createEvent(event: InsertEvent & { userId: string }): Promise<Event> {
+  async createEvent(event: InsertEvent & { userId: string; accountId: string }): Promise<Event> {
     const [newEvent] = await db.insert(events).values(event).returning();
     return newEvent;
   }
 
-  async updateEvent(id: string, event: Partial<InsertEvent>): Promise<Event> {
-    const [updated] = await db.update(events).set(event).where(eq(events.id, id)).returning();
+  async updateEvent(id: string, accountId: string, event: Partial<InsertEvent>): Promise<Event> {
+    const [updated] = await db.update(events)
+      .set(event)
+      .where(and(
+        eq(events.id, id),
+        eq(events.accountId, accountId)
+      ))
+      .returning();
+    if (!updated) throw new Error('Event not found or access denied');
     return updated;
   }
 
-  async deleteEvent(id: string): Promise<void> {
-    await db.delete(events).where(eq(events.id, id));
+  async deleteEvent(id: string, accountId: string): Promise<void> {
+    const result = await db.delete(events)
+      .where(and(
+        eq(events.id, id),
+        eq(events.accountId, accountId)
+      ))
+      .returning();
+    if (result.length === 0) throw new Error('Event not found or access denied');
   }
 
   // AI Configuration
-  async getAiConfig(userId: string): Promise<AiConfiguration | undefined> {
-    const [config] = await db.select().from(aiConfigurations).where(eq(aiConfigurations.userId, userId));
+  async getAiConfig(userId: string, accountId: string): Promise<AiConfiguration | undefined> {
+    const [config] = await db.select()
+      .from(aiConfigurations)
+      .where(and(
+        eq(aiConfigurations.userId, userId),
+        eq(aiConfigurations.accountId, accountId)
+      ));
     return config || undefined;
   }
 
-  async upsertAiConfig(config: InsertAiConfiguration & { userId: string }): Promise<AiConfiguration> {
-    const existing = await this.getAiConfig(config.userId);
+  async upsertAiConfig(config: InsertAiConfiguration & { userId: string; accountId: string }): Promise<AiConfiguration> {
+    const existing = await this.getAiConfig(config.userId, config.accountId);
     
     if (existing) {
       const [updated] = await db.update(aiConfigurations)
         .set({ ...config, updatedAt: new Date() })
-        .where(eq(aiConfigurations.userId, config.userId))
+        .where(and(
+          eq(aiConfigurations.userId, config.userId),
+          eq(aiConfigurations.accountId, config.accountId)
+        ))
         .returning();
       return updated;
     } else {
@@ -396,8 +506,12 @@ export class DatabaseStorage implements IStorage {
     // Get last 4 characters for display
     const last4 = apiKey.length >= 4 ? apiKey.slice(-4) : apiKey;
     
+    // Get user to find accountId
+    const user = await this.getUser(userId);
+    if (!user) throw new Error("User not found");
+    
     // Update or insert configuration
-    const existing = await this.getAiConfig(userId);
+    const existing = await this.getAiConfig(userId, user.accountId);
     
     if (existing) {
       await db.update(aiConfigurations)
@@ -407,10 +521,14 @@ export class DatabaseStorage implements IStorage {
           openaiApiKeyUpdatedAt: new Date(),
           updatedAt: new Date()
         })
-        .where(eq(aiConfigurations.userId, userId));
+        .where(and(
+          eq(aiConfigurations.userId, userId),
+          eq(aiConfigurations.accountId, user.accountId)
+        ));
     } else {
       await db.insert(aiConfigurations)
         .values({
+          accountId: user.accountId,
           userId,
           mode: 'compliance',
           openaiApiKey: encryptedKey,
@@ -421,7 +539,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getDecryptedApiKey(userId: string): Promise<string | null> {
-    const config = await this.getAiConfig(userId);
+    const user = await this.getUser(userId);
+    if (!user) return null;
+    
+    const config = await this.getAiConfig(userId, user.accountId);
     
     if (!config || !config.openaiApiKey) {
       return null;
@@ -436,7 +557,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteOpenAiApiKey(userId: string): Promise<void> {
-    const existing = await this.getAiConfig(userId);
+    const user = await this.getUser(userId);
+    if (!user) return;
+    
+    const existing = await this.getAiConfig(userId, user.accountId);
     
     if (existing) {
       await db.update(aiConfigurations)
@@ -446,12 +570,18 @@ export class DatabaseStorage implements IStorage {
           openaiApiKeyUpdatedAt: null,
           updatedAt: new Date()
         })
-        .where(eq(aiConfigurations.userId, userId));
+        .where(and(
+          eq(aiConfigurations.userId, userId),
+          eq(aiConfigurations.accountId, user.accountId)
+        ));
     }
   }
 
   async updateOpenAiApiStatus(userId: string, status: string, message?: string | null, checkedAt?: Date): Promise<void> {
-    const existing = await this.getAiConfig(userId);
+    const user = await this.getUser(userId);
+    if (!user) throw new Error("User not found");
+    
+    const existing = await this.getAiConfig(userId, user.accountId);
     
     if (existing) {
       await db.update(aiConfigurations)
@@ -461,11 +591,14 @@ export class DatabaseStorage implements IStorage {
           openaiApiStatusCheckedAt: checkedAt || new Date(),
           updatedAt: new Date()
         })
-        .where(eq(aiConfigurations.userId, userId));
+        .where(and(
+          eq(aiConfigurations.userId, userId),
+          eq(aiConfigurations.accountId, user.accountId)
+        ));
     } else {
-      // Create a new config if it doesn't exist
       await db.insert(aiConfigurations)
         .values({
+          accountId: user.accountId,
           userId,
           mode: "compliance",
           openaiApiStatus: status,
@@ -476,8 +609,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   // AI Conversations
-  async getAiConversations(userId: string): Promise<AiConversation[]> {
-    return await db.select().from(aiConversations).where(eq(aiConversations.userId, userId)).orderBy(desc(aiConversations.createdAt)).limit(50);
+  async getAiConversations(accountId: string): Promise<AiConversation[]> {
+    return await db.select().from(aiConversations).where(eq(aiConversations.accountId, accountId)).orderBy(desc(aiConversations.createdAt)).limit(50);
   }
 
   async createAiConversation(conversation: Omit<AiConversation, "id" | "createdAt">): Promise<AiConversation> {
@@ -486,91 +619,143 @@ export class DatabaseStorage implements IStorage {
   }
 
   // AI Training Examples
-  async getAiTrainingExamples(userId: string): Promise<AiTrainingExample[]> {
-    return await db.select().from(aiTrainingExamples).where(eq(aiTrainingExamples.userId, userId)).orderBy(desc(aiTrainingExamples.createdAt));
+  async getAiTrainingExamples(accountId: string): Promise<AiTrainingExample[]> {
+    return await db.select().from(aiTrainingExamples).where(eq(aiTrainingExamples.accountId, accountId)).orderBy(desc(aiTrainingExamples.createdAt));
   }
 
-  async getTrainingExamples(userId: string): Promise<AiTrainingExample[]> {
-    return await db.select().from(aiTrainingExamples).where(eq(aiTrainingExamples.userId, userId)).orderBy(desc(aiTrainingExamples.createdAt));
+  async getTrainingExamples(accountId: string): Promise<AiTrainingExample[]> {
+    return await db.select().from(aiTrainingExamples).where(eq(aiTrainingExamples.accountId, accountId)).orderBy(desc(aiTrainingExamples.createdAt));
   }
 
-  async getTrainingExample(id: string): Promise<AiTrainingExample | undefined> {
-    const [example] = await db.select().from(aiTrainingExamples).where(eq(aiTrainingExamples.id, id));
+  async getTrainingExample(id: string, accountId: string): Promise<AiTrainingExample | undefined> {
+    const [example] = await db.select()
+      .from(aiTrainingExamples)
+      .where(and(
+        eq(aiTrainingExamples.id, id),
+        eq(aiTrainingExamples.accountId, accountId)
+      ));
     return example || undefined;
   }
 
-  async createTrainingExample(example: InsertAiTrainingExample & { userId: string }): Promise<AiTrainingExample> {
+  async createTrainingExample(example: InsertAiTrainingExample & { userId: string; accountId: string }): Promise<AiTrainingExample> {
     const [newExample] = await db.insert(aiTrainingExamples).values(example).returning();
     return newExample;
   }
 
-  async updateTrainingExample(id: string, example: Partial<InsertAiTrainingExample>): Promise<AiTrainingExample> {
-    const [updated] = await db.update(aiTrainingExamples).set(example).where(eq(aiTrainingExamples.id, id)).returning();
+  async updateTrainingExample(id: string, accountId: string, example: Partial<InsertAiTrainingExample>): Promise<AiTrainingExample> {
+    const [updated] = await db.update(aiTrainingExamples)
+      .set(example)
+      .where(and(
+        eq(aiTrainingExamples.id, id),
+        eq(aiTrainingExamples.accountId, accountId)
+      ))
+      .returning();
+    if (!updated) throw new Error('Training example not found or access denied');
     return updated;
   }
 
-  async deleteTrainingExample(id: string): Promise<void> {
-    await db.delete(aiTrainingExamples).where(eq(aiTrainingExamples.id, id));
+  async deleteTrainingExample(id: string, accountId: string): Promise<void> {
+    const result = await db.delete(aiTrainingExamples)
+      .where(and(
+        eq(aiTrainingExamples.id, id),
+        eq(aiTrainingExamples.accountId, accountId)
+      ))
+      .returning();
+    if (result.length === 0) throw new Error('Training example not found or access denied');
   }
 
   // AI Response Templates
-  async getResponseTemplates(userId: string): Promise<AiResponseTemplate[]> {
-    return await db.select().from(aiResponseTemplates).where(eq(aiResponseTemplates.userId, userId)).orderBy(desc(aiResponseTemplates.createdAt));
+  async getResponseTemplates(accountId: string): Promise<AiResponseTemplate[]> {
+    return await db.select().from(aiResponseTemplates).where(eq(aiResponseTemplates.accountId, accountId)).orderBy(desc(aiResponseTemplates.createdAt));
   }
 
-  async getResponseTemplate(id: string): Promise<AiResponseTemplate | undefined> {
-    const [template] = await db.select().from(aiResponseTemplates).where(eq(aiResponseTemplates.id, id));
+  async getResponseTemplate(id: string, accountId: string): Promise<AiResponseTemplate | undefined> {
+    const [template] = await db.select()
+      .from(aiResponseTemplates)
+      .where(and(
+        eq(aiResponseTemplates.id, id),
+        eq(aiResponseTemplates.accountId, accountId)
+      ));
     return template || undefined;
   }
 
-  async createResponseTemplate(template: InsertAiResponseTemplate & { userId: string }): Promise<AiResponseTemplate> {
+  async createResponseTemplate(template: InsertAiResponseTemplate & { userId: string; accountId: string }): Promise<AiResponseTemplate> {
     const [newTemplate] = await db.insert(aiResponseTemplates).values(template).returning();
     return newTemplate;
   }
 
-  async updateResponseTemplate(id: string, template: Partial<InsertAiResponseTemplate>): Promise<AiResponseTemplate> {
-    const [updated] = await db.update(aiResponseTemplates).set(template).where(eq(aiResponseTemplates.id, id)).returning();
+  async updateResponseTemplate(id: string, accountId: string, template: Partial<InsertAiResponseTemplate>): Promise<AiResponseTemplate> {
+    const [updated] = await db.update(aiResponseTemplates)
+      .set(template)
+      .where(and(
+        eq(aiResponseTemplates.id, id),
+        eq(aiResponseTemplates.accountId, accountId)
+      ))
+      .returning();
+    if (!updated) throw new Error('Response template not found or access denied');
     return updated;
   }
 
-  async deleteResponseTemplate(id: string): Promise<void> {
-    await db.delete(aiResponseTemplates).where(eq(aiResponseTemplates.id, id));
+  async deleteResponseTemplate(id: string, accountId: string): Promise<void> {
+    const result = await db.delete(aiResponseTemplates)
+      .where(and(
+        eq(aiResponseTemplates.id, id),
+        eq(aiResponseTemplates.accountId, accountId)
+      ))
+      .returning();
+    if (result.length === 0) throw new Error('Response template not found or access denied');
   }
 
   // Marketing Campaigns
-  async getCampaigns(userId: string): Promise<MarketingCampaign[]> {
-    return await db.select().from(marketingCampaigns).where(eq(marketingCampaigns.userId, userId)).orderBy(desc(marketingCampaigns.createdAt));
+  async getCampaigns(accountId: string): Promise<MarketingCampaign[]> {
+    return await db.select().from(marketingCampaigns).where(eq(marketingCampaigns.accountId, accountId)).orderBy(desc(marketingCampaigns.createdAt));
   }
 
-  async getCampaign(id: string): Promise<MarketingCampaign | undefined> {
-    const [campaign] = await db.select().from(marketingCampaigns).where(eq(marketingCampaigns.id, id));
+  async getCampaign(id: string, accountId: string): Promise<MarketingCampaign | undefined> {
+    const [campaign] = await db.select()
+      .from(marketingCampaigns)
+      .where(and(
+        eq(marketingCampaigns.id, id),
+        eq(marketingCampaigns.accountId, accountId)
+      ));
     return campaign || undefined;
   }
 
-  async createCampaign(campaign: InsertMarketingCampaign & { userId: string }): Promise<MarketingCampaign> {
+  async createCampaign(campaign: InsertMarketingCampaign & { userId: string; accountId: string }): Promise<MarketingCampaign> {
     const [newCampaign] = await db.insert(marketingCampaigns).values(campaign).returning();
     return newCampaign;
   }
 
-  async updateCampaign(id: string, campaign: Partial<InsertMarketingCampaign> & { sentAt?: Date }): Promise<MarketingCampaign> {
-    const [updated] = await db.update(marketingCampaigns).set(campaign).where(eq(marketingCampaigns.id, id)).returning();
+  async updateCampaign(id: string, accountId: string, campaign: Partial<InsertMarketingCampaign> & { sentAt?: Date }): Promise<MarketingCampaign> {
+    const [updated] = await db.update(marketingCampaigns)
+      .set(campaign)
+      .where(and(
+        eq(marketingCampaigns.id, id),
+        eq(marketingCampaigns.accountId, accountId)
+      ))
+      .returning();
+    if (!updated) throw new Error('Campaign not found or access denied');
     return updated;
   }
 
   // Notifications
-  async getNotifications(userId: string, limit: number = 50): Promise<Notification[]> {
+  async getNotifications(userId: string, accountId: string, limit: number = 50): Promise<Notification[]> {
     return await db.select()
       .from(notifications)
-      .where(eq(notifications.userId, userId))
+      .where(and(
+        eq(notifications.userId, userId),
+        eq(notifications.accountId, accountId)
+      ))
       .orderBy(desc(notifications.createdAt))
       .limit(limit);
   }
 
-  async getUnreadCount(userId: string): Promise<number> {
+  async getUnreadCount(userId: string, accountId: string): Promise<number> {
     const result = await db.select({ count: count() })
       .from(notifications)
       .where(and(
         eq(notifications.userId, userId),
+        eq(notifications.accountId, accountId),
         eq(notifications.isRead, false)
       ));
     return result[0]?.count || 0;
@@ -581,57 +766,64 @@ export class DatabaseStorage implements IStorage {
     return newNotification;
   }
 
-  async markAsRead(id: string, userId: string): Promise<Notification | null> {
+  async markAsRead(id: string, userId: string, accountId: string): Promise<Notification | null> {
     const [updated] = await db.update(notifications)
       .set({ isRead: true })
       .where(and(
         eq(notifications.id, id),
-        eq(notifications.userId, userId)
+        eq(notifications.userId, userId),
+        eq(notifications.accountId, accountId)
       ))
       .returning();
     return updated || null;
   }
 
-  async markAllAsRead(userId: string): Promise<void> {
+  async markAllAsRead(userId: string, accountId: string): Promise<void> {
     await db.update(notifications)
       .set({ isRead: true })
       .where(and(
         eq(notifications.userId, userId),
+        eq(notifications.accountId, accountId),
         eq(notifications.isRead, false)
       ));
   }
 
-  async deleteNotification(id: string, userId: string): Promise<boolean> {
+  async deleteNotification(id: string, userId: string, accountId: string): Promise<boolean> {
     const result = await db.delete(notifications)
       .where(and(
         eq(notifications.id, id),
-        eq(notifications.userId, userId)
+        eq(notifications.userId, userId),
+        eq(notifications.accountId, accountId)
       ))
       .returning();
     return result.length > 0;
   }
 
   // Integrations
-  async getIntegrations(userId: string): Promise<Integration[]> {
+  async getIntegrations(userId: string, accountId: string): Promise<Integration[]> {
     return await db.select()
       .from(integrations)
-      .where(eq(integrations.userId, userId))
+      .where(and(
+        eq(integrations.userId, userId),
+        eq(integrations.accountId, accountId)
+      ))
       .orderBy(integrations.service);
   }
 
-  async getIntegration(userId: string, service: string): Promise<Integration | null> {
+  async getIntegration(userId: string, accountId: string, service: string): Promise<Integration | null> {
     const [integration] = await db.select()
       .from(integrations)
       .where(and(
         eq(integrations.userId, userId),
+        eq(integrations.accountId, accountId),
         eq(integrations.service, service)
       ));
     return integration || null;
   }
 
-  async upsertIntegration(integration: InsertIntegration & { userId: string }): Promise<Integration> {
+  async upsertIntegration(integration: InsertIntegration & { userId: string; accountId: string }): Promise<Integration> {
     // Check if integration exists
-    const existing = await this.getIntegration(integration.userId, integration.service);
+    const existing = await this.getIntegration(integration.userId, integration.accountId, integration.service);
     
     if (existing) {
       // Update existing
@@ -652,11 +844,12 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async deleteIntegration(id: string, userId: string): Promise<void> {
+  async deleteIntegration(id: string, userId: string, accountId: string): Promise<void> {
     await db.delete(integrations)
       .where(and(
         eq(integrations.id, id),
-        eq(integrations.userId, userId)
+        eq(integrations.userId, userId),
+        eq(integrations.accountId, accountId)
       ));
   }
 
@@ -675,10 +868,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Survey Campaigns
-  async getSurveyCampaigns(userId: string): Promise<SurveyCampaign[]> {
+  async getSurveyCampaigns(accountId: string): Promise<SurveyCampaign[]> {
     return await db.select()
       .from(surveyCampaigns)
-      .where(eq(surveyCampaigns.userId, userId))
+      .where(eq(surveyCampaigns.accountId, accountId))
       .orderBy(desc(surveyCampaigns.createdAt));
   }
 
@@ -688,10 +881,13 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(surveyCampaigns.createdAt));
   }
 
-  async getSurveyCampaign(id: string): Promise<SurveyCampaign | undefined> {
+  async getSurveyCampaign(id: string, accountId: string): Promise<SurveyCampaign | undefined> {
     const [campaign] = await db.select()
       .from(surveyCampaigns)
-      .where(eq(surveyCampaigns.id, id));
+      .where(and(
+        eq(surveyCampaigns.id, id),
+        eq(surveyCampaigns.accountId, accountId)
+      ));
     return campaign || undefined;
   }
 
@@ -702,7 +898,7 @@ export class DatabaseStorage implements IStorage {
     return campaign || undefined;
   }
 
-  async createSurveyCampaign(campaign: InsertSurveyCampaign & { userId: string }): Promise<SurveyCampaign> {
+  async createSurveyCampaign(campaign: InsertSurveyCampaign & { userId: string; accountId: string }): Promise<SurveyCampaign> {
     const values = {
       ...campaign,
       startDate: campaign.startDate ? (typeof campaign.startDate === 'string' ? new Date(campaign.startDate) : campaign.startDate) : null,
@@ -715,7 +911,7 @@ export class DatabaseStorage implements IStorage {
     return newCampaign;
   }
 
-  async updateSurveyCampaign(id: string, campaign: Partial<InsertSurveyCampaign>): Promise<SurveyCampaign> {
+  async updateSurveyCampaign(id: string, accountId: string, campaign: Partial<InsertSurveyCampaign>): Promise<SurveyCampaign> {
     const values: any = {
       ...campaign,
       updatedAt: new Date()
@@ -730,18 +926,39 @@ export class DatabaseStorage implements IStorage {
 
     const [updated] = await db.update(surveyCampaigns)
       .set(values)
-      .where(eq(surveyCampaigns.id, id))
+      .where(and(
+        eq(surveyCampaigns.id, id),
+        eq(surveyCampaigns.accountId, accountId)
+      ))
       .returning();
+    if (!updated) throw new Error('Survey campaign not found or access denied');
     return updated;
   }
 
-  async deleteSurveyCampaign(id: string): Promise<void> {
-    await db.delete(surveyCampaigns)
-      .where(eq(surveyCampaigns.id, id));
+  async deleteSurveyCampaign(id: string, accountId: string): Promise<void> {
+    const result = await db.delete(surveyCampaigns)
+      .where(and(
+        eq(surveyCampaigns.id, id),
+        eq(surveyCampaigns.accountId, accountId)
+      ))
+      .returning();
+    if (result.length === 0) throw new Error('Survey campaign not found or access denied');
   }
 
   // Survey Landing Pages
-  async getSurveyLandingPage(campaignId: string): Promise<SurveyLandingPage | undefined> {
+  async getSurveyLandingPage(campaignId: string, accountId: string): Promise<SurveyLandingPage | undefined> {
+    // First verify that campaign belongs to the accountId
+    const [campaign] = await db.select()
+      .from(surveyCampaigns)
+      .where(and(
+        eq(surveyCampaigns.id, campaignId),
+        eq(surveyCampaigns.accountId, accountId)
+      ));
+    
+    if (!campaign) {
+      throw new Error('Campaign not found or access denied');
+    }
+    
     const [landingPage] = await db.select()
       .from(surveyLandingPages)
       .where(eq(surveyLandingPages.campaignId, campaignId));
@@ -755,11 +972,27 @@ export class DatabaseStorage implements IStorage {
     return newLandingPage;
   }
 
-  async updateSurveyLandingPage(id: string, landingPage: Partial<InsertSurveyLandingPage>): Promise<SurveyLandingPage> {
+  async updateSurveyLandingPage(id: string, accountId: string, landingPage: Partial<InsertSurveyLandingPage>): Promise<SurveyLandingPage> {
+    // First fetch to validate accountId via campaign
+    const [existing] = await db.select({
+      id: surveyLandingPages.id,
+      campaignId: surveyLandingPages.campaignId,
+      accountId: surveyCampaigns.accountId,
+    })
+    .from(surveyLandingPages)
+    .leftJoin(surveyCampaigns, eq(surveyLandingPages.campaignId, surveyCampaigns.id))
+    .where(eq(surveyLandingPages.id, id));
+    
+    if (!existing || existing.accountId !== accountId) {
+      throw new Error('Survey landing page not found or access denied');
+    }
+    
     const [updated] = await db.update(surveyLandingPages)
       .set(landingPage)
       .where(eq(surveyLandingPages.id, id))
       .returning();
+    
+    if (!updated) throw new Error('Update failed');
     return updated;
   }
 
@@ -786,19 +1019,30 @@ export class DatabaseStorage implements IStorage {
     return newLead;
   }
 
-  async getLeads(): Promise<Lead[]> {
+  async getLeads(accountId: string): Promise<Lead[]> {
     return await db.select()
       .from(leads)
+      .where(eq(leads.accountId, accountId))
       .orderBy(desc(leads.createdAt));
   }
 
-  async deleteLead(id: string): Promise<void> {
-    await db.delete(leads).where(eq(leads.id, id));
+  async deleteLead(id: string, accountId: string): Promise<void> {
+    const result = await db.delete(leads)
+      .where(and(
+        eq(leads.id, id),
+        eq(leads.accountId, accountId)
+      ))
+      .returning();
+    if (result.length === 0) throw new Error('Lead not found or access denied');
   }
 
-  async deleteLeads(ids: string[]): Promise<void> {
+  async deleteLeads(ids: string[], accountId: string): Promise<void> {
     if (ids.length === 0) return;
-    await db.delete(leads).where(inArray(leads.id, ids));
+    await db.delete(leads)
+      .where(and(
+        inArray(leads.id, ids),
+        eq(leads.accountId, accountId)
+      ));
   }
 }
 

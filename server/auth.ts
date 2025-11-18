@@ -17,15 +17,18 @@ const DEFAULT_USER_PERMISSIONS: UserPermissions = {
   agenda: true,
   ai: false,
   marketing: false,
+  petitions: false,
   users: false,
 };
 
 // Extended request interface with user data
 export interface AuthRequest extends Request {
   userId?: string;
+  accountId?: string;
   userRole?: string;
   user?: {
     id: string;
+    accountId: string;
     email: string;
     name: string;
     role: string;
@@ -43,8 +46,9 @@ export async function authenticateToken(req: AuthRequest, res: Response, next: N
   }
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as { userId: string; role: string };
+    const decoded = jwt.verify(token, JWT_SECRET) as { userId: string; accountId: string; role: string };
     req.userId = decoded.userId;
+    req.accountId = decoded.accountId;
     
     // Fetch current user from database (authoritative source)
     // This ensures role and permission changes take effect immediately without requiring new login
@@ -56,6 +60,7 @@ export async function authenticateToken(req: AuthRequest, res: Response, next: N
     req.userRole = user.role;
     req.user = {
       id: user.id,
+      accountId: user.accountId,
       email: user.email,
       name: user.name,
       role: user.role,

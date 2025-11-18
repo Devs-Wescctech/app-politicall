@@ -81,6 +81,7 @@ export const POLITICAL_POSITIONS = [
 // Users table - Custom authentication with email/password
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  accountId: varchar("account_id").notNull().references(() => accounts.id, { onDelete: 'cascade' }),
   email: text("email").notNull().unique(),
   password: text("password").notNull(),
   name: text("name").notNull(),
@@ -203,6 +204,7 @@ export const CONTACT_INTERESTS = [
 // Contacts table
 export const contacts = pgTable("contacts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  accountId: varchar("account_id").notNull().references(() => accounts.id, { onDelete: 'cascade' }),
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   email: text("email"),
@@ -226,6 +228,7 @@ export const politicalParties = pgTable("political_parties", {
 // Political alliances - User's political allies
 export const politicalAlliances = pgTable("political_alliances", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  accountId: varchar("account_id").notNull().references(() => accounts.id, { onDelete: 'cascade' }),
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   partyId: varchar("party_id").notNull().references(() => politicalParties.id, { onDelete: "cascade" }),
   allyName: text("ally_name").notNull(),
@@ -241,6 +244,7 @@ export const politicalAlliances = pgTable("political_alliances", {
 // Demands - CRM for office demands
 export const demands = pgTable("demands", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  accountId: varchar("account_id").notNull().references(() => accounts.id, { onDelete: 'cascade' }),
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   title: text("title").notNull(),
   description: text("description"),
@@ -257,6 +261,7 @@ export const demands = pgTable("demands", {
 // Demand comments
 export const demandComments = pgTable("demand_comments", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  accountId: varchar("account_id").notNull().references(() => accounts.id, { onDelete: 'cascade' }),
   demandId: varchar("demand_id").notNull().references(() => demands.id, { onDelete: "cascade" }),
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   comment: text("comment").notNull(),
@@ -266,6 +271,7 @@ export const demandComments = pgTable("demand_comments", {
 // Events - Agenda system
 export const events = pgTable("events", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  accountId: varchar("account_id").notNull().references(() => accounts.id, { onDelete: 'cascade' }),
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   title: text("title").notNull(),
   description: text("description"),
@@ -283,6 +289,7 @@ export const events = pgTable("events", {
 // AI Configuration - Social media automation settings
 export const aiConfigurations = pgTable("ai_configurations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  accountId: varchar("account_id").notNull().references(() => accounts.id, { onDelete: 'cascade' }),
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   mode: text("mode").notNull().default("compliance"), // compliance, formal
   // AI Personality and Training
@@ -336,6 +343,7 @@ export const aiConfigurations = pgTable("ai_configurations", {
 // AI Conversations - Track conversations for context
 export const aiConversations = pgTable("ai_conversations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  accountId: varchar("account_id").notNull().references(() => accounts.id, { onDelete: 'cascade' }),
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   platform: text("platform").notNull(), // facebook, instagram, twitter, whatsapp
   postContent: text("post_content"),
@@ -348,6 +356,7 @@ export const aiConversations = pgTable("ai_conversations", {
 // AI Training Examples - Questions and answers for training
 export const aiTrainingExamples = pgTable("ai_training_examples", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  accountId: varchar("account_id").notNull().references(() => accounts.id, { onDelete: 'cascade' }),
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   question: text("question").notNull(),
   answer: text("answer").notNull(),
@@ -359,6 +368,7 @@ export const aiTrainingExamples = pgTable("ai_training_examples", {
 // AI Response Templates - Pre-defined responses
 export const aiResponseTemplates = pgTable("ai_response_templates", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  accountId: varchar("account_id").notNull().references(() => accounts.id, { onDelete: 'cascade' }),
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   trigger: text("trigger").notNull(), // keywords that trigger this template
@@ -371,6 +381,7 @@ export const aiResponseTemplates = pgTable("ai_response_templates", {
 // Marketing campaigns
 export const marketingCampaigns = pgTable("marketing_campaigns", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  accountId: varchar("account_id").notNull().references(() => accounts.id, { onDelete: 'cascade' }),
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   type: text("type").notNull(), // email, whatsapp
@@ -386,6 +397,7 @@ export const marketingCampaigns = pgTable("marketing_campaigns", {
 // Notifications - In-app notifications for important events
 export const notifications = pgTable("notifications", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  accountId: varchar("account_id").notNull().references(() => accounts.id, { onDelete: 'cascade' }),
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   type: text("type").notNull(), // demand_urgent, demand_comment, event_reminder, campaign_sent, etc
   title: text("title").notNull(),
@@ -399,6 +411,7 @@ export const notifications = pgTable("notifications", {
 // Integrations - Email and WhatsApp service configurations
 export const integrations = pgTable("integrations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  accountId: varchar("account_id").notNull().references(() => accounts.id, { onDelete: 'cascade' }),
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   service: text("service").notNull(), // 'sendgrid' or 'twilio'
   enabled: boolean("enabled").default(false).notNull(),
@@ -434,6 +447,7 @@ export const surveyTemplates = pgTable("survey_templates", {
 // Survey Campaigns - User-created survey instances
 export const surveyCampaigns = pgTable("survey_campaigns", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  accountId: varchar("account_id").notNull().references(() => accounts.id, { onDelete: 'cascade' }),
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   templateId: varchar("template_id").notNull().references(() => surveyTemplates.id),
   campaignName: text("campaign_name").notNull(),
@@ -455,6 +469,7 @@ export const surveyCampaigns = pgTable("survey_campaigns", {
 // Survey Landing Pages - Generated HTML for each campaign
 export const surveyLandingPages = pgTable("survey_landing_pages", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  accountId: varchar("account_id").notNull().references(() => accounts.id, { onDelete: 'cascade' }),
   campaignId: varchar("campaign_id").notNull().unique().references(() => surveyCampaigns.id, { onDelete: "cascade" }),
   htmlContent: text("html_content").notNull(), // Pre-rendered HTML for compliance
   version: integer("version").notNull().default(1), // For tracking changes
@@ -464,6 +479,7 @@ export const surveyLandingPages = pgTable("survey_landing_pages", {
 // Survey Responses - Collected answers
 export const surveyResponses = pgTable("survey_responses", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  accountId: varchar("account_id").notNull().references(() => accounts.id, { onDelete: 'cascade' }),
   campaignId: varchar("campaign_id").notNull().references(() => surveyCampaigns.id, { onDelete: "cascade" }),
   responseData: jsonb("response_data").notNull(), // { answer: "text" } or { answers: ["option1", "option2"] }
   
@@ -724,7 +740,7 @@ export const insertSurveyResponseSchema = createInsertSchema(surveyResponses).om
   politicalIdeology: z.enum(["direita", "centro", "esquerda", "prefiro_nao_comentar"]),
 });
 
-// Leads - Landing page lead capture
+// Leads - Landing page lead capture (global, não precisa de accountId pois é landing pública)
 export const leads = pgTable("leads", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
@@ -748,6 +764,8 @@ export const insertLeadSchema = createInsertSchema(leads, {
 }).omit({ id: true, createdAt: true });
 
 // TypeScript types
+export type Account = typeof accounts.$inferSelect;
+
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type LoginUser = z.infer<typeof loginSchema>;

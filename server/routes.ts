@@ -28,10 +28,13 @@ function authenticateAdminToken(req: AuthRequest, res: Response, next: NextFunct
   }
   const token = authHeader.substring(7);
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as { isAdmin?: boolean };
+    const decoded = jwt.verify(token, JWT_SECRET) as { isAdmin?: boolean; userId?: string; accountId?: string };
     if (decoded.isAdmin !== true) {
       return res.status(403).json({ error: "Acesso negado" });
     }
+    // Set userId and accountId in request for admin routes
+    req.userId = decoded.userId;
+    req.accountId = decoded.accountId;
     next();
   } catch (error) {
     return res.status(401).json({ error: "Token inválido" });
@@ -427,18 +430,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Hash password
       const hashedPassword = await bcrypt.hash(validatedData.password, 10);
       
-      // Always define permissions explicitly using defaults for role
-      const permissionsToSave = validatedData.permissions || DEFAULT_PERMISSIONS[validatedData.role as keyof typeof DEFAULT_PERMISSIONS];
+      // CRIAR NOVA CONTA PRIMEIRO
+      const account = await storage.createAccount({
+        name: validatedData.name || validatedData.email
+      });
       
-      // Create user
+      // Criar primeiro usuário (admin da conta) - SEM partido e SEM avatar
       const user = await storage.createUser({
-        ...validatedData,
+        ...validatedData,  // Preserva campos opcionais (phone, whatsapp, planValue, etc)
         password: hashedPassword,
-        permissions: permissionsToSave,
+        accountId: account.id,
+        role: "admin",
+        permissions: validatedData.permissions || DEFAULT_PERMISSIONS.admin,
+        partyId: null,  // FORÇA: Nova conta SEM partido
+        avatar: null,   // FORÇA: Nova conta SEM avatar (usa logo padrão)
       });
 
-      // Generate JWT token
-      const token = jwt.sign({ userId: user.id, role: user.role }, JWT_SECRET, { expiresIn: "30d" });
+      // Generate JWT token with accountId
+      const token = jwt.sign({ 
+        userId: user.id, 
+        accountId: user.accountId,
+        role: user.role 
+      }, JWT_SECRET, { expiresIn: "30d" });
 
       res.json({
         token,
@@ -470,7 +483,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Email ou senha incorretos" });
       }
 
-      const token = jwt.sign({ userId: user.id, role: user.role }, JWT_SECRET, { expiresIn: "30d" });
+      const token = jwt.sign({ 
+        userId: user.id, 
+        accountId: user.accountId,
+        role: user.role 
+      }, JWT_SECRET, { expiresIn: "30d" });
 
       res.json({
         token,
@@ -575,7 +592,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Update without password change
       const { currentPassword, newPassword, ...profileData } = validatedData;
-      const updated = await storage.updateUser(req.userId!, profileData);
+      const updated = await storage.updateUser(req.userId!, req.accountId!, profileData);
       const { password, ...sanitizedUser } = updated;
       res.json(sanitizedUser);
     } catch (error: any) {
@@ -683,14 +700,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/admin/survey-campaigns/:id/approve", authenticateAdminToken, async (req: AuthRequest, res) => {
     try {
       const { id } = req.params;
-      const campaign = await storage.getSurveyCampaign(id);
+      // Admin can access any account's campaign - fetch directly to get accountId
+      const [campaign] = await db.select().from(surveyCampaigns).where(eq(surveyCampaigns.id, id));
       
       if (!campaign) {
         return res.status(404).json({ error: "Campanha não encontrada" });
       }
       
       // When approving, automatically move to "aprovado" stage in kanban
-      const updated = await storage.updateSurveyCampaign(id, { 
+      const updated = await storage.updateSurveyCampaign(id, campaign.accountId, { 
         status: "approved",
         campaignStage: "aprovado"
       });
@@ -720,14 +738,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { adminNotes } = rejectSchema.parse(req.body);
       const { id } = req.params;
       
-      const campaign = await storage.getSurveyCampaign(id);
+      // Admin can access any account's campaign - fetch directly to get accountId
+      const [campaign] = await db.select().from(surveyCampaigns).where(eq(surveyCampaigns.id, id));
       
       if (!campaign) {
         return res.status(404).json({ error: "Campanha não encontrada" });
       }
       
       const rejectionReason = adminNotes || "Rejeitado pelo administrador";
-      const updated = await storage.updateSurveyCampaign(id, { 
+      const updated = await storage.updateSurveyCampaign(id, campaign.accountId, { 
         status: "rejected",
         adminNotes: rejectionReason
       });
@@ -757,7 +776,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { campaignStage } = stageSchema.parse(req.body);
       const { id } = req.params;
       
-      const campaign = await storage.getSurveyCampaign(id);
+      // Admin can access any account's campaign - fetch directly to get accountId
+      const [campaign] = await db.select().from(surveyCampaigns).where(eq(surveyCampaigns.id, id));
       
       if (!campaign) {
         return res.status(404).json({ error: "Campanha não encontrada" });
@@ -769,7 +789,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         updateData.productionStartDate = new Date();
       }
       
-      const updated = await storage.updateSurveyCampaign(id, updateData);
+      const updated = await storage.updateSurveyCampaign(id, campaign.accountId, updateData);
       
       res.json(updated);
     } catch (error: any) {
@@ -782,13 +802,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       
-      const campaign = await storage.getSurveyCampaign(id);
+      // Admin can access any account's campaign - fetch directly to get accountId
+      const [campaign] = await db.select().from(surveyCampaigns).where(eq(surveyCampaigns.id, id));
       
       if (!campaign) {
         return res.status(404).json({ error: "Campanha não encontrada" });
       }
       
-      await storage.deleteSurveyCampaign(id);
+      await storage.deleteSurveyCampaign(id, campaign.accountId);
       res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -932,10 +953,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Always define permissions explicitly - use provided or defaults for role
       const permissionsToSave = validatedData.permissions || DEFAULT_PERMISSIONS[validatedData.role as keyof typeof DEFAULT_PERMISSIONS];
       
-      // Create user with specified role and permissions
+      // Get admin's accountId to assign new user to same account
+      const adminUser = await storage.getUser(req.userId!);
+      if (!adminUser) {
+        return res.status(401).json({ error: "Admin não encontrado" });
+      }
+      
+      // Create user with specified role and permissions, inheriting accountId from admin
       const user = await storage.createUser({
         ...validatedData,
         password: hashedPassword,
+        accountId: adminUser.accountId,
         permissions: permissionsToSave,
       });
 
@@ -958,7 +986,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const validatedData = schema.parse(req.body);
       
-      const updated = await storage.updateUser(req.params.id, validatedData);
+      // Get user to find their accountId
+      const user = await storage.getUser(req.params.id);
+      if (!user) {
+        return res.status(404).json({ error: "Usuário não encontrado" });
+      }
+      
+      const updated = await storage.updateUser(req.params.id, user.accountId, validatedData);
       const { password, ...sanitizedUser } = updated;
       res.json(sanitizedUser);
     } catch (error: any) {
@@ -994,7 +1028,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Update payment status to "pago", save payment date, and update expiry to next month
-      const updated = await storage.updateUser(id, {
+      const updated = await storage.updateUser(id, user.accountId, {
         paymentStatus: "pago",
         lastPaymentDate: currentDate,
         expiryDate: nextExpiryDate,
@@ -1013,7 +1047,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/users/activity-ranking", authenticateToken, requireRole("admin"), requirePermission("users"), async (req: AuthRequest, res) => {
     try {
       const period = req.query.period as string || 'all';
-      const allUsers = await storage.getAllUsers();
+      const allUsers = await storage.getAllUsers(req.accountId!);
       
       // Calculate date range based on period
       let startDate: Date | null = null;
@@ -1119,7 +1153,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // List all users (admin only)
   app.get("/api/users", authenticateToken, requireRole("admin"), requirePermission("users"), async (req: AuthRequest, res) => {
     try {
-      const allUsers = await storage.getAllUsers();
+      const allUsers = await storage.getAllUsers(req.accountId!);
       
       // Get activity count for each user
       const usersWithActivityCount = await Promise.all(
@@ -1206,10 +1240,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Always define permissions explicitly - use provided or defaults for role
       const permissionsToSave = validatedData.permissions || DEFAULT_PERMISSIONS[validatedData.role as keyof typeof DEFAULT_PERMISSIONS];
       
-      // Create user with specified role and permissions
+      // Create user inheriting accountId from current admin
       const user = await storage.createUser({
         ...validatedData,
         password: hashedPassword,
+        accountId: req.accountId!,
         permissions: permissionsToSave,
       });
 
@@ -1264,7 +1299,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         dataToUpdate.password = await bcrypt.hash(validatedData.password, 10);
       }
       
-      const updated = await storage.updateUser(req.params.id, dataToUpdate);
+      const updated = await storage.updateUser(req.params.id, req.accountId!, dataToUpdate);
       // CRITICAL: Never send password hash to client
       const { password, ...sanitizedUser } = updated;
       res.json(sanitizedUser);
@@ -1294,7 +1329,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: "Não é permitido excluir usuários administradores" });
       }
       
-      await storage.deleteUser(userId);
+      await storage.deleteUser(userId, req.accountId!);
       res.json({ message: "Usuário excluído com sucesso" });
     } catch (error: any) {
       res.status(500).json({ error: error.message || "Erro ao excluir usuário" });
@@ -1305,7 +1340,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.get("/api/contacts", authenticateToken, requirePermission("contacts"), async (req: AuthRequest, res) => {
     try {
-      const contacts = await storage.getContacts(req.userId!);
+      const contacts = await storage.getContacts(req.accountId!);
       res.json(contacts);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -1318,6 +1353,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const contact = await storage.createContact({
         ...validatedData,
         userId: req.userId!,
+        accountId: req.accountId!,
       });
       res.json(contact);
     } catch (error: any) {
@@ -1328,7 +1364,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/contacts/:id", authenticateToken, requirePermission("contacts"), async (req: AuthRequest, res) => {
     try {
       const validatedData = insertContactSchema.partial().parse(req.body);
-      const contact = await storage.updateContact(req.params.id, validatedData);
+      const contact = await storage.updateContact(req.params.id, req.accountId!, validatedData);
       res.json(contact);
     } catch (error: any) {
       res.status(400).json({ error: error.message });
@@ -1337,7 +1373,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/contacts/:id", authenticateToken, requirePermission("contacts"), async (req: AuthRequest, res) => {
     try {
-      await storage.deleteContact(req.params.id);
+      await storage.deleteContact(req.params.id, req.accountId!);
       res.json({ success: true });
     } catch (error: any) {
       res.status(400).json({ error: error.message });
@@ -1357,7 +1393,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/alliances", authenticateToken, requirePermission("alliances"), async (req: AuthRequest, res) => {
     try {
-      const alliances = await storage.getAlliances(req.userId!);
+      const alliances = await storage.getAlliances(req.accountId!);
       
       // Join with party data
       const parties = await storage.getAllParties();
@@ -1380,6 +1416,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const alliance = await storage.createAlliance({
         ...validatedData,
         userId: req.userId!,
+        accountId: req.accountId!,
       });
       res.json(alliance);
     } catch (error: any) {
@@ -1390,7 +1427,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/alliances/:id", authenticateToken, requirePermission("alliances"), async (req: AuthRequest, res) => {
     try {
       const validatedData = insertPoliticalAllianceSchema.partial().parse(req.body);
-      const alliance = await storage.updateAlliance(req.params.id, validatedData);
+      const alliance = await storage.updateAlliance(req.params.id, req.accountId!, validatedData);
       res.json(alliance);
     } catch (error: any) {
       res.status(400).json({ error: error.message });
@@ -1399,7 +1436,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/alliances/:id", authenticateToken, requirePermission("alliances"), async (req: AuthRequest, res) => {
     try {
-      await storage.deleteAlliance(req.params.id);
+      await storage.deleteAlliance(req.params.id, req.accountId!);
       res.json({ success: true });
     } catch (error: any) {
       res.status(400).json({ error: error.message });
@@ -1410,7 +1447,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.get("/api/demands", authenticateToken, requirePermission("demands"), async (req: AuthRequest, res) => {
     try {
-      const demands = await storage.getDemands(req.userId!);
+      const demands = await storage.getDemands(req.accountId!);
       res.json(demands);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -1423,6 +1460,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const demand = await storage.createDemand({
         ...validatedData,
         userId: req.userId!,
+        accountId: req.accountId!,
       });
 
       // Create notification for urgent demands (non-blocking)
@@ -1451,7 +1489,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/demands/:id", authenticateToken, requirePermission("demands"), async (req: AuthRequest, res) => {
     try {
       const validatedData = insertDemandSchema.partial().parse(req.body);
-      const demand = await storage.updateDemand(req.params.id, validatedData);
+      const demand = await storage.updateDemand(req.params.id, req.accountId!, validatedData);
       res.json(demand);
     } catch (error: any) {
       res.status(400).json({ error: error.message });
@@ -1460,7 +1498,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/demands/:id", authenticateToken, requirePermission("demands"), async (req: AuthRequest, res) => {
     try {
-      await storage.deleteDemand(req.params.id);
+      await storage.deleteDemand(req.params.id, req.accountId!);
       res.json({ success: true });
     } catch (error: any) {
       res.status(400).json({ error: error.message });
@@ -1470,7 +1508,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Demand comments
   app.get("/api/demands/:id/comments", authenticateToken, requirePermission("demands"), async (req: AuthRequest, res) => {
     try {
-      const comments = await storage.getDemandComments(req.params.id);
+      const comments = await storage.getDemandComments(req.params.id, req.accountId!);
       res.json(comments);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -1484,11 +1522,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ...validatedData,
         demandId: req.params.id,
         userId: req.userId!,
+        accountId: req.accountId!,
       });
 
       // Notify demand owner about new comment (non-blocking)
       try {
-        const demand = await storage.getDemand(req.params.id);
+        const demand = await storage.getDemand(req.params.id, req.accountId!);
         if (demand && demand.userId !== req.userId) {
           await storage.createNotification({
             userId: demand.userId,
@@ -1514,7 +1553,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.get("/api/events", authenticateToken, requirePermission("agenda"), async (req: AuthRequest, res) => {
     try {
-      const events = await storage.getEvents(req.userId!);
+      const events = await storage.getEvents(req.accountId!);
       res.json(events);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -1533,6 +1572,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const event = await storage.createEvent({
         ...validatedData,
         userId: req.userId!,
+        accountId: req.accountId!,
       });
 
       // Notify about upcoming events (within 24 hours, non-blocking)
@@ -1604,7 +1644,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         endDate: req.body.endDate ? new Date(req.body.endDate) : undefined,
       };
       const validatedData = insertEventSchema.partial().parse(bodyWithDates);
-      const event = await storage.updateEvent(req.params.id, validatedData);
+      const event = await storage.updateEvent(req.params.id, req.accountId!, validatedData);
       res.json(event);
     } catch (error: any) {
       res.status(400).json({ error: error.message });
@@ -1613,7 +1653,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/events/:id", authenticateToken, requirePermission("agenda"), async (req: AuthRequest, res) => {
     try {
-      await storage.deleteEvent(req.params.id);
+      await storage.deleteEvent(req.params.id, req.accountId!);
       res.json({ success: true });
     } catch (error: any) {
       res.status(400).json({ error: error.message });
@@ -1624,7 +1664,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.get("/api/ai-config", authenticateToken, requirePermission("ai"), async (req: AuthRequest, res) => {
     try {
-      const config = await storage.getAiConfig(req.userId!);
+      const config = await storage.getAiConfig(req.userId!, req.accountId!);
       
       // Include API key status but never the actual key
       const response = config ? {
@@ -1650,6 +1690,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const config = await storage.upsertAiConfig({
         ...validatedData,
         userId: req.userId!,
+        accountId: req.accountId!,
       });
       res.json(config);
     } catch (error: any) {
@@ -1663,6 +1704,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const config = await storage.upsertAiConfig({
         mode,
         userId: req.userId!,
+        accountId: req.accountId!,
       });
       res.json(config);
     } catch (error: any) {
@@ -1735,7 +1777,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // GET OpenAI API Status
   app.get("/api/ai-config/openai-status", authenticateToken, requirePermission("ai"), async (req: AuthRequest, res) => {
     try {
-      const config = await storage.getAiConfig(req.userId!);
+      const config = await storage.getAiConfig(req.userId!, req.accountId!);
       
       // Check if using custom key or Replit integration
       const hasCustomKey = !!config?.openaiApiKey;
@@ -1766,7 +1808,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // POST Test OpenAI API Status
   app.post("/api/ai-config/test-openai-status", authenticateToken, requirePermission("ai"), async (req: AuthRequest, res) => {
     try {
-      const config = await storage.getAiConfig(req.userId!);
+      const config = await storage.getAiConfig(req.userId!, req.accountId!);
       
       // Check if using custom key or Replit integration
       const hasCustomKey = !!config?.openaiApiKey;
@@ -1838,7 +1880,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Get AI configuration and training examples
       const config = await storage.getAiConfig(req.userId!);
-      const trainingExamples = await storage.getAiTrainingExamples(req.userId!);
+      const trainingExamples = await storage.getAiTrainingExamples(req.accountId!);
       
       // Check if AI is configured (either custom key or Replit integration)
       const hasCustomKey = !!config?.openaiApiKey;
@@ -1894,7 +1936,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // AI Conversations
   app.get("/api/ai-conversations", authenticateToken, requirePermission("ai"), async (req: AuthRequest, res) => {
     try {
-      const conversations = await storage.getAiConversations(req.userId!);
+      const conversations = await storage.getAiConversations(req.accountId!);
       res.json(conversations);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -1904,7 +1946,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // AI Training Examples
   app.get("/api/ai-training-examples", authenticateToken, requirePermission("ai"), async (req: AuthRequest, res) => {
     try {
-      const examples = await storage.getTrainingExamples(req.userId!);
+      const examples = await storage.getTrainingExamples(req.accountId!);
       res.json(examples);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -1917,6 +1959,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const example = await storage.createTrainingExample({
         ...validatedData,
         userId: req.userId!,
+        accountId: req.accountId!,
       });
       res.json(example);
     } catch (error: any) {
@@ -1927,7 +1970,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/ai-training-examples/:id", authenticateToken, requirePermission("ai"), async (req: AuthRequest, res) => {
     try {
       const validatedData = insertAiTrainingExampleSchema.partial().parse(req.body);
-      const example = await storage.updateTrainingExample(req.params.id, validatedData);
+      const example = await storage.updateTrainingExample(req.params.id, req.accountId!, validatedData);
       res.json(example);
     } catch (error: any) {
       res.status(400).json({ error: error.message });
@@ -1936,7 +1979,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/ai-training-examples/:id", authenticateToken, requirePermission("ai"), async (req: AuthRequest, res) => {
     try {
-      await storage.deleteTrainingExample(req.params.id);
+      await storage.deleteTrainingExample(req.params.id, req.accountId!);
       res.json({ success: true });
     } catch (error: any) {
       res.status(400).json({ error: error.message });
@@ -1946,7 +1989,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // AI Response Templates
   app.get("/api/ai-response-templates", authenticateToken, requirePermission("ai"), async (req: AuthRequest, res) => {
     try {
-      const templates = await storage.getResponseTemplates(req.userId!);
+      const templates = await storage.getResponseTemplates(req.accountId!);
       res.json(templates);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -1959,6 +2002,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const template = await storage.createResponseTemplate({
         ...validatedData,
         userId: req.userId!,
+        accountId: req.accountId!,
       });
       res.json(template);
     } catch (error: any) {
@@ -1969,7 +2013,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/ai-response-templates/:id", authenticateToken, requirePermission("ai"), async (req: AuthRequest, res) => {
     try {
       const validatedData = insertAiResponseTemplateSchema.partial().parse(req.body);
-      const template = await storage.updateResponseTemplate(req.params.id, validatedData);
+      const template = await storage.updateResponseTemplate(req.params.id, req.accountId!, validatedData);
       res.json(template);
     } catch (error: any) {
       res.status(400).json({ error: error.message });
@@ -1978,7 +2022,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/ai-response-templates/:id", authenticateToken, requirePermission("ai"), async (req: AuthRequest, res) => {
     try {
-      await storage.deleteResponseTemplate(req.params.id);
+      await storage.deleteResponseTemplate(req.params.id, req.accountId!);
       res.json({ success: true });
     } catch (error: any) {
       res.status(400).json({ error: error.message });
@@ -2066,7 +2110,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.get("/api/campaigns", authenticateToken, requirePermission("marketing"), async (req: AuthRequest, res) => {
     try {
-      const campaigns = await storage.getCampaigns(req.userId!);
+      const campaigns = await storage.getCampaigns(req.accountId!);
       res.json(campaigns);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -2079,6 +2123,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const campaign = await storage.createCampaign({
         ...validatedData,
         userId: req.userId!,
+        accountId: req.accountId!,
       });
       res.json(campaign);
     } catch (error: any) {
@@ -2088,7 +2133,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/campaigns/:id/send", authenticateToken, requirePermission("marketing"), async (req: AuthRequest, res) => {
     try {
-      const campaign = await storage.getCampaign(req.params.id);
+      const campaign = await storage.getCampaign(req.params.id, req.accountId!);
       
       if (!campaign || campaign.userId !== req.userId!) {
         return res.status(404).json({ error: "Campanha não encontrada" });
@@ -2132,7 +2177,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await Promise.allSettled(promises);
         }
         
-        await storage.updateCampaign(campaign.id, {
+        await storage.updateCampaign(campaign.id, req.accountId!, {
           status: "sent",
           sentAt: new Date(),
         });
@@ -2152,7 +2197,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get all integrations for user
   app.get("/api/integrations", authenticateToken, requirePermission("marketing"), async (req: AuthRequest, res) => {
     try {
-      const integrations = await storage.getIntegrations(req.userId!);
+      const integrations = await storage.getIntegrations(req.userId!, req.accountId!);
       // Remove sensitive data from response for security
       const sanitized = integrations.map(i => ({
         ...i,
@@ -2168,7 +2213,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get specific integration
   app.get("/api/integrations/:service", authenticateToken, requirePermission("marketing"), async (req: AuthRequest, res) => {
     try {
-      const integration = await storage.getIntegration(req.userId!, req.params.service);
+      const integration = await storage.getIntegration(req.userId!, req.accountId!, req.params.service);
       if (integration) {
         // Mask sensitive fields
         integration.sendgridApiKey = integration.sendgridApiKey ? '***' : null;
@@ -2186,7 +2231,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validatedData = insertIntegrationSchema.parse(req.body);
       const integration = await storage.upsertIntegration({
         ...validatedData,
-        userId: req.userId!
+        userId: req.userId!,
+        accountId: req.accountId!
       });
       // Mask sensitive fields in response
       const sanitized = {
@@ -2203,7 +2249,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Test integration
   app.post("/api/integrations/:service/test", authenticateToken, requirePermission("marketing"), async (req: AuthRequest, res) => {
     try {
-      const integration = await storage.getIntegration(req.userId!, req.params.service);
+      const integration = await storage.getIntegration(req.userId!, req.accountId!, req.params.service);
       
       if (!integration) {
         return res.status(404).json({ error: 'Integração não encontrada' });
@@ -2294,7 +2340,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get single survey campaign
   app.get("/api/survey-campaigns/:id", authenticateToken, requirePermission("marketing"), async (req: AuthRequest, res) => {
     try {
-      const campaign = await storage.getSurveyCampaign(req.params.id);
+      const campaign = await storage.getSurveyCampaign(req.params.id, req.accountId!);
       
       if (!campaign) {
         return res.status(404).json({ error: "Campanha não encontrada" });
@@ -2319,6 +2365,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const campaign = await storage.createSurveyCampaign({
         ...validatedData,
         userId: req.userId!,
+        accountId: req.accountId!,
       });
       
       res.json(campaign);
@@ -2333,7 +2380,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Update survey campaign
   app.patch("/api/survey-campaigns/:id", authenticateToken, requirePermission("marketing"), async (req: AuthRequest, res) => {
     try {
-      const campaign = await storage.getSurveyCampaign(req.params.id);
+      const campaign = await storage.getSurveyCampaign(req.params.id, req.accountId!);
       
       if (!campaign) {
         return res.status(404).json({ error: "Campanha não encontrada" });
@@ -2345,7 +2392,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const validatedData = insertSurveyCampaignSchema.partial().parse(req.body);
-      const updated = await storage.updateSurveyCampaign(req.params.id, validatedData);
+      const updated = await storage.updateSurveyCampaign(req.params.id, req.accountId!, validatedData);
       
       res.json(updated);
     } catch (error: any) {
@@ -2359,7 +2406,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Delete survey campaign
   app.delete("/api/survey-campaigns/:id", authenticateToken, requirePermission("marketing"), async (req: AuthRequest, res) => {
     try {
-      const campaign = await storage.getSurveyCampaign(req.params.id);
+      const campaign = await storage.getSurveyCampaign(req.params.id, req.accountId!);
       
       if (!campaign) {
         return res.status(404).json({ error: "Campanha não encontrada" });
@@ -2370,7 +2417,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: "Sem permissão para deletar esta campanha" });
       }
 
-      await storage.deleteSurveyCampaign(req.params.id);
+      await storage.deleteSurveyCampaign(req.params.id, req.accountId!);
       res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -2536,7 +2583,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/notifications", authenticateToken, async (req: AuthRequest, res) => {
     try {
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
-      const notifications = await storage.getNotifications(req.userId!, limit);
+      const notifications = await storage.getNotifications(req.userId!, req.accountId!, limit);
       res.json(notifications);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -2546,7 +2593,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get unread notifications count
   app.get("/api/notifications/unread-count", authenticateToken, async (req: AuthRequest, res) => {
     try {
-      const count = await storage.getUnreadCount(req.userId!);
+      const count = await storage.getUnreadCount(req.userId!, req.accountId!);
       res.json({ count });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -2570,7 +2617,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Mark notification as read
   app.patch("/api/notifications/:id/read", authenticateToken, async (req: AuthRequest, res) => {
     try {
-      const notification = await storage.markAsRead(req.params.id, req.userId!);
+      const notification = await storage.markAsRead(req.params.id, req.userId!, req.accountId!);
       if (!notification) {
         return res.status(404).json({ error: "Notificação não encontrada ou não pertence a você" });
       }
@@ -2583,7 +2630,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Mark all notifications as read
   app.patch("/api/notifications/mark-all-read", authenticateToken, async (req: AuthRequest, res) => {
     try {
-      await storage.markAllAsRead(req.userId!);
+      await storage.markAllAsRead(req.userId!, req.accountId!);
       res.json({ success: true });
     } catch (error: any) {
       res.status(400).json({ error: error.message });
@@ -2593,7 +2640,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Delete notification
   app.delete("/api/notifications/:id", authenticateToken, async (req: AuthRequest, res) => {
     try {
-      const deleted = await storage.deleteNotification(req.params.id, req.userId!);
+      const deleted = await storage.deleteNotification(req.params.id, req.userId!, req.accountId!);
       if (!deleted) {
         return res.status(404).json({ error: "Notificação não encontrada ou não pertence a você" });
       }
@@ -2740,7 +2787,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get all leads (admin only)
   app.get("/api/leads", authenticateAdminToken, async (req: AuthRequest, res) => {
     try {
-      const leads = await storage.getLeads();
+      if (!req.accountId) {
+        return res.status(401).json({ error: "AccountId não encontrado" });
+      }
+      const leads = await storage.getLeads(req.accountId);
       res.json(leads);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -2750,7 +2800,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Delete single lead (admin only)
   app.delete("/api/leads/:id", authenticateAdminToken, async (req: AuthRequest, res) => {
     try {
-      await storage.deleteLead(req.params.id);
+      if (!req.accountId) {
+        return res.status(401).json({ error: "AccountId não encontrado" });
+      }
+      await storage.deleteLead(req.params.id, req.accountId);
       res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -2760,11 +2813,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Delete multiple leads (admin only)
   app.post("/api/leads/delete-multiple", authenticateAdminToken, async (req: AuthRequest, res) => {
     try {
+      if (!req.accountId) {
+        return res.status(401).json({ error: "AccountId não encontrado" });
+      }
       const { ids } = req.body;
       if (!Array.isArray(ids)) {
         return res.status(400).json({ error: "IDs devem ser um array" });
       }
-      await storage.deleteLeads(ids);
+      await storage.deleteLeads(ids, req.accountId);
       res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -2775,10 +2831,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.get("/api/dashboard/stats", authenticateToken, async (req: AuthRequest, res) => {
     try {
-      const contacts = await storage.getContacts(req.userId!);
-      const alliances = await storage.getAlliances(req.userId!);
-      const demands = await storage.getDemands(req.userId!);
-      const events = await storage.getEvents(req.userId!);
+      const contacts = await storage.getContacts(req.accountId!);
+      const alliances = await storage.getAlliances(req.accountId!);
+      const demands = await storage.getDemands(req.accountId!);
+      const events = await storage.getEvents(req.accountId!);
       const parties = await storage.getAllParties();
 
       // Calculate ideology distribution
