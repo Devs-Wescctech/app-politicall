@@ -503,7 +503,7 @@ export default function AiAttendance() {
                       type="password"
                       value={apiKey}
                       onChange={(e) => setApiKey(e.target.value)}
-                      placeholder="sk-..."
+                     
                       className="font-mono"
                       data-testid="input-api-key"
                     />
@@ -575,7 +575,7 @@ export default function AiAttendance() {
                         <FormControl>
                           <Textarea
                             {...field}
-                            placeholder="Você é um assessor político profissional que responde de forma cordial e informativa..."
+                           
                             className="min-h-[120px]"
                             data-testid="textarea-system-prompt"
                           />
@@ -597,7 +597,7 @@ export default function AiAttendance() {
                         <FormControl>
                           <Textarea
                             {...field}
-                            placeholder="Profissional, acessível, empático, objetivo, confiável..."
+                           
                             className="min-h-[100px]"
                             data-testid="textarea-personality-traits"
                           />
@@ -619,7 +619,7 @@ export default function AiAttendance() {
                         <FormControl>
                           <Textarea
                             {...field}
-                            placeholder="João Silva, candidato a vereador pelo partido XYZ. Propostas principais: educação, saúde, transporte público..."
+                           
                             className="min-h-[150px]"
                             data-testid="textarea-political-info"
                           />
@@ -641,7 +641,7 @@ export default function AiAttendance() {
                         <FormControl>
                           <Textarea
                             {...field}
-                            placeholder="Sempre agradeça pelo contato. Evite discussões polêmicas. Forneça informações verificadas..."
+                           
                             className="min-h-[120px]"
                             data-testid="textarea-response-guidelines"
                           />
@@ -784,7 +784,7 @@ export default function AiAttendance() {
                   <Textarea
                     value={testMessage}
                     onChange={(e) => setTestMessage(e.target.value)}
-                    placeholder="Digite uma mensagem para testar a resposta da IA..."
+                   
                     className="min-h-[100px]"
                     data-testid="textarea-test-message"
                   />
@@ -870,7 +870,7 @@ export default function AiAttendance() {
                     <FormControl>
                       <Textarea
                         {...field}
-                        placeholder="Qual é sua proposta para a educação?"
+                       
                         className="min-h-[80px]"
                         data-testid="textarea-training-question"
                       />
@@ -889,7 +889,7 @@ export default function AiAttendance() {
                     <FormControl>
                       <Textarea
                         {...field}
-                        placeholder="Minha proposta para educação inclui..."
+                       
                         className="min-h-[120px]"
                         data-testid="textarea-training-answer"
                       />
@@ -908,7 +908,7 @@ export default function AiAttendance() {
                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger data-testid="select-training-category">
-                          <SelectValue placeholder="Selecione uma categoria" />
+                          <SelectValue />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
@@ -1012,7 +1012,7 @@ export default function AiAttendance() {
                       <FormItem>
                         <FormLabel>App ID</FormLabel>
                         <FormControl>
-                          <Input {...field} placeholder="123456789" data-testid="input-fb-app-id" />
+                          <Input {...field} data-testid="input-fb-app-id" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -1025,7 +1025,7 @@ export default function AiAttendance() {
                       <FormItem>
                         <FormLabel>App Secret</FormLabel>
                         <FormControl>
-                          <Input {...field} type="password" placeholder="••••••••" data-testid="input-fb-app-secret" />
+                          <Input {...field} type="password" data-testid="input-fb-app-secret" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -1038,7 +1038,7 @@ export default function AiAttendance() {
                       <FormItem>
                         <FormLabel>Page ID</FormLabel>
                         <FormControl>
-                          <Input {...field} placeholder="987654321" data-testid="input-fb-page-id" />
+                          <Input {...field} data-testid="input-fb-page-id" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -1051,7 +1051,7 @@ export default function AiAttendance() {
                       <FormItem>
                         <FormLabel>Nome da Página</FormLabel>
                         <FormControl>
-                          <Input {...field} placeholder="Minha Página" data-testid="input-fb-page-name" />
+                          <Input {...field} data-testid="input-fb-page-name" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -1064,7 +1064,7 @@ export default function AiAttendance() {
                       <FormItem className="md:col-span-2">
                         <FormLabel>Page Access Token</FormLabel>
                         <FormControl>
-                          <Textarea {...field} placeholder="EAABw..." className="min-h-[80px]" data-testid="textarea-fb-token" />
+                          <Textarea {...field} className="min-h-[80px]" data-testid="textarea-fb-token" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -1077,7 +1077,7 @@ export default function AiAttendance() {
                       <FormItem className="md:col-span-2">
                         <FormLabel>Webhook Verify Token</FormLabel>
                         <FormControl>
-                          <Input {...field} placeholder="my-verify-token" data-testid="input-fb-webhook-token" />
+                          <Input {...field} data-testid="input-fb-webhook-token" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -1128,7 +1128,7 @@ export default function AiAttendance() {
                       <FormItem>
                         <FormLabel>App ID</FormLabel>
                         <FormControl>
-                          <Input {...field} placeholder="123456789" data-testid="input-ig-app-id" />
+                          <Input {...field} data-testid="input-ig-app-id" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -1141,7 +1141,7 @@ export default function AiAttendance() {
                       <FormItem>
                         <FormLabel>App Secret</FormLabel>
                         <FormControl>
-                          <Input {...field} type="password" placeholder="••••••••" data-testid="input-ig-app-secret" />
+                          <Input {...field} type="password" data-testid="input-ig-app-secret" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -1154,7 +1154,7 @@ export default function AiAttendance() {
                       <FormItem>
                         <FormLabel>Business Account ID</FormLabel>
                         <FormControl>
-                          <Input {...field} placeholder="17841..." data-testid="input-ig-business-id" />
+                          <Input {...field} data-testid="input-ig-business-id" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -1167,7 +1167,7 @@ export default function AiAttendance() {
                       <FormItem>
                         <FormLabel>Nome de Usuário</FormLabel>
                         <FormControl>
-                          <Input {...field} placeholder="@seu_usuario" data-testid="input-ig-username" />
+                          <Input {...field} data-testid="input-ig-username" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -1180,7 +1180,7 @@ export default function AiAttendance() {
                       <FormItem>
                         <FormLabel>Facebook Page ID</FormLabel>
                         <FormControl>
-                          <Input {...field} placeholder="987654321" data-testid="input-ig-fb-page-id" />
+                          <Input {...field} data-testid="input-ig-fb-page-id" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -1193,7 +1193,7 @@ export default function AiAttendance() {
                       <FormItem className="md:col-span-2">
                         <FormLabel>Access Token</FormLabel>
                         <FormControl>
-                          <Textarea {...field} placeholder="IGQVJ..." className="min-h-[80px]" data-testid="textarea-ig-token" />
+                          <Textarea {...field} className="min-h-[80px]" data-testid="textarea-ig-token" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -1244,7 +1244,7 @@ export default function AiAttendance() {
                       <FormItem>
                         <FormLabel>API Key</FormLabel>
                         <FormControl>
-                          <Input {...field} placeholder="xxxxxxxxxxx" data-testid="input-tw-api-key" />
+                          <Input {...field} data-testid="input-tw-api-key" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -1257,7 +1257,7 @@ export default function AiAttendance() {
                       <FormItem>
                         <FormLabel>API Secret Key</FormLabel>
                         <FormControl>
-                          <Input {...field} type="password" placeholder="••••••••" data-testid="input-tw-api-secret" />
+                          <Input {...field} type="password" data-testid="input-tw-api-secret" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -1270,7 +1270,7 @@ export default function AiAttendance() {
                       <FormItem className="md:col-span-2">
                         <FormLabel>Bearer Token</FormLabel>
                         <FormControl>
-                          <Textarea {...field} placeholder="AAAAAAA..." className="min-h-[80px]" data-testid="textarea-tw-bearer-token" />
+                          <Textarea {...field} className="min-h-[80px]" data-testid="textarea-tw-bearer-token" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -1283,7 +1283,7 @@ export default function AiAttendance() {
                       <FormItem>
                         <FormLabel>Access Token</FormLabel>
                         <FormControl>
-                          <Input {...field} placeholder="1234567890..." data-testid="input-tw-access-token" />
+                          <Input {...field} data-testid="input-tw-access-token" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -1296,7 +1296,7 @@ export default function AiAttendance() {
                       <FormItem>
                         <FormLabel>Access Token Secret</FormLabel>
                         <FormControl>
-                          <Input {...field} type="password" placeholder="••••••••" data-testid="input-tw-token-secret" />
+                          <Input {...field} type="password" data-testid="input-tw-token-secret" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -1309,7 +1309,7 @@ export default function AiAttendance() {
                       <FormItem>
                         <FormLabel>Client ID</FormLabel>
                         <FormControl>
-                          <Input {...field} placeholder="xyz123..." data-testid="input-tw-client-id" />
+                          <Input {...field} data-testid="input-tw-client-id" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -1322,7 +1322,7 @@ export default function AiAttendance() {
                       <FormItem>
                         <FormLabel>Client Secret</FormLabel>
                         <FormControl>
-                          <Input {...field} type="password" placeholder="••••••••" data-testid="input-tw-client-secret" />
+                          <Input {...field} type="password" data-testid="input-tw-client-secret" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -1335,7 +1335,7 @@ export default function AiAttendance() {
                       <FormItem className="md:col-span-2">
                         <FormLabel>Nome de Usuário</FormLabel>
                         <FormControl>
-                          <Input {...field} placeholder="@seu_usuario" data-testid="input-tw-username" />
+                          <Input {...field} data-testid="input-tw-username" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -1387,7 +1387,7 @@ export default function AiAttendance() {
                       <FormItem>
                         <FormLabel>Phone Number ID</FormLabel>
                         <FormControl>
-                          <Input {...field} placeholder="123456789" data-testid="input-wa-phone-id" />
+                          <Input {...field} data-testid="input-wa-phone-id" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -1400,7 +1400,7 @@ export default function AiAttendance() {
                       <FormItem>
                         <FormLabel>Business Account ID</FormLabel>
                         <FormControl>
-                          <Input {...field} placeholder="987654321" data-testid="input-wa-business-id" />
+                          <Input {...field} data-testid="input-wa-business-id" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -1413,7 +1413,7 @@ export default function AiAttendance() {
                       <FormItem>
                         <FormLabel>App ID</FormLabel>
                         <FormControl>
-                          <Input {...field} placeholder="123456789" data-testid="input-wa-app-id" />
+                          <Input {...field} data-testid="input-wa-app-id" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -1426,7 +1426,7 @@ export default function AiAttendance() {
                       <FormItem>
                         <FormLabel>App Secret</FormLabel>
                         <FormControl>
-                          <Input {...field} type="password" placeholder="••••••••" data-testid="input-wa-app-secret" />
+                          <Input {...field} type="password" data-testid="input-wa-app-secret" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -1439,7 +1439,7 @@ export default function AiAttendance() {
                       <FormItem>
                         <FormLabel>Número de Telefone</FormLabel>
                         <FormControl>
-                          <Input {...field} placeholder="+5511999999999" data-testid="input-wa-phone" />
+                          <Input {...field} data-testid="input-wa-phone" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -1452,7 +1452,7 @@ export default function AiAttendance() {
                       <FormItem>
                         <FormLabel>Nome do Negócio</FormLabel>
                         <FormControl>
-                          <Input {...field} placeholder="Meu Negócio" data-testid="input-wa-business-name" />
+                          <Input {...field} data-testid="input-wa-business-name" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -1465,7 +1465,7 @@ export default function AiAttendance() {
                       <FormItem className="md:col-span-2">
                         <FormLabel>Access Token</FormLabel>
                         <FormControl>
-                          <Textarea {...field} placeholder="EAABw..." className="min-h-[80px]" data-testid="textarea-wa-token" />
+                          <Textarea {...field} className="min-h-[80px]" data-testid="textarea-wa-token" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -1478,7 +1478,7 @@ export default function AiAttendance() {
                       <FormItem className="md:col-span-2">
                         <FormLabel>Webhook Verify Token</FormLabel>
                         <FormControl>
-                          <Input {...field} placeholder="my-verify-token" data-testid="input-wa-webhook-token" />
+                          <Input {...field} data-testid="input-wa-webhook-token" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
