@@ -137,8 +137,11 @@ export default function SurveyLanding() {
       });
     },
     onError: (error: Error) => {
+      // Check if it's a duplicate response error (user-friendly warning)
+      const isDuplicateError = error.message.includes("já respondeu");
+      
       toast({
-        title: "Erro ao enviar resposta",
+        title: isDuplicateError ? "Atenção" : "Erro ao enviar resposta",
         description: error.message,
         variant: "destructive",
       });
