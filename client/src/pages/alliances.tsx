@@ -433,7 +433,7 @@ export default function Alliances() {
                   
                   <div className="flex items-center gap-4">
                     <div className="flex-1 border-t" />
-                    <span className="text-xs text-muted-foreground">ou</span>
+                    <span className="text-xs text-muted-foreground">x</span>
                     <div className="flex-1 border-t" />
                   </div>
 
@@ -603,7 +603,6 @@ export default function Alliances() {
         </Dialog>
         </div>
       </div>
-
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -646,7 +645,6 @@ export default function Alliances() {
           </CardContent>
         </Card>
       </div>
-
       {loadingParties ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
           {[...Array(29)].map((_, i) => (
@@ -696,7 +694,6 @@ export default function Alliances() {
             })}
         </div>
       )}
-
       <Dialog open={!!selectedParty} onOpenChange={(open) => !open && setSelectedParty(null)}>
         <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col p-0">
           <DialogHeader className="px-6 pt-6 pb-4 border-b">
@@ -767,7 +764,6 @@ export default function Alliances() {
           </div>
         </DialogContent>
       </Dialog>
-
       <Dialog open={!!selectedAlliance && !isEditMode} onOpenChange={(open) => !open && setSelectedAlliance(null)}>
         <DialogContent className="max-w-md max-h-[90vh] flex flex-col p-0">
           <DialogHeader className="px-6 pt-6 pb-4 border-b">
@@ -842,7 +838,6 @@ export default function Alliances() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
       <Dialog open={isEditMode} onOpenChange={(open) => {
         if (!open) {
           setIsEditMode(false);
