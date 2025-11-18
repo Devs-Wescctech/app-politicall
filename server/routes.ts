@@ -5,7 +5,7 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { insertUserSchema, loginSchema, insertContactSchema, insertPoliticalAllianceSchema, insertDemandSchema, insertDemandCommentSchema, insertEventSchema, insertAiConfigurationSchema, insertAiTrainingExampleSchema, insertAiResponseTemplateSchema, insertMarketingCampaignSchema, insertNotificationSchema, insertIntegrationSchema, insertSurveyCampaignSchema, insertSurveyLandingPageSchema, insertSurveyResponseSchema, insertLeadSchema, insertCandidateProfileSchema, DEFAULT_PERMISSIONS } from "@shared/schema";
 import { db } from "./db";
-import { politicalParties, politicalAlliances, surveyTemplates, surveyCampaigns, surveyLandingPages, surveyResponses, users, candidateProfiles, type SurveyTemplate, type SurveyCampaign, type InsertSurveyCampaign, type SurveyLandingPage, type InsertSurveyLandingPage, type SurveyResponse, type InsertSurveyResponse, type CandidateProfile } from "@shared/schema";
+import { politicalParties, politicalAlliances, surveyTemplates, surveyCampaigns, surveyLandingPages, surveyResponses, users, statisticsAnalyses, type SurveyTemplate, type SurveyCampaign, type InsertSurveyCampaign, type SurveyLandingPage, type InsertSurveyLandingPage, type SurveyResponse, type InsertSurveyResponse } from "@shared/schema";
 import { sql, eq, desc, and } from "drizzle-orm";
 import { generateAiResponse, testOpenAiApiKey } from "./openai";
 import { requireRole } from "./authorization";
@@ -2303,98 +2303,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // ==================== STATISTICS / CANDIDATE PROFILE ====================
+  // ==================== STATISTICS / AI ANALYSIS ====================
   
-  // Get candidate profile
-  app.get("/api/statistics/profile", authenticateToken, async (req: AuthRequest, res) => {
-    try {
-      const [profile] = await db
-        .select()
-        .from(candidateProfiles)
-        .where(eq(candidateProfiles.userId, req.userId!))
-        .limit(1);
-      
-      // Return null if no profile exists (not a 404 error)
-      res.json(profile || null);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  // Create candidate profile
-  app.post("/api/statistics/profile", authenticateToken, async (req: AuthRequest, res) => {
-    try {
-      const validatedData = insertCandidateProfileSchema.parse(req.body);
-      
-      // Check if profile already exists
-      const [existing] = await db
-        .select()
-        .from(candidateProfiles)
-        .where(eq(candidateProfiles.userId, req.userId!))
-        .limit(1);
-      
-      if (existing) {
-        return res.status(400).json({ error: "Perfil já existe. Use PUT para atualizar." });
-      }
-      
-      const [profile] = await db
-        .insert(candidateProfiles)
-        .values({
-          ...validatedData,
-          userId: req.userId!,
-        })
-        .returning();
-      
-      res.status(201).json(profile);
-    } catch (error: any) {
-      if (error.name === 'ZodError') {
-        res.status(400).json({ error: "Dados inválidos", details: error.errors });
-      } else {
-        res.status(500).json({ error: error.message });
-      }
-    }
-  });
-
-  // Update candidate profile
-  app.put("/api/statistics/profile", authenticateToken, async (req: AuthRequest, res) => {
-    try {
-      const validatedData = insertCandidateProfileSchema.parse(req.body);
-      
-      const [profile] = await db
-        .update(candidateProfiles)
-        .set({
-          ...validatedData,
-          updatedAt: new Date(),
-        })
-        .where(eq(candidateProfiles.userId, req.userId!))
-        .returning();
-      
-      if (!profile) {
-        return res.status(404).json({ error: "Perfil não encontrado" });
-      }
-      
-      res.json(profile);
-    } catch (error: any) {
-      if (error.name === 'ZodError') {
-        res.status(400).json({ error: "Dados inválidos", details: error.errors });
-      } else {
-        res.status(500).json({ error: error.message });
-      }
-    }
-  });
-
   // Generate AI comparative analysis
   app.post("/api/statistics/analyze", authenticateToken, async (req: AuthRequest, res) => {
     try {
-      // Get candidate profile
-      const [profile] = await db
+      // Get user profile from users table
+      const [userProfile] = await db
         .select()
-        .from(candidateProfiles)
-        .where(eq(candidateProfiles.userId, req.userId!))
+        .from(users)
+        .where(eq(users.id, req.userId!))
         .limit(1);
 
-      if (!profile) {
-        return res.status(404).json({ error: "Perfil de candidato não encontrado. Por favor, preencha seu perfil primeiro." });
+      if (!userProfile) {
+        return res.status(404).json({ error: "Perfil de usuário não encontrado." });
+      }
+
+      if (!userProfile.politicalPosition && !userProfile.state) {
+        return res.status(400).json({ 
+          error: "Complete suas informações políticas em Configurações antes de gerar a análise." 
+        });
       }
 
       // Generate AI analysis using OpenAI with knowledge about Brazilian elections
@@ -2402,26 +2330,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 INSTRUÇÃO IMPORTANTE: Você DEVE retornar APENAS um objeto JSON válido, sem texto adicional antes ou depois. Não inclua markdown, comentários ou explicações fora do JSON.
 
-Analise o perfil do candidato abaixo e compare com padrões de candidatos eleitos em eleições anteriores no Brasil, considerando dados históricos do TSE, perfis de vitoriosos, e estratégias bem-sucedidas.
+Analise o perfil do político abaixo e compare com padrões de candidatos eleitos em eleições anteriores no Brasil, considerando dados históricos do TSE, perfis de vitoriosos, e estratégias bem-sucedidas.
 
-PERFIL DO CANDIDATO:
-- Nome: ${profile.fullName}
-- Cargo pretendido: ${profile.targetPosition}
-- Estado: ${profile.targetState}
-- Cidade: ${profile.targetCity || "Não especificado"}
-- Ano da eleição: ${profile.electionYear}
-- Ideologia: ${profile.ideology || "Não especificada"}
-- Orçamento de campanha: ${profile.campaignBudget ? `R$ ${profile.campaignBudget.toLocaleString('pt-BR')}` : "Não especificado"}
-- Valores principais: ${profile.mainValues?.join(", ") || "Não especificados"}
-- Propostas-chave: ${profile.keyProposals?.join(", ") || "Não especificadas"}
-- Alianças políticas: ${profile.politicalAlliances?.join(", ") || "Não especificadas"}
-- Problemas principais: ${profile.mainIssues?.join(", ") || "Não especificados"}
-- Perfil do eleitor-alvo: ${profile.targetVoterProfile || "Não especificado"}
-- Pontos fortes: ${profile.strengths?.join(", ") || "Não especificados"}
-- Pontos fracos: ${profile.weaknesses?.join(", ") || "Não especificados"}
-- Experiência anterior: ${profile.previousExperience || "Não especificada"}
-- Conquistas: ${profile.achievements?.join(", ") || "Não especificadas"}
-- Reconhecimento público: ${profile.publicRecognition || "Não especificado"}
+PERFIL DO POLÍTICO:
+- Nome: ${userProfile.name}
+- Cargo Político: ${userProfile.politicalPosition || "Não especificado"}
+- Estado: ${userProfile.state || "Não especificado"}
+- Cidade: ${userProfile.city || "Não especificado"}
+- Votos na última eleição: ${userProfile.lastElectionVotes ? userProfile.lastElectionVotes.toLocaleString('pt-BR') : "Não especificado"}
 
 Retorne APENAS um JSON válido com a seguinte estrutura EXATA (sem texto adicional):
 {
@@ -2511,7 +2427,6 @@ Seja específico, prático e baseado em dados. Use exemplos concretos quando pos
         .insert(statisticsAnalyses)
         .values({
           userId: req.userId!,
-          candidateProfileId: profile.id,
           analysisData: analysisData,
         })
         .returning();

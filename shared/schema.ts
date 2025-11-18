@@ -828,51 +828,7 @@ export const candidateProfiles = pgTable("candidate_profiles", {
 export const statisticsAnalyses = pgTable("statistics_analyses", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  profileId: varchar("profile_id").notNull().references(() => candidateProfiles.id, { onDelete: "cascade" }),
-  
-  // Analysis Metadata
-  analysisDate: timestamp("analysis_date").defaultNow().notNull(),
-  targetPosition: text("target_position").notNull(),
-  targetLocation: text("target_location").notNull(),
-  electionYear: integer("election_year").notNull(),
-  
-  // Reference Data (Elected candidates used for comparison)
-  referenceCandidates: jsonb("reference_candidates").$type<Array<{
-    name: string;
-    party: string;
-    year: number;
-    votes: number;
-    percentage: number;
-    ideology: string;
-    mainProposals: string[];
-    alliances: string[];
-    voterProfile: string;
-  }>>(),
-  
-  // AI Analysis Results
-  ideologyComparison: text("ideology_comparison"),
-  valuesAnalysis: text("values_analysis"),
-  proposalsComparison: text("proposals_comparison"),
-  alliancesAnalysis: text("alliances_analysis"),
-  voterProfileAnalysis: text("voter_profile_analysis"),
-  
-  // Strategic Recommendations
-  strategicRecommendations: jsonb("strategic_recommendations").$type<Array<{
-    category: string;
-    priority: "high" | "medium" | "low";
-    recommendation: string;
-    reasoning: string;
-    expectedImpact: string;
-  }>>(),
-  
-  // Overall Summary
-  overallSummary: text("overall_summary"),
-  winProbability: text("win_probability"),
-  keyInsights: text("key_insights").array(),
-  
-  // Data Sources
-  dataSources: text("data_sources").array(),
-  
+  analysisData: jsonb("analysis_data").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
