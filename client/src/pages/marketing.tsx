@@ -1009,9 +1009,6 @@ export default function Marketing() {
                               {format(addDays(new Date(campaign.updatedAt), 7), "dd/MM/yyyy", { locale: ptBR })}
                             </p>
                           </div>
-                          <p className="text-xs text-muted-foreground italic">
-                            Pesquisa ativa por 7 dias corridos a partir da aprovação
-                          </p>
                         </div>
                       </div>
                     )}
