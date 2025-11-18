@@ -38,22 +38,22 @@ if (typeof window !== 'undefined') {
 const CAMPAIGN_STAGE_CONFIG = {
   aguardando: { 
     label: "Aguardando", 
-    color: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100",
+    iconColor: "text-gray-500 dark:text-gray-400",
     icon: Clock
   },
   aprovado: { 
     label: "Aprovado", 
-    color: "bg-[#40E0D0] text-white dark:bg-[#48D1CC] dark:text-gray-900",
+    iconColor: "text-[#40E0D0]",
     icon: CheckCircle
   },
   em_producao: { 
     label: "Em Produção", 
-    color: "bg-blue-500 text-white dark:bg-blue-600 dark:text-white",
+    iconColor: "text-blue-500",
     icon: BarChart3
   },
   finalizado: { 
     label: "Finalizado", 
-    color: "bg-green-500 text-white dark:bg-green-600 dark:text-white",
+    iconColor: "text-green-500",
     icon: CheckCircle
   },
 };
@@ -954,8 +954,8 @@ export default function Marketing() {
                           <CardTitle className="text-xl" data-testid={`text-campaign-name-${campaign.id}`}>
                             {campaign.campaignName}
                           </CardTitle>
-                          <div className={`flex items-center gap-1 text-sm px-2 py-1 rounded-md ${stageConfig.color}`} data-testid={`badge-stage-${campaign.id}`}>
-                            <StageIcon className="w-3 h-3" />
+                          <div className="flex items-center gap-1 text-sm" data-testid={`badge-stage-${campaign.id}`}>
+                            <StageIcon className={`w-3 h-3 ${stageConfig.iconColor}`} />
                             <span>{stageConfig.label}</span>
                           </div>
                           {campaign.responseCount !== undefined && (
