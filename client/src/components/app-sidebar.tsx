@@ -130,6 +130,17 @@ export function AppSidebar() {
     return `${parts[0]} ${parts[parts.length - 1]}`;
   };
 
+  // Traduzir role para português
+  const getRoleLabel = (role?: string) => {
+    if (!role) return "";
+    switch (role) {
+      case "admin": return "Admin";
+      case "coordenador": return "Coordenador";
+      case "assessor": return "Assessor";
+      default: return role;
+    }
+  };
+
   return (
     <Sidebar>
       <SidebarContent>
@@ -152,7 +163,7 @@ export function AppSidebar() {
                 </span>
                 {user?.party && (
                   <span className="text-[10px] text-muted-foreground" data-testid="text-party-ideology">
-                    {user.party.acronym} | {user.party.ideology}
+                    {user.party.acronym} | {user.party.ideology} | {getRoleLabel(user.role)}
                   </span>
                 )}
               </div>
