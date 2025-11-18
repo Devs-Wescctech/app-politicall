@@ -84,7 +84,7 @@ export function AppSidebar() {
       permissionKey: "ai",
     },
     {
-      title: "Intenção Pública",
+      title: "Pesquisas de Intenção",
       url: "/marketing",
       icon: Megaphone,
       permissionKey: "marketing",
