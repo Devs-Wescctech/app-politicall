@@ -751,6 +751,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         role: z.enum(["admin", "coordenador", "assessor"]).optional(),
         name: z.string().min(2).optional(),
         email: z.string().email().optional(),
+        password: z.string().min(6).optional(),
         permissions: z.object({
           dashboard: z.boolean(),
           contacts: z.boolean(),
@@ -779,7 +780,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      const updated = await storage.updateUser(req.params.id, validatedData);
+      // Hash password if provided
+      const dataToUpdate = { ...validatedData };
+      if (validatedData.password) {
+        dataToUpdate.password = await bcrypt.hash(validatedData.password, 10);
+      }
+      
+      const updated = await storage.updateUser(req.params.id, dataToUpdate);
       // CRITICAL: Never send password hash to client
       const { password, ...sanitizedUser } = updated;
       res.json(sanitizedUser);

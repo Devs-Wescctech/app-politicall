@@ -63,6 +63,12 @@ export default function UsersManagement() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   
+  // Edit dialog password states
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmNewPassword, setConfirmNewPassword] = useState("");
+  const [showEditPassword, setShowEditPassword] = useState(false);
+  const [showEditConfirmPassword, setShowEditConfirmPassword] = useState(false);
+  
   // Permissions state for create dialog
   const [customPermissions, setCustomPermissions] = useState<UserPermissions>(DEFAULT_PERMISSIONS.assessor);
   
@@ -112,8 +118,12 @@ export default function UsersManagement() {
   });
 
   const updateRoleMutation = useMutation({
-    mutationFn: async ({ userId, role, permissions }: { userId: string; role: string; permissions: UserPermissions }) => {
-      return await apiRequest("PATCH", `/api/users/${userId}`, { role, permissions });
+    mutationFn: async ({ userId, role, permissions, password }: { userId: string; role: string; permissions: UserPermissions; password?: string }) => {
+      const updateData: any = { role, permissions };
+      if (password) {
+        updateData.password = password;
+      }
+      return await apiRequest("PATCH", `/api/users/${userId}`, updateData);
     },
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
@@ -130,6 +140,10 @@ export default function UsersManagement() {
       } else {
         setSelectedUser(null);
         setNewRole("");
+        setNewPassword("");
+        setConfirmNewPassword("");
+        setShowEditPassword(false);
+        setShowEditConfirmPassword(false);
         toast({
           title: "Permissão atualizada",
           description: "O nível de acesso do usuário foi atualizado com sucesso.",
@@ -210,7 +224,33 @@ export default function UsersManagement() {
         });
         return;
       }
-      updateRoleMutation.mutate({ userId: selectedUser.id, role: newRole, permissions: editPermissions });
+      
+      // Validate password if provided
+      if (newPassword || confirmNewPassword) {
+        if (newPassword.length < 6) {
+          toast({
+            variant: "destructive",
+            title: "Erro",
+            description: "A nova senha deve ter pelo menos 6 caracteres",
+          });
+          return;
+        }
+        if (newPassword !== confirmNewPassword) {
+          toast({
+            variant: "destructive",
+            title: "Erro",
+            description: "As senhas não coincidem",
+          });
+          return;
+        }
+      }
+      
+      updateRoleMutation.mutate({ 
+        userId: selectedUser.id, 
+        role: newRole, 
+        permissions: editPermissions,
+        password: newPassword || undefined
+      });
     }
   };
 
@@ -320,7 +360,15 @@ export default function UsersManagement() {
       </div>
 
       {/* Edit Role Dialog */}
-      <Dialog open={!!selectedUser} onOpenChange={(open) => !open && setSelectedUser(null)}>
+      <Dialog open={!!selectedUser} onOpenChange={(open) => {
+        if (!open) {
+          setSelectedUser(null);
+          setNewPassword("");
+          setConfirmNewPassword("");
+          setShowEditPassword(false);
+          setShowEditConfirmPassword(false);
+        }
+      }}>
         <DialogContent className="max-w-md max-h-[90vh] flex flex-col p-0" data-testid="dialog-edit-role">
           <DialogHeader className="px-6 pt-6 pb-4 border-b">
             <DialogTitle>Alterar Nível de Acesso</DialogTitle>
@@ -390,13 +438,62 @@ export default function UsersManagement() {
                   </div>
                 </div>
                 
-                <div className="bg-muted/50 p-3 rounded-md text-sm">
-                  <p className="font-medium mb-2">Níveis de Acesso:</p>
-                  <ul className="space-y-1 text-muted-foreground">
-                    <li>• <strong>Adm:</strong> Acesso total ao sistema</li>
-                    <li>• <strong>Coordenador:</strong> Gerencia equipe e operações</li>
-                    <li>• <strong>Assessor:</strong> Acesso básico às funcionalidades</li>
-                  </ul>
+                <div className="space-y-3">
+                  <p className="text-sm font-medium">Alterar Senha (Opcional)</p>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-sm text-muted-foreground mb-1 block">Nova Senha</label>
+                      <div className="relative">
+                        <Input
+                          type={showEditPassword ? "text" : "password"}
+                          placeholder="Deixe em branco para manter a senha atual"
+                          value={newPassword}
+                          onChange={(e) => setNewPassword(e.target.value)}
+                          data-testid="input-edit-password"
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                          onClick={() => setShowEditPassword(!showEditPassword)}
+                          data-testid="button-toggle-edit-password"
+                        >
+                          {showEditPassword ? (
+                            <EyeOff className="h-4 w-4 text-muted-foreground" />
+                          ) : (
+                            <Eye className="h-4 w-4 text-muted-foreground" />
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-sm text-muted-foreground mb-1 block">Confirmar Nova Senha</label>
+                      <div className="relative">
+                        <Input
+                          type={showEditConfirmPassword ? "text" : "password"}
+                          placeholder="Confirme a nova senha"
+                          value={confirmNewPassword}
+                          onChange={(e) => setConfirmNewPassword(e.target.value)}
+                          data-testid="input-edit-confirm-password"
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                          onClick={() => setShowEditConfirmPassword(!showEditConfirmPassword)}
+                          data-testid="button-toggle-edit-confirm-password"
+                        >
+                          {showEditConfirmPassword ? (
+                            <EyeOff className="h-4 w-4 text-muted-foreground" />
+                          ) : (
+                            <Eye className="h-4 w-4 text-muted-foreground" />
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
               <DialogFooter className="px-6 py-4 border-t grid grid-cols-2 gap-2">
