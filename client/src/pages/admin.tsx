@@ -480,11 +480,19 @@ export default function Admin() {
 
       {/* Main Content - Kanban Board */}
       <main className="container mx-auto p-6">
-        <div className="mb-6">
-          <h2 className="text-xl font-semibold mb-2" data-testid="text-kanban-title">Kanban de Estágios</h2>
-          <p className="text-sm text-muted-foreground" data-testid="text-kanban-subtitle">
-            Gerencie as campanhas de pesquisa através dos diferentes estágios
-          </p>
+        <div className="mb-6 flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-xl font-semibold mb-2" data-testid="text-kanban-title">Kanban de Estágios</h2>
+            <p className="text-sm text-muted-foreground" data-testid="text-kanban-subtitle">
+              Gerencie as campanhas de pesquisa através dos diferentes estágios
+            </p>
+          </div>
+          <div className="text-right">
+            <p className="text-xs text-muted-foreground mb-1">Caixa Total</p>
+            <p className="text-2xl font-bold text-[#40E0D0]" data-testid="text-total-revenue">
+              R$ {(approvedCampaigns.length * 1250).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </p>
+          </div>
         </div>
 
         {isLoading && (
