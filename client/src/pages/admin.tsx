@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { CheckCircle2, XCircle, ChevronLeft, ChevronRight, User, Copy, Check } from "lucide-react";
+import { CheckCircle2, XCircle, ChevronLeft, ChevronRight, User, Copy, Check, DollarSign } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -59,6 +59,7 @@ export default function Admin() {
   const [, setLocation] = useLocation();
   const [isVerifying, setIsVerifying] = useState(true);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [paidDialogOpen, setPaidDialogOpen] = useState(false);
   const [selectedCampaign, setSelectedCampaign] = useState<CampaignWithTemplate | null>(null);
   const [rejectNotes, setRejectNotes] = useState("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -237,6 +238,42 @@ export default function Admin() {
     },
   });
 
+  // Delete paid campaign mutation
+  const deletePaidMutation = useMutation({
+    mutationFn: async (campaignId: string) => {
+      const token = localStorage.getItem("admin_token");
+      const response = await fetch(`/api/admin/survey-campaigns/${campaignId}`, {
+        method: "DELETE",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error("Erro ao remover campanha");
+      }
+      
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/survey-campaigns"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/survey-campaigns"] });
+      setPaidDialogOpen(false);
+      setSelectedCampaign(null);
+      toast({
+        title: "Campanha removida",
+        description: "A campanha foi marcada como paga e removida do sistema.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erro ao remover campanha",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleLogout = () => {
     localStorage.removeItem("admin_token");
     setLocation("/login");
@@ -281,6 +318,17 @@ export default function Admin() {
 
   const handleMoveStage = (campaignId: string, newStage: string) => {
     updateStageMutation.mutate({ campaignId, campaignStage: newStage });
+  };
+
+  const handlePaidClick = (campaign: CampaignWithTemplate) => {
+    setSelectedCampaign(campaign);
+    setPaidDialogOpen(true);
+  };
+
+  const handlePaidConfirm = () => {
+    if (selectedCampaign) {
+      deletePaidMutation.mutate(selectedCampaign.id);
+    }
   };
 
   if (isVerifying) {
@@ -428,31 +476,47 @@ export default function Admin() {
           )}
 
           <div className="flex gap-2 pt-1">
-            {currentStageInfo.prev && (
+            {campaign.campaignStage === "finalizado" ? (
               <Button
-                onClick={() => handleMoveStage(campaign.id, currentStageInfo.prev!)}
-                disabled={updateStageMutation.isPending}
+                onClick={() => handlePaidClick(campaign)}
+                disabled={deletePaidMutation.isPending}
                 size="sm"
                 variant="outline"
-                className="flex-1"
-                data-testid={`button-stage-prev-${campaign.id}`}
+                className="w-full border-green-500 text-foreground hover:bg-green-500/10"
+                data-testid={`button-paid-${campaign.id}`}
               >
-                <ChevronLeft className="w-3 h-3 mr-1" />
-                Voltar
+                <DollarSign className="w-3 h-3 mr-1 text-green-500" />
+                Pago
               </Button>
-            )}
-            {currentStageInfo.next && (
-              <Button
-                onClick={() => handleMoveStage(campaign.id, currentStageInfo.next!)}
-                disabled={updateStageMutation.isPending}
-                size="sm"
-                variant="outline"
-                className="flex-1"
-                data-testid={`button-stage-next-${campaign.id}`}
-              >
-                Avançar
-                <ChevronRight className="w-3 h-3 ml-1" />
-              </Button>
+            ) : (
+              <>
+                {currentStageInfo.prev && (
+                  <Button
+                    onClick={() => handleMoveStage(campaign.id, currentStageInfo.prev!)}
+                    disabled={updateStageMutation.isPending}
+                    size="sm"
+                    variant="outline"
+                    className="flex-1"
+                    data-testid={`button-stage-prev-${campaign.id}`}
+                  >
+                    <ChevronLeft className="w-3 h-3 mr-1" />
+                    Voltar
+                  </Button>
+                )}
+                {currentStageInfo.next && (
+                  <Button
+                    onClick={() => handleMoveStage(campaign.id, currentStageInfo.next!)}
+                    disabled={updateStageMutation.isPending}
+                    size="sm"
+                    variant="outline"
+                    className="flex-1"
+                    data-testid={`button-stage-next-${campaign.id}`}
+                  >
+                    Avançar
+                    <ChevronRight className="w-3 h-3 ml-1" />
+                  </Button>
+                )}
+              </>
             )}
           </div>
         </CardContent>
@@ -682,6 +746,57 @@ export default function Admin() {
               data-testid="button-confirm-reject"
             >
               Confirmar Rejeição
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Paid Dialog */}
+      <Dialog open={paidDialogOpen} onOpenChange={setPaidDialogOpen}>
+        <DialogContent data-testid="dialog-paid">
+          <DialogHeader>
+            <DialogTitle data-testid="text-dialog-paid-title">Confirmar Pagamento</DialogTitle>
+            <DialogDescription data-testid="text-dialog-paid-description">
+              {selectedCampaign && (
+                <>
+                  Você está marcando a campanha como paga: <strong>{selectedCampaign.campaignName}</strong>
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-muted-foreground">
+              Ao confirmar, esta campanha será marcada como paga e removida do sistema. 
+              Esta ação não pode ser desfeita.
+            </p>
+            <div className="bg-green-50 dark:bg-green-950/20 p-4 rounded-lg border border-green-200 dark:border-green-800">
+              <p className="text-sm font-medium text-green-700 dark:text-green-300">
+                Valor da campanha: R$ 1.250,00
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setPaidDialogOpen(false);
+                setSelectedCampaign(null);
+              }}
+              className="flex-1"
+              data-testid="button-cancel-paid"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handlePaidConfirm}
+              disabled={deletePaidMutation.isPending}
+              className="flex-1 bg-green-500 hover:bg-green-600 text-white"
+              data-testid="button-confirm-paid"
+            >
+              <DollarSign className="w-4 h-4 mr-2" />
+              Confirmar Pagamento
             </Button>
           </DialogFooter>
         </DialogContent>
