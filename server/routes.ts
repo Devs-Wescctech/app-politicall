@@ -962,6 +962,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Mark payment as paid (admin panel only)
+  app.post("/api/admin/users/:id/payment", authenticateAdminToken, async (req: AuthRequest, res) => {
+    try {
+      const { id } = req.params;
+      
+      // Get current date in DD/MM/YYYY format
+      const now = new Date();
+      const currentDate = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
+      
+      // Update payment status to "pago" and save payment date
+      const updated = await storage.updateUser(id, {
+        paymentStatus: "pago",
+        lastPaymentDate: currentDate,
+      });
+      
+      const { password, ...sanitizedUser } = updated;
+      res.json(sanitizedUser);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
   // ==================== USER MANAGEMENT (Admin Only) ====================
   
   // Get user activity ranking with period filter
