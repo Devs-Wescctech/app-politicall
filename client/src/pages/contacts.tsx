@@ -460,7 +460,7 @@ export default function Contacts() {
             </div>
             <Select value={selectedState} onValueChange={(value) => setSelectedState(value === "all" ? "" : value)}>
               <SelectTrigger className="w-[180px] rounded-full" data-testid="select-state-filter">
-                <SelectValue placeholder="Todos os estados" />
+                <SelectValue placeholder="Estados" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos os estados</SelectItem>
@@ -473,7 +473,7 @@ export default function Contacts() {
             </Select>
             <Select value={selectedCity} onValueChange={(value) => setSelectedCity(value === "all" ? "" : value)}>
               <SelectTrigger className="w-[180px] rounded-full" data-testid="select-city-filter">
-                <SelectValue placeholder="Todas as cidades" />
+                <SelectValue placeholder="Cidades" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todas as cidades</SelectItem>
@@ -486,7 +486,7 @@ export default function Contacts() {
             </Select>
             <Select value={selectedInterest} onValueChange={(value) => setSelectedInterest(value === "all" ? "" : value)}>
               <SelectTrigger className="w-[180px] rounded-full" data-testid="select-interest-filter">
-                <SelectValue placeholder="Todos os interesses" />
+                <SelectValue placeholder="Interesses" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos os interesses</SelectItem>
