@@ -293,10 +293,8 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">{stats?.totalEvents || 0}</div>
-            <div className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-              <Badge variant="outline" className="text-xs">
-                {stats?.upcomingEvents || 0} próximos
-              </Badge>
+            <div className="text-xs text-muted-foreground mt-1">
+              {stats?.upcomingEvents || 0} próximos
             </div>
           </CardContent>
         </Card>
