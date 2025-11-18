@@ -299,7 +299,7 @@ export default function Admin() {
           <div data-testid={`text-slug-${campaign.id}`}>
             <p className="text-sm font-medium text-muted-foreground">URL da Pesquisa</p>
             <p className="text-xs text-[#40E0D0] break-all">
-              https://politicall.com.br/pesquisa/{campaign.slug}
+              https://www.politicall.com.br/pesquisa/{campaign.slug}
             </p>
           </div>
         </div>
