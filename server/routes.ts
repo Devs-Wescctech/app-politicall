@@ -972,7 +972,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       
       // Get current user to check expiry date
-      const user = await storage.getUserById(id);
+      const [user] = await db.select().from(users).where(eq(users.id, id));
       if (!user) {
         return res.status(404).json({ error: "Usuário não encontrado" });
       }
