@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { CheckCircle2, XCircle, ChevronLeft, ChevronRight, User } from "lucide-react";
+import { CheckCircle2, XCircle, ChevronLeft, ChevronRight, User, Copy, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -61,6 +61,7 @@ export default function Admin() {
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [selectedCampaign, setSelectedCampaign] = useState<CampaignWithTemplate | null>(null);
   const [rejectNotes, setRejectNotes] = useState("");
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -241,6 +242,25 @@ export default function Admin() {
     setLocation("/login");
   };
 
+  const handleCopyLink = async (campaign: CampaignWithTemplate) => {
+    const surveyUrl = `${window.location.origin}/survey/${campaign.slug}`;
+    try {
+      await navigator.clipboard.writeText(surveyUrl);
+      setCopiedId(campaign.id);
+      toast({
+        title: "Link copiado!",
+        description: "O link da pesquisa foi copiado para a área de transferência.",
+      });
+      setTimeout(() => setCopiedId(null), 2000);
+    } catch (error) {
+      toast({
+        title: "Erro ao copiar",
+        description: "Não foi possível copiar o link.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleApprove = (campaign: CampaignWithTemplate) => {
     approveMutation.mutate(campaign.id);
   };
@@ -341,11 +361,28 @@ export default function Admin() {
         </CardHeader>
         <CardContent className="space-y-2 p-4">
           <div className="space-y-1.5">
-            <div data-testid={`text-created-${campaign.id}`}>
-              <p className="text-xs font-medium text-muted-foreground">Data de criação</p>
-              <p className="text-xs">
-                {format(new Date(campaign.createdAt), "dd/MM/yyyy", { locale: ptBR })}
-              </p>
+            <div className="flex items-start justify-between gap-2" data-testid={`text-created-${campaign.id}`}>
+              <div className="flex-1">
+                <p className="text-xs font-medium text-muted-foreground">Data de criação</p>
+                <p className="text-xs">
+                  {format(new Date(campaign.createdAt), "dd/MM/yyyy", { locale: ptBR })}
+                </p>
+              </div>
+              {campaign.status === "approved" && (
+                <Button
+                  onClick={() => handleCopyLink(campaign)}
+                  size="sm"
+                  variant="ghost"
+                  className="h-8 w-8 p-0 flex-shrink-0"
+                  data-testid={`button-copy-link-${campaign.id}`}
+                >
+                  {copiedId === campaign.id ? (
+                    <Check className="w-4 h-4 text-[#40E0D0]" />
+                  ) : (
+                    <Copy className="w-4 h-4 text-muted-foreground hover:text-[#40E0D0]" />
+                  )}
+                </Button>
+              )}
             </div>
 
             {campaign.targetAudience && (
