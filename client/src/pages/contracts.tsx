@@ -91,18 +91,9 @@ function calculatePaymentStatus(user: User): "pago" | "atrasado" | null {
   return "pago";
 }
 
-const createUserSchema = z.object({
-  email: z.string().email("Email inválido"),
-  password: z.string().min(6, "Senha deve ter no mínimo 6 caracteres"),
-  name: z.string().min(2, "Nome deve ter no mínimo 2 caracteres"),
-});
-
-type CreateUserForm = z.infer<typeof createUserSchema>;
-
 export default function ContractsPage() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [isVerifying, setIsVerifying] = useState(true);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
@@ -194,70 +185,6 @@ export default function ContractsPage() {
     },
     enabled: !isVerifying,
   });
-
-  // Create user mutation
-  const createUserMutation = useMutation({
-    mutationFn: async (data: CreateUserForm) => {
-      const token = localStorage.getItem("admin_token");
-      const response = await fetch("/api/admin/users/create", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          ...data,
-          role: "admin",
-          permissions: {
-            dashboard: true,
-            contacts: true,
-            alliances: true,
-            demands: true,
-            agenda: true,
-            ai: true,
-            marketing: true,
-            users: true,
-          },
-        }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Erro ao criar usuário");
-      }
-
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
-      toast({
-        title: "Conta criada com sucesso!",
-        description: "O novo usuário admin foi adicionado ao sistema.",
-      });
-      setCreateDialogOpen(false);
-      form.reset();
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Erro ao criar conta",
-        description: error.message || "Não foi possível criar a conta.",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const form = useForm<CreateUserForm>({
-    resolver: zodResolver(createUserSchema),
-    defaultValues: {
-      email: "",
-      password: "",
-      name: "",
-    },
-  });
-
-  const handleCreateUser = (data: CreateUserForm) => {
-    createUserMutation.mutate(data);
-  };
 
   const formatCurrency = (value: string) => {
     // Remove tudo que não é número
@@ -494,7 +421,7 @@ export default function ContractsPage() {
             </p>
           </div>
           <Button
-            onClick={() => setCreateDialogOpen(true)}
+            onClick={() => setLocation("/register")}
             variant="default"
             className="rounded-full"
             data-testid="button-create-account"
@@ -782,101 +709,6 @@ export default function ContractsPage() {
               Confirmar Pagamento
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Create User Dialog */}
-      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-        <DialogContent data-testid="dialog-create-user">
-          <DialogHeader>
-            <DialogTitle data-testid="text-dialog-title">Criar Nova Conta Admin</DialogTitle>
-            <DialogDescription data-testid="text-dialog-description">
-              Preencha os dados abaixo para criar uma nova conta de administrador
-            </DialogDescription>
-          </DialogHeader>
-
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(handleCreateUser)} className="space-y-4 py-4">
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Nome Completo</FormLabel>
-                    <FormControl>
-                      <Input
-                        {...field}
-                        placeholder="Digite o nome completo"
-                        data-testid="input-name"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl>
-                      <Input
-                        {...field}
-                        type="email"
-                        placeholder="email@exemplo.com"
-                        data-testid="input-email"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Senha</FormLabel>
-                    <FormControl>
-                      <Input
-                        {...field}
-                        type="password"
-                        placeholder="Mínimo 6 caracteres"
-                        data-testid="input-password"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <DialogFooter className="flex gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    setCreateDialogOpen(false);
-                    form.reset();
-                  }}
-                  className="flex-1"
-                  data-testid="button-cancel"
-                >
-                  Cancelar
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={createUserMutation.isPending}
-                  className="flex-1"
-                  data-testid="button-submit"
-                >
-                  {createUserMutation.isPending ? "Criando..." : "Criar Conta"}
-                </Button>
-              </DialogFooter>
-            </form>
-          </Form>
         </DialogContent>
       </Dialog>
 
