@@ -145,7 +145,7 @@ export function AppSidebar() {
     <Sidebar>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel className="mt-2 mb-4 px-2 flex items-center gap-3">
+          <SidebarGroupLabel className="sticky top-0 z-50 bg-sidebar mt-2 mb-4 px-2 pb-4 flex items-center gap-3 shadow-sm border-b">
             {user?.avatar ? (
               <img 
                 src={user.avatar} 
