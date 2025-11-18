@@ -6,7 +6,7 @@ import jwt from "jsonwebtoken";
 import { insertUserSchema, loginSchema, insertContactSchema, insertPoliticalAllianceSchema, insertDemandSchema, insertDemandCommentSchema, insertEventSchema, insertAiConfigurationSchema, insertAiTrainingExampleSchema, insertAiResponseTemplateSchema, insertMarketingCampaignSchema, insertNotificationSchema, insertIntegrationSchema, insertSurveyCampaignSchema, insertSurveyLandingPageSchema, insertSurveyResponseSchema, insertLeadSchema, DEFAULT_PERMISSIONS } from "@shared/schema";
 import { db } from "./db";
 import { politicalParties, politicalAlliances, surveyTemplates, surveyCampaigns, surveyLandingPages, surveyResponses, users, type SurveyTemplate, type SurveyCampaign, type InsertSurveyCampaign, type SurveyLandingPage, type InsertSurveyLandingPage, type SurveyResponse, type InsertSurveyResponse } from "@shared/schema";
-import { sql, eq, desc } from "drizzle-orm";
+import { sql, eq, desc, and } from "drizzle-orm";
 import { generateAiResponse, testOpenAiApiKey } from "./openai";
 import { requireRole } from "./authorization";
 import { authenticateToken, requirePermission, type AuthRequest } from "./auth";
@@ -1998,13 +1998,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Esta pesquisa não está mais aceitando respostas" });
       }
 
-      // Validate response data (without campaignId which will be added server-side)
-      const validatedData = insertSurveyResponseSchema.omit({ campaignId: true }).parse(req.body);
+      // Get IP address from request (handles proxies)
+      const ipAddress = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || 
+                        req.ip || 
+                        req.socket.remoteAddress || 
+                        'unknown';
 
-      // Create the response with campaignId
+      // Check if this IP has already responded to this campaign
+      const existingResponse = await db.select()
+        .from(surveyResponses)
+        .where(and(
+          eq(surveyResponses.campaignId, campaign.id),
+          eq(surveyResponses.respondentIp, ipAddress)
+        ))
+        .limit(1);
+
+      if (existingResponse.length > 0) {
+        return res.status(400).json({ 
+          error: "Você já respondeu esta pesquisa",
+          message: "Cada pessoa pode responder apenas uma vez por pesquisa." 
+        });
+      }
+
+      // Validate response data (without campaignId and respondentIp which will be added server-side)
+      const validatedData = insertSurveyResponseSchema.omit({ campaignId: true, respondentIp: true }).parse(req.body);
+
+      // Create the response with campaignId and IP address
       const response = await storage.createSurveyResponse({
         ...validatedData,
         campaignId: campaign.id,
+        respondentIp: ipAddress,
       });
       
       res.json({ 
