@@ -291,7 +291,7 @@ export default function Admin() {
 
   const renderCampaignCard = (campaign: CampaignWithTemplate) => {
     const stageMap = {
-      "aguardando": { prev: null, next: "aprovado" },
+      "aguardando": { prev: null, next: null }, // No advance button in Aguardando - approval moves automatically
       "aprovado": { prev: "aguardando", next: "em_producao" },
       "em_producao": { prev: "aprovado", next: "finalizado" },
       "finalizado": { prev: "em_producao", next: null }

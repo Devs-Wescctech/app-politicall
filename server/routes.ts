@@ -657,7 +657,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Campanha não encontrada" });
       }
       
-      const updated = await storage.updateSurveyCampaign(id, { status: "approved" });
+      // When approving, automatically move to "aprovado" stage in kanban
+      const updated = await storage.updateSurveyCampaign(id, { 
+        status: "approved",
+        campaignStage: "aprovado"
+      });
       
       // Create notification for the user
       await storage.createNotification({
