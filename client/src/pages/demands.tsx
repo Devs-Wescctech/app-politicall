@@ -448,28 +448,6 @@ export default function Demands() {
                     </FormItem>
                   )}
                 />
-                <FormField
-                  control={form.control}
-                  name="collaborators"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Colaboradores Envolvidos (Opcional)</FormLabel>
-                      <FormControl>
-                        <Input 
-                          placeholder="Digite os nomes separados por vírgula" 
-                          data-testid="input-collaborators"
-                          value={field.value?.join(", ") || ""}
-                          onChange={(e) => {
-                            const value = e.target.value;
-                            const collaborators = value.split(",").map(c => c.trim()).filter(c => c.length > 0);
-                            field.onChange(collaborators);
-                          }}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
                 </div>
                 <DialogFooter className="px-6 py-4 border-t grid grid-cols-1 gap-2">
                   <Button type="submit" disabled={createMutation.isPending} data-testid="button-save-demand" className="rounded-full w-full">
