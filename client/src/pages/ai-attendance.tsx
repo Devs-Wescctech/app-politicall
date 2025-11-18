@@ -409,7 +409,7 @@ export default function AiAttendance() {
                       </div>
                     </CardHeader>
                     <CardContent>
-                      <h3 className="font-semibold mb-2">{platform.name}</h3>
+                      <h3 className="text-sm font-semibold mb-2 text-center">{platform.name}</h3>
                       <Button
                         onClick={() => setSelectedPlatform(platform.id)}
                         size="sm"
