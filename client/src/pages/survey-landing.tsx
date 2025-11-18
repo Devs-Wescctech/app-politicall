@@ -157,7 +157,7 @@ export default function SurveyLanding() {
 
   useEffect(() => {
     if (surveyData) {
-      const cleanName = surveyData.campaign.campaignName.replace(/^Pesquisa:\s*/i, '');
+      const cleanName = surveyData.campaign.campaignName.replace(/\s*\(Neutra\)\s*/gi, '');
       document.title = `${cleanName} | Politicall`;
       const metaDescription = document.querySelector('meta[name="description"]');
       if (metaDescription) {
@@ -259,7 +259,7 @@ export default function SurveyLanding() {
             data-testid="img-logo"
           />
           <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-2" data-testid="text-campaign-name">
-            {surveyData.campaign.campaignName.replace(/^Pesquisa:\s*/i, '')}
+            {surveyData.campaign.campaignName.replace(/\s*\(Neutra\)\s*/gi, '')}
           </h1>
           <p className="text-sm text-muted-foreground">
             Pesquisa de opinião pública
