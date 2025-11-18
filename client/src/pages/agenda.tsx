@@ -610,11 +610,8 @@ export default function Agenda() {
                               <h4 className="font-semibold">{event.title}</h4>
                               {event.category && (
                                 <Badge 
+                                  variant="ghost"
                                   style={{ 
-                                    backgroundColor: (event.borderColor || CATEGORY_CONFIG[event.category as keyof typeof CATEGORY_CONFIG]?.borderColor || "#3b82f6") + "20",
-                                    borderColor: event.borderColor || CATEGORY_CONFIG[event.category as keyof typeof CATEGORY_CONFIG]?.borderColor || "#3b82f6",
-                                    borderWidth: "1px",
-                                    borderStyle: "solid",
                                     color: event.borderColor || CATEGORY_CONFIG[event.category as keyof typeof CATEGORY_CONFIG]?.borderColor || "#3b82f6"
                                   }}
                                 >
@@ -741,11 +738,8 @@ export default function Agenda() {
                             <h4 className="font-semibold">{event.title}</h4>
                             {event.category && (
                               <Badge 
+                                variant="ghost"
                                 style={{ 
-                                  backgroundColor: (event.borderColor || CATEGORY_CONFIG[event.category as keyof typeof CATEGORY_CONFIG]?.borderColor || "#3b82f6") + "20",
-                                  borderColor: event.borderColor || CATEGORY_CONFIG[event.category as keyof typeof CATEGORY_CONFIG]?.borderColor || "#3b82f6",
-                                  borderWidth: "1px",
-                                  borderStyle: "solid",
                                   color: event.borderColor || CATEGORY_CONFIG[event.category as keyof typeof CATEGORY_CONFIG]?.borderColor || "#3b82f6"
                                 }}
                               >
