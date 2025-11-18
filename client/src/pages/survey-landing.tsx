@@ -291,7 +291,7 @@ export default function SurveyLanding() {
     <div 
       className="min-h-screen relative"
       style={{
-        backgroundImage: 'url(/attached_assets/242%20(1)_1763481516412.jpg)',
+        backgroundImage: 'url(/assets/brazil-flag.jpg)',
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundAttachment: 'fixed'
