@@ -14,6 +14,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Form,
   FormControl,
   FormField,
@@ -27,7 +33,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { UserPlus, ArrowLeft, Mail, Lock, User as UserIcon } from "lucide-react";
+import { UserPlus, ArrowLeft, Mail, Lock, User as UserIcon, MoreVertical } from "lucide-react";
 import logoUrl from "@assets/logo pol_1763308638963.png";
 
 // User type from backend
@@ -54,6 +60,9 @@ export default function ContractsPage() {
   const { toast } = useToast();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [isVerifying, setIsVerifying] = useState(true);
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [userStatuses, setUserStatuses] = useState<Record<string, "pago" | "atrasado">>({});
 
   // Verify admin token on mount
   useEffect(() => {
@@ -177,6 +186,29 @@ export default function ContractsPage() {
     createUserMutation.mutate(data);
   };
 
+  const handlePaymentClick = (user: User) => {
+    const status = userStatuses[user.id] || "pago";
+    if (status === "atrasado") {
+      setSelectedUser(user);
+      setPaymentDialogOpen(true);
+    }
+  };
+
+  const handlePaymentConfirm = () => {
+    if (selectedUser) {
+      setUserStatuses(prev => ({
+        ...prev,
+        [selectedUser.id]: "pago"
+      }));
+      toast({
+        title: "Pagamento confirmado!",
+        description: `O status de ${selectedUser.name} foi atualizado para Pago.`,
+      });
+      setPaymentDialogOpen(false);
+      setSelectedUser(null);
+    }
+  };
+
   const handleLogout = () => {
     localStorage.removeItem("admin_token");
     setLocation("/admin-login");
@@ -273,18 +305,55 @@ export default function ContractsPage() {
                 </p>
               </Card>
             ) : (
-              adminUsers.map((user) => (
-                <Card key={user.id} data-testid={`user-card-${user.id}`}>
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <CardTitle className="text-base font-semibold" data-testid={`user-name-${user.id}`}>
-                        {user.name}
-                      </CardTitle>
-                      <Badge variant="default" className="bg-green-500 text-white" data-testid={`user-badge-${user.id}`}>
-                        Pago
-                      </Badge>
-                    </div>
-                  </CardHeader>
+              adminUsers.map((user) => {
+                const status = userStatuses[user.id] || "pago";
+                const isPaid = status === "pago";
+                
+                return (
+                  <Card key={user.id} data-testid={`user-card-${user.id}`}>
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <CardTitle className="text-base font-semibold" data-testid={`user-name-${user.id}`}>
+                          {user.name}
+                        </CardTitle>
+                        <div className="flex items-center gap-2">
+                          <Badge 
+                            variant="default" 
+                            className={isPaid ? "bg-green-500 text-white" : "bg-red-500 text-white"} 
+                            data-testid={`user-badge-${user.id}`}
+                          >
+                            {isPaid ? "Pago" : "Atrasado"}
+                          </Badge>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8" data-testid={`button-menu-${user.id}`}>
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem
+                                onClick={() => setUserStatuses(prev => ({
+                                  ...prev,
+                                  [user.id]: "atrasado"
+                                }))}
+                                data-testid={`menu-set-delayed-${user.id}`}
+                              >
+                                Marcar como Atrasado
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => setUserStatuses(prev => ({
+                                  ...prev,
+                                  [user.id]: "pago"
+                                }))}
+                                data-testid={`menu-set-paid-${user.id}`}
+                              >
+                                Marcar como Pago
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </div>
+                    </CardHeader>
                   <CardContent className="space-y-2">
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-muted-foreground">Valor do plano</span>
@@ -298,16 +367,77 @@ export default function ContractsPage() {
                         00/00/0000
                       </span>
                     </div>
-                    <div className="text-xs text-muted-foreground pt-2">
-                      Criado em: {new Date(user.createdAt).toLocaleDateString('pt-BR')}
+                    <div className="flex items-center justify-between pt-3 gap-2">
+                      <div className="text-xs text-muted-foreground">
+                        Criado em: {new Date(user.createdAt).toLocaleDateString('pt-BR')}
+                      </div>
+                      <Button
+                        onClick={() => handlePaymentClick(user)}
+                        disabled={isPaid}
+                        variant={isPaid ? "outline" : "default"}
+                        size="sm"
+                        className={isPaid ? "border-green-500 text-green-500" : "bg-green-500 hover:bg-green-600 text-white"}
+                        data-testid={`button-pay-${user.id}`}
+                      >
+                        Pagar
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>
-              ))
+                );
+              })
             )}
           </div>
         )}
       </main>
+
+      {/* Payment Confirmation Dialog */}
+      <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
+        <DialogContent data-testid="dialog-payment">
+          <DialogHeader>
+            <DialogTitle data-testid="text-dialog-payment-title">Confirmar Pagamento</DialogTitle>
+            <DialogDescription data-testid="text-dialog-payment-description">
+              {selectedUser && (
+                <>
+                  Você está confirmando o pagamento para: <strong>{selectedUser.name}</strong>
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-muted-foreground">
+              Ao confirmar, o status do usuário será atualizado para "Pago".
+            </p>
+            <div className="bg-green-50 dark:bg-green-950/20 p-4 rounded-lg border border-green-200 dark:border-green-800">
+              <p className="text-sm font-medium text-green-700 dark:text-green-300">
+                Valor do plano: R$ 0.000,00
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setPaymentDialogOpen(false);
+                setSelectedUser(null);
+              }}
+              className="flex-1"
+              data-testid="button-cancel-payment"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handlePaymentConfirm}
+              className="flex-1 bg-green-500 hover:bg-green-600 text-white"
+              data-testid="button-confirm-payment"
+            >
+              Confirmar Pagamento
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Create User Dialog */}
       <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
