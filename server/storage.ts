@@ -19,7 +19,7 @@ import {
   type Lead, type InsertLead
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, count } from "drizzle-orm";
+import { eq, desc, and, count, inArray } from "drizzle-orm";
 import { encryptApiKey, decryptApiKey } from "./crypto";
 
 export interface IStorage {
@@ -138,6 +138,8 @@ export interface IStorage {
   // Leads
   createLead(lead: InsertLead): Promise<Lead>;
   getLeads(): Promise<Lead[]>;
+  deleteLead(id: string): Promise<void>;
+  deleteLeads(ids: string[]): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -797,6 +799,15 @@ export class DatabaseStorage implements IStorage {
     return await db.select()
       .from(leads)
       .orderBy(desc(leads.createdAt));
+  }
+
+  async deleteLead(id: string): Promise<void> {
+    await db.delete(leads).where(eq(leads.id, id));
+  }
+
+  async deleteLeads(ids: string[]): Promise<void> {
+    if (ids.length === 0) return;
+    await db.delete(leads).where(inArray(leads.id, ids));
   }
 }
 

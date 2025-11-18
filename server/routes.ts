@@ -2747,6 +2747,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Delete single lead (admin only)
+  app.delete("/api/leads/:id", authenticateAdminToken, async (req: AuthRequest, res) => {
+    try {
+      await storage.deleteLead(req.params.id);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Delete multiple leads (admin only)
+  app.post("/api/leads/delete-multiple", authenticateAdminToken, async (req: AuthRequest, res) => {
+    try {
+      const { ids } = req.body;
+      if (!Array.isArray(ids)) {
+        return res.status(400).json({ error: "IDs devem ser um array" });
+      }
+      await storage.deleteLeads(ids);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // ==================== DASHBOARD STATS ====================
   
   app.get("/api/dashboard/stats", authenticateToken, async (req: AuthRequest, res) => {
