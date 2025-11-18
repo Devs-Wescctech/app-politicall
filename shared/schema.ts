@@ -423,6 +423,7 @@ export const surveyCampaigns = pgTable("survey_campaigns", {
   campaignName: text("campaign_name").notNull(),
   slug: text("slug").notNull().unique(), // URL slug for landing page
   status: text("status").notNull().default("under_review"), // under_review, approved, rejected, active, paused, completed
+  campaignStage: text("campaign_stage").notNull().default("aguardando"), // aguardando, aprovado, em_producao, finalizado
   adminReviewerId: varchar("admin_reviewer_id").references(() => users.id),
   adminNotes: text("admin_notes"),
   startDate: timestamp("start_date"),
