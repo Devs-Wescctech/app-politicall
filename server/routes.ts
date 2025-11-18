@@ -744,46 +744,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get activity count for each user with date filter
       const usersWithActivityCount = await Promise.all(
         allUsers.map(async (user) => {
-          let eventsQuery = db.select({ count: sql<number>`count(*)::int` })
+          // Build WHERE conditions for each query
+          const eventsWhere = startDate 
+            ? and(eq(events.userId, user.id), sql`${events.createdAt} >= ${startDate}`)
+            : eq(events.userId, user.id);
+          
+          const demandsWhere = startDate
+            ? and(eq(demands.userId, user.id), sql`${demands.createdAt} >= ${startDate}`)
+            : eq(demands.userId, user.id);
+          
+          const commentsWhere = startDate
+            ? and(eq(demandComments.userId, user.id), sql`${demandComments.createdAt} >= ${startDate}`)
+            : eq(demandComments.userId, user.id);
+          
+          const contactsWhere = startDate
+            ? and(eq(contacts.userId, user.id), sql`${contacts.createdAt} >= ${startDate}`)
+            : eq(contacts.userId, user.id);
+          
+          const alliancesWhere = startDate
+            ? and(eq(politicalAlliances.userId, user.id), sql`${politicalAlliances.createdAt} >= ${startDate}`)
+            : eq(politicalAlliances.userId, user.id);
+          
+          const campaignsWhere = startDate
+            ? and(eq(surveyCampaigns.userId, user.id), sql`${surveyCampaigns.createdAt} >= ${startDate}`)
+            : eq(surveyCampaigns.userId, user.id);
+          
+          // Execute queries with proper WHERE conditions
+          const [eventsCount] = await db.select({ count: sql<number>`count(*)::int` })
             .from(events)
-            .where(eq(events.userId, user.id));
+            .where(eventsWhere);
           
-          let demandsQuery = db.select({ count: sql<number>`count(*)::int` })
+          const [demandsCount] = await db.select({ count: sql<number>`count(*)::int` })
             .from(demands)
-            .where(eq(demands.userId, user.id));
+            .where(demandsWhere);
           
-          let commentsQuery = db.select({ count: sql<number>`count(*)::int` })
+          const [commentsCount] = await db.select({ count: sql<number>`count(*)::int` })
             .from(demandComments)
-            .where(eq(demandComments.userId, user.id));
+            .where(commentsWhere);
           
-          let contactsQuery = db.select({ count: sql<number>`count(*)::int` })
+          const [contactsCount] = await db.select({ count: sql<number>`count(*)::int` })
             .from(contacts)
-            .where(eq(contacts.userId, user.id));
+            .where(contactsWhere);
           
-          let alliancesQuery = db.select({ count: sql<number>`count(*)::int` })
+          const [alliancesCount] = await db.select({ count: sql<number>`count(*)::int` })
             .from(politicalAlliances)
-            .where(eq(politicalAlliances.userId, user.id));
+            .where(alliancesWhere);
           
-          let campaignsQuery = db.select({ count: sql<number>`count(*)::int` })
+          const [campaignsCount] = await db.select({ count: sql<number>`count(*)::int` })
             .from(surveyCampaigns)
-            .where(eq(surveyCampaigns.userId, user.id));
-          
-          // Apply date filter if not 'all'
-          if (startDate) {
-            eventsQuery = eventsQuery.where(sql`${events.createdAt} >= ${startDate}`);
-            demandsQuery = demandsQuery.where(sql`${demands.createdAt} >= ${startDate}`);
-            commentsQuery = commentsQuery.where(sql`${demandComments.createdAt} >= ${startDate}`);
-            contactsQuery = contactsQuery.where(sql`${contacts.createdAt} >= ${startDate}`);
-            alliancesQuery = alliancesQuery.where(sql`${politicalAlliances.createdAt} >= ${startDate}`);
-            campaignsQuery = campaignsQuery.where(sql`${surveyCampaigns.createdAt} >= ${startDate}`);
-          }
-          
-          const [eventsCount] = await eventsQuery;
-          const [demandsCount] = await demandsQuery;
-          const [commentsCount] = await commentsQuery;
-          const [contactsCount] = await contactsQuery;
-          const [alliancesCount] = await alliancesQuery;
-          const [campaignsCount] = await campaignsQuery;
+            .where(campaignsWhere);
           
           const totalActivities = 
             (eventsCount?.count || 0) +
