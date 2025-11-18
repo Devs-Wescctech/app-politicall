@@ -443,11 +443,11 @@ export default function UsersManagement() {
               <CardTitle>Ranking de Atividades</CardTitle>
             </div>
             <Tabs value={rankingPeriod} onValueChange={setRankingPeriod}>
-              <TabsList>
-                <TabsTrigger value="today" data-testid="filter-today">Hoje</TabsTrigger>
-                <TabsTrigger value="week" data-testid="filter-week">Semana</TabsTrigger>
-                <TabsTrigger value="month" data-testid="filter-month">Mês</TabsTrigger>
-                <TabsTrigger value="all" data-testid="filter-all">Todo Período</TabsTrigger>
+              <TabsList className="rounded-full">
+                <TabsTrigger value="today" data-testid="filter-today" className="rounded-full">Hoje</TabsTrigger>
+                <TabsTrigger value="week" data-testid="filter-week" className="rounded-full">Semana</TabsTrigger>
+                <TabsTrigger value="month" data-testid="filter-month" className="rounded-full">Mês</TabsTrigger>
+                <TabsTrigger value="all" data-testid="filter-all" className="rounded-full">Todo Período</TabsTrigger>
               </TabsList>
             </Tabs>
           </div>
