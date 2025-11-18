@@ -7,6 +7,7 @@ import {
   Bot, 
   Megaphone,
   BarChart3,
+  TrendingUp,
   Settings,
   LogOut,
   Shield
@@ -89,6 +90,12 @@ export function AppSidebar() {
       url: "/marketing",
       icon: Megaphone,
       permissionKey: "marketing",
+    },
+    {
+      title: "Estatísticas",
+      url: "/statistics",
+      icon: TrendingUp,
+      permissionKey: "statistics",
     },
     {
       title: "Usuários",

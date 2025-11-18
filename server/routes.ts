@@ -3,9 +3,9 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import { insertUserSchema, loginSchema, insertContactSchema, insertPoliticalAllianceSchema, insertDemandSchema, insertDemandCommentSchema, insertEventSchema, insertAiConfigurationSchema, insertAiTrainingExampleSchema, insertAiResponseTemplateSchema, insertMarketingCampaignSchema, insertNotificationSchema, insertIntegrationSchema, insertSurveyCampaignSchema, insertSurveyLandingPageSchema, insertSurveyResponseSchema, insertLeadSchema, DEFAULT_PERMISSIONS } from "@shared/schema";
+import { insertUserSchema, loginSchema, insertContactSchema, insertPoliticalAllianceSchema, insertDemandSchema, insertDemandCommentSchema, insertEventSchema, insertAiConfigurationSchema, insertAiTrainingExampleSchema, insertAiResponseTemplateSchema, insertMarketingCampaignSchema, insertNotificationSchema, insertIntegrationSchema, insertSurveyCampaignSchema, insertSurveyLandingPageSchema, insertSurveyResponseSchema, insertLeadSchema, insertCandidateProfileSchema, DEFAULT_PERMISSIONS } from "@shared/schema";
 import { db } from "./db";
-import { politicalParties, politicalAlliances, surveyTemplates, surveyCampaigns, surveyLandingPages, surveyResponses, users, type SurveyTemplate, type SurveyCampaign, type InsertSurveyCampaign, type SurveyLandingPage, type InsertSurveyLandingPage, type SurveyResponse, type InsertSurveyResponse } from "@shared/schema";
+import { politicalParties, politicalAlliances, surveyTemplates, surveyCampaigns, surveyLandingPages, surveyResponses, users, candidateProfiles, type SurveyTemplate, type SurveyCampaign, type InsertSurveyCampaign, type SurveyLandingPage, type InsertSurveyLandingPage, type SurveyResponse, type InsertSurveyResponse, type CandidateProfile } from "@shared/schema";
 import { sql, eq, desc, and } from "drizzle-orm";
 import { generateAiResponse, testOpenAiApiKey } from "./openai";
 import { requireRole } from "./authorization";
@@ -2300,6 +2300,86 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(leads);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ==================== STATISTICS / CANDIDATE PROFILE ====================
+  
+  // Get candidate profile
+  app.get("/api/statistics/profile", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const [profile] = await db
+        .select()
+        .from(candidateProfiles)
+        .where(eq(candidateProfiles.userId, req.userId!))
+        .limit(1);
+      
+      // Return null if no profile exists (not a 404 error)
+      res.json(profile || null);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Create candidate profile
+  app.post("/api/statistics/profile", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const validatedData = insertCandidateProfileSchema.parse(req.body);
+      
+      // Check if profile already exists
+      const [existing] = await db
+        .select()
+        .from(candidateProfiles)
+        .where(eq(candidateProfiles.userId, req.userId!))
+        .limit(1);
+      
+      if (existing) {
+        return res.status(400).json({ error: "Perfil já existe. Use PUT para atualizar." });
+      }
+      
+      const [profile] = await db
+        .insert(candidateProfiles)
+        .values({
+          ...validatedData,
+          userId: req.userId!,
+        })
+        .returning();
+      
+      res.status(201).json(profile);
+    } catch (error: any) {
+      if (error.name === 'ZodError') {
+        res.status(400).json({ error: "Dados inválidos", details: error.errors });
+      } else {
+        res.status(500).json({ error: error.message });
+      }
+    }
+  });
+
+  // Update candidate profile
+  app.put("/api/statistics/profile", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const validatedData = insertCandidateProfileSchema.parse(req.body);
+      
+      const [profile] = await db
+        .update(candidateProfiles)
+        .set({
+          ...validatedData,
+          updatedAt: new Date(),
+        })
+        .where(eq(candidateProfiles.userId, req.userId!))
+        .returning();
+      
+      if (!profile) {
+        return res.status(404).json({ error: "Perfil não encontrado" });
+      }
+      
+      res.json(profile);
+    } catch (error: any) {
+      if (error.name === 'ZodError') {
+        res.status(400).json({ error: "Dados inválidos", details: error.errors });
+      } else {
+        res.status(500).json({ error: error.message });
+      }
     }
   });
 

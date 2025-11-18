@@ -13,6 +13,7 @@ export type UserPermissions = {
   agenda: boolean;
   ai: boolean;
   marketing: boolean;
+  statistics: boolean;
   users: boolean;
 };
 
@@ -26,6 +27,7 @@ export const DEFAULT_PERMISSIONS = {
     agenda: true,
     ai: true,
     marketing: true,
+    statistics: true,
     users: true
   },
   coordenador: {
@@ -36,6 +38,7 @@ export const DEFAULT_PERMISSIONS = {
     agenda: true,
     ai: true,
     marketing: true,
+    statistics: true,
     users: false
   },
   assessor: {
@@ -46,6 +49,7 @@ export const DEFAULT_PERMISSIONS = {
     agenda: true,
     ai: false,
     marketing: false,
+    statistics: false,
     users: false
   }
 } as const;
@@ -784,3 +788,118 @@ export type InsertSurveyResponse = z.infer<typeof insertSurveyResponseSchema>;
 
 export type Lead = typeof leads.$inferSelect;
 export type InsertLead = z.infer<typeof insertLeadSchema>;
+
+// Candidate Profiles - Detailed profile for statistical analysis
+export const candidateProfiles = pgTable("candidate_profiles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  
+  // Basic Information
+  fullName: text("full_name").notNull(),
+  politicalPartyId: varchar("political_party_id").references(() => politicalParties.id),
+  targetPosition: text("target_position").notNull(), // Cargo que pretende concorrer
+  targetState: text("target_state").notNull(),
+  targetCity: text("target_city"),
+  electionYear: integer("election_year").notNull(),
+  
+  // Political Profile
+  ideology: text("ideology"), // Esquerda, Centro-Esquerda, Centro, Centro-Direita, Direita
+  mainValues: text("main_values").array(), // Valores principais
+  keyProposals: text("key_proposals").array(), // Principais propostas
+  politicalAlliances: text("political_alliances").array(), // Alianças e coligações
+  
+  // Campaign Information
+  campaignBudget: numeric("campaign_budget"),
+  mainIssues: text("main_issues").array(), // Temas prioritários da campanha
+  targetVoterProfile: text("target_voter_profile"), // Perfil do eleitor-alvo
+  strengths: text("strengths").array(), // Pontos fortes
+  weaknesses: text("weaknesses").array(), // Pontos fracos
+  
+  // Additional Context
+  previousExperience: text("previous_experience"), // Experiência política anterior
+  achievements: text("achievements").array(), // Realizações
+  publicRecognition: text("public_recognition"), // Reconhecimento público
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Statistics Analyses - AI-generated comparative analyses
+export const statisticsAnalyses = pgTable("statistics_analyses", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  profileId: varchar("profile_id").notNull().references(() => candidateProfiles.id, { onDelete: "cascade" }),
+  
+  // Analysis Metadata
+  analysisDate: timestamp("analysis_date").defaultNow().notNull(),
+  targetPosition: text("target_position").notNull(),
+  targetLocation: text("target_location").notNull(),
+  electionYear: integer("election_year").notNull(),
+  
+  // Reference Data (Elected candidates used for comparison)
+  referenceCandidates: jsonb("reference_candidates").$type<Array<{
+    name: string;
+    party: string;
+    year: number;
+    votes: number;
+    percentage: number;
+    ideology: string;
+    mainProposals: string[];
+    alliances: string[];
+    voterProfile: string;
+  }>>(),
+  
+  // AI Analysis Results
+  ideologyComparison: text("ideology_comparison"),
+  valuesAnalysis: text("values_analysis"),
+  proposalsComparison: text("proposals_comparison"),
+  alliancesAnalysis: text("alliances_analysis"),
+  voterProfileAnalysis: text("voter_profile_analysis"),
+  
+  // Strategic Recommendations
+  strategicRecommendations: jsonb("strategic_recommendations").$type<Array<{
+    category: string;
+    priority: "high" | "medium" | "low";
+    recommendation: string;
+    reasoning: string;
+    expectedImpact: string;
+  }>>(),
+  
+  // Overall Summary
+  overallSummary: text("overall_summary"),
+  winProbability: text("win_probability"),
+  keyInsights: text("key_insights").array(),
+  
+  // Data Sources
+  dataSources: text("data_sources").array(),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Insert schemas
+export const insertCandidateProfileSchema = createInsertSchema(candidateProfiles, {
+  fullName: z.string().min(3, "Nome completo é obrigatório"),
+  targetPosition: z.string().min(1, "Cargo pretendido é obrigatório"),
+  targetState: z.string().min(2, "Estado é obrigatório"),
+  electionYear: z.number().min(2024).max(2050, "Ano da eleição inválido"),
+  campaignBudget: z.union([z.number(), z.null(), z.undefined()]).optional(),
+  mainValues: z.array(z.string()).optional(),
+  keyProposals: z.array(z.string()).optional(),
+  politicalAlliances: z.array(z.string()).optional(),
+  mainIssues: z.array(z.string()).optional(),
+  strengths: z.array(z.string()).optional(),
+  weaknesses: z.array(z.string()).optional(),
+  achievements: z.array(z.string()).optional(),
+}).omit({ id: true, createdAt: true, updatedAt: true });
+
+export const insertStatisticsAnalysisSchema = createInsertSchema(statisticsAnalyses).omit({ 
+  id: true, 
+  createdAt: true 
+});
+
+// TypeScript types
+export type CandidateProfile = typeof candidateProfiles.$inferSelect;
+export type InsertCandidateProfile = z.infer<typeof insertCandidateProfileSchema>;
+
+export type StatisticsAnalysis = typeof statisticsAnalyses.$inferSelect;
+export type InsertStatisticsAnalysis = z.infer<typeof insertStatisticsAnalysisSchema>;
