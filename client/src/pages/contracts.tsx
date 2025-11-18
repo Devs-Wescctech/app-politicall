@@ -286,11 +286,7 @@ export default function ContractsPage() {
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-2">
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Mail className="w-4 h-4" />
-                      <span data-testid={`user-email-${user.id}`}>{user.email}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm pt-2">
+                    <div className="flex items-center justify-between text-sm">
                       <span className="text-muted-foreground">Valor do plano</span>
                       <span className="font-semibold" data-testid={`user-plan-value-${user.id}`}>
                         R$ 0.000,00
