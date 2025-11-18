@@ -339,9 +339,14 @@ export default function UsersManagement() {
                       </Button>
                     )}
                   </div>
-                  <div className="text-xs text-muted-foreground">
-                    <span className="hidden sm:inline">Cadastrado em </span>
-                    {new Date(user.createdAt).toLocaleDateString("pt-BR")}
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>
+                      <span className="hidden sm:inline">Cadastrado em </span>
+                      {new Date(user.createdAt).toLocaleDateString("pt-BR")}
+                    </span>
+                    <span className="font-medium">
+                      Atividades: {(user as any).activityCount || 0}
+                    </span>
                   </div>
                 </CardContent>
               </Card>

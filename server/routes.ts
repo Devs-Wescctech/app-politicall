@@ -5,7 +5,7 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { insertUserSchema, loginSchema, insertContactSchema, insertPoliticalAllianceSchema, insertDemandSchema, insertDemandCommentSchema, insertEventSchema, insertAiConfigurationSchema, insertAiTrainingExampleSchema, insertAiResponseTemplateSchema, insertMarketingCampaignSchema, insertNotificationSchema, insertIntegrationSchema, insertSurveyCampaignSchema, insertSurveyLandingPageSchema, insertSurveyResponseSchema, insertLeadSchema, DEFAULT_PERMISSIONS } from "@shared/schema";
 import { db } from "./db";
-import { politicalParties, politicalAlliances, surveyTemplates, surveyCampaigns, surveyLandingPages, surveyResponses, users, type SurveyTemplate, type SurveyCampaign, type InsertSurveyCampaign, type SurveyLandingPage, type InsertSurveyLandingPage, type SurveyResponse, type InsertSurveyResponse } from "@shared/schema";
+import { politicalParties, politicalAlliances, surveyTemplates, surveyCampaigns, surveyLandingPages, surveyResponses, users, events, demands, demandComments, contacts, type SurveyTemplate, type SurveyCampaign, type InsertSurveyCampaign, type SurveyLandingPage, type InsertSurveyLandingPage, type SurveyResponse, type InsertSurveyResponse } from "@shared/schema";
 import { sql, eq, desc, and } from "drizzle-orm";
 import { generateAiResponse, testOpenAiApiKey } from "./openai";
 import { requireRole } from "./authorization";
@@ -718,9 +718,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/users", authenticateToken, requireRole("admin"), requirePermission("users"), async (req: AuthRequest, res) => {
     try {
       const allUsers = await storage.getAllUsers();
-      // Don't send passwords to frontend
-      const sanitizedUsers = allUsers.map(({ password, ...user }) => user);
-      res.json(sanitizedUsers);
+      
+      // Get activity count for each user
+      const usersWithActivityCount = await Promise.all(
+        allUsers.map(async (user) => {
+          // Count all activities for this user
+          const [eventsCount] = await db.select({ count: sql<number>`count(*)::int` })
+            .from(events)
+            .where(eq(events.userId, user.id));
+          
+          const [demandsCount] = await db.select({ count: sql<number>`count(*)::int` })
+            .from(demands)
+            .where(eq(demands.userId, user.id));
+          
+          const [commentsCount] = await db.select({ count: sql<number>`count(*)::int` })
+            .from(demandComments)
+            .where(eq(demandComments.userId, user.id));
+          
+          const [contactsCount] = await db.select({ count: sql<number>`count(*)::int` })
+            .from(contacts)
+            .where(eq(contacts.userId, user.id));
+          
+          const [alliancesCount] = await db.select({ count: sql<number>`count(*)::int` })
+            .from(politicalAlliances)
+            .where(eq(politicalAlliances.userId, user.id));
+          
+          const [campaignsCount] = await db.select({ count: sql<number>`count(*)::int` })
+            .from(surveyCampaigns)
+            .where(eq(surveyCampaigns.userId, user.id));
+          
+          const totalActivities = 
+            (eventsCount?.count || 0) +
+            (demandsCount?.count || 0) +
+            (commentsCount?.count || 0) +
+            (contactsCount?.count || 0) +
+            (alliancesCount?.count || 0) +
+            (campaignsCount?.count || 0);
+          
+          const { password, ...sanitizedUser } = user;
+          return {
+            ...sanitizedUser,
+            activityCount: totalActivities
+          };
+        })
+      );
+      
+      res.json(usersWithActivityCount);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
