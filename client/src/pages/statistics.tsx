@@ -18,34 +18,6 @@ export default function Statistics() {
       url: "/statistics/electorate",
       color: "text-primary",
     },
-    {
-      title: "Comparecimento e Abstenção",
-      description: "Histórico de comparecimento e abstenção por região, perfil e evolução temporal",
-      icon: TrendingUp,
-      url: "/statistics/turnout",
-      color: "text-primary",
-    },
-    {
-      title: "Candidaturas",
-      description: "Estatísticas de candidatos: perfil, situações, deficiências e evolução",
-      icon: PieChart,
-      url: "/statistics/candidates",
-      color: "text-primary",
-    },
-    {
-      title: "Mapa Eleitoral",
-      description: "Visualização geográfica de dados eleitorais por estado e município",
-      icon: MapPin,
-      url: "/statistics/map",
-      color: "text-primary",
-    },
-    {
-      title: "Evolução Histórica",
-      description: "Análise temporal de eleições desde 2004 com gráficos e tendências",
-      icon: BarChart3,
-      url: "/statistics/historical",
-      color: "text-primary",
-    },
   ];
 
   return (
