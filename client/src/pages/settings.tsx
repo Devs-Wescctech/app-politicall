@@ -260,7 +260,6 @@ export default function Settings() {
         <h1 className="text-3xl font-bold">Configurações</h1>
         <p className="text-muted-foreground mt-2">Gerencie suas preferências e informações da conta</p>
       </div>
-
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
           <Card>
@@ -421,7 +420,7 @@ export default function Settings() {
                   <Badge className="bg-green-500/10 text-green-500 hover:bg-green-500/20">Ativo</Badge>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Marketing</span>
+                  <span className="text-muted-foreground">Pesquisas</span>
                   <Badge className="bg-green-500/10 text-green-500 hover:bg-green-500/20">Ativo</Badge>
                 </div>
               </div>
@@ -429,7 +428,6 @@ export default function Settings() {
           </Card>
         </div>
       </div>
-
       {/* Edit Profile Dialog */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
         <DialogContent className="max-w-md max-h-[90vh] flex flex-col p-0" data-testid="dialog-edit-profile">
