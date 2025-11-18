@@ -1004,30 +1004,26 @@ export default function Marketing() {
                   </CardHeader>
                   <CardContent className="space-y-4">
                     {isApproved && campaign.updatedAt && (
-                      <Card className="bg-[#40E0D0]/5 border-[#40E0D0]/30">
-                        <CardContent className="pt-4">
-                          <div className="flex items-start gap-3">
-                            <Calendar className="w-5 h-5 text-[#40E0D0] mt-0.5" />
-                            <div className="flex-1 space-y-2">
-                              <div className="flex items-center justify-between">
-                                <Label className="text-xs text-muted-foreground">Data de Aprovação:</Label>
-                                <p className="text-sm font-medium">
-                                  {format(new Date(campaign.updatedAt), "dd/MM/yyyy", { locale: ptBR })}
-                                </p>
-                              </div>
-                              <div className="flex items-center justify-between">
-                                <Label className="text-xs text-muted-foreground">Data de Término:</Label>
-                                <p className="text-sm font-bold text-[#40E0D0]">
-                                  {format(addDays(new Date(campaign.updatedAt), 7), "dd/MM/yyyy", { locale: ptBR })}
-                                </p>
-                              </div>
-                              <p className="text-xs text-muted-foreground italic">
-                                Pesquisa ativa por 7 dias corridos a partir da aprovação
-                              </p>
-                            </div>
+                      <div className="flex items-start gap-3">
+                        <Calendar className="w-5 h-5 text-[#40E0D0] mt-0.5" />
+                        <div className="flex-1 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-xs text-muted-foreground">Data de Aprovação:</Label>
+                            <p className="text-sm font-medium">
+                              {format(new Date(campaign.updatedAt), "dd/MM/yyyy", { locale: ptBR })}
+                            </p>
                           </div>
-                        </CardContent>
-                      </Card>
+                          <div className="flex items-center justify-between">
+                            <Label className="text-xs text-muted-foreground">Data de Término:</Label>
+                            <p className="text-sm font-bold text-[#40E0D0]">
+                              {format(addDays(new Date(campaign.updatedAt), 7), "dd/MM/yyyy", { locale: ptBR })}
+                            </p>
+                          </div>
+                          <p className="text-xs text-muted-foreground italic">
+                            Pesquisa ativa por 7 dias corridos a partir da aprovação
+                          </p>
+                        </div>
+                      </div>
                     )}
 
                     {isApproved && (
