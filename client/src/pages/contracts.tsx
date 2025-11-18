@@ -717,11 +717,11 @@ export default function ContractsPage() {
 
           <div className="space-y-4 py-4">
             <p className="text-sm text-muted-foreground">
-              Ao confirmar, o status do usuário será atualizado para "Pago".
+              Ao confirmar, o status do usuário será atualizado para "Pago" e o vencimento será atualizado para o próximo mês.
             </p>
             <div className="bg-green-50 dark:bg-green-950/20 p-4 rounded-lg border border-green-200 dark:border-green-800">
               <p className="text-sm font-medium text-green-700 dark:text-green-300">
-                Valor do plano: R$ 0.000,00
+                Valor do plano: R$ {selectedUser?.planValue || '0,00'}
               </p>
             </div>
           </div>
