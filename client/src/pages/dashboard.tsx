@@ -232,14 +232,14 @@ export default function Dashboard() {
           <CardContent>
             <div className="text-3xl font-bold">{(stats?.totalContacts || 0).toLocaleString('pt-BR')}</div>
             {lastElectionVotes > 0 && (
-              <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+              <div className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
                 {currentVoters >= lastElectionVotes ? (
                   <TrendingUp className="h-3 w-3 text-green-500" />
                 ) : (
                   <TrendingDown className="h-3 w-3 text-amber-500" />
                 )}
                 {growthPercentage}% vs última eleição
-              </p>
+              </div>
             )}
           </CardContent>
         </Card>
