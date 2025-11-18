@@ -576,24 +576,22 @@ export default function Settings() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Cidade</FormLabel>
-                      <Select 
-                        onValueChange={field.onChange} 
-                        value={field.value}
-                        disabled={!selectedState || availableCities.length === 0}
-                      >
-                        <FormControl>
-                          <SelectTrigger data-testid="select-city">
-                            <SelectValue placeholder={selectedState ? "Selecione a cidade" : "Selecione um estado primeiro"} />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {availableCities.map((city) => (
-                            <SelectItem key={city} value={city}>
-                              {city}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <FormControl>
+                        <div className="relative">
+                          <Input 
+                            placeholder={selectedState ? "Digite a cidade" : "Selecione um estado primeiro"}
+                            disabled={!selectedState}
+                            list="cities-datalist"
+                            {...field}
+                            data-testid="input-city"
+                          />
+                          <datalist id="cities-datalist">
+                            {availableCities.map((city) => (
+                              <option key={city} value={city} />
+                            ))}
+                          </datalist>
+                        </div>
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
