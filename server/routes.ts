@@ -712,6 +712,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update campaign stage (admin only)
+  app.patch("/api/admin/survey-campaigns/:id/stage", authenticateAdminToken, async (req: AuthRequest, res) => {
+    try {
+      const stageSchema = z.object({
+        campaignStage: z.enum(["aguardando", "aprovado", "em_producao", "finalizado"]),
+      });
+      const { campaignStage } = stageSchema.parse(req.body);
+      const { id } = req.params;
+      
+      const campaign = await storage.getSurveyCampaign(id);
+      
+      if (!campaign) {
+        return res.status(404).json({ error: "Campanha não encontrada" });
+      }
+      
+      const updated = await storage.updateSurveyCampaign(id, { campaignStage });
+      
+      res.json(updated);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
   // ==================== USER MANAGEMENT (Admin Only) ====================
   
   // Get user activity ranking with period filter
