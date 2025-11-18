@@ -192,12 +192,35 @@ export default function ContractsPage() {
     createUserMutation.mutate(data);
   };
 
+  const formatCurrency = (value: string) => {
+    // Remove tudo que não é número
+    const numbers = value.replace(/\D/g, '');
+    
+    if (!numbers) return '';
+    
+    // Converte para centavos
+    const amount = parseInt(numbers, 10);
+    
+    // Formata como moeda brasileira
+    const formatted = (amount / 100).toLocaleString('pt-BR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+    
+    return formatted;
+  };
+
+  const handlePlanValueChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatCurrency(e.target.value);
+    setEditPlanValue(formatted);
+  };
+
   const handleCardClick = (user: User) => {
     setSelectedUser(user);
     setDetailsDialogOpen(true);
     setIsEditingUser(false);
     // Initialize edit values
-    setEditPlanValue("0.000,00");
+    setEditPlanValue("");
     setEditExpiryDate("00/00/0000");
     setEditWhatsapp("5511999999999");
   };
@@ -209,7 +232,7 @@ export default function ContractsPage() {
   const handleCancelEdit = () => {
     setIsEditingUser(false);
     // Reset to original values
-    setEditPlanValue("0.000,00");
+    setEditPlanValue("");
     setEditExpiryDate("00/00/0000");
     setEditWhatsapp("5511999999999");
   };
@@ -493,15 +516,23 @@ export default function ContractsPage() {
               <div className="space-y-2">
                 <label className="text-sm font-medium">Valor do plano</label>
                 {isEditingUser ? (
-                  <Input
-                    value={editPlanValue}
-                    onChange={(e) => setEditPlanValue(e.target.value)}
-                    placeholder="0.000,00"
-                    data-testid="input-edit-plan-value"
-                  />
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                      R$
+                    </span>
+                    <Input
+                      value={editPlanValue}
+                      onChange={handlePlanValueChange}
+                      placeholder="0,00"
+                      className="pl-10"
+                      data-testid="input-edit-plan-value"
+                    />
+                  </div>
                 ) : (
                   <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
-                    <span className="text-sm font-semibold">R$ {editPlanValue}</span>
+                    <span className="text-sm font-semibold">
+                      {editPlanValue ? `R$ ${editPlanValue}` : 'Não informado'}
+                    </span>
                   </div>
                 )}
               </div>
