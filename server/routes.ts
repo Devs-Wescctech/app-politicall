@@ -2400,6 +2400,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Generate AI analysis using OpenAI with knowledge about Brazilian elections
       const aiPrompt = `Você é um especialista em análise política e estratégias eleitorais brasileiras com amplo conhecimento sobre eleições passadas no Brasil. 
 
+INSTRUÇÃO IMPORTANTE: Você DEVE retornar APENAS um objeto JSON válido, sem texto adicional antes ou depois. Não inclua markdown, comentários ou explicações fora do JSON.
+
 Analise o perfil do candidato abaixo e compare com padrões de candidatos eleitos em eleições anteriores no Brasil, considerando dados históricos do TSE, perfis de vitoriosos, e estratégias bem-sucedidas.
 
 PERFIL DO CANDIDATO:
@@ -2421,7 +2423,7 @@ PERFIL DO CANDIDATO:
 - Conquistas: ${profile.achievements?.join(", ") || "Não especificadas"}
 - Reconhecimento público: ${profile.publicRecognition || "Não especificado"}
 
-Com base no seu conhecimento sobre eleições brasileiras e perfis de candidatos eleitos similares, forneça uma análise DETALHADA em formato JSON com a seguinte estrutura:
+Retorne APENAS um JSON válido com a seguinte estrutura EXATA (sem texto adicional):
 {
   "comparison": {
     "similarities": ["lista de semelhanças com candidatos eleitos"],
@@ -2461,24 +2463,48 @@ Seja específico, prático e baseado em dados. Use exemplos concretos quando pos
           messages: [
             {
               role: 'system',
-              content: 'Você é um especialista em análise política e estratégias eleitorais brasileiras. Forneça análises detalhadas e práticas baseadas em dados.'
+              content: 'Você é um especialista em análise política e estratégias eleitorais brasileiras. Retorne SEMPRE respostas em formato JSON válido puro, sem markdown ou texto adicional.'
             },
             {
               role: 'user',
               content: aiPrompt
             }
           ],
-          response_format: { type: "json_object" },
           temperature: 0.7,
         }),
       });
 
       if (!openaiResponse.ok) {
-        throw new Error(`OpenAI API error: ${openaiResponse.statusText}`);
+        const errorText = await openaiResponse.text();
+        throw new Error(`OpenAI API error: ${openaiResponse.statusText} - ${errorText}`);
       }
 
       const aiResult = await openaiResponse.json();
-      const analysisData = JSON.parse(aiResult.choices[0].message.content);
+      const rawContent = aiResult.choices[0].message.content;
+      
+      // Remove markdown code blocks if present
+      let cleanedContent = rawContent.trim();
+      if (cleanedContent.startsWith('```json')) {
+        cleanedContent = cleanedContent.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+      } else if (cleanedContent.startsWith('```')) {
+        cleanedContent = cleanedContent.replace(/^```\s*/, '').replace(/\s*```$/, '');
+      }
+      
+      // Parse JSON with error handling
+      let analysisData;
+      try {
+        analysisData = JSON.parse(cleanedContent);
+        
+        // Validate structure
+        if (!analysisData.comparison || !analysisData.insights || 
+            !analysisData.recommendations || !analysisData.winProbabilityFactors) {
+          throw new Error("Estrutura JSON incompleta");
+        }
+      } catch (parseError) {
+        console.error("JSON parse error:", parseError);
+        console.error("Raw content:", rawContent);
+        throw new Error(`Erro ao processar resposta da IA: formato inválido. Por favor, tente novamente.`);
+      }
 
       // Save analysis to database
       const [analysis] = await db
