@@ -31,13 +31,19 @@ const ROLE_CONFIG = {
   assessor: { label: "Assessor", icon: UserIcon, color: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" },
 };
 
-// Form validation schema
+// Roles disponíveis para criação/edição (sem admin)
+const EDITABLE_ROLES = {
+  coordenador: ROLE_CONFIG.coordenador,
+  assessor: ROLE_CONFIG.assessor,
+};
+
+// Form validation schema (admin não pode ser selecionado)
 const createUserSchema = z.object({
   name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
   email: z.string().email("Email inválido"),
   password: z.string().min(6, "Senha deve ter pelo menos 6 caracteres"),
   confirmPassword: z.string(),
-  role: z.enum(["admin", "coordenador", "assessor"], {
+  role: z.enum(["coordenador", "assessor"], {
     required_error: "Selecione um nível de acesso",
   }),
 }).refine((data) => data.password === data.confirmPassword, {
@@ -333,7 +339,7 @@ export default function UsersManagement() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {Object.entries(ROLE_CONFIG).map(([role, config]) => {
+                      {Object.entries(EDITABLE_ROLES).map(([role, config]) => {
                         const Icon = config.icon;
                         return (
                           <SelectItem key={role} value={role}>
@@ -532,7 +538,7 @@ export default function UsersManagement() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {Object.entries(ROLE_CONFIG).map(([role, config]) => {
+                          {Object.entries(EDITABLE_ROLES).map(([role, config]) => {
                             const Icon = config.icon;
                             return (
                               <SelectItem key={role} value={role}>

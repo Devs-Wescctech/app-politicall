@@ -34,7 +34,7 @@ type MenuItem = {
   url: string;
   icon: any;
   permissionKey?: keyof UserPermissions;
-  alwaysShow?: boolean;
+  adminOnly?: boolean;
 };
 
 export function AppSidebar() {
@@ -99,13 +99,16 @@ export function AppSidebar() {
       title: "Configurações",
       url: "/settings",
       icon: Settings,
-      alwaysShow: true,
+      adminOnly: true,
     },
   ];
   
   // Filter menu items based on permissions
   const visibleItems = menuItems.filter(item => {
-    if (item.alwaysShow) return true;
+    // Configurações é apenas para admin
+    if (item.adminOnly) {
+      return user?.role === 'admin';
+    }
     if (item.permissionKey) {
       return permissions[item.permissionKey] === true;
     }
