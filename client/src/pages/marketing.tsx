@@ -951,21 +951,21 @@ export default function Marketing() {
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-2">
-                          <CardTitle className="text-xl" data-testid={`text-campaign-name-${campaign.id}`}>
+                          <CardTitle className="text-xs" data-testid={`text-campaign-name-${campaign.id}`}>
                             {campaign.campaignName}
                           </CardTitle>
-                          <div className="flex items-center gap-1 text-sm" data-testid={`badge-stage-${campaign.id}`}>
+                          <div className="flex items-center gap-1 text-xs" data-testid={`badge-stage-${campaign.id}`}>
                             <StageIcon className={`w-3 h-3 ${stageConfig.iconColor}`} />
                             <span>{stageConfig.label}</span>
                           </div>
                           {campaign.responseCount !== undefined && (
-                            <span className="text-sm text-muted-foreground" data-testid={`badge-responses-${campaign.id}`}>
+                            <span className="text-xs text-muted-foreground" data-testid={`badge-responses-${campaign.id}`}>
                               {campaign.responseCount} respostas
                             </span>
                           )}
                         </div>
                         {campaign.template && (
-                          <CardDescription className="text-sm" data-testid={`text-template-${campaign.id}`}>
+                          <CardDescription className="text-xs" data-testid={`text-template-${campaign.id}`}>
                             Template: {campaign.template.name}
                           </CardDescription>
                         )}
