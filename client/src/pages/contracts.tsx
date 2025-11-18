@@ -65,6 +65,10 @@ export default function ContractsPage() {
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [userStatuses, setUserStatuses] = useState<Record<string, "pago" | "atrasado">>({});
+  const [isEditingUser, setIsEditingUser] = useState(false);
+  const [editPlanValue, setEditPlanValue] = useState("");
+  const [editExpiryDate, setEditExpiryDate] = useState("");
+  const [editWhatsapp, setEditWhatsapp] = useState("");
 
   // Verify admin token on mount
   useEffect(() => {
@@ -191,6 +195,32 @@ export default function ContractsPage() {
   const handleCardClick = (user: User) => {
     setSelectedUser(user);
     setDetailsDialogOpen(true);
+    setIsEditingUser(false);
+    // Initialize edit values
+    setEditPlanValue("0.000,00");
+    setEditExpiryDate("00/00/0000");
+    setEditWhatsapp("5511999999999");
+  };
+
+  const handleEditUser = () => {
+    setIsEditingUser(true);
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditingUser(false);
+    // Reset to original values
+    setEditPlanValue("0.000,00");
+    setEditExpiryDate("00/00/0000");
+    setEditWhatsapp("5511999999999");
+  };
+
+  const handleSaveEdit = () => {
+    // TODO: Save to backend
+    setIsEditingUser(false);
+    toast({
+      title: "Alterações salvas!",
+      description: "Os dados do usuário foram atualizados.",
+    });
   };
 
   const handlePaymentClick = (user: User, e: React.MouseEvent) => {
@@ -429,7 +459,7 @@ export default function ContractsPage() {
                 variant="outline"
                 size="icon"
                 className="h-12 w-12 rounded-full"
-                onClick={() => window.open(`https://wa.me/5511999999999`, '_blank')}
+                onClick={() => window.open(`https://wa.me/${editWhatsapp}`, '_blank')}
                 data-testid="button-whatsapp"
               >
                 <FaWhatsapp className="h-6 w-6 text-green-500" />
@@ -445,52 +475,103 @@ export default function ContractsPage() {
               </Button>
             </div>
 
+            {/* WhatsApp field (only visible when editing) */}
+            {isEditingUser && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium">WhatsApp</label>
+                <Input
+                  value={editWhatsapp}
+                  onChange={(e) => setEditWhatsapp(e.target.value)}
+                  placeholder="5511999999999"
+                  data-testid="input-edit-whatsapp"
+                />
+              </div>
+            )}
+
             {/* Plan Details */}
             <div className="space-y-3">
-              <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
-                <span className="text-sm font-medium">Valor do plano</span>
-                <span className="text-sm font-semibold">R$ 0.000,00</span>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Valor do plano</label>
+                {isEditingUser ? (
+                  <Input
+                    value={editPlanValue}
+                    onChange={(e) => setEditPlanValue(e.target.value)}
+                    placeholder="0.000,00"
+                    data-testid="input-edit-plan-value"
+                  />
+                ) : (
+                  <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                    <span className="text-sm font-semibold">R$ {editPlanValue}</span>
+                  </div>
+                )}
               </div>
-              <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
-                <span className="text-sm font-medium">Vencimento</span>
-                <span className="text-sm font-semibold">00/00/0000</span>
+              
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Vencimento</label>
+                {isEditingUser ? (
+                  <Input
+                    value={editExpiryDate}
+                    onChange={(e) => setEditExpiryDate(e.target.value)}
+                    placeholder="00/00/0000"
+                    data-testid="input-edit-expiry-date"
+                  />
+                ) : (
+                  <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                    <span className="text-sm font-semibold">{editExpiryDate}</span>
+                  </div>
+                )}
               </div>
             </div>
           </div>
 
           <DialogFooter className="flex gap-2">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setDetailsDialogOpen(false);
-                // TODO: Implement edit functionality
-                toast({
-                  title: "Em desenvolvimento",
-                  description: "Funcionalidade de edição em breve.",
-                });
-              }}
-              className="flex-1"
-              data-testid="button-edit-user"
-            >
-              <Pencil className="w-4 h-4 mr-2" />
-              Editar
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() => {
-                setDetailsDialogOpen(false);
-                // TODO: Implement delete functionality
-                toast({
-                  title: "Em desenvolvimento",
-                  description: "Funcionalidade de exclusão em breve.",
-                });
-              }}
-              className="flex-1"
-              data-testid="button-delete-user"
-            >
-              <Trash2 className="w-4 h-4 mr-2" />
-              Excluir
-            </Button>
+            {isEditingUser ? (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={handleCancelEdit}
+                  className="flex-1"
+                  data-testid="button-cancel-edit"
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  onClick={handleSaveEdit}
+                  className="flex-1"
+                  data-testid="button-save-edit"
+                >
+                  Salvar
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={handleEditUser}
+                  className="flex-1"
+                  data-testid="button-edit-user"
+                >
+                  <Pencil className="w-4 h-4 mr-2" />
+                  Editar
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={() => {
+                    setDetailsDialogOpen(false);
+                    // TODO: Implement delete functionality
+                    toast({
+                      title: "Em desenvolvimento",
+                      description: "Funcionalidade de exclusão em breve.",
+                    });
+                  }}
+                  className="flex-1"
+                  data-testid="button-delete-user"
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Excluir
+                </Button>
+              </>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
