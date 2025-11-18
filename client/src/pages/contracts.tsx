@@ -215,13 +215,37 @@ export default function ContractsPage() {
     setEditPlanValue(formatted);
   };
 
+  const formatDate = (value: string) => {
+    // Remove tudo que não é número
+    const numbers = value.replace(/\D/g, '');
+    
+    if (!numbers) return '';
+    
+    // Aplica a máscara DD/MM/AAAA
+    let formatted = numbers;
+    
+    if (numbers.length > 2) {
+      formatted = numbers.slice(0, 2) + '/' + numbers.slice(2);
+    }
+    if (numbers.length > 4) {
+      formatted = numbers.slice(0, 2) + '/' + numbers.slice(2, 4) + '/' + numbers.slice(4, 8);
+    }
+    
+    return formatted;
+  };
+
+  const handleExpiryDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatDate(e.target.value);
+    setEditExpiryDate(formatted);
+  };
+
   const handleCardClick = (user: User) => {
     setSelectedUser(user);
     setDetailsDialogOpen(true);
     setIsEditingUser(false);
     // Initialize edit values
     setEditPlanValue("");
-    setEditExpiryDate("00/00/0000");
+    setEditExpiryDate("");
     setEditWhatsapp("5511999999999");
   };
 
@@ -233,7 +257,7 @@ export default function ContractsPage() {
     setIsEditingUser(false);
     // Reset to original values
     setEditPlanValue("");
-    setEditExpiryDate("00/00/0000");
+    setEditExpiryDate("");
     setEditWhatsapp("5511999999999");
   };
 
@@ -542,13 +566,16 @@ export default function ContractsPage() {
                 {isEditingUser ? (
                   <Input
                     value={editExpiryDate}
-                    onChange={(e) => setEditExpiryDate(e.target.value)}
-                    placeholder="00/00/0000"
+                    onChange={handleExpiryDateChange}
+                    placeholder="DD/MM/AAAA"
+                    maxLength={10}
                     data-testid="input-edit-expiry-date"
                   />
                 ) : (
                   <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
-                    <span className="text-sm font-semibold">{editExpiryDate}</span>
+                    <span className="text-sm font-semibold">
+                      {editExpiryDate || 'Não informado'}
+                    </span>
                   </div>
                 )}
               </div>
