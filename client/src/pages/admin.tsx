@@ -273,16 +273,18 @@ export default function Admin() {
   const approvedCampaigns = allCampaigns.filter(c => c.status === "approved");
   const rejectedCampaigns = allCampaigns.filter(c => c.status === "rejected");
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "under_review":
-        return <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">Em Análise</Badge>;
-      case "approved":
+  const getStageBadge = (campaignStage: string) => {
+    switch (campaignStage) {
+      case "aguardando":
+        return <Badge variant="secondary" className="bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100">Aguardando</Badge>;
+      case "aprovado":
         return <Badge className="bg-[#40E0D0] text-white">Aprovado</Badge>;
-      case "rejected":
-        return <Badge variant="destructive">Rejeitado</Badge>;
+      case "em_producao":
+        return <Badge className="bg-blue-500 text-white">Em Produção</Badge>;
+      case "finalizado":
+        return <Badge className="bg-green-500 text-white">Finalizado</Badge>;
       default:
-        return <Badge variant="secondary">{status}</Badge>;
+        return <Badge variant="secondary">{campaignStage}</Badge>;
     }
   };
 
@@ -303,7 +305,7 @@ export default function Admin() {
             <CardTitle className="text-base" data-testid={`text-campaign-name-${campaign.id}`}>
               {campaign.campaignName}
             </CardTitle>
-            {getStatusBadge(campaign.status)}
+            {getStageBadge(campaign.campaignStage)}
           </div>
         </CardHeader>
         <CardContent className="space-y-3">
