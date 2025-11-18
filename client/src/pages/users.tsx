@@ -15,7 +15,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useCurrentUser } from "@/hooks/use-current-user";
-import { Shield, User as UserIcon, Users, Plus, Settings, Eye, EyeOff, Trash2 } from "lucide-react";
+import { Shield, User as UserIcon, Users, Plus, Settings, Eye, EyeOff, Trash2, ChevronDown, ChevronUp } from "lucide-react";
 import {
   Form,
   FormControl,
@@ -62,6 +62,7 @@ export default function UsersManagement() {
   const [showAddUserDialog, setShowAddUserDialog] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
   
   // Edit dialog password states
   const [newPassword, setNewPassword] = useState("");
@@ -72,6 +73,18 @@ export default function UsersManagement() {
   
   // Permissions state for edit dialog
   const [editPermissions, setEditPermissions] = useState<UserPermissions>(DEFAULT_PERMISSIONS.assessor);
+
+  const toggleCard = (userId: string) => {
+    setExpandedCards(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(userId)) {
+        newSet.delete(userId);
+      } else {
+        newSet.add(userId);
+      }
+      return newSet;
+    });
+  };
 
   const form = useForm<CreateUserForm>({
     resolver: zodResolver(createUserSchema),
@@ -290,64 +303,96 @@ export default function UsersManagement() {
             const roleConfig = ROLE_CONFIG[user.role as keyof typeof ROLE_CONFIG];
             const RoleIcon = roleConfig.icon;
 
+            const isExpanded = expandedCards.has(user.id);
+            
             return (
               <Card key={user.id} className="hover-elevate" data-testid={`card-user-${user.id}`}>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                        <UserIcon className="h-5 w-5 text-primary" />
+                <div
+                  className="cursor-pointer"
+                  onClick={() => toggleCard(user.id)}
+                >
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                          <UserIcon className="h-5 w-5 text-primary" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <CardTitle className="text-base truncate">{user.name}</CardTitle>
+                        </div>
+                        <Badge className={`${roleConfig.color} shrink-0`}>
+                          <RoleIcon className="w-3 h-3 mr-1" />
+                          <span className="hidden sm:inline">{roleConfig.label}</span>
+                          <span className="sm:hidden">{roleConfig.label.substring(0, 3)}</span>
+                        </Badge>
                       </div>
-                      <div className="min-w-0 flex-1">
-                        <CardTitle className="text-base">{user.name}</CardTitle>
-                      </div>
-                    </div>
-                    {user.role !== 'admin' && (
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => setUserToDelete(user)}
-                        data-testid={`button-delete-user-${user.id}`}
-                        className="rounded-full text-destructive hover:text-destructive"
+                        className="shrink-0 ml-2"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleCard(user.id);
+                        }}
                       >
-                        <Trash2 className="h-4 w-4" />
+                        {isExpanded ? (
+                          <ChevronUp className="h-4 w-4" />
+                        ) : (
+                          <ChevronDown className="h-4 w-4" />
+                        )}
                       </Button>
-                    )}
-                  </div>
-                </CardHeader>
-                <CardContent className="p-6 pt-0 space-y-3">
-                  <p className="text-sm text-muted-foreground truncate" title={user.email}>
-                    {user.email}
-                  </p>
-                  <div className="flex items-center justify-between gap-2 flex-wrap">
-                    <Badge className={`${roleConfig.color} shrink-0`}>
-                      <RoleIcon className="w-3 h-3 mr-1" />
-                      <span className="hidden sm:inline">{roleConfig.label}</span>
-                      <span className="sm:hidden">{roleConfig.label.substring(0, 3)}</span>
-                    </Badge>
-                    {user.role !== 'admin' && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleEditRole(user)}
-                        data-testid={`button-edit-role-${user.id}`}
-                        className="rounded-full shrink-0"
-                      >
-                        <Settings className="w-4 h-4 sm:hidden" />
-                        <span className="hidden sm:inline whitespace-nowrap">Alterar Permissão</span>
-                      </Button>
-                    )}
-                  </div>
-                  <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span>
-                      <span className="hidden sm:inline">Cadastrado em </span>
-                      {new Date(user.createdAt).toLocaleDateString("pt-BR")}
-                    </span>
-                    <span className="font-medium text-center">
-                      Atividades: {(user as any).activityCount || 0}
-                    </span>
-                  </div>
-                </CardContent>
+                    </div>
+                  </CardHeader>
+                </div>
+                
+                {isExpanded && (
+                  <CardContent className="p-6 pt-0 space-y-3">
+                    <p className="text-sm text-muted-foreground truncate" title={user.email}>
+                      {user.email}
+                    </p>
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <span>
+                        <span className="hidden sm:inline">Cadastrado em </span>
+                        {new Date(user.createdAt).toLocaleDateString("pt-BR")}
+                      </span>
+                      <span className="font-medium">
+                        Atividades: {(user as any).activityCount || 0}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap pt-2">
+                      {user.role !== 'admin' && (
+                        <>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEditRole(user);
+                            }}
+                            data-testid={`button-edit-role-${user.id}`}
+                            className="rounded-full flex-1"
+                          >
+                            <Settings className="w-4 h-4 mr-2" />
+                            Alterar Permissão
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setUserToDelete(user);
+                            }}
+                            data-testid={`button-delete-user-${user.id}`}
+                            className="rounded-full text-destructive hover:text-destructive"
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Excluir
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </CardContent>
+                )}
               </Card>
             );
           })
