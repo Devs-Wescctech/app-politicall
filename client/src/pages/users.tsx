@@ -140,10 +140,20 @@ export default function UsersManagement() {
   }>>({
     queryKey: ["/api/users/activity-ranking", rankingPeriod],
     queryFn: async () => {
+      const token = localStorage.getItem("auth_token");
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+      
       const response = await fetch(`/api/users/activity-ranking?period=${rankingPeriod}`, {
+        headers,
         credentials: "include",
       });
-      if (!response.ok) throw new Error("Erro ao carregar ranking");
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: "Erro ao carregar ranking" }));
+        throw new Error(error.error || "Erro ao carregar ranking");
+      }
       return response.json();
     },
   });
