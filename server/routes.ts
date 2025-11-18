@@ -971,14 +971,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       
+      // Get current user to check expiry date
+      const user = await storage.getUserById(id);
+      if (!user) {
+        return res.status(404).json({ error: "Usuário não encontrado" });
+      }
+      
       // Get current date in DD/MM/YYYY format
       const now = new Date();
       const currentDate = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
       
-      // Update payment status to "pago" and save payment date
+      // Calculate next expiry date (one month from current expiry or today if no expiry)
+      let nextExpiryDate = currentDate;
+      if (user.expiryDate) {
+        const [day, month, year] = user.expiryDate.split('/').map(Number);
+        if (day && month && year) {
+          const expiryDate = new Date(year, month - 1, day);
+          // Add one month
+          expiryDate.setMonth(expiryDate.getMonth() + 1);
+          nextExpiryDate = `${String(expiryDate.getDate()).padStart(2, '0')}/${String(expiryDate.getMonth() + 1).padStart(2, '0')}/${expiryDate.getFullYear()}`;
+        }
+      }
+      
+      // Update payment status to "pago", save payment date, and update expiry to next month
       const updated = await storage.updateUser(id, {
         paymentStatus: "pago",
         lastPaymentDate: currentDate,
+        expiryDate: nextExpiryDate,
       });
       
       const { password, ...sanitizedUser } = updated;
