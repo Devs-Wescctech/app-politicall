@@ -2738,7 +2738,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get all leads (admin only)
-  app.get("/api/leads", authenticateToken, requireRole("admin"), async (req: AuthRequest, res) => {
+  app.get("/api/leads", authenticateAdminToken, async (req: AuthRequest, res) => {
     try {
       const leads = await storage.getLeads();
       res.json(leads);
