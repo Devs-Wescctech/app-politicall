@@ -157,6 +157,107 @@ export default function Admin() {
     enabled: !isVerifying,
   });
 
+  // Delete single lead mutation
+  const deleteLeadMutation = useMutation({
+    mutationFn: async (leadId: string) => {
+      const token = localStorage.getItem("admin_token");
+      const response = await fetch(`/api/leads/${leadId}`, {
+        method: "DELETE",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error("Erro ao excluir cadastro");
+      }
+      
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
+      toast({
+        title: "Cadastro excluído",
+        description: "O cadastro foi excluído com sucesso.",
+      });
+      setDeleteConfirmOpen(false);
+      setLeadToDelete(null);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erro ao excluir",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Delete multiple leads mutation
+  const deleteMultipleLeadsMutation = useMutation({
+    mutationFn: async (leadIds: string[]) => {
+      const token = localStorage.getItem("admin_token");
+      const response = await fetch("/api/leads/delete-multiple", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ ids: leadIds }),
+      });
+      
+      if (!response.ok) {
+        throw new Error("Erro ao excluir cadastros");
+      }
+      
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
+      toast({
+        title: "Cadastros excluídos",
+        description: `${selectedLeads.size} cadastro(s) excluído(s) com sucesso.`,
+      });
+      setSelectedLeads(new Set());
+      setDeleteConfirmOpen(false);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erro ao excluir",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Handle select all/deselect all
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedLeads(new Set(leads.map(lead => lead.id)));
+    } else {
+      setSelectedLeads(new Set());
+    }
+  };
+
+  // Handle individual lead selection
+  const handleLeadSelection = (leadId: string, checked: boolean) => {
+    const newSelection = new Set(selectedLeads);
+    if (checked) {
+      newSelection.add(leadId);
+    } else {
+      newSelection.delete(leadId);
+    }
+    setSelectedLeads(newSelection);
+  };
+
+  // Handle delete confirmation
+  const handleDeleteConfirm = () => {
+    if (leadToDelete) {
+      deleteLeadMutation.mutate(leadToDelete);
+    } else if (selectedLeads.size > 0) {
+      deleteMultipleLeadsMutation.mutate(Array.from(selectedLeads));
+    }
+  };
+
   // Approve mutation
   const approveMutation = useMutation({
     mutationFn: async (campaignId: string) => {
@@ -561,7 +662,7 @@ export default function Admin() {
             <Button 
               onClick={() => setInboxDialogOpen(true)}
               variant="outline"
-              className="rounded-full w-40"
+              className="rounded-full w-48"
               data-testid="button-inbox"
             >
               <Inbox className="w-4 h-4 mr-2" />
@@ -570,7 +671,7 @@ export default function Admin() {
             <Button 
               onClick={() => setLocation("/contracts")}
               variant="outline"
-              className="rounded-full w-40"
+              className="rounded-full w-48"
               data-testid="button-contracts"
             >
               Contratos
@@ -578,7 +679,7 @@ export default function Admin() {
             <Button 
               onClick={handleLogout} 
               variant="outline"
-              className="rounded-full w-40"
+              className="rounded-full w-48"
               data-testid="button-logout"
             >
               Sair
@@ -849,14 +950,34 @@ export default function Admin() {
 
       {/* Inbox Dialog - Leads from Landing Page */}
       <Dialog open={inboxDialogOpen} onOpenChange={setInboxDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[80vh]" data-testid="dialog-inbox">
+        <DialogContent className="max-w-4xl max-h-[80vh] [&>button]:hidden" data-testid="dialog-inbox">
           <DialogHeader>
-            <DialogTitle data-testid="text-dialog-inbox-title">
-              Caixa de Entrada
-            </DialogTitle>
-            <DialogDescription data-testid="text-dialog-inbox-description">
-              Cadastros realizados através do formulário da landing page
-            </DialogDescription>
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <DialogTitle data-testid="text-dialog-inbox-title">
+                  Caixa de Entrada
+                </DialogTitle>
+                <DialogDescription data-testid="text-dialog-inbox-description">
+                  Cadastros realizados através do formulário da landing page
+                </DialogDescription>
+              </div>
+              {leads.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="select-all-leads"
+                    checked={selectedLeads.size === leads.length && leads.length > 0}
+                    onCheckedChange={(checked) => handleSelectAll(checked as boolean)}
+                    data-testid="checkbox-select-all-leads"
+                  />
+                  <label 
+                    htmlFor="select-all-leads" 
+                    className="text-sm font-medium cursor-pointer"
+                  >
+                    Selecionar todos
+                  </label>
+                </div>
+              )}
+            </div>
           </DialogHeader>
 
           <div className="overflow-auto max-h-[60vh]">
@@ -896,17 +1017,38 @@ export default function Admin() {
                 {leads.map((lead) => (
                   <Card key={lead.id} className="hover-elevate" data-testid={`lead-card-${lead.id}`}>
                     <CardHeader className="pb-3">
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex-1">
-                          <CardTitle className="text-base font-semibold mb-1" data-testid={`lead-name-${lead.id}`}>
-                            {lead.name}
-                          </CardTitle>
-                          <p className="text-sm text-muted-foreground">
-                            {lead.position} • {lead.city}/{lead.state}
-                          </p>
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          {new Date(lead.createdAt).toLocaleDateString('pt-BR')}
+                      <div className="flex items-start gap-3">
+                        <Checkbox
+                          checked={selectedLeads.has(lead.id)}
+                          onCheckedChange={(checked) => handleLeadSelection(lead.id, checked as boolean)}
+                          data-testid={`checkbox-lead-${lead.id}`}
+                          className="mt-1"
+                        />
+                        <div className="flex items-start justify-between gap-4 flex-1">
+                          <div className="flex-1">
+                            <CardTitle className="text-base font-semibold mb-1" data-testid={`lead-name-${lead.id}`}>
+                              {lead.name}
+                            </CardTitle>
+                            <p className="text-sm text-muted-foreground">
+                              {lead.position} • {lead.city}/{lead.state}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="text-xs text-muted-foreground">
+                              {new Date(lead.createdAt).toLocaleDateString('pt-BR')}
+                            </div>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              onClick={() => {
+                                setLeadToDelete(lead.id);
+                                setDeleteConfirmOpen(true);
+                              }}
+                              data-testid={`button-delete-lead-${lead.id}`}
+                            >
+                              <Trash2 className="w-4 h-4 text-destructive" />
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     </CardHeader>
@@ -954,13 +1096,70 @@ export default function Admin() {
             )}
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              {selectedLeads.size > 0 && (
+                <Button
+                  variant="destructive"
+                  onClick={() => {
+                    setLeadToDelete(null);
+                    setDeleteConfirmOpen(true);
+                  }}
+                  disabled={deleteMultipleLeadsMutation.isPending}
+                  data-testid="button-delete-selected-leads"
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Excluir selecionados ({selectedLeads.size})
+                </Button>
+              )}
+            </div>
             <Button
               variant="outline"
-              onClick={() => setInboxDialogOpen(false)}
+              onClick={() => {
+                setInboxDialogOpen(false);
+                setSelectedLeads(new Set());
+              }}
               data-testid="button-close-inbox"
             >
               Fechar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <DialogContent data-testid="dialog-delete-confirm">
+          <DialogHeader>
+            <DialogTitle>
+              {leadToDelete ? "Excluir cadastro" : `Excluir ${selectedLeads.size} cadastro(s)`}
+            </DialogTitle>
+            <DialogDescription>
+              {leadToDelete 
+                ? "Tem certeza que deseja excluir este cadastro? Esta ação não pode ser desfeita."
+                : `Tem certeza que deseja excluir ${selectedLeads.size} cadastro(s) selecionado(s)? Esta ação não pode ser desfeita.`
+              }
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDeleteConfirmOpen(false);
+                setLeadToDelete(null);
+              }}
+              disabled={deleteLeadMutation.isPending || deleteMultipleLeadsMutation.isPending}
+              data-testid="button-cancel-delete"
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteConfirm}
+              disabled={deleteLeadMutation.isPending || deleteMultipleLeadsMutation.isPending}
+              data-testid="button-confirm-delete"
+            >
+              {(deleteLeadMutation.isPending || deleteMultipleLeadsMutation.isPending) ? "Excluindo..." : "Excluir"}
             </Button>
           </DialogFooter>
         </DialogContent>

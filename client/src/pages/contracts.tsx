@@ -34,6 +34,7 @@ import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { UserPlus, ArrowLeft, Mail, Lock, User as UserIcon, MoreVertical, Phone, Pencil, Trash2, Inbox } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { FaWhatsapp } from "react-icons/fa";
 import logoUrl from "@assets/logo pol_1763308638963.png";
 import type { Lead } from "@shared/schema";
@@ -111,6 +112,9 @@ export default function ContractsPage() {
   const [editPlanValue, setEditPlanValue] = useState("");
   const [editExpiryDate, setEditExpiryDate] = useState("");
   const [editWhatsapp, setEditWhatsapp] = useState("");
+  const [selectedLeads, setSelectedLeads] = useState<Set<string>>(new Set());
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [leadToDelete, setLeadToDelete] = useState<string | null>(null);
 
   // Verify admin token on mount
   useEffect(() => {
@@ -451,7 +455,7 @@ export default function ContractsPage() {
             <Button 
               onClick={() => setInboxDialogOpen(true)}
               variant="outline"
-              className="rounded-full w-40"
+              className="rounded-full w-48"
               data-testid="button-inbox"
             >
               <Inbox className="w-4 h-4 mr-2" />
@@ -460,7 +464,7 @@ export default function ContractsPage() {
             <Button 
               onClick={() => setLocation("/admin")}
               variant="outline"
-              className="rounded-full w-40"
+              className="rounded-full w-48"
               data-testid="button-back"
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
@@ -469,7 +473,7 @@ export default function ContractsPage() {
             <Button 
               onClick={handleLogout} 
               variant="outline"
-              className="rounded-full w-40"
+              className="rounded-full w-48"
               data-testid="button-logout"
             >
               Sair
@@ -878,7 +882,7 @@ export default function ContractsPage() {
 
       {/* Inbox Dialog - Leads from Landing Page */}
       <Dialog open={inboxDialogOpen} onOpenChange={setInboxDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[80vh]" data-testid="dialog-inbox">
+        <DialogContent className="max-w-4xl max-h-[80vh] [&>button]:hidden" data-testid="dialog-inbox">
           <DialogHeader>
             <DialogTitle data-testid="text-dialog-inbox-title">
               Caixa de Entrada
