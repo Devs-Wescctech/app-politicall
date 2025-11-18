@@ -6,6 +6,7 @@ import {
   Calendar, 
   Bot, 
   Megaphone,
+  BarChart3,
   Settings,
   LogOut,
   Shield
@@ -88,6 +89,12 @@ export function AppSidebar() {
       url: "/marketing",
       icon: Megaphone,
       permissionKey: "marketing",
+    },
+    {
+      title: "Estatísticas",
+      url: "/statistics",
+      icon: BarChart3,
+      permissionKey: "statistics",
     },
     {
       title: "Usuários",
