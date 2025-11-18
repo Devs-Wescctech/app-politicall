@@ -473,10 +473,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Usuário não encontrado" });
       }
       
-      // Get party information if user has a party
+      // Get admin user for profile data (avatar, party) - all users share admin's profile
+      const adminUser = await storage.getUserByEmail("adm@politicall.com.br");
+      
+      // Get party information from admin's party
       let party = null;
-      if (user.partyId) {
-        const [partyData] = await db.select().from(politicalParties).where(eq(politicalParties.id, user.partyId));
+      const partyId = adminUser?.partyId || user.partyId;
+      if (partyId) {
+        const [partyData] = await db.select().from(politicalParties).where(eq(politicalParties.id, partyId));
         if (partyData) {
           party = {
             id: partyData.id,
@@ -488,7 +492,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const { password, ...sanitizedUser } = user;
-      res.json({ ...sanitizedUser, party });
+      // Use admin's profile data but keep current user's credentials and permissions
+      res.json({ 
+        ...sanitizedUser, 
+        avatar: adminUser?.avatar || user.avatar,
+        partyId: partyId,
+        politicalPosition: adminUser?.politicalPosition || user.politicalPosition,
+        party 
+      });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
