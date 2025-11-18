@@ -30,10 +30,10 @@ const STATUS_CONFIG = {
 };
 
 const PRIORITY_CONFIG = {
-  low: { label: "Baixa", color: "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200" },
-  medium: { label: "Média", color: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200" },
-  high: { label: "Alta", color: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200" },
-  urgent: { label: "Urgente", color: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200" },
+  low: { label: "Baixa", color: "text-slate-600 dark:text-slate-400" },
+  medium: { label: "Média", color: "text-yellow-600 dark:text-yellow-400" },
+  high: { label: "Alta", color: "text-orange-600 dark:text-orange-400" },
+  urgent: { label: "Urgente", color: "text-red-600 dark:text-red-400" },
 };
 
 const RECURRENCE_CONFIG = {
@@ -526,12 +526,11 @@ export default function Demands() {
                         {/* Header - Título e Prioridade */}
                         <div className="flex items-start justify-between gap-2">
                           <h4 className="font-medium text-sm leading-tight flex-1">{demand.title}</h4>
-                          <Badge 
-                            className={`${PRIORITY_CONFIG[demand.priority as keyof typeof PRIORITY_CONFIG].color} shrink-0`}
-                            variant="secondary"
+                          <span 
+                            className={`${PRIORITY_CONFIG[demand.priority as keyof typeof PRIORITY_CONFIG].color} text-xs font-medium shrink-0`}
                           >
                             {PRIORITY_CONFIG[demand.priority as keyof typeof PRIORITY_CONFIG].label}
-                          </Badge>
+                          </span>
                         </div>
 
 
@@ -677,9 +676,9 @@ export default function Demands() {
                   </div>
                   <div>
                     <label className="text-sm font-medium">Prioridade</label>
-                    <Badge className={`${PRIORITY_CONFIG[selectedDemand.priority as keyof typeof PRIORITY_CONFIG].color} mt-2`}>
+                    <p className={`${PRIORITY_CONFIG[selectedDemand.priority as keyof typeof PRIORITY_CONFIG].color} text-sm font-medium mt-2`}>
                       {PRIORITY_CONFIG[selectedDemand.priority as keyof typeof PRIORITY_CONFIG].label}
-                    </Badge>
+                    </p>
                   </div>
                   {selectedDemand.description && (
                     <div>
