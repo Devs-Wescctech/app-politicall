@@ -14,7 +14,6 @@ import { z } from "zod";
 import { groupTextResponses } from "@shared/text-normalization";
 import fs from "fs";
 import path from "path";
-import * as tseService from "./tse-service";
 
 if (!process.env.SESSION_SECRET) {
   throw new Error("SESSION_SECRET must be set in environment variables");
@@ -2274,96 +2273,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const leads = await storage.getLeads();
       res.json(leads);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  // ==================== TSE STATISTICS ====================
-  
-  // Get electorate data from TSE
-  app.get("/api/tse/electorate", authenticateToken, requirePermission('statistics'), async (req, res) => {
-    try {
-      const year = parseInt(req.query.year as string) || 2024;
-      const state = req.query.state as string | undefined;
-      const city = req.query.city as string | undefined;
-
-      const data = await tseService.getElectorateData(year, state, city);
-      res.json(data);
-    } catch (error: any) {
-      console.error('Error fetching TSE electorate data:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  // Get election results from TSE
-  app.get("/api/tse/results", authenticateToken, requirePermission('statistics'), async (req, res) => {
-    try {
-      const year = parseInt(req.query.year as string) || 2024;
-      const round = parseInt(req.query.round as string) || 1;
-      const position = req.query.position as string || 'presidente';
-      const state = req.query.state as string | undefined;
-
-      const data = await tseService.getElectionResults(year, round, position, state);
-      res.json(data);
-    } catch (error: any) {
-      console.error('Error fetching TSE election results:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  // Get turnout data from TSE
-  app.get("/api/tse/turnout", authenticateToken, requirePermission('statistics'), async (req, res) => {
-    try {
-      const year = parseInt(req.query.year as string) || 2024;
-      const round = parseInt(req.query.round as string) || 1;
-      const state = req.query.state as string | undefined;
-
-      const data = await tseService.getTurnoutData(year, round, state);
-      res.json(data);
-    } catch (error: any) {
-      console.error('Error fetching TSE turnout data:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  // Get candidates statistics from TSE
-  app.get("/api/tse/candidates", authenticateToken, requirePermission('statistics'), async (req, res) => {
-    try {
-      const year = parseInt(req.query.year as string) || 2024;
-      const position = req.query.position as string || 'presidente';
-
-      const data = await tseService.getCandidatesData(year, position);
-      res.json(data);
-    } catch (error: any) {
-      console.error('Error fetching TSE candidates data:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  // Get available years for TSE data
-  app.get("/api/tse/available-years", authenticateToken, requirePermission('statistics'), async (req, res) => {
-    try {
-      const years = tseService.getAvailableYears();
-      res.json({ years });
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  // Get electoral positions
-  app.get("/api/tse/positions", authenticateToken, requirePermission('statistics'), async (req, res) => {
-    try {
-      res.json({ positions: tseService.ELECTORAL_POSITIONS });
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  // Get Brazilian states
-  app.get("/api/tse/states", authenticateToken, requirePermission('statistics'), async (req, res) => {
-    try {
-      res.json({ states: tseService.BRAZILIAN_STATES });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }

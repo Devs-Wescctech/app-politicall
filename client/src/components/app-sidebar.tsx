@@ -91,12 +91,6 @@ export function AppSidebar() {
       permissionKey: "marketing",
     },
     {
-      title: "Estatísticas",
-      url: "/statistics",
-      icon: BarChart3,
-      permissionKey: "statistics",
-    },
-    {
       title: "Usuários",
       url: "/users",
       icon: Shield,

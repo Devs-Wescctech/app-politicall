@@ -13,7 +13,6 @@ export type UserPermissions = {
   agenda: boolean;
   ai: boolean;
   marketing: boolean;
-  statistics: boolean;
   users: boolean;
 };
 
@@ -27,7 +26,6 @@ export const DEFAULT_PERMISSIONS = {
     agenda: true,
     ai: true,
     marketing: true,
-    statistics: true,
     users: true
   },
   coordenador: {
@@ -38,7 +36,6 @@ export const DEFAULT_PERMISSIONS = {
     agenda: true,
     ai: true,
     marketing: true,
-    statistics: true,
     users: false
   },
   assessor: {
@@ -49,7 +46,6 @@ export const DEFAULT_PERMISSIONS = {
     agenda: true,
     ai: false,
     marketing: false,
-    statistics: true,
     users: false
   }
 } as const;
