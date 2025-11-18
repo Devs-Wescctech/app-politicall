@@ -290,14 +290,12 @@ export default function ContractsPage() {
                       <Mail className="w-4 h-4" />
                       <span data-testid={`user-email-${user.id}`}>{user.email}</span>
                     </div>
-                    {user.activityCount !== undefined && (
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <UserIcon className="w-4 h-4" />
-                        <span data-testid={`user-activity-${user.id}`}>
-                          {user.activityCount} atividades
-                        </span>
-                      </div>
-                    )}
+                    <div className="flex items-center justify-between text-sm pt-2">
+                      <span className="text-muted-foreground">Valor do plano</span>
+                      <span className="font-semibold" data-testid={`user-plan-value-${user.id}`}>
+                        R$ 0.000,00
+                      </span>
+                    </div>
                     <div className="text-xs text-muted-foreground pt-2">
                       Criado em: {new Date(user.createdAt).toLocaleDateString('pt-BR')}
                     </div>
