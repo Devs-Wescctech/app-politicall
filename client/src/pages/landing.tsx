@@ -164,11 +164,7 @@ export default function LandingPage() {
       return response.json();
     },
     onSuccess: () => {
-      toast({
-        title: "Mensagem enviada com sucesso!",
-        description: "Entraremos em contato em breve.",
-      });
-      form.reset();
+      setLocation("/thank-you");
     },
     onError: () => {
       toast({
