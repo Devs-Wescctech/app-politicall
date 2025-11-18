@@ -482,9 +482,9 @@ export default function UsersManagement() {
                         )}
                         <span className="font-semibold text-lg shrink-0">#{index + 1}</span>
                         <span className="font-medium truncate">{user.name}</span>
-                        <Badge className={`${roleConfig.color} shrink-0`}>
-                          {roleConfig.label}
-                        </Badge>
+                        <span className="text-sm text-muted-foreground shrink-0">
+                          ({roleConfig.label})
+                        </span>
                       </div>
                       <span className="font-bold text-lg shrink-0">
                         {user.activityCount}
