@@ -438,7 +438,7 @@ export default function Alliances() {
                   </div>
 
                   <div>
-                    <label className="text-sm font-medium">Importar de Contatos</label>
+                    <label className="text-sm font-medium">Importar de Contatos (opcional)</label>
                     <Select onValueChange={handleImportContact}>
                       <SelectTrigger data-testid="select-import-contact" className="mt-2">
                         <SelectValue placeholder="Selecione um contato" />
