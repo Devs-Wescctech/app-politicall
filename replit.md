@@ -22,7 +22,8 @@ Preferred communication style: Simple, everyday language.
 - **Technology Stack:** Node.js with Express.js, PostgreSQL (Neon serverless) with WebSocket support, Drizzle ORM, custom JWT authentication with bcrypt.
 - **API Design:** RESTful endpoints with JSON payloads.
 - **Authentication & Authorization:** JWT tokens (30-day expiration), custom bcrypt hashing, and Role-Based Access Control (RBAC) with 'admin', 'coordenador', and 'assessor' roles. Roles are database-authoritative and enforced via middleware.
-- **Database Schema:** User accounts, Contacts CRM, Political parties, Political alliances, Demands, Events calendar, AI configuration, AI conversations log, and Marketing campaigns.
+- **Multi-Tenant Architecture:** Complete tenant isolation via accounts table. Each account (gabinete) has isolated data. JWT includes accountId. All storage methods and endpoints filter/validate by accountId. Zero cross-tenant data access possible.
+- **Database Schema:** Accounts (tenants), User accounts, Contacts CRM, Political parties, Political alliances, Demands, Events calendar, AI configuration, AI conversations log, and Marketing campaigns.
 - **API Structure:** Authentication endpoints, CRUD for entities, dashboard analytics, AI response generation, and consistent error handling.
 
 ### Data Storage
@@ -32,6 +33,14 @@ Preferred communication style: Simple, everyday language.
 
 ### Core Features & Implementations
 
+- **Multi-Tenant System (Complete):** Every account (gabinete) has completely isolated data. Implementation details:
+  - **Registration Flow:** POST /register creates new account + first user (admin) with partyId: null, avatar: null. Optional fields (phone, planValue, etc) preserved.
+  - **User Creation:** POST /users/create adds users to existing account (inherits accountId from admin).
+  - **JWT Authentication:** Tokens include userId, accountId, and role. Middleware extracts accountId from every request.
+  - **Data Isolation:** ALL storage methods filter by accountId on read (getContacts, getDemands, etc). ALL update/delete methods validate BOTH id AND accountId before allowing modification. Zero cross-tenant access possible.
+  - **Secure Resources:** Integrations, survey landing pages, notifications, AI config, demand comments all validate accountId. Methods throw "not found or access denied" if accountId doesn't match.
+  - **Global Resources:** politicalParties and surveyTemplates tables remain global (accessible to all accounts). getUser/getUserByEmail remain global for authentication but all data access requires accountId.
+  - **Fresh Start:** New accounts start with zero data, no party, default logo, and only Dashboard/Users/Settings visible until modules are enabled.
 - **Role-Based Permission System:** Implemented multi-user RBAC with 'admin', 'coordenador', 'assessor' roles, authorization middleware, and database-authoritative role verification.
 - **Notifications System:** In-app notifications with various types and priority levels, stored in a database. Backend API for creation, retrieval, and management. Frontend NotificationBell component with real-time updates and bulk actions. Automatic triggers for urgent demands, demand comments, upcoming events, and survey campaign approval/rejection notifications.
 - **Event Recurrence System:** Events table includes a `recurrence` field (none/daily/weekly/monthly). Backend expands recurring events dynamically for up to 3 months, creating unique occurrences while maintaining the original event as the source of truth. Frontend supports recurrence in forms and displays generated occurrences across views.
