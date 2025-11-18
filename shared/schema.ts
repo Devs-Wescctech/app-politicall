@@ -85,6 +85,8 @@ export const users = pgTable("users", {
   whatsapp: text("whatsapp"), // WhatsApp number for contact
   planValue: text("plan_value"), // Plan value (stored as formatted string)
   expiryDate: text("expiry_date"), // Expiry date (stored as DD/MM/YYYY)
+  paymentStatus: text("payment_status"), // "pago", "atrasado", or null
+  lastPaymentDate: text("last_payment_date"), // Last payment date (stored as DD/MM/YYYY)
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
