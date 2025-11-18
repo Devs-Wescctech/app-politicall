@@ -80,6 +80,8 @@ export const users = pgTable("users", {
   partyId: varchar("party_id").references(() => politicalParties.id),
   politicalPosition: text("political_position"),
   lastElectionVotes: integer("last_election_votes"),
+  state: text("state"),
+  city: text("city"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

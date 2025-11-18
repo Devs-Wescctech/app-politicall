@@ -504,6 +504,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         partyId: z.string().optional(),
         politicalPosition: z.string().optional(),
         lastElectionVotes: z.number().int().nonnegative().optional(),
+        state: z.string().optional(),
+        city: z.string().optional(),
         currentPassword: z.string().optional(),
         newPassword: z.string().min(6, "Nova senha deve ter no mínimo 6 caracteres").optional(),
       });

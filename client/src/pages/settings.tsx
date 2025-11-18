@@ -17,6 +17,8 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { PoliticalParty } from "@shared/schema";
 import { POLITICAL_POSITIONS } from "@shared/schema";
+import { BRAZILIAN_STATES, getCitiesByState } from "@shared/brazilian-locations";
+import { useEffect } from "react";
 
 const profileSchema = z.object({
   name: z.string().min(2, "Nome deve ter no mínimo 2 caracteres"),
@@ -24,6 +26,8 @@ const profileSchema = z.object({
   partyId: z.string().optional(),
   politicalPosition: z.string().optional(),
   lastElectionVotes: z.string().optional(),
+  state: z.string().optional(),
+  city: z.string().optional(),
   currentPassword: z.string().optional(),
   newPassword: z.string().optional(),
   confirmPassword: z.string().optional(),
@@ -73,11 +77,16 @@ export default function Settings() {
     partyId?: string;
     politicalPosition?: string;
     lastElectionVotes?: number;
+    state?: string;
+    city?: string;
   }>({
     queryKey: ["/api/auth/me"],
   });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [selectedState, setSelectedState] = useState(currentUser?.state || "");
+  const [availableCities, setAvailableCities] = useState<string[]>([]);
 
   const form = useForm<ProfileForm>({
     resolver: zodResolver(profileSchema),
@@ -87,6 +96,8 @@ export default function Settings() {
       partyId: currentUser?.partyId || "",
       politicalPosition: currentUser?.politicalPosition || "",
       lastElectionVotes: currentUser?.lastElectionVotes?.toString() || "",
+      state: currentUser?.state || "",
+      city: currentUser?.city || "",
       currentPassword: "",
       newPassword: "",
       confirmPassword: "",
@@ -104,6 +115,8 @@ export default function Settings() {
         partyId: data.partyId || undefined,
         politicalPosition: data.politicalPosition || undefined,
         lastElectionVotes: votesNumber,
+        state: data.state || undefined,
+        city: data.city || undefined,
       };
 
       if (data.newPassword && data.currentPassword) {
@@ -191,6 +204,28 @@ export default function Settings() {
     updateProfileMutation.mutate(data);
   };
 
+  useEffect(() => {
+    if (currentUser?.state) {
+      setSelectedState(currentUser.state);
+      setAvailableCities(getCitiesByState(currentUser.state));
+    }
+  }, [currentUser]);
+
+  useEffect(() => {
+    const subscription = form.watch((value, { name }) => {
+      if (name === "state" && value.state) {
+        setSelectedState(value.state);
+        const cities = getCitiesByState(value.state);
+        setAvailableCities(cities);
+        
+        if (value.city && !cities.includes(value.city)) {
+          form.setValue("city", "");
+        }
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [form]);
+
   const handleEditClick = () => {
     const formattedVotes = currentUser?.lastElectionVotes 
       ? currentUser.lastElectionVotes.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.')
@@ -202,10 +237,18 @@ export default function Settings() {
       partyId: currentUser?.partyId || "",
       politicalPosition: currentUser?.politicalPosition || "",
       lastElectionVotes: formattedVotes,
+      state: currentUser?.state || "",
+      city: currentUser?.city || "",
       currentPassword: "",
       newPassword: "",
       confirmPassword: "",
     });
+    
+    if (currentUser?.state) {
+      setSelectedState(currentUser.state);
+      setAvailableCities(getCitiesByState(currentUser.state));
+    }
+    
     setShowEditDialog(true);
   };
 
@@ -499,6 +542,58 @@ export default function Settings() {
                           data-testid="input-votes" 
                         />
                       </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="state"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Estado</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-state">
+                            <SelectValue placeholder="Selecione o estado" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {BRAZILIAN_STATES.map((state) => (
+                            <SelectItem key={state.value} value={state.value}>
+                              {state.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="city"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Cidade</FormLabel>
+                      <Select 
+                        onValueChange={field.onChange} 
+                        value={field.value}
+                        disabled={!selectedState || availableCities.length === 0}
+                      >
+                        <FormControl>
+                          <SelectTrigger data-testid="select-city">
+                            <SelectValue placeholder={selectedState ? "Selecione a cidade" : "Selecione um estado primeiro"} />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {availableCities.map((city) => (
+                            <SelectItem key={city} value={city}>
+                              {city}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}
