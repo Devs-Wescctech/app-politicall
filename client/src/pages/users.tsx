@@ -320,7 +320,7 @@ export default function UsersManagement() {
                   <p className="text-sm text-muted-foreground truncate" title={user.email}>
                     {user.email}
                   </p>
-                  <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
                     <Badge className={`${roleConfig.color} shrink-0`}>
                       <RoleIcon className="w-3 h-3 mr-1" />
                       <span className="hidden sm:inline">{roleConfig.label}</span>
@@ -332,10 +332,10 @@ export default function UsersManagement() {
                         size="sm"
                         onClick={() => handleEditRole(user)}
                         data-testid={`button-edit-role-${user.id}`}
-                        className="rounded-full"
+                        className="rounded-full shrink-0"
                       >
                         <Settings className="w-4 h-4 sm:hidden" />
-                        <span className="hidden sm:inline">Alterar Permissão</span>
+                        <span className="hidden sm:inline whitespace-nowrap">Alterar Permissão</span>
                       </Button>
                     )}
                   </div>
