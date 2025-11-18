@@ -640,8 +640,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // List all survey campaigns (admin only)
   app.get("/api/admin/survey-campaigns", authenticateAdminToken, async (req: AuthRequest, res) => {
     try {
-      const campaigns = await storage.getAllSurveyCampaigns();
-      res.json(campaigns);
+      // Fetch campaigns with templates and user info
+      const results = await db.select({
+        campaign: surveyCampaigns,
+        template: surveyTemplates,
+        user: {
+          id: users.id,
+          name: users.name,
+          email: users.email,
+        }
+      })
+        .from(surveyCampaigns)
+        .innerJoin(surveyTemplates, eq(surveyCampaigns.templateId, surveyTemplates.id))
+        .innerJoin(users, eq(surveyCampaigns.userId, users.id))
+        .orderBy(desc(surveyCampaigns.createdAt));
+
+      // Enrich with response counts
+      const enrichedCampaigns = await Promise.all(
+        results.map(async ({ campaign, template, user }) => {
+          const responses = await db.select()
+            .from(surveyResponses)
+            .where(eq(surveyResponses.campaignId, campaign.id));
+
+          return {
+            ...campaign,
+            template,
+            user,
+            responseCount: responses.length,
+            viewCount: campaign.viewCount || 0
+          };
+        })
+      );
+
+      res.json(enrichedCampaigns);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }

@@ -46,6 +46,11 @@ type SurveyTemplate = {
 
 type CampaignWithTemplate = SurveyCampaign & {
   template?: SurveyTemplate;
+  user?: {
+    id: string;
+    name: string;
+    email: string;
+  };
 };
 
 export default function Admin() {
@@ -308,10 +313,10 @@ export default function Admin() {
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="space-y-2">
-            {campaign.template && (
-              <div data-testid={`text-template-${campaign.id}`}>
-                <p className="text-xs font-medium text-muted-foreground">Template</p>
-                <p className="text-sm">{campaign.template.name}</p>
+            {campaign.user && (
+              <div data-testid={`text-user-${campaign.id}`}>
+                <p className="text-xs font-medium text-muted-foreground">Criado por</p>
+                <p className="text-sm">{campaign.user.name}</p>
               </div>
             )}
             
