@@ -607,7 +607,7 @@ export default function Admin() {
             </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="flex gap-2">
             <Button
               variant="outline"
               onClick={() => {
@@ -615,6 +615,7 @@ export default function Admin() {
                 setRejectNotes("");
                 setSelectedCampaign(null);
               }}
+              className="flex-1"
               data-testid="button-cancel-reject"
             >
               Cancelar
@@ -623,6 +624,7 @@ export default function Admin() {
               onClick={handleRejectConfirm}
               disabled={rejectMutation.isPending}
               variant="destructive"
+              className="flex-1"
               data-testid="button-confirm-reject"
             >
               Confirmar Rejeição
