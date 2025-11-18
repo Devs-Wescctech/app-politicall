@@ -302,12 +302,9 @@ export default function Admin() {
     return (
       <Card key={campaign.id} className="hover-elevate" data-testid={`card-campaign-${campaign.id}`}>
         <CardHeader>
-          <div className="flex items-start justify-between gap-2">
-            <CardTitle className="text-base" data-testid={`text-campaign-name-${campaign.id}`}>
-              {campaign.campaignName}
-            </CardTitle>
-            {getStageBadge(campaign.campaignStage)}
-          </div>
+          <CardTitle className="text-base" data-testid={`text-campaign-name-${campaign.id}`}>
+            {campaign.campaignName}
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="space-y-2">
