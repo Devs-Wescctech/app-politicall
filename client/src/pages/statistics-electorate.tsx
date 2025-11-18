@@ -22,7 +22,7 @@ export default function StatisticsElectorate() {
     queryKey: ["/api/tse/states"],
   });
 
-  const { data: electorate, isLoading } = useQuery({
+  const { data: electorate, isLoading } = useQuery<any>({
     queryKey: ["/api/tse/electorate", selectedYear, selectedState],
     enabled: !!selectedYear,
   });

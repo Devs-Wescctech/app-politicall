@@ -28,7 +28,7 @@ export default function StatisticsResults() {
     queryKey: ["/api/tse/states"],
   });
 
-  const { data: results, isLoading } = useQuery({
+  const { data: results, isLoading } = useQuery<any>({
     queryKey: ["/api/tse/results", selectedYear, selectedRound, selectedPosition, selectedState],
     enabled: !!selectedYear && !!selectedPosition,
   });
