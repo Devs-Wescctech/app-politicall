@@ -19,6 +19,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { CheckCircle2, AlertCircle } from "lucide-react";
 import logoUrl from "@assets/logo pol_1763308638963.png";
+import brazilFlagUrl from "@assets/242 (1)_1763481516412.jpg";
 
 type SurveyData = {
   campaign: {
@@ -179,8 +180,17 @@ export default function SurveyLanding() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <Card className="w-full max-w-2xl">
+      <div 
+        className="min-h-screen flex items-center justify-center p-4 relative"
+        style={{
+          backgroundImage: `url(${brazilFlagUrl})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundAttachment: 'fixed'
+        }}
+      >
+        <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/60 to-black/70" />
+        <Card className="w-full max-w-2xl relative z-10">
           <CardHeader className="space-y-4">
             <Skeleton className="h-12 w-32 mx-auto" />
             <Skeleton className="h-8 w-3/4 mx-auto" />
@@ -197,8 +207,17 @@ export default function SurveyLanding() {
 
   if (error || !surveyData) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <Card className="w-full max-w-2xl">
+      <div 
+        className="min-h-screen flex items-center justify-center p-4 relative"
+        style={{
+          backgroundImage: `url(${brazilFlagUrl})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundAttachment: 'fixed'
+        }}
+      >
+        <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/60 to-black/70" />
+        <Card className="w-full max-w-2xl relative z-10">
           <CardHeader className="text-center">
             <div className="mx-auto mb-4">
               <AlertCircle className="h-16 w-16 text-destructive" />
@@ -215,8 +234,17 @@ export default function SurveyLanding() {
 
   if (surveyData.campaign.status !== "active" && surveyData.campaign.status !== "approved") {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <Card className="w-full max-w-2xl">
+      <div 
+        className="min-h-screen flex items-center justify-center p-4 relative"
+        style={{
+          backgroundImage: `url(${brazilFlagUrl})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundAttachment: 'fixed'
+        }}
+      >
+        <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/60 to-black/70" />
+        <Card className="w-full max-w-2xl relative z-10">
           <CardHeader className="text-center">
             <div className="mx-auto mb-4">
               <AlertCircle className="h-16 w-16 text-muted-foreground" />
@@ -233,8 +261,17 @@ export default function SurveyLanding() {
 
   if (submitted) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <Card className="w-full max-w-2xl border-[#40E0D0]">
+      <div 
+        className="min-h-screen flex items-center justify-center p-4 relative"
+        style={{
+          backgroundImage: `url(${brazilFlagUrl})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundAttachment: 'fixed'
+        }}
+      >
+        <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/60 to-black/70" />
+        <Card className="w-full max-w-2xl border-[#40E0D0] relative z-10">
           <CardHeader className="text-center space-y-4">
             <div className="mx-auto mb-4">
               <CheckCircle2 className="h-24 w-24 text-[#40E0D0]" data-testid="icon-success" />
@@ -252,8 +289,17 @@ export default function SurveyLanding() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container max-w-3xl mx-auto py-8 px-4 sm:py-12 sm:px-6">
+    <div 
+      className="min-h-screen relative"
+      style={{
+        backgroundImage: `url(${brazilFlagUrl})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundAttachment: 'fixed'
+      }}
+    >
+      <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/60 to-black/70" />
+      <div className="container max-w-3xl mx-auto py-8 px-4 sm:py-12 sm:px-6 relative z-10">
         <div className="text-center mb-8">
           <img 
             src={logoUrl} 
