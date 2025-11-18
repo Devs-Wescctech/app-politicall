@@ -35,6 +35,7 @@ type MenuItem = {
   icon: any;
   permissionKey?: keyof UserPermissions;
   adminOnly?: boolean;
+  alwaysVisible?: boolean;
 };
 
 export function AppSidebar() {
@@ -51,7 +52,7 @@ export function AppSidebar() {
       title: "Dashboard",
       url: "/dashboard",
       icon: LayoutDashboard,
-      permissionKey: "dashboard",
+      alwaysVisible: true,
     },
     {
       title: "Eleitores",
@@ -93,28 +94,28 @@ export function AppSidebar() {
       title: "Usuários",
       url: "/users",
       icon: Shield,
-      permissionKey: "users",
+      alwaysVisible: true,
     },
     {
       title: "Configurações",
       url: "/settings",
       icon: Settings,
-      adminOnly: true,
+      alwaysVisible: true,
     },
   ];
   
   // Filter menu items based on permissions
   const visibleItems = menuItems.filter(item => {
-    // Configurações é apenas para admin
-    if (item.adminOnly) {
-      return user?.role === 'admin';
+    // Itens sempre visíveis (Dashboard, Usuários, Configurações)
+    if (item.alwaysVisible) {
+      return true;
     }
     // Verifica se o usuário tem permissão para este menu
     if (item.permissionKey) {
       return permissions[item.permissionKey] === true;
     }
-    // Se não tem permissionKey nem adminOnly, mostra por padrão
-    return true;
+    // Se não tem permissionKey nem alwaysVisible, não mostra
+    return false;
   });
 
   const handleLogout = () => {
