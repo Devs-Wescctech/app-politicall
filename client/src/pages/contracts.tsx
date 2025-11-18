@@ -46,6 +46,9 @@ type User = {
   permissions: any;
   createdAt: Date;
   activityCount?: number;
+  whatsapp?: string;
+  planValue?: string;
+  expiryDate?: string;
 };
 
 const createUserSchema = z.object({
@@ -243,10 +246,10 @@ export default function ContractsPage() {
     setSelectedUser(user);
     setDetailsDialogOpen(true);
     setIsEditingUser(false);
-    // Initialize edit values
-    setEditPlanValue("");
-    setEditExpiryDate("");
-    setEditWhatsapp("5511999999999");
+    // Initialize edit values from user data
+    setEditPlanValue(user.planValue || "");
+    setEditExpiryDate(user.expiryDate || "");
+    setEditWhatsapp(user.whatsapp || "");
   };
 
   const handleEditUser = () => {
@@ -255,18 +258,54 @@ export default function ContractsPage() {
 
   const handleCancelEdit = () => {
     setIsEditingUser(false);
-    // Reset to original values
-    setEditPlanValue("");
-    setEditExpiryDate("");
-    setEditWhatsapp("5511999999999");
+    // Reset to original values from selected user
+    if (selectedUser) {
+      setEditPlanValue(selectedUser.planValue || "");
+      setEditExpiryDate(selectedUser.expiryDate || "");
+      setEditWhatsapp(selectedUser.whatsapp || "");
+    }
   };
 
+  const updateContractMutation = useMutation({
+    mutationFn: async (data: { userId: string; whatsapp: string; planValue: string; expiryDate: string }) => {
+      return apiRequest(`/api/admin/users/${data.userId}/contract`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          whatsapp: data.whatsapp,
+          planValue: data.planValue,
+          expiryDate: data.expiryDate,
+        }),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('admin_token')}`,
+        },
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
+      setIsEditingUser(false);
+      toast({
+        title: "Alterações salvas!",
+        description: "Os dados do usuário foram atualizados.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro ao salvar",
+        description: error.message || "Não foi possível salvar as alterações.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleSaveEdit = () => {
-    // TODO: Save to backend
-    setIsEditingUser(false);
-    toast({
-      title: "Alterações salvas!",
-      description: "Os dados do usuário foram atualizados.",
+    if (!selectedUser) return;
+    
+    updateContractMutation.mutate({
+      userId: selectedUser.id,
+      whatsapp: editWhatsapp,
+      planValue: editPlanValue,
+      expiryDate: editExpiryDate,
     });
   };
 
@@ -454,13 +493,13 @@ export default function ContractsPage() {
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-muted-foreground">Valor do plano</span>
                       <span className="font-semibold" data-testid={`user-plan-value-${user.id}`}>
-                        R$ 0.000,00
+                        {user.planValue ? `R$ ${user.planValue}` : 'Não informado'}
                       </span>
                     </div>
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-muted-foreground">Vencimento</span>
                       <span className="font-semibold" data-testid={`user-expiry-${user.id}`}>
-                        00/00/0000
+                        {user.expiryDate || 'Não informado'}
                       </span>
                     </div>
                     <div className="flex items-center justify-between pt-3 gap-2">
@@ -595,10 +634,11 @@ export default function ContractsPage() {
                 </Button>
                 <Button
                   onClick={handleSaveEdit}
+                  disabled={updateContractMutation.isPending}
                   className="flex-1"
                   data-testid="button-save-edit"
                 >
-                  Salvar
+                  {updateContractMutation.isPending ? "Salvando..." : "Salvar"}
                 </Button>
               </>
             ) : (

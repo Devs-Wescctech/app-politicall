@@ -82,6 +82,9 @@ export const users = pgTable("users", {
   lastElectionVotes: integer("last_election_votes"),
   state: text("state"),
   city: text("city"),
+  whatsapp: text("whatsapp"), // WhatsApp number for contact
+  planValue: text("plan_value"), // Plan value (stored as formatted string)
+  expiryDate: text("expiry_date"), // Expiry date (stored as DD/MM/YYYY)
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

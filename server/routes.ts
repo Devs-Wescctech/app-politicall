@@ -900,6 +900,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update user contract details (whatsapp, planValue, expiryDate)
+  app.patch("/api/admin/users/:id/contract", authenticateAdminToken, async (req: AuthRequest, res) => {
+    try {
+      const schema = z.object({
+        whatsapp: z.string().optional(),
+        planValue: z.string().optional(),
+        expiryDate: z.string().optional(),
+      });
+
+      const validatedData = schema.parse(req.body);
+      
+      const updated = await storage.updateUser(req.params.id, validatedData);
+      const { password, ...sanitizedUser } = updated;
+      res.json(sanitizedUser);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
   // ==================== USER MANAGEMENT (Admin Only) ====================
   
   // Get user activity ranking with period filter
