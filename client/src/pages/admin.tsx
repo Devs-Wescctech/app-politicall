@@ -319,7 +319,7 @@ export default function Admin() {
               </Avatar>
             )}
             <div className="flex-1 min-w-0">
-              <CardTitle className="text-base" data-testid={`text-campaign-name-${campaign.id}`}>
+              <CardTitle className="text-xs font-semibold" data-testid={`text-campaign-name-${campaign.id}`}>
                 {campaign.campaignName}
               </CardTitle>
               {campaign.user && (
@@ -334,7 +334,7 @@ export default function Admin() {
           <div className="space-y-2">
             <div data-testid={`text-created-${campaign.id}`}>
               <p className="text-xs font-medium text-muted-foreground">Data de criação</p>
-              <p className="text-sm">
+              <p className="text-xs">
                 {format(new Date(campaign.createdAt), "dd/MM/yyyy", { locale: ptBR })}
               </p>
             </div>
@@ -342,14 +342,14 @@ export default function Admin() {
             {campaign.targetAudience && (
               <div data-testid={`text-audience-${campaign.id}`}>
                 <p className="text-xs font-medium text-muted-foreground">Público-alvo</p>
-                <p className="text-sm">{campaign.targetAudience}</p>
+                <p className="text-xs">{campaign.targetAudience}</p>
               </div>
             )}
 
             {campaign.adminNotes && (
               <div data-testid={`text-admin-notes-${campaign.id}`}>
                 <p className="text-xs font-medium text-muted-foreground">Notas do Admin</p>
-                <p className="text-sm">{campaign.adminNotes}</p>
+                <p className="text-xs">{campaign.adminNotes}</p>
               </div>
             )}
           </div>
