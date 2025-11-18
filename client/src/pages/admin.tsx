@@ -530,14 +530,23 @@ export default function Admin() {
       <header className="sticky top-0 z-50 bg-card border-b">
         <div className="flex items-center justify-between px-6 py-4">
           <img src={logoUrl} alt="Politicall Logo" className="h-10" data-testid="img-logo" />
-          <Button 
-            onClick={handleLogout} 
-            variant="outline"
-            className="rounded-full"
-            data-testid="button-logout"
-          >
-            Sair
-          </Button>
+          <div className="flex items-center gap-3">
+            <Button 
+              variant="outline"
+              className="rounded-full"
+              data-testid="button-contracts"
+            >
+              Contratos
+            </Button>
+            <Button 
+              onClick={handleLogout} 
+              variant="outline"
+              className="rounded-full"
+              data-testid="button-logout"
+            >
+              Sair
+            </Button>
+          </div>
         </div>
       </header>
 
