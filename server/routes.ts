@@ -795,6 +795,111 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // List all users (admin panel only)
+  app.get("/api/admin/users", authenticateAdminToken, async (req: AuthRequest, res) => {
+    try {
+      const allUsers = await storage.getAllUsers();
+      
+      // Get activity count for each user
+      const usersWithActivityCount = await Promise.all(
+        allUsers.map(async (user) => {
+          // Count all activities for this user
+          const [eventsCount] = await db.select({ count: sql<number>`count(*)::int` })
+            .from(events)
+            .where(eq(events.userId, user.id));
+          
+          const [demandsCount] = await db.select({ count: sql<number>`count(*)::int` })
+            .from(demands)
+            .where(eq(demands.userId, user.id));
+          
+          const [commentsCount] = await db.select({ count: sql<number>`count(*)::int` })
+            .from(demandComments)
+            .where(eq(demandComments.userId, user.id));
+          
+          const [contactsCount] = await db.select({ count: sql<number>`count(*)::int` })
+            .from(contacts)
+            .where(eq(contacts.userId, user.id));
+          
+          const [alliancesCount] = await db.select({ count: sql<number>`count(*)::int` })
+            .from(politicalAlliances)
+            .where(eq(politicalAlliances.userId, user.id));
+          
+          const [campaignsCount] = await db.select({ count: sql<number>`count(*)::int` })
+            .from(surveyCampaigns)
+            .where(eq(surveyCampaigns.userId, user.id));
+          
+          const totalActivities = 
+            (eventsCount?.count || 0) +
+            (demandsCount?.count || 0) +
+            (commentsCount?.count || 0) +
+            (contactsCount?.count || 0) +
+            (alliancesCount?.count || 0) +
+            (campaignsCount?.count || 0);
+          
+          const { password, ...sanitizedUser } = user;
+          return {
+            ...sanitizedUser,
+            activityCount: totalActivities
+          };
+        })
+      );
+      
+      res.json(usersWithActivityCount);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Create new user (admin panel only)
+  app.post("/api/admin/users/create", authenticateAdminToken, async (req: AuthRequest, res) => {
+    try {
+      // Admin-specific user creation schema that includes role and permissions
+      const adminCreateUserSchema = z.object({
+        email: z.string().email(),
+        password: z.string().min(6),
+        name: z.string().min(2),
+        role: z.enum(["admin", "coordenador", "assessor"]),
+        permissions: z.object({
+          dashboard: z.boolean(),
+          contacts: z.boolean(),
+          alliances: z.boolean(),
+          demands: z.boolean(),
+          agenda: z.boolean(),
+          ai: z.boolean(),
+          marketing: z.boolean(),
+          users: z.boolean(),
+        }).optional(),
+      });
+      
+      const validatedData = adminCreateUserSchema.parse(req.body);
+      
+      // Check if user already exists
+      const existingUser = await storage.getUserByEmail(validatedData.email);
+      if (existingUser) {
+        return res.status(400).json({ error: "Email já cadastrado" });
+      }
+
+      // Hash password
+      const hashedPassword = await bcrypt.hash(validatedData.password, 10);
+      
+      // Always define permissions explicitly - use provided or defaults for role
+      const permissionsToSave = validatedData.permissions || DEFAULT_PERMISSIONS[validatedData.role as keyof typeof DEFAULT_PERMISSIONS];
+      
+      // Create user with specified role and permissions
+      const user = await storage.createUser({
+        ...validatedData,
+        password: hashedPassword,
+        permissions: permissionsToSave,
+      });
+
+      // Don't send password to frontend
+      const { password, ...sanitizedUser } = user;
+      res.json(sanitizedUser);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message || "Erro ao criar usuário" });
+    }
+  });
+
   // ==================== USER MANAGEMENT (Admin Only) ====================
   
   // Get user activity ranking with period filter

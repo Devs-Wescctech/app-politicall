@@ -91,10 +91,10 @@ export default function ContractsPage() {
 
   // Fetch all users with admin token
   const { data: users = [], isLoading, error } = useQuery<User[]>({
-    queryKey: ["/api/users"],
+    queryKey: ["/api/admin/users"],
     queryFn: async () => {
       const token = localStorage.getItem("admin_token");
-      const response = await fetch("/api/users", {
+      const response = await fetch("/api/admin/users", {
         headers: {
           "Authorization": `Bearer ${token}`,
           "Content-Type": "application/json",
@@ -117,7 +117,7 @@ export default function ContractsPage() {
   const createUserMutation = useMutation({
     mutationFn: async (data: CreateUserForm) => {
       const token = localStorage.getItem("admin_token");
-      const response = await fetch("/api/users/create", {
+      const response = await fetch("/api/admin/users/create", {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${token}`,
@@ -147,7 +147,7 @@ export default function ContractsPage() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
       toast({
         title: "Conta criada com sucesso!",
         description: "O novo usuário admin foi adicionado ao sistema.",
