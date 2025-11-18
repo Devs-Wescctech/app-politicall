@@ -19,7 +19,6 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { CheckCircle2, AlertCircle } from "lucide-react";
 import logoUrl from "@assets/logo pol_1763308638963.png";
-import brazilFlagUrl from "@assets/242 (1)_1763481516412.jpg";
 
 type SurveyData = {
   campaign: {
@@ -183,7 +182,7 @@ export default function SurveyLanding() {
       <div 
         className="min-h-screen flex items-center justify-center p-4 relative"
         style={{
-          backgroundImage: `url(${brazilFlagUrl})`,
+          backgroundImage: 'url(/attached_assets/242%20(1)_1763481516412.jpg)',
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           backgroundAttachment: 'fixed'
@@ -210,7 +209,7 @@ export default function SurveyLanding() {
       <div 
         className="min-h-screen flex items-center justify-center p-4 relative"
         style={{
-          backgroundImage: `url(${brazilFlagUrl})`,
+          backgroundImage: 'url(/attached_assets/242%20(1)_1763481516412.jpg)',
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           backgroundAttachment: 'fixed'
@@ -237,7 +236,7 @@ export default function SurveyLanding() {
       <div 
         className="min-h-screen flex items-center justify-center p-4 relative"
         style={{
-          backgroundImage: `url(${brazilFlagUrl})`,
+          backgroundImage: 'url(/attached_assets/242%20(1)_1763481516412.jpg)',
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           backgroundAttachment: 'fixed'
@@ -264,7 +263,7 @@ export default function SurveyLanding() {
       <div 
         className="min-h-screen flex items-center justify-center p-4 relative"
         style={{
-          backgroundImage: `url(${brazilFlagUrl})`,
+          backgroundImage: 'url(/attached_assets/242%20(1)_1763481516412.jpg)',
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           backgroundAttachment: 'fixed'
@@ -292,7 +291,7 @@ export default function SurveyLanding() {
     <div 
       className="min-h-screen relative"
       style={{
-        backgroundImage: `url(${brazilFlagUrl})`,
+        backgroundImage: 'url(/attached_assets/242%20(1)_1763481516412.jpg)',
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundAttachment: 'fixed'
