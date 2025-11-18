@@ -308,7 +308,7 @@ export default function Admin() {
 
     return (
       <Card key={campaign.id} className="hover-elevate" data-testid={`card-campaign-${campaign.id}`}>
-        <CardHeader>
+        <CardHeader className="p-4 pb-2">
           <div className="flex items-start gap-3">
             {campaign.user && (
               <Avatar className="w-10 h-10 flex-shrink-0" data-testid={`avatar-user-${campaign.id}`}>
@@ -330,8 +330,8 @@ export default function Admin() {
             </div>
           </div>
         </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="space-y-2">
+        <CardContent className="space-y-2 p-4">
+          <div className="space-y-1.5">
             <div data-testid={`text-created-${campaign.id}`}>
               <p className="text-xs font-medium text-muted-foreground">Data de criação</p>
               <p className="text-xs">
@@ -355,7 +355,7 @@ export default function Admin() {
           </div>
 
           {campaign.status === "under_review" && (
-            <div className="space-y-2 pt-2">
+            <div className="space-y-1.5 pt-1">
               <Button
                 onClick={() => handleApprove(campaign)}
                 disabled={approveMutation.isPending}
@@ -381,7 +381,7 @@ export default function Admin() {
             </div>
           )}
 
-          <div className="flex gap-2 pt-2">
+          <div className="flex gap-2 pt-1">
             {currentStageInfo.prev && (
               <Button
                 onClick={() => handleMoveStage(campaign.id, currentStageInfo.prev!)}
