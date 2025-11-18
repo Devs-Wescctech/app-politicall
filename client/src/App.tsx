@@ -18,6 +18,7 @@ import Login from "@/pages/login";
 import Register from "@/pages/register";
 import AdminLogin from "@/pages/admin-login";
 import Admin from "@/pages/admin";
+import Contracts from "@/pages/contracts";
 import Dashboard from "@/pages/dashboard";
 import Contacts from "@/pages/contacts";
 import Alliances from "@/pages/alliances";
@@ -117,6 +118,7 @@ function App() {
             <Route path="/register" component={Register} />
             <Route path="/admin-login" component={AdminLogin} />
             <Route path="/admin" component={Admin} />
+            <Route path="/contracts" component={Contracts} />
             <Route path="/pesquisa/:slug" component={SurveyLanding} />
             <Route path="/" component={LandingPage} />
             <Route path="/:rest*">

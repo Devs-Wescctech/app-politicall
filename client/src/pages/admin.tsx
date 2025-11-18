@@ -532,6 +532,7 @@ export default function Admin() {
           <img src={logoUrl} alt="Politicall Logo" className="h-10" data-testid="img-logo" />
           <div className="flex items-center gap-3">
             <Button 
+              onClick={() => setLocation("/contracts")}
               variant="outline"
               className="rounded-full"
               data-testid="button-contracts"
