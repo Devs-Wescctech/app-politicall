@@ -508,6 +508,7 @@ export default function ContractsPage() {
               adminUsers.map((user) => {
                 const status = calculatePaymentStatus(user);
                 const isPaid = status === "pago";
+                const isOverdue = status === "atrasado";
                 
                 return (
                   <Card 
@@ -551,10 +552,10 @@ export default function ContractsPage() {
                       </div>
                       <Button
                         onClick={(e) => handlePaymentClick(user, e)}
-                        disabled={isPaid}
-                        variant={isPaid ? "outline" : "default"}
+                        disabled={!isOverdue}
+                        variant={isOverdue ? "default" : "outline"}
                         size="sm"
-                        className={isPaid ? "border-green-500 text-green-500" : "bg-green-500 hover:bg-green-600 text-white"}
+                        className={isOverdue ? "bg-green-500 hover:bg-green-600 text-white" : "border-green-500 text-green-500"}
                         data-testid={`button-pay-${user.id}`}
                       >
                         Pagar
