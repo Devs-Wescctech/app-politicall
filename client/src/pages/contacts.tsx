@@ -35,6 +35,7 @@ export default function Contacts() {
   const [selectedInterest, setSelectedInterest] = useState<string>("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
   const { toast } = useToast();
 
   const { data: contacts, isLoading } = useQuery<Contact[]>({
@@ -448,18 +449,20 @@ export default function Contacts() {
       <Card>
         <CardHeader>
           <div className="flex flex-wrap md:flex-nowrap items-center gap-4">
-            <div className="relative flex-1 w-full md:max-w-md">
+            <div className={`relative flex-1 w-full transition-all duration-300 ${isSearchFocused ? 'md:max-w-2xl' : 'md:max-w-md'}`}>
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Buscar contatos..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                onFocus={() => setIsSearchFocused(true)}
+                onBlur={() => setIsSearchFocused(false)}
                 className="pl-10 rounded-full"
                 data-testid="input-search-contacts"
               />
             </div>
             <Select value={selectedState} onValueChange={(value) => setSelectedState(value === "all" ? "" : value)}>
-              <SelectTrigger className="w-[180px] rounded-full" data-testid="select-state-filter">
+              <SelectTrigger className={`rounded-full transition-all duration-300 ${isSearchFocused ? 'w-[120px]' : 'w-[180px]'}`} data-testid="select-state-filter">
                 <SelectValue placeholder="Estados" />
               </SelectTrigger>
               <SelectContent>
@@ -472,7 +475,7 @@ export default function Contacts() {
               </SelectContent>
             </Select>
             <Select value={selectedCity} onValueChange={(value) => setSelectedCity(value === "all" ? "" : value)}>
-              <SelectTrigger className="w-[180px] rounded-full" data-testid="select-city-filter">
+              <SelectTrigger className={`rounded-full transition-all duration-300 ${isSearchFocused ? 'w-[120px]' : 'w-[180px]'}`} data-testid="select-city-filter">
                 <SelectValue placeholder="Cidades" />
               </SelectTrigger>
               <SelectContent>
@@ -485,7 +488,7 @@ export default function Contacts() {
               </SelectContent>
             </Select>
             <Select value={selectedInterest} onValueChange={(value) => setSelectedInterest(value === "all" ? "" : value)}>
-              <SelectTrigger className="w-[180px] rounded-full" data-testid="select-interest-filter">
+              <SelectTrigger className={`rounded-full transition-all duration-300 ${isSearchFocused ? 'w-[120px]' : 'w-[180px]'}`} data-testid="select-interest-filter">
                 <SelectValue placeholder="Interesses" />
               </SelectTrigger>
               <SelectContent>
