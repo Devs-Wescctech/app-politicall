@@ -798,35 +798,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // List all users (admin panel only)
   app.get("/api/admin/users", authenticateAdminToken, async (req: AuthRequest, res) => {
     try {
-      const allUsers = await storage.getAllUsers();
+      const result = await db.select({
+        userId: users.id,
+        email: users.email,
+        name: users.name,
+        role: users.role,
+        permissions: users.permissions,
+        phone: users.phone,
+        avatar: users.avatar,
+        partyId: users.partyId,
+        politicalPosition: users.politicalPosition,
+        lastElectionVotes: users.lastElectionVotes,
+        state: users.state,
+        city: users.city,
+        whatsapp: users.whatsapp,
+        planValue: users.planValue,
+        expiryDate: users.expiryDate,
+        createdAt: users.createdAt,
+        partyAbbreviation: politicalParties.acronym,
+        partyName: politicalParties.name,
+        partyIdeology: politicalParties.ideology,
+      })
+      .from(users)
+      .leftJoin(politicalParties, eq(users.partyId, politicalParties.id));
       
       // Get activity count for each user
       const usersWithActivityCount = await Promise.all(
-        allUsers.map(async (user) => {
+        result.map(async (row) => {
           // Count all activities for this user
           const [eventsCount] = await db.select({ count: sql<number>`count(*)::int` })
             .from(events)
-            .where(eq(events.userId, user.id));
+            .where(eq(events.userId, row.userId));
           
           const [demandsCount] = await db.select({ count: sql<number>`count(*)::int` })
             .from(demands)
-            .where(eq(demands.userId, user.id));
+            .where(eq(demands.userId, row.userId));
           
           const [commentsCount] = await db.select({ count: sql<number>`count(*)::int` })
             .from(demandComments)
-            .where(eq(demandComments.userId, user.id));
+            .where(eq(demandComments.userId, row.userId));
           
           const [contactsCount] = await db.select({ count: sql<number>`count(*)::int` })
             .from(contacts)
-            .where(eq(contacts.userId, user.id));
+            .where(eq(contacts.userId, row.userId));
           
           const [alliancesCount] = await db.select({ count: sql<number>`count(*)::int` })
             .from(politicalAlliances)
-            .where(eq(politicalAlliances.userId, user.id));
+            .where(eq(politicalAlliances.userId, row.userId));
           
           const [campaignsCount] = await db.select({ count: sql<number>`count(*)::int` })
             .from(surveyCampaigns)
-            .where(eq(surveyCampaigns.userId, user.id));
+            .where(eq(surveyCampaigns.userId, row.userId));
           
           const totalActivities = 
             (eventsCount?.count || 0) +
@@ -836,9 +858,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
             (alliancesCount?.count || 0) +
             (campaignsCount?.count || 0);
           
-          const { password, ...sanitizedUser } = user;
+          // Restructure with party as nested object
           return {
-            ...sanitizedUser,
+            id: row.userId,
+            email: row.email,
+            name: row.name,
+            role: row.role,
+            permissions: row.permissions,
+            phone: row.phone,
+            avatar: row.avatar,
+            partyId: row.partyId,
+            politicalPosition: row.politicalPosition,
+            lastElectionVotes: row.lastElectionVotes,
+            state: row.state,
+            city: row.city,
+            whatsapp: row.whatsapp,
+            planValue: row.planValue,
+            expiryDate: row.expiryDate,
+            createdAt: row.createdAt,
+            party: row.partyName ? {
+              id: row.partyId!,
+              name: row.partyName,
+              abbreviation: row.partyAbbreviation!,
+              ideology: row.partyIdeology,
+            } : undefined,
             activityCount: totalActivities
           };
         })

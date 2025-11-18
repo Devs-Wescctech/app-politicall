@@ -49,6 +49,13 @@ type User = {
   whatsapp?: string;
   planValue?: string;
   expiryDate?: string;
+  politicalPosition?: string;
+  party?: {
+    id: string;
+    name: string;
+    abbreviation: string;
+    ideology?: string;
+  };
 };
 
 const createUserSchema = z.object({
@@ -542,7 +549,7 @@ export default function ContractsPage() {
               {selectedUser?.name}
             </DialogTitle>
             <DialogDescription data-testid="text-dialog-details-description">
-              PP | Direita | Admin
+              {selectedUser?.party?.abbreviation || 'Sem partido'} | {selectedUser?.party?.ideology || 'Não informado'} | {selectedUser?.politicalPosition || selectedUser?.role}
             </DialogDescription>
           </DialogHeader>
 
