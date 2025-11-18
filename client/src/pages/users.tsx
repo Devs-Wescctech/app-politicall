@@ -470,16 +470,11 @@ export default function UsersManagement() {
                 return (
                   <div
                     key={user.id}
-                    className={`p-4 rounded-md border ${
-                      isTopUser ? "border-primary bg-primary/5" : "border-border"
-                    }`}
+                    className="p-4 rounded-md border border-border"
                     data-testid={`ranking-user-${user.id}`}
                   >
                     <div className="flex items-center gap-3 mb-2">
                       <div className="flex items-center gap-2 min-w-0 flex-1">
-                        {isTopUser && (
-                          <Award className="h-5 w-5 text-primary shrink-0" />
-                        )}
                         <span className="font-semibold text-lg shrink-0">#{index + 1}</span>
                         <span className="font-medium truncate">{user.name}</span>
                         <span className="text-sm text-muted-foreground shrink-0">
