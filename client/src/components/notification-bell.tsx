@@ -334,7 +334,7 @@ export function NotificationBell() {
                   <h4 className={`text-sm mb-1 ${notification.isRead ? "font-normal" : "font-semibold"}`}>
                     {notification.title}
                   </h4>
-                  <p className="text-xs text-muted-foreground mb-2 line-clamp-2">
+                  <p className="text-xs text-muted-foreground mb-2">
                     {notification.message}
                   </p>
                   
