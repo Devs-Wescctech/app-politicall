@@ -306,10 +306,10 @@ export default function SurveyLanding() {
             className="h-12 sm:h-16 mx-auto mb-6" 
             data-testid="img-logo"
           />
-          <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-2" data-testid="text-campaign-name">
+          <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2" data-testid="text-campaign-name">
             {surveyData.campaign.campaignName.replace(/\s*\(Neutra\)\s*/gi, '')}
           </h1>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-white/80">
             Pesquisa de opinião pública
           </p>
         </div>
