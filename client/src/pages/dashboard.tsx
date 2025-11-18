@@ -273,9 +273,9 @@ export default function Dashboard() {
           <CardContent>
             <div className="text-3xl font-bold">{stats?.totalDemands || 0}</div>
             <div className="flex items-center gap-2 mt-1">
-              <Badge variant={(stats?.pendingDemands || 0) > 10 ? "destructive" : "secondary"} className="text-xs">
+              <span className="text-xs text-muted-foreground">
                 {stats?.pendingDemands || 0} pendentes
-              </Badge>
+              </span>
               {(stats?.pendingDemands || 0) > 10 && (
                 <Zap className="h-3 w-3 text-amber-500" />
               )}
