@@ -154,35 +154,36 @@ export function NotificationBell() {
 
   const visibleNotifications = notifications?.filter(n => !optimisticDeletes.has(n.id)) || [];
 
-  const getPriorityColor = (priority?: string) => {
+  const getPriorityColor = (priority?: string, isRead?: boolean) => {
+    const baseClasses = isRead ? "bg-muted/30" : "bg-background";
     switch (priority) {
       case "urgent":
-        return "border-red-500 bg-red-50 dark:bg-red-950/20";
+        return `${baseClasses} border-l-red-500`;
       case "high":
-        return "border-orange-500 bg-orange-50 dark:bg-orange-950/20";
+        return `${baseClasses} border-l-orange-500`;
       case "normal":
-        return "border-[#40E0D0] bg-[#40E0D0]/5";
+        return `${baseClasses} border-l-blue-500`;
       case "low":
-        return "border-gray-300 bg-gray-50 dark:bg-gray-950/20";
+        return `${baseClasses} border-l-gray-400`;
       default:
-        return "border-gray-200";
+        return `${baseClasses} border-l-gray-300`;
     }
   };
 
   const getTypeIcon = (type: string) => {
     switch (type) {
       case "error":
-        return <AlertCircle className="h-4 w-4 text-red-500" />;
+        return <AlertCircle className="h-4 w-4 text-red-600" />;
       case "warning":
-        return <AlertTriangle className="h-4 w-4 text-orange-500" />;
+        return <AlertTriangle className="h-4 w-4 text-orange-600" />;
       case "success":
       case "campaign_approved":
-        return <CheckCircle className="h-4 w-4 text-green-500" />;
+        return <CheckCircle className="h-4 w-4 text-green-600" />;
       case "campaign_rejected":
-        return <AlertCircle className="h-4 w-4 text-red-500" />;
+        return <AlertCircle className="h-4 w-4 text-red-600" />;
       case "info":
       default:
-        return <Info className="h-4 w-4 text-[#40E0D0]" />;
+        return <Info className="h-4 w-4 text-blue-600" />;
     }
   };
 
@@ -227,20 +228,34 @@ export function NotificationBell() {
         </Button>
       </PopoverTrigger>
       
-      <PopoverContent className="w-[450px] p-0" align="end">
-        <div className="border-b bg-gradient-to-r from-[#40E0D0]/10 to-[#48D1CC]/10 p-4">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="font-semibold text-lg">Notificações</h3>
-            <div className="flex items-center gap-2">
+      <PopoverContent className="w-[420px] p-0" align="end">
+        <div className="border-b p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <h3 className="font-semibold">Notificações</h3>
               {unreadCount > 0 && (
-                <Badge className="bg-[#40E0D0] text-white rounded-full">
-                  {unreadCount} nova{unreadCount !== 1 ? "s" : ""}
+                <Badge variant="secondary" className="text-xs">
+                  {unreadCount}
                 </Badge>
+              )}
+            </div>
+            <div className="flex items-center gap-1">
+              {unreadCount > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => markAllAsReadMutation.mutate()}
+                  disabled={markAllAsReadMutation.isPending}
+                  className="text-xs h-7"
+                  data-testid="button-mark-all-read"
+                >
+                  Marcar todas
+                </Button>
               )}
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-6 w-6 rounded-full hover:bg-[#40E0D0]/10"
+                className="h-7 w-7"
                 data-testid="button-close-notifications"
                 onClick={() => setOpen(false)}
               >
@@ -248,117 +263,88 @@ export function NotificationBell() {
               </Button>
             </div>
           </div>
-          
-          {unreadCount > 0 && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => markAllAsReadMutation.mutate()}
-              disabled={markAllAsReadMutation.isPending}
-              className="w-full rounded-full border-[#40E0D0] text-[#40E0D0] hover:bg-[#40E0D0]/10"
-              data-testid="button-mark-all-read"
-            >
-              <CheckCheck className="h-4 w-4 mr-2" />
-              Marcar todas como lidas
-            </Button>
-          )}
         </div>
 
-        <ScrollArea className="h-[450px]">
+        <ScrollArea className="h-[500px]">
           {isLoading ? (
             <div className="p-12 text-center text-sm text-muted-foreground">
-              <div className="animate-pulse">Carregando notificações...</div>
+              <div className="animate-pulse">Carregando...</div>
             </div>
           ) : isError ? (
             <div className="p-12 text-center">
-              <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-3" />
-              <p className="text-sm text-destructive">
+              <AlertCircle className="h-10 w-10 text-destructive mx-auto mb-2" />
+              <p className="text-sm text-muted-foreground">
                 Erro ao carregar notificações
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Tente novamente mais tarde
               </p>
             </div>
           ) : visibleNotifications.length === 0 ? (
             <div className="p-12 text-center">
-              <Bell className="h-12 w-12 text-[#40E0D0] mx-auto mb-3 opacity-50" />
+              <Bell className="h-10 w-10 text-muted-foreground/30 mx-auto mb-2" />
               <p className="text-sm text-muted-foreground">
-                Nenhuma notificação no momento
+                Sem notificações
               </p>
             </div>
           ) : (
-            <div className="p-3 space-y-3">
+            <div className="divide-y">
               {visibleNotifications.map((notification) => (
-                <Card
+                <div
                   key={notification.id}
-                  className={`border-2 transition-all duration-200 ${
-                    optimisticDeletes.has(notification.id) ? "opacity-50 scale-95" : ""
-                  } ${getPriorityColor(notification.priority)}`}
+                  className={`p-4 border-l-4 transition-all hover-elevate ${
+                    optimisticDeletes.has(notification.id) ? "opacity-50" : ""
+                  } ${getPriorityColor(notification.priority, notification.isRead)}`}
                   data-testid={`notification-${notification.id}`}
                 >
-                  <div className="p-4">
-                    <div className="flex items-start justify-between gap-3 mb-3">
-                      <div className="flex items-center gap-2">
-                        {getTypeIcon(notification.type)}
-                        <Badge 
-                          variant="secondary" 
-                          className="text-xs rounded-full"
-                        >
-                          {getTypeLabel(notification.type)}
-                        </Badge>
-                        {!notification.isRead && (
-                          <Badge 
-                            className="bg-[#40E0D0] text-white text-xs rounded-full animate-pulse"
-                          >
-                            Nova
-                          </Badge>
-                        )}
-                      </div>
-                      
-                      <div className="flex items-center gap-1">
-                        {!notification.isRead && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => markAsReadMutation.mutate(notification.id)}
-                            disabled={markAsReadMutation.isPending}
-                            className="rounded-full h-8 w-8 p-0 hover:bg-[#40E0D0]/10"
-                            data-testid={`button-mark-read-${notification.id}`}
-                            aria-label="Marcar como lida"
-                          >
-                            <Check className="h-4 w-4 text-[#40E0D0]" />
-                          </Button>
-                        )}
-                        
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => deleteMutation.mutate(notification.id)}
-                          disabled={deleteMutation.isPending || optimisticDeletes.has(notification.id)}
-                          className="rounded-full h-8 w-8 p-0 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-950"
-                          data-testid={`button-delete-${notification.id}`}
-                          aria-label="Excluir notificação"
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
+                  <div className="flex items-start justify-between gap-3 mb-2">
+                    <div className="flex items-center gap-2">
+                      {getTypeIcon(notification.type)}
+                      <span className="text-xs font-medium text-muted-foreground">
+                        {getTypeLabel(notification.type)}
+                      </span>
                     </div>
                     
-                    <h4 className="font-semibold text-sm mb-1">
-                      {notification.title}
-                    </h4>
-                    <p className="text-xs text-muted-foreground mb-2 leading-relaxed">
-                      {notification.message}
-                    </p>
-                    
-                    <p className="text-xs text-muted-foreground/70">
-                      {formatDistanceToNow(new Date(notification.createdAt), {
-                        addSuffix: true,
-                        locale: ptBR,
-                      })}
-                    </p>
+                    <div className="flex items-center gap-1">
+                      {!notification.isRead && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => markAsReadMutation.mutate(notification.id)}
+                          disabled={markAsReadMutation.isPending}
+                          className="h-7 w-7"
+                          data-testid={`button-mark-read-${notification.id}`}
+                          aria-label="Marcar como lida"
+                        >
+                          <Check className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                      
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => deleteMutation.mutate(notification.id)}
+                        disabled={deleteMutation.isPending || optimisticDeletes.has(notification.id)}
+                        className="h-7 w-7"
+                        data-testid={`button-delete-${notification.id}`}
+                        aria-label="Excluir"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
                   </div>
-                </Card>
+                  
+                  <h4 className={`text-sm mb-1 ${notification.isRead ? "font-normal" : "font-semibold"}`}>
+                    {notification.title}
+                  </h4>
+                  <p className="text-xs text-muted-foreground mb-2 line-clamp-2">
+                    {notification.message}
+                  </p>
+                  
+                  <p className="text-xs text-muted-foreground/60">
+                    {formatDistanceToNow(new Date(notification.createdAt), {
+                      addSuffix: true,
+                      locale: ptBR,
+                    })}
+                  </p>
+                </div>
               ))}
             </div>
           )}
