@@ -341,12 +341,12 @@ export default function Admin() {
           </div>
 
           {campaign.status === "under_review" && (
-            <div className="flex gap-2 pt-2">
+            <div className="space-y-2 pt-2">
               <Button
                 onClick={() => handleApprove(campaign)}
                 disabled={approveMutation.isPending}
                 size="sm"
-                className="flex-1 bg-[#40E0D0] hover:bg-[#48D1CC] text-white"
+                className="w-full bg-[#40E0D0] hover:bg-[#48D1CC] text-white"
                 data-testid={`button-approve-${campaign.id}`}
               >
                 <CheckCircle2 className="w-3 h-3 mr-1" />
@@ -357,7 +357,7 @@ export default function Admin() {
                 disabled={rejectMutation.isPending}
                 size="sm"
                 variant="destructive"
-                className="flex-1"
+                className="w-full"
                 data-testid={`button-reject-${campaign.id}`}
               >
                 <XCircle className="w-3 h-3 mr-1" />
