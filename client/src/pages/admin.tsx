@@ -307,14 +307,23 @@ export default function Admin() {
     const currentStageInfo = stageMap[campaign.campaignStage as keyof typeof stageMap];
 
     return (
-      <Card key={campaign.id} className="hover-elevate" data-testid={`card-campaign-${campaign.id}`}>
-        <CardHeader className="p-4 pb-2">
+      <Card key={campaign.id} className="hover-elevate overflow-hidden" data-testid={`card-campaign-${campaign.id}`}>
+        <CardHeader 
+          className="p-4 pb-3 bg-gradient-to-r from-[#40E0D0]/10 to-[#48D1CC]/5 relative"
+          style={{
+            borderBottom: '2px dashed hsl(var(--border))',
+          }}
+        >
+          {/* Círculos decorativos nas laterais estilo cupom */}
+          <div className="absolute -left-3 bottom-0 w-6 h-6 rounded-full bg-background border-2 border-border" />
+          <div className="absolute -right-3 bottom-0 w-6 h-6 rounded-full bg-background border-2 border-border" />
+          
           <div className="flex items-start gap-3">
             {campaign.user && (
-              <Avatar className="w-10 h-10 flex-shrink-0" data-testid={`avatar-user-${campaign.id}`}>
+              <Avatar className="w-10 h-10 flex-shrink-0 border-2 border-[#40E0D0]/30" data-testid={`avatar-user-${campaign.id}`}>
                 <AvatarImage src={campaign.user.avatar || undefined} alt={campaign.user.name} />
-                <AvatarFallback>
-                  <User className="w-5 h-5" />
+                <AvatarFallback className="bg-[#40E0D0]/10">
+                  <User className="w-5 h-5 text-[#40E0D0]" />
                 </AvatarFallback>
               </Avatar>
             )}
