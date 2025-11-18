@@ -777,6 +777,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Delete paid campaign (admin only)
+  app.delete("/api/admin/survey-campaigns/:id", authenticateAdminToken, async (req: AuthRequest, res) => {
+    try {
+      const { id } = req.params;
+      
+      const campaign = await storage.getSurveyCampaign(id);
+      
+      if (!campaign) {
+        return res.status(404).json({ error: "Campanha não encontrada" });
+      }
+      
+      await storage.deleteSurveyCampaign(id);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // ==================== USER MANAGEMENT (Admin Only) ====================
   
   // Get user activity ranking with period filter
