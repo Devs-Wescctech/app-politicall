@@ -66,8 +66,6 @@ export default function UsersManagement() {
   // Edit dialog password states
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
-  const [showEditPassword, setShowEditPassword] = useState(false);
-  const [showEditConfirmPassword, setShowEditConfirmPassword] = useState(false);
   
   // Permissions state for create dialog
   const [customPermissions, setCustomPermissions] = useState<UserPermissions>(DEFAULT_PERMISSIONS.assessor);
@@ -142,8 +140,6 @@ export default function UsersManagement() {
         setNewRole("");
         setNewPassword("");
         setConfirmNewPassword("");
-        setShowEditPassword(false);
-        setShowEditConfirmPassword(false);
         toast({
           title: "Permissão atualizada",
           description: "O nível de acesso do usuário foi atualizado com sucesso.",
@@ -365,8 +361,6 @@ export default function UsersManagement() {
           setSelectedUser(null);
           setNewPassword("");
           setConfirmNewPassword("");
-          setShowEditPassword(false);
-          setShowEditConfirmPassword(false);
         }
       }}>
         <DialogContent className="max-w-md max-h-[90vh] flex flex-col p-0" data-testid="dialog-edit-role">
@@ -443,55 +437,23 @@ export default function UsersManagement() {
                   <div className="space-y-3">
                     <div>
                       <label className="text-sm text-muted-foreground mb-1 block">Nova Senha</label>
-                      <div className="relative">
-                        <Input
-                          type={showEditPassword ? "text" : "password"}
-                          placeholder="Deixe em branco para manter a senha atual"
-                          value={newPassword}
-                          onChange={(e) => setNewPassword(e.target.value)}
-                          data-testid="input-edit-password"
-                        />
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                          onClick={() => setShowEditPassword(!showEditPassword)}
-                          data-testid="button-toggle-edit-password"
-                        >
-                          {showEditPassword ? (
-                            <EyeOff className="h-4 w-4 text-muted-foreground" />
-                          ) : (
-                            <Eye className="h-4 w-4 text-muted-foreground" />
-                          )}
-                        </Button>
-                      </div>
+                      <Input
+                        type="password"
+                        placeholder="Deixe em branco para manter a senha atual"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        data-testid="input-edit-password"
+                      />
                     </div>
                     <div>
                       <label className="text-sm text-muted-foreground mb-1 block">Confirmar Nova Senha</label>
-                      <div className="relative">
-                        <Input
-                          type={showEditConfirmPassword ? "text" : "password"}
-                          placeholder="Confirme a nova senha"
-                          value={confirmNewPassword}
-                          onChange={(e) => setConfirmNewPassword(e.target.value)}
-                          data-testid="input-edit-confirm-password"
-                        />
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                          onClick={() => setShowEditConfirmPassword(!showEditConfirmPassword)}
-                          data-testid="button-toggle-edit-confirm-password"
-                        >
-                          {showEditConfirmPassword ? (
-                            <EyeOff className="h-4 w-4 text-muted-foreground" />
-                          ) : (
-                            <Eye className="h-4 w-4 text-muted-foreground" />
-                          )}
-                        </Button>
-                      </div>
+                      <Input
+                        type="password"
+                        placeholder="Confirme a nova senha"
+                        value={confirmNewPassword}
+                        onChange={(e) => setConfirmNewPassword(e.target.value)}
+                        data-testid="input-edit-confirm-password"
+                      />
                     </div>
                   </div>
                 </div>
