@@ -530,7 +530,6 @@ export default function Admin() {
       <header className="sticky top-0 z-50 bg-card border-b">
         <div className="flex items-center justify-between px-6 py-4">
           <img src={logoUrl} alt="Politicall Logo" className="h-10" data-testid="img-logo" />
-          <h1 className="text-2xl font-semibold" data-testid="text-page-title">Área Administrativa</h1>
           <Button 
             onClick={handleLogout} 
             variant="outline"
