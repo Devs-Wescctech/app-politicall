@@ -174,8 +174,7 @@ export class DatabaseStorage implements IStorage {
 
   // Contacts
   async getContacts(userId: string): Promise<Contact[]> {
-    // Todos os usuários veem todos os contatos do gabinete
-    return await db.select().from(contacts).orderBy(desc(contacts.createdAt));
+    return await db.select().from(contacts).where(eq(contacts.userId, userId)).orderBy(desc(contacts.createdAt));
   }
 
   async getContact(id: string): Promise<Contact | undefined> {
@@ -209,8 +208,7 @@ export class DatabaseStorage implements IStorage {
 
   // Political Alliances
   async getAlliances(userId: string): Promise<PoliticalAlliance[]> {
-    // Todos os usuários veem todas as alianças do gabinete
-    return await db.select().from(politicalAlliances).orderBy(desc(politicalAlliances.createdAt));
+    return await db.select().from(politicalAlliances).where(eq(politicalAlliances.userId, userId)).orderBy(desc(politicalAlliances.createdAt));
   }
 
   async createAlliance(alliance: InsertPoliticalAlliance & { userId: string }): Promise<PoliticalAlliance> {
@@ -229,8 +227,7 @@ export class DatabaseStorage implements IStorage {
 
   // Demands
   async getDemands(userId: string): Promise<Demand[]> {
-    // Todos os usuários veem todas as demandas do gabinete
-    return await db.select().from(demands).orderBy(desc(demands.createdAt));
+    return await db.select().from(demands).where(eq(demands.userId, userId)).orderBy(desc(demands.createdAt));
   }
 
   async getDemand(id: string): Promise<Demand | undefined> {
@@ -292,8 +289,7 @@ export class DatabaseStorage implements IStorage {
 
   // Events
   async getEvents(userId: string): Promise<Event[]> {
-    // Todos os usuários veem todos os eventos do gabinete
-    const baseEvents = await db.select().from(events).orderBy(events.startDate);
+    const baseEvents = await db.select().from(events).where(eq(events.userId, userId)).orderBy(events.startDate);
     
     // Expandir eventos recorrentes
     const expandedEvents: Event[] = [];
@@ -481,8 +477,7 @@ export class DatabaseStorage implements IStorage {
 
   // AI Conversations
   async getAiConversations(userId: string): Promise<AiConversation[]> {
-    // Todos os usuários veem todas as conversas de IA do gabinete
-    return await db.select().from(aiConversations).orderBy(desc(aiConversations.createdAt)).limit(50);
+    return await db.select().from(aiConversations).where(eq(aiConversations.userId, userId)).orderBy(desc(aiConversations.createdAt)).limit(50);
   }
 
   async createAiConversation(conversation: Omit<AiConversation, "id" | "createdAt">): Promise<AiConversation> {
@@ -492,13 +487,11 @@ export class DatabaseStorage implements IStorage {
 
   // AI Training Examples
   async getAiTrainingExamples(userId: string): Promise<AiTrainingExample[]> {
-    // Todos os usuários veem todos os exemplos de treinamento do gabinete
-    return await db.select().from(aiTrainingExamples).orderBy(desc(aiTrainingExamples.createdAt));
+    return await db.select().from(aiTrainingExamples).where(eq(aiTrainingExamples.userId, userId)).orderBy(desc(aiTrainingExamples.createdAt));
   }
 
   async getTrainingExamples(userId: string): Promise<AiTrainingExample[]> {
-    // Todos os usuários veem todos os exemplos de treinamento do gabinete
-    return await db.select().from(aiTrainingExamples).orderBy(desc(aiTrainingExamples.createdAt));
+    return await db.select().from(aiTrainingExamples).where(eq(aiTrainingExamples.userId, userId)).orderBy(desc(aiTrainingExamples.createdAt));
   }
 
   async getTrainingExample(id: string): Promise<AiTrainingExample | undefined> {
@@ -522,8 +515,7 @@ export class DatabaseStorage implements IStorage {
 
   // AI Response Templates
   async getResponseTemplates(userId: string): Promise<AiResponseTemplate[]> {
-    // Todos os usuários veem todos os templates de resposta do gabinete
-    return await db.select().from(aiResponseTemplates).orderBy(desc(aiResponseTemplates.createdAt));
+    return await db.select().from(aiResponseTemplates).where(eq(aiResponseTemplates.userId, userId)).orderBy(desc(aiResponseTemplates.createdAt));
   }
 
   async getResponseTemplate(id: string): Promise<AiResponseTemplate | undefined> {
@@ -547,8 +539,7 @@ export class DatabaseStorage implements IStorage {
 
   // Marketing Campaigns
   async getCampaigns(userId: string): Promise<MarketingCampaign[]> {
-    // Todos os usuários veem todas as campanhas de marketing do gabinete
-    return await db.select().from(marketingCampaigns).orderBy(desc(marketingCampaigns.createdAt));
+    return await db.select().from(marketingCampaigns).where(eq(marketingCampaigns.userId, userId)).orderBy(desc(marketingCampaigns.createdAt));
   }
 
   async getCampaign(id: string): Promise<MarketingCampaign | undefined> {
