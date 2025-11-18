@@ -13,6 +13,7 @@ export type UserPermissions = {
   agenda: boolean;
   ai: boolean;
   marketing: boolean;
+  petitions: boolean;
   users: boolean;
 };
 
@@ -26,6 +27,7 @@ export const DEFAULT_PERMISSIONS = {
     agenda: true,
     ai: true,
     marketing: true,
+    petitions: true,
     users: true
   },
   coordenador: {
@@ -36,6 +38,7 @@ export const DEFAULT_PERMISSIONS = {
     agenda: true,
     ai: true,
     marketing: true,
+    petitions: true,
     users: false  // Coordenador NÃO gerencia usuários
   },
   assessor: {
@@ -46,6 +49,7 @@ export const DEFAULT_PERMISSIONS = {
     agenda: true,
     ai: false,          // Assessor NÃO usa IA
     marketing: false,   // Assessor NÃO faz marketing
+    petitions: false,   // Assessor NÃO acessa petições
     users: false        // Assessor NÃO gerencia usuários
   }
 } as const;
@@ -584,6 +588,7 @@ export const insertUserSchema = createInsertSchema(users).pick({
     agenda: z.boolean(),
     ai: z.boolean(),
     marketing: z.boolean(),
+    petitions: z.boolean(),
     users: z.boolean(),
   }).optional(),
   phone: z.string().optional(),
