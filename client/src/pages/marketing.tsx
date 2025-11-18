@@ -999,13 +999,13 @@ export default function Marketing() {
                         <div className="flex-1 space-y-2">
                           <div className="flex items-center justify-between">
                             <Label className="text-xs text-muted-foreground">Data de Início:</Label>
-                            <p className="text-sm font-medium">
+                            <p className="text-xs font-medium">
                               {format(new Date(campaign.productionStartDate), "dd/MM/yyyy", { locale: ptBR })}
                             </p>
                           </div>
                           <div className="flex items-center justify-between">
                             <Label className="text-xs text-muted-foreground">Data de Término:</Label>
-                            <p className="text-sm font-bold text-[#40E0D0]">
+                            <p className="text-xs font-bold text-[#40E0D0]">
                               {format(addDays(new Date(campaign.productionStartDate), 7), "dd/MM/yyyy", { locale: ptBR })}
                             </p>
                           </div>
@@ -1015,7 +1015,7 @@ export default function Marketing() {
 
                     {isApproved && (
                       <div className="space-y-2">
-                        <Label className="text-sm font-medium">URL da Página de Pesquisa:</Label>
+                        <Label className="text-xs font-medium">URL da Página de Pesquisa:</Label>
                         <div className="flex gap-2">
                           <Button
                             variant="outline"
@@ -1064,8 +1064,8 @@ export default function Marketing() {
 
                     {campaign.targetAudience && (
                       <div className="space-y-2">
-                        <Label className="text-sm font-medium">Público-Alvo:</Label>
-                        <p className="text-sm text-muted-foreground" data-testid={`text-target-audience-${campaign.id}`}>
+                        <Label className="text-xs font-medium">Público-Alvo:</Label>
+                        <p className="text-xs text-muted-foreground" data-testid={`text-target-audience-${campaign.id}`}>
                           {campaign.targetAudience}
                         </p>
                       </div>
@@ -1073,8 +1073,8 @@ export default function Marketing() {
 
                     {campaign.adminNotes && (
                       <div className="space-y-2">
-                        <Label className="text-sm font-medium">Notas do Administrador:</Label>
-                        <p className="text-sm text-muted-foreground" data-testid={`text-admin-notes-${campaign.id}`}>
+                        <Label className="text-xs font-medium">Notas do Administrador:</Label>
+                        <p className="text-xs text-muted-foreground" data-testid={`text-admin-notes-${campaign.id}`}>
                           {campaign.adminNotes}
                         </p>
                       </div>
