@@ -33,7 +33,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { UserPlus, ArrowLeft, Mail, Lock, User as UserIcon, MoreVertical } from "lucide-react";
+import { UserPlus, ArrowLeft, Mail, Lock, User as UserIcon, MoreVertical, Phone, Pencil, Trash2 } from "lucide-react";
+import { FaWhatsapp } from "react-icons/fa";
 import logoUrl from "@assets/logo pol_1763308638963.png";
 
 // User type from backend
@@ -61,6 +62,7 @@ export default function ContractsPage() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [isVerifying, setIsVerifying] = useState(true);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [userStatuses, setUserStatuses] = useState<Record<string, "pago" | "atrasado">>({});
 
@@ -186,7 +188,13 @@ export default function ContractsPage() {
     createUserMutation.mutate(data);
   };
 
-  const handlePaymentClick = (user: User) => {
+  const handleCardClick = (user: User) => {
+    setSelectedUser(user);
+    setDetailsDialogOpen(true);
+  };
+
+  const handlePaymentClick = (user: User, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent card click
     const status = userStatuses[user.id] || "pago";
     if (status === "atrasado") {
       setSelectedUser(user);
@@ -310,7 +318,12 @@ export default function ContractsPage() {
                 const isPaid = status === "pago";
                 
                 return (
-                  <Card key={user.id} data-testid={`user-card-${user.id}`}>
+                  <Card 
+                    key={user.id} 
+                    data-testid={`user-card-${user.id}`}
+                    className="cursor-pointer hover-elevate"
+                    onClick={() => handleCardClick(user)}
+                  >
                     <CardHeader className="pb-3">
                       <div className="flex items-start justify-between gap-2">
                         <CardTitle className="text-base font-semibold" data-testid={`user-name-${user.id}`}>
@@ -326,7 +339,13 @@ export default function ContractsPage() {
                           </Badge>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8" data-testid={`button-menu-${user.id}`}>
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-8 w-8" 
+                                data-testid={`button-menu-${user.id}`}
+                                onClick={(e) => e.stopPropagation()}
+                              >
                                 <MoreVertical className="h-4 w-4" />
                               </Button>
                             </DropdownMenuTrigger>
@@ -372,7 +391,7 @@ export default function ContractsPage() {
                         Criado em: {new Date(user.createdAt).toLocaleDateString('pt-BR')}
                       </div>
                       <Button
-                        onClick={() => handlePaymentClick(user)}
+                        onClick={(e) => handlePaymentClick(user, e)}
                         disabled={isPaid}
                         variant={isPaid ? "outline" : "default"}
                         size="sm"
@@ -390,6 +409,91 @@ export default function ContractsPage() {
           </div>
         )}
       </main>
+
+      {/* User Details Dialog */}
+      <Dialog open={detailsDialogOpen} onOpenChange={setDetailsDialogOpen}>
+        <DialogContent className="max-w-md" data-testid="dialog-user-details">
+          <DialogHeader>
+            <DialogTitle data-testid="text-dialog-details-title">
+              {selectedUser?.name}
+            </DialogTitle>
+            <DialogDescription data-testid="text-dialog-details-description">
+              Informações e contato do usuário
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            {/* Contact Icons */}
+            <div className="flex items-center justify-center gap-4">
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-12 w-12 rounded-full"
+                onClick={() => window.open(`https://wa.me/5511999999999`, '_blank')}
+                data-testid="button-whatsapp"
+              >
+                <FaWhatsapp className="h-6 w-6 text-green-500" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-12 w-12 rounded-full"
+                onClick={() => window.open(`mailto:${selectedUser?.email}`, '_blank')}
+                data-testid="button-email"
+              >
+                <Mail className="h-6 w-6 text-blue-500" />
+              </Button>
+            </div>
+
+            {/* Plan Details */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                <span className="text-sm font-medium">Valor do plano</span>
+                <span className="text-sm font-semibold">R$ 0.000,00</span>
+              </div>
+              <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                <span className="text-sm font-medium">Vencimento</span>
+                <span className="text-sm font-semibold">00/00/0000</span>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDetailsDialogOpen(false);
+                // TODO: Implement edit functionality
+                toast({
+                  title: "Em desenvolvimento",
+                  description: "Funcionalidade de edição em breve.",
+                });
+              }}
+              className="flex-1"
+              data-testid="button-edit-user"
+            >
+              <Pencil className="w-4 h-4 mr-2" />
+              Editar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                setDetailsDialogOpen(false);
+                // TODO: Implement delete functionality
+                toast({
+                  title: "Em desenvolvimento",
+                  description: "Funcionalidade de exclusão em breve.",
+                });
+              }}
+              className="flex-1"
+              data-testid="button-delete-user"
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Excluir
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Payment Confirmation Dialog */}
       <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
