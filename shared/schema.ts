@@ -4,6 +4,13 @@ import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+// Accounts table - Each account represents a political office/cabinet
+export const accounts = pgTable("accounts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(), // Nome do gabinete/escritório político
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // User Permissions Type
 export type UserPermissions = {
   dashboard: boolean;
