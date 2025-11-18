@@ -109,10 +109,8 @@ export function AppSidebar() {
     if (item.adminOnly) {
       return user?.role === 'admin';
     }
-    if (item.permissionKey) {
-      return permissions[item.permissionKey] === true;
-    }
-    return false;
+    // Todos os outros menus são visíveis para todos
+    return true;
   });
 
   const handleLogout = () => {

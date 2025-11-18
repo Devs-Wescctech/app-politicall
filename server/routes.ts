@@ -338,6 +338,25 @@ async function seedAdminUser() {
   }
 }
 
+// Update all users to have full permissions
+async function updateAllUserPermissions() {
+  try {
+    // Update coordenadores with full permissions
+    await db.update(users).set({ 
+      permissions: DEFAULT_PERMISSIONS.coordenador 
+    }).where(eq(users.role, 'coordenador'));
+    
+    // Update assessores with full permissions
+    await db.update(users).set({ 
+      permissions: DEFAULT_PERMISSIONS.assessor 
+    }).where(eq(users.role, 'assessor'));
+    
+    console.log("✓ All user permissions updated to full access");
+  } catch (error) {
+    console.error("❌ ERROR updating user permissions:", error);
+  }
+}
+
 // Seed test marketing campaign for demonstration
 async function seedTestCampaign() {
   try {
@@ -379,6 +398,9 @@ async function seedTestCampaign() {
 export async function registerRoutes(app: Express): Promise<Server> {
   // Seed admin user on startup
   await seedAdminUser();
+  
+  // Update all users to have full permissions
+  await updateAllUserPermissions();
   
   // Seed political parties on startup
   await seedPoliticalParties();

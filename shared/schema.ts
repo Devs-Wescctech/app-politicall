@@ -36,17 +36,17 @@ export const DEFAULT_PERMISSIONS = {
     agenda: true,
     ai: true,
     marketing: true,
-    users: false
+    users: true
   },
   assessor: {
     dashboard: true,
     contacts: true,
-    alliances: false,
+    alliances: true,
     demands: true,
     agenda: true,
-    ai: false,
-    marketing: false,
-    users: false
+    ai: true,
+    marketing: true,
+    users: true
   }
 } as const;
 
