@@ -32,6 +32,7 @@ export default function Contacts() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCity, setSelectedCity] = useState<string>("");
   const [selectedState, setSelectedState] = useState<string>("");
+  const [selectedInterest, setSelectedInterest] = useState<string>("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
   const { toast } = useToast();
@@ -56,14 +57,14 @@ export default function Contacts() {
   // Extract unique cities from contacts
   const cities = useMemo(() => {
     if (!contacts) return [];
-    const uniqueCities = [...new Set(contacts.map(c => c.city).filter(Boolean))];
+    const uniqueCities = Array.from(new Set(contacts.map(c => c.city).filter(Boolean)));
     return uniqueCities.sort();
   }, [contacts]);
 
   // Extract unique states from contacts
   const states = useMemo(() => {
     if (!contacts) return [];
-    const uniqueStates = [...new Set(contacts.map(c => c.state).filter(Boolean))];
+    const uniqueStates = Array.from(new Set(contacts.map(c => c.state).filter(Boolean)));
     return uniqueStates.sort();
   }, [contacts]);
 
@@ -150,7 +151,7 @@ export default function Contacts() {
     }
   };
 
-  // Filter contacts based on search query, city, and state
+  // Filter contacts based on search query, city, state, and interests
   const filteredContacts = useMemo(() => {
     if (!contacts) return [];
     
@@ -162,10 +163,11 @@ export default function Contacts() {
       
       const matchesCity = !selectedCity || contact.city === selectedCity;
       const matchesState = !selectedState || contact.state === selectedState;
+      const matchesInterest = !selectedInterest || contact.interests?.includes(selectedInterest);
       
-      return matchesSearch && matchesCity && matchesState;
+      return matchesSearch && matchesCity && matchesState && matchesInterest;
     });
-  }, [contacts, searchQuery, selectedCity, selectedState]);
+  }, [contacts, searchQuery, selectedCity, selectedState, selectedInterest]);
 
   const handleBulkEmail = () => {
     const emailAddresses = contacts?.filter(c => c.email).map(c => c.email).join(',');
@@ -482,8 +484,21 @@ export default function Contacts() {
                 ))}
               </SelectContent>
             </Select>
+            <Select value={selectedInterest} onValueChange={(value) => setSelectedInterest(value === "all" ? "" : value)}>
+              <SelectTrigger className="w-[180px] rounded-full" data-testid="select-interest-filter">
+                <SelectValue placeholder="Todos os interesses" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os interesses</SelectItem>
+                {CONTACT_INTERESTS.map((interest) => (
+                  <SelectItem key={interest} value={interest}>
+                    {interest}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <div className="text-sm text-muted-foreground" data-testid="text-contact-count">
-              {(searchQuery || selectedCity || selectedState) && filteredContacts ? (
+              {(searchQuery || selectedCity || selectedState || selectedInterest) && filteredContacts ? (
                 <span>{filteredContacts.length} de {contacts?.length || 0} contatos</span>
               ) : (
                 <span>{contacts?.length || 0} contatos</span>
