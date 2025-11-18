@@ -3,9 +3,9 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import { insertUserSchema, loginSchema, insertContactSchema, insertPoliticalAllianceSchema, insertDemandSchema, insertDemandCommentSchema, insertEventSchema, insertAiConfigurationSchema, insertAiTrainingExampleSchema, insertAiResponseTemplateSchema, insertMarketingCampaignSchema, insertNotificationSchema, insertIntegrationSchema, insertSurveyCampaignSchema, insertSurveyLandingPageSchema, insertSurveyResponseSchema, insertLeadSchema, insertCandidateProfileSchema, DEFAULT_PERMISSIONS } from "@shared/schema";
+import { insertUserSchema, loginSchema, insertContactSchema, insertPoliticalAllianceSchema, insertDemandSchema, insertDemandCommentSchema, insertEventSchema, insertAiConfigurationSchema, insertAiTrainingExampleSchema, insertAiResponseTemplateSchema, insertMarketingCampaignSchema, insertNotificationSchema, insertIntegrationSchema, insertSurveyCampaignSchema, insertSurveyLandingPageSchema, insertSurveyResponseSchema, insertLeadSchema, DEFAULT_PERMISSIONS } from "@shared/schema";
 import { db } from "./db";
-import { politicalParties, politicalAlliances, surveyTemplates, surveyCampaigns, surveyLandingPages, surveyResponses, users, statisticsAnalyses, type SurveyTemplate, type SurveyCampaign, type InsertSurveyCampaign, type SurveyLandingPage, type InsertSurveyLandingPage, type SurveyResponse, type InsertSurveyResponse } from "@shared/schema";
+import { politicalParties, politicalAlliances, surveyTemplates, surveyCampaigns, surveyLandingPages, surveyResponses, users, type SurveyTemplate, type SurveyCampaign, type InsertSurveyCampaign, type SurveyLandingPage, type InsertSurveyLandingPage, type SurveyResponse, type InsertSurveyResponse } from "@shared/schema";
 import { sql, eq, desc, and } from "drizzle-orm";
 import { generateAiResponse, testOpenAiApiKey } from "./openai";
 import { requireRole } from "./authorization";
@@ -2298,157 +2298,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const leads = await storage.getLeads();
       res.json(leads);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  // ==================== STATISTICS / AI ANALYSIS ====================
-  
-  // Generate AI comparative analysis
-  app.post("/api/statistics/analyze", authenticateToken, async (req: AuthRequest, res) => {
-    try {
-      // Get user profile from users table
-      const [userProfile] = await db
-        .select()
-        .from(users)
-        .where(eq(users.id, req.userId!))
-        .limit(1);
-
-      if (!userProfile) {
-        return res.status(404).json({ error: "Perfil de usuário não encontrado." });
-      }
-
-      if (!userProfile.politicalPosition && !userProfile.state) {
-        return res.status(400).json({ 
-          error: "Complete suas informações políticas em Configurações antes de gerar a análise." 
-        });
-      }
-
-      // Generate AI analysis using OpenAI with knowledge about Brazilian elections
-      const aiPrompt = `Você é um especialista em análise política e estratégias eleitorais brasileiras com amplo conhecimento sobre eleições passadas no Brasil. 
-
-INSTRUÇÃO IMPORTANTE: Você DEVE retornar APENAS um objeto JSON válido, sem texto adicional antes ou depois. Não inclua markdown, comentários ou explicações fora do JSON.
-
-Analise o perfil do político abaixo e compare com padrões de candidatos eleitos em eleições anteriores no Brasil, considerando dados históricos do TSE, perfis de vitoriosos, e estratégias bem-sucedidas.
-
-PERFIL DO POLÍTICO:
-- Nome: ${userProfile.name}
-- Cargo Político: ${userProfile.politicalPosition || "Não especificado"}
-- Estado: ${userProfile.state || "Não especificado"}
-- Cidade: ${userProfile.city || "Não especificado"}
-- Votos na última eleição: ${userProfile.lastElectionVotes ? userProfile.lastElectionVotes.toLocaleString('pt-BR') : "Não especificado"}
-
-Retorne APENAS um JSON válido com a seguinte estrutura EXATA (sem texto adicional):
-{
-  "comparison": {
-    "similarities": ["lista de semelhanças com candidatos eleitos"],
-    "differences": ["lista de diferenças em relação a candidatos eleitos"],
-    "successFactors": ["fatores de sucesso identificados em candidatos eleitos"]
-  },
-  "insights": {
-    "strengths": ["análise dos pontos fortes do candidato"],
-    "weaknesses": ["análise dos pontos fracos e áreas de melhoria"],
-    "opportunities": ["oportunidades identificadas"],
-    "threats": ["ameaças e desafios potenciais"]
-  },
-  "recommendations": {
-    "strategic": ["recomendações estratégicas gerais"],
-    "campaign": ["recomendações específicas para campanha"],
-    "communication": ["recomendações de comunicação e mensagens"],
-    "alliances": ["recomendações sobre alianças e parcerias"],
-    "budget": ["recomendações sobre alocação de recursos"]
-  },
-  "winProbabilityFactors": {
-    "favorable": ["fatores que aumentam chances de vitória"],
-    "unfavorable": ["fatores que diminuem chances de vitória"],
-    "estimated_score": "uma pontuação de 0-100 estimando viabilidade eleitoral"
-  }
-}
-
-Seja específico, prático e baseado em dados. Use exemplos concretos quando possível.`;
-
-      const openaiResponse = await fetch(`${process.env.AI_INTEGRATIONS_OPENAI_BASE_URL}/chat/completions`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${process.env.AI_INTEGRATIONS_OPENAI_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'gpt-4o',
-          messages: [
-            {
-              role: 'system',
-              content: 'Você é um especialista em análise política e estratégias eleitorais brasileiras. Retorne SEMPRE respostas em formato JSON válido puro, sem markdown ou texto adicional.'
-            },
-            {
-              role: 'user',
-              content: aiPrompt
-            }
-          ],
-          temperature: 0.7,
-        }),
-      });
-
-      if (!openaiResponse.ok) {
-        const errorText = await openaiResponse.text();
-        throw new Error(`OpenAI API error: ${openaiResponse.statusText} - ${errorText}`);
-      }
-
-      const aiResult = await openaiResponse.json();
-      const rawContent = aiResult.choices[0].message.content;
-      
-      // Remove markdown code blocks if present
-      let cleanedContent = rawContent.trim();
-      if (cleanedContent.startsWith('```json')) {
-        cleanedContent = cleanedContent.replace(/^```json\s*/, '').replace(/\s*```$/, '');
-      } else if (cleanedContent.startsWith('```')) {
-        cleanedContent = cleanedContent.replace(/^```\s*/, '').replace(/\s*```$/, '');
-      }
-      
-      // Parse JSON with error handling
-      let analysisData;
-      try {
-        analysisData = JSON.parse(cleanedContent);
-        
-        // Validate structure
-        if (!analysisData.comparison || !analysisData.insights || 
-            !analysisData.recommendations || !analysisData.winProbabilityFactors) {
-          throw new Error("Estrutura JSON incompleta");
-        }
-      } catch (parseError) {
-        console.error("JSON parse error:", parseError);
-        console.error("Raw content:", rawContent);
-        throw new Error(`Erro ao processar resposta da IA: formato inválido. Por favor, tente novamente.`);
-      }
-
-      // Save analysis to database
-      const [analysis] = await db
-        .insert(statisticsAnalyses)
-        .values({
-          userId: req.userId!,
-          analysisData: analysisData,
-        })
-        .returning();
-
-      res.json(analysis);
-    } catch (error: any) {
-      console.error("Analysis generation error:", error);
-      res.status(500).json({ error: error.message || "Erro ao gerar análise" });
-    }
-  });
-
-  // Get latest analysis
-  app.get("/api/statistics/analysis/latest", authenticateToken, async (req: AuthRequest, res) => {
-    try {
-      const [analysis] = await db
-        .select()
-        .from(statisticsAnalyses)
-        .where(eq(statisticsAnalyses.userId, req.userId!))
-        .orderBy(desc(statisticsAnalyses.createdAt))
-        .limit(1);
-
-      res.json(analysis || null);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }

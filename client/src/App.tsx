@@ -25,7 +25,6 @@ import Demands from "@/pages/demands";
 import Agenda from "@/pages/agenda";
 import AiAttendance from "@/pages/ai-attendance";
 import Marketing from "@/pages/marketing";
-import Statistics from "@/pages/statistics";
 import Settings from "@/pages/settings";
 import UsersManagement from "@/pages/users";
 import SurveyLanding from "@/pages/survey-landing";
@@ -85,11 +84,6 @@ function AuthenticatedLayout() {
               <Route path="/marketing">
                 <ProtectedRoute>
                   <Marketing />
-                </ProtectedRoute>
-              </Route>
-              <Route path="/statistics">
-                <ProtectedRoute>
-                  <Statistics />
                 </ProtectedRoute>
               </Route>
               <Route path="/settings">
