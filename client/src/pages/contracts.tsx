@@ -280,8 +280,8 @@ export default function ContractsPage() {
                       <CardTitle className="text-base font-semibold" data-testid={`user-name-${user.id}`}>
                         {user.name}
                       </CardTitle>
-                      <Badge variant="default" className="bg-[#40E0D0] text-white" data-testid={`user-badge-${user.id}`}>
-                        Admin
+                      <Badge variant="default" className="bg-green-500 text-white" data-testid={`user-badge-${user.id}`}>
+                        Pago
                       </Badge>
                     </div>
                   </CardHeader>
