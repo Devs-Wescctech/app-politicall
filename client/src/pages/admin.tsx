@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { CheckCircle2, XCircle, ChevronLeft, ChevronRight, User, Copy, Check, DollarSign } from "lucide-react";
+import { CheckCircle2, XCircle, ChevronLeft, ChevronRight, User, Copy, Check, DollarSign, Inbox, Mail, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -15,6 +15,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import logoUrl from "@assets/logo pol_1763308638963.png";
+import type { Lead } from "@shared/schema";
 
 type SurveyCampaign = {
   id: string;
@@ -60,6 +61,7 @@ export default function Admin() {
   const [isVerifying, setIsVerifying] = useState(true);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [paidDialogOpen, setPaidDialogOpen] = useState(false);
+  const [inboxDialogOpen, setInboxDialogOpen] = useState(false);
   const [selectedCampaign, setSelectedCampaign] = useState<CampaignWithTemplate | null>(null);
   const [rejectNotes, setRejectNotes] = useState("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -126,6 +128,27 @@ export default function Admin() {
         ...campaign,
         template: templates.find(t => t.id === campaign.templateId)
       }));
+    },
+    enabled: !isVerifying,
+  });
+
+  // Fetch leads from inbox
+  const { data: leads = [], isLoading: leadsLoading, error: leadsError } = useQuery<Lead[]>({
+    queryKey: ["/api/leads"],
+    queryFn: async () => {
+      const token = localStorage.getItem("admin_token");
+      const response = await fetch("/api/leads", {
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error("Erro ao carregar leads");
+      }
+      
+      return response.json();
     },
     enabled: !isVerifying,
   });
@@ -532,9 +555,18 @@ export default function Admin() {
           <img src={logoUrl} alt="Politicall Logo" className="h-10" data-testid="img-logo" />
           <div className="flex items-center gap-3">
             <Button 
+              onClick={() => setInboxDialogOpen(true)}
+              variant="outline"
+              className="rounded-full w-40"
+              data-testid="button-inbox"
+            >
+              <Inbox className="w-4 h-4 mr-2" />
+              Caixa de Entrada
+            </Button>
+            <Button 
               onClick={() => setLocation("/contracts")}
               variant="outline"
-              className="rounded-full"
+              className="rounded-full w-40"
               data-testid="button-contracts"
             >
               Contratos
@@ -542,7 +574,7 @@ export default function Admin() {
             <Button 
               onClick={handleLogout} 
               variant="outline"
-              className="rounded-full"
+              className="rounded-full w-40"
               data-testid="button-logout"
             >
               Sair
@@ -806,6 +838,125 @@ export default function Admin() {
             >
               <DollarSign className="w-4 h-4 mr-2" />
               Confirmar Pagamento
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Inbox Dialog - Leads from Landing Page */}
+      <Dialog open={inboxDialogOpen} onOpenChange={setInboxDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh]" data-testid="dialog-inbox">
+          <DialogHeader>
+            <DialogTitle data-testid="text-dialog-inbox-title">
+              Caixa de Entrada
+            </DialogTitle>
+            <DialogDescription data-testid="text-dialog-inbox-description">
+              Cadastros realizados através do formulário da landing page
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="overflow-auto max-h-[60vh]">
+            {leadsLoading && (
+              <div className="space-y-3">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="p-4 border rounded-lg">
+                    <Skeleton className="h-5 w-3/4 mb-2" />
+                    <Skeleton className="h-4 w-1/2" />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {leadsError && (
+              <div className="text-center py-12">
+                <p className="text-destructive font-medium mb-2">
+                  Erro ao carregar cadastros
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {(leadsError as Error).message}
+                </p>
+              </div>
+            )}
+
+            {!leadsLoading && !leadsError && leads.length === 0 && (
+              <div className="text-center py-12">
+                <Inbox className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+                <p className="text-muted-foreground">
+                  Nenhum cadastro encontrado
+                </p>
+              </div>
+            )}
+
+            {!leadsLoading && leads.length > 0 && (
+              <div className="space-y-3">
+                {leads.map((lead) => (
+                  <Card key={lead.id} className="hover-elevate" data-testid={`lead-card-${lead.id}`}>
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1">
+                          <CardTitle className="text-base font-semibold mb-1" data-testid={`lead-name-${lead.id}`}>
+                            {lead.name}
+                          </CardTitle>
+                          <p className="text-sm text-muted-foreground">
+                            {lead.position} • {lead.city}/{lead.state}
+                          </p>
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {new Date(lead.createdAt).toLocaleDateString('pt-BR')}
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      <div className="flex items-center gap-4 text-sm">
+                        {lead.email && (
+                          <div className="flex items-center gap-2">
+                            <Mail className="w-4 h-4 text-muted-foreground" />
+                            <a 
+                              href={`mailto:${lead.email}`}
+                              className="text-primary hover:underline"
+                              data-testid={`lead-email-${lead.id}`}
+                            >
+                              {lead.email}
+                            </a>
+                          </div>
+                        )}
+                        {lead.phone && (
+                          <div className="flex items-center gap-2">
+                            <Phone className="w-4 h-4 text-muted-foreground" />
+                            <a 
+                              href={`https://wa.me/${lead.phone.replace(/\D/g, '')}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-primary hover:underline"
+                              data-testid={`lead-phone-${lead.id}`}
+                            >
+                              {lead.phone}
+                            </a>
+                          </div>
+                        )}
+                      </div>
+                      {lead.message && (
+                        <div className="mt-3 p-3 bg-muted rounded-lg">
+                          <p className="text-sm text-muted-foreground mb-1 font-medium">Mensagem:</p>
+                          <p className="text-sm" data-testid={`lead-message-${lead.id}`}>
+                            {lead.message}
+                          </p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setInboxDialogOpen(false)}
+              data-testid="button-close-inbox"
+            >
+              Fechar
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -171,7 +171,7 @@ export default function ContractsPage() {
   const adminUsers = users.filter(user => user.role === "admin");
 
   // Fetch leads from inbox
-  const { data: leads = [], isLoading: leadsLoading } = useQuery<Lead[]>({
+  const { data: leads = [], isLoading: leadsLoading, error: leadsError } = useQuery<Lead[]>({
     queryKey: ["/api/leads"],
     queryFn: async () => {
       const token = localStorage.getItem("admin_token");
@@ -188,7 +188,7 @@ export default function ContractsPage() {
       
       return response.json();
     },
-    enabled: !isVerifying && inboxDialogOpen,
+    enabled: !isVerifying,
   });
 
   // Create user mutation
@@ -451,7 +451,7 @@ export default function ContractsPage() {
             <Button 
               onClick={() => setInboxDialogOpen(true)}
               variant="outline"
-              className="rounded-full"
+              className="rounded-full w-40"
               data-testid="button-inbox"
             >
               <Inbox className="w-4 h-4 mr-2" />
@@ -460,7 +460,7 @@ export default function ContractsPage() {
             <Button 
               onClick={() => setLocation("/admin")}
               variant="outline"
-              className="rounded-full"
+              className="rounded-full w-40"
               data-testid="button-back"
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
@@ -469,7 +469,7 @@ export default function ContractsPage() {
             <Button 
               onClick={handleLogout} 
               variant="outline"
-              className="rounded-full"
+              className="rounded-full w-40"
               data-testid="button-logout"
             >
               Sair
@@ -900,7 +900,18 @@ export default function ContractsPage() {
               </div>
             )}
 
-            {!leadsLoading && leads.length === 0 && (
+            {leadsError && (
+              <div className="text-center py-12">
+                <p className="text-destructive font-medium mb-2">
+                  Erro ao carregar cadastros
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {(leadsError as Error).message}
+                </p>
+              </div>
+            )}
+
+            {!leadsLoading && !leadsError && leads.length === 0 && (
               <div className="text-center py-12">
                 <Inbox className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
                 <p className="text-muted-foreground">
@@ -930,28 +941,32 @@ export default function ContractsPage() {
                     </CardHeader>
                     <CardContent className="space-y-2">
                       <div className="flex items-center gap-4 text-sm">
-                        <div className="flex items-center gap-2">
-                          <Mail className="w-4 h-4 text-muted-foreground" />
-                          <a 
-                            href={`mailto:${lead.email}`}
-                            className="text-primary hover:underline"
-                            data-testid={`lead-email-${lead.id}`}
-                          >
-                            {lead.email}
-                          </a>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Phone className="w-4 h-4 text-muted-foreground" />
-                          <a 
-                            href={`https://wa.me/${lead.phone.replace(/\D/g, '')}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-primary hover:underline"
-                            data-testid={`lead-phone-${lead.id}`}
-                          >
-                            {lead.phone}
-                          </a>
-                        </div>
+                        {lead.email && (
+                          <div className="flex items-center gap-2">
+                            <Mail className="w-4 h-4 text-muted-foreground" />
+                            <a 
+                              href={`mailto:${lead.email}`}
+                              className="text-primary hover:underline"
+                              data-testid={`lead-email-${lead.id}`}
+                            >
+                              {lead.email}
+                            </a>
+                          </div>
+                        )}
+                        {lead.phone && (
+                          <div className="flex items-center gap-2">
+                            <Phone className="w-4 h-4 text-muted-foreground" />
+                            <a 
+                              href={`https://wa.me/${lead.phone.replace(/\D/g, '')}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-primary hover:underline"
+                              data-testid={`lead-phone-${lead.id}`}
+                            >
+                              {lead.phone}
+                            </a>
+                          </div>
+                        )}
                       </div>
                       {lead.message && (
                         <div className="mt-3 p-3 bg-muted rounded-lg">
