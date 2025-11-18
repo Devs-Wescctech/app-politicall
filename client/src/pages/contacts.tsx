@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { type Contact, type InsertContact, insertContactSchema } from "@shared/schema";
+import { type Contact, type InsertContact, insertContactSchema, CONTACT_INTERESTS } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,10 +11,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, Search, Pencil, Trash2, Mail, MessageCircle, Send, Copy } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, Mail, MessageCircle, Send, Copy, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Check } from "lucide-react";
 
 const BRAZILIAN_STATES = [
   "Acre", "Alagoas", "Amapá", "Amazonas", "Bahia", "Ceará", "Distrito Federal",
@@ -44,6 +48,7 @@ export default function Contacts() {
       phone: "",
       state: "",
       city: "",
+      interests: [],
       notes: "",
     },
   });
@@ -133,6 +138,7 @@ export default function Contacts() {
       phone: contact.phone || "",
       state: contact.state || "",
       city: contact.city || "",
+      interests: contact.interests || [],
       notes: contact.notes || "",
     });
     setIsDialogOpen(true);
@@ -331,6 +337,83 @@ export default function Contacts() {
                             <option key={city} value={city} />
                           ))}
                         </datalist>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="interests"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Interesses e Hobbies</FormLabel>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <FormControl>
+                              <Button
+                                variant="outline"
+                                role="combobox"
+                                className="w-full justify-between font-normal"
+                                data-testid="button-select-interests"
+                              >
+                                {field.value && field.value.length > 0
+                                  ? `${field.value.length} selecionado${field.value.length > 1 ? 's' : ''}`
+                                  : "Selecione interesses"}
+                              </Button>
+                            </FormControl>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-full p-0" align="start">
+                            <Command>
+                              <CommandInput placeholder="Buscar interesses..." />
+                              <CommandList>
+                                <CommandEmpty>Nenhum interesse encontrado.</CommandEmpty>
+                                <CommandGroup className="max-h-64 overflow-auto">
+                                  {CONTACT_INTERESTS.map((interest) => (
+                                    <CommandItem
+                                      key={interest}
+                                      onSelect={() => {
+                                        const currentValue = field.value || [];
+                                        const newValue = currentValue.includes(interest)
+                                          ? currentValue.filter((v) => v !== interest)
+                                          : [...currentValue, interest];
+                                        field.onChange(newValue);
+                                      }}
+                                    >
+                                      <Check
+                                        className={`mr-2 h-4 w-4 ${
+                                          field.value?.includes(interest) ? "opacity-100" : "opacity-0"
+                                        }`}
+                                      />
+                                      {interest}
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
+                        {field.value && field.value.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-2">
+                            {field.value.map((interest) => (
+                              <span
+                                key={interest}
+                                className="inline-flex items-center gap-1 text-xs bg-muted px-2 py-1 rounded-md"
+                              >
+                                {interest}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const newValue = field.value?.filter((v) => v !== interest) || [];
+                                    field.onChange(newValue);
+                                  }}
+                                  className="text-muted-foreground hover:text-foreground"
+                                >
+                                  <X className="h-3 w-3" />
+                                </button>
+                              </span>
+                            ))}
+                          </div>
+                        )}
                         <FormMessage />
                       </FormItem>
                     )}
