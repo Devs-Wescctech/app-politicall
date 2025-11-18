@@ -282,7 +282,6 @@ export default function UsersManagement() {
           </Button>
         )}
       </div>
-
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {isLoading ? (
           [...Array(6)].map((_, i) => <Skeleton key={i} className="h-32 w-full" />)
@@ -344,7 +343,7 @@ export default function UsersManagement() {
                       <span className="hidden sm:inline">Cadastrado em </span>
                       {new Date(user.createdAt).toLocaleDateString("pt-BR")}
                     </span>
-                    <span className="font-medium">
+                    <span className="font-medium text-center">
                       Atividades: {(user as any).activityCount || 0}
                     </span>
                   </div>
@@ -359,7 +358,6 @@ export default function UsersManagement() {
           </Card>
         )}
       </div>
-
       {/* Edit Role Dialog */}
       <Dialog open={!!selectedUser} onOpenChange={(open) => {
         if (!open) {
@@ -485,7 +483,6 @@ export default function UsersManagement() {
           )}
         </DialogContent>
       </Dialog>
-
       {/* Add User Dialog */}
       <Dialog open={showAddUserDialog} onOpenChange={setShowAddUserDialog}>
         <DialogContent className="max-w-md max-h-[90vh] flex flex-col p-0" data-testid="dialog-add-user">
@@ -685,7 +682,6 @@ export default function UsersManagement() {
           </Form>
         </DialogContent>
       </Dialog>
-
       {/* Delete User Confirmation Dialog */}
       <Dialog open={!!userToDelete} onOpenChange={(open) => !open && setUserToDelete(null)}>
         <DialogContent className="max-w-md" data-testid="dialog-delete-user">
