@@ -266,6 +266,8 @@ export default function Contacts() {
       name: "",
       email: "",
       phone: "",
+      age: undefined,
+      gender: undefined,
       state: "",
       city: "",
       interests: [],
@@ -360,14 +362,30 @@ export default function Contacts() {
 
   const handleEdit = (contact: Contact) => {
     setEditingContact(contact);
+    
+    // Normalizar e validar gender (case-insensitive) para preservar valores legados
+    const normalizeGender = (value: string | null | undefined) => {
+      if (!value) return undefined;
+      
+      // Tentar encontrar uma correspondência case-insensitive
+      const normalized = GENDER_OPTIONS.find(
+        option => option.toLowerCase() === value.toLowerCase()
+      );
+      
+      return normalized as "Masculino" | "Feminino" | "Não-binário" | "Outro" | "Prefiro não responder" | undefined;
+    };
+    
     form.reset({
       name: contact.name,
-      email: contact.email || "",
-      phone: contact.phone || "",
-      state: contact.state || "",
-      city: contact.city || "",
-      interests: contact.interests || [],
-      notes: contact.notes || "",
+      email: contact.email ?? "",
+      phone: contact.phone ?? "",
+      age: contact.age ?? undefined,
+      gender: normalizeGender(contact.gender),
+      state: contact.state ?? "",
+      city: contact.city ?? "",
+      interests: contact.interests ?? [],
+      source: contact.source ?? "",
+      notes: contact.notes ?? "",
     });
     setIsDialogOpen(true);
   };
