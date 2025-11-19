@@ -89,6 +89,17 @@ export default function PublicSupport() {
       .join(' ');
   };
 
+  const formatPhoneNumber = (value: string) => {
+    const numbers = value.replace(/\D/g, '');
+    if (numbers.length <= 2) {
+      return `(${numbers}`;
+    }
+    if (numbers.length <= 7) {
+      return `(${numbers.slice(0, 2)}) ${numbers.slice(2)}`;
+    }
+    return `(${numbers.slice(0, 2)}) ${numbers.slice(2, 7)}-${numbers.slice(7, 11)}`;
+  };
+
   const form = useForm<InsertContact>({
     resolver: zodResolver(insertContactSchema),
     defaultValues: {
@@ -381,9 +392,15 @@ export default function PublicSupport() {
                       <FormControl>
                         <Input 
                           placeholder="(00) 00000-0000" 
-                          data-testid="input-support-phone" 
-                          {...field} 
-                          value={field.value || ""} 
+                          data-testid="input-support-phone"
+                          value={field.value || ""}
+                          onBlur={field.onBlur}
+                          name={field.name}
+                          ref={field.ref}
+                          onChange={(e) => {
+                            const formatted = formatPhoneNumber(e.target.value);
+                            field.onChange(formatted);
+                          }}
                         />
                       </FormControl>
                       <FormMessage />
