@@ -495,14 +495,13 @@ export default function Settings() {
   const baseUrl = 'https://www.politicall.com.br';
 
   return (
-    <div className="p-4 sm:p-6 md:p-8">
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold">Configurações</h1>
-          <p className="text-muted-foreground mt-2">Gerencie suas preferências e informações da conta</p>
-        </div>
+    <div className="p-4 sm:p-6 md:p-8 space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold">Configurações</h1>
+        <p className="text-muted-foreground mt-2">Gerencie suas preferências e informações da conta</p>
+      </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full max-w-lg grid-cols-3 rounded-full p-1">
           <TabsTrigger value="profile" data-testid="tab-profile" className="rounded-full">
             <User className="w-4 h-4 mr-2" />
@@ -1385,7 +1384,6 @@ export default function Settings() {
           </div>
         </TabsContent>
       </Tabs>
-      </div>
 
       {/* Edit Profile Dialog */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
