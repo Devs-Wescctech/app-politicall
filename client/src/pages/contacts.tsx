@@ -1072,6 +1072,7 @@ export default function Contacts() {
                 <TableRow>
                   <TableHead>Nome</TableHead>
                   <TableHead>Interesses</TableHead>
+                  <TableHead>Fonte</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
@@ -1100,6 +1101,13 @@ export default function Contacts() {
                             <span className="text-xs text-muted-foreground">-</span>
                           )}
                         </div>
+                      </TableCell>
+                      <TableCell>
+                        {contact.source ? (
+                          <span className="text-sm">{contact.source}</span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">-</span>
+                        )}
                       </TableCell>
                       <TableCell className="text-right">
                         <DropdownMenu>
@@ -1157,7 +1165,7 @@ export default function Contacts() {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={3} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
                       {searchQuery ? "Nenhum contato encontrado" : "Nenhum contato cadastrado"}
                     </TableCell>
                   </TableRow>
