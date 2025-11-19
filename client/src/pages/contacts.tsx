@@ -25,7 +25,7 @@ import {
   Building2, Wrench, Bus, Shield, Siren, Landmark, Vote,
   Flag, Home, Droplet, Construction, Hospital, Building,
   School, University, Baby as BabyIcon, Smile, Drum, Cake,
-  Calendar as CalendarIcon, Star, Mic2, ShoppingCart, Download, FileText
+  Calendar as CalendarIcon, Star, Mic2, ShoppingCart, Download, FileText, Sheet
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -656,47 +656,72 @@ export default function Contacts() {
             <Download className="w-4 h-4" />
           </Button>
           <Dialog open={isExportDialogOpen} onOpenChange={setIsExportDialogOpen}>
-            <DialogContent className="max-w-md" aria-describedby="export-dialog-description">
-              <DialogHeader>
-                <DialogTitle>Exportar Eleitores</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-3 py-4">
-                <p id="export-dialog-description" className="text-sm text-muted-foreground">
-                  Escolha o formato para exportar {filteredContacts?.length || 0} eleitor(es):
+            <DialogContent className="max-w-xl p-0" aria-describedby="export-dialog-description">
+              <DialogHeader className="px-6 pt-6 pb-4 border-b">
+                <DialogTitle className="text-2xl font-bold">Exportar Eleitores</DialogTitle>
+                <p id="export-dialog-description" className="text-sm text-muted-foreground mt-2">
+                  Selecione o formato desejado para exportar <span className="font-semibold text-foreground">{filteredContacts?.length || 0}</span> eleitor(es) com todos os filtros aplicados
                 </p>
-                <div className="grid gap-3">
-                  <Button 
-                    variant="outline" 
-                    className="justify-start h-auto py-4"
+              </DialogHeader>
+              <div className="p-6">
+                <div className="grid gap-4">
+                  <Card 
+                    className="cursor-pointer transition-all hover-elevate active-elevate-2 border-2 hover:border-primary/20"
                     onClick={handleExportPDF}
                     data-testid="button-export-pdf"
                   >
-                    <div className="flex items-start gap-3">
-                      <FileText className="h-5 w-5 mt-0.5 text-red-500" />
-                      <div className="text-left">
-                        <div className="font-semibold">Exportar como PDF</div>
-                        <div className="text-xs text-muted-foreground">
-                          Arquivo PDF profissional com logo e informações do responsável
+                    <CardContent className="p-6">
+                      <div className="flex items-start gap-4">
+                        <div className="flex-shrink-0 w-12 h-12 rounded-lg bg-red-50 dark:bg-red-950/30 flex items-center justify-center">
+                          <FileText className="h-6 w-6 text-red-600 dark:text-red-400" />
                         </div>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-lg font-semibold mb-1">Exportar como PDF</h3>
+                          <p className="text-sm text-muted-foreground leading-relaxed">
+                            Documento profissional formatado com logo, informações do responsável e tabela de dados pronta para impressão
+                          </p>
+                          <div className="flex items-center gap-2 mt-3 text-xs text-muted-foreground">
+                            <Badge variant="outline" className="font-normal">
+                              Somente leitura
+                            </Badge>
+                            <Badge variant="outline" className="font-normal">
+                              Formato A4
+                            </Badge>
+                          </div>
+                        </div>
+                        <Download className="h-5 w-5 text-muted-foreground flex-shrink-0" />
                       </div>
-                    </div>
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    className="justify-start h-auto py-4"
+                    </CardContent>
+                  </Card>
+
+                  <Card 
+                    className="cursor-pointer transition-all hover-elevate active-elevate-2 border-2 hover:border-primary/20"
                     onClick={handleExportExcel}
                     data-testid="button-export-excel"
                   >
-                    <div className="flex items-start gap-3">
-                      <FileText className="h-5 w-5 mt-0.5 text-green-600" />
-                      <div className="text-left">
-                        <div className="font-semibold">Exportar como Excel</div>
-                        <div className="text-xs text-muted-foreground">
-                          Planilha Excel editável com todos os dados dos eleitores
+                    <CardContent className="p-6">
+                      <div className="flex items-start gap-4">
+                        <div className="flex-shrink-0 w-12 h-12 rounded-lg bg-green-50 dark:bg-green-950/30 flex items-center justify-center">
+                          <Sheet className="h-6 w-6 text-green-600 dark:text-green-400" />
                         </div>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-lg font-semibold mb-1">Exportar como Excel</h3>
+                          <p className="text-sm text-muted-foreground leading-relaxed">
+                            Planilha editável com dados completos, informações do responsável e formatação otimizada para análise de dados
+                          </p>
+                          <div className="flex items-center gap-2 mt-3 text-xs text-muted-foreground">
+                            <Badge variant="outline" className="font-normal">
+                              Editável
+                            </Badge>
+                            <Badge variant="outline" className="font-normal">
+                              Formato .xlsx
+                            </Badge>
+                          </div>
+                        </div>
+                        <Download className="h-5 w-5 text-muted-foreground flex-shrink-0" />
                       </div>
-                    </div>
-                  </Button>
+                    </CardContent>
+                  </Card>
                 </div>
               </div>
             </DialogContent>
