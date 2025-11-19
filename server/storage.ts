@@ -2,7 +2,7 @@
 import { 
   accounts, users, contacts, politicalParties, politicalAlliances, demands, demandComments, events,
   aiConfigurations, aiConversations, aiTrainingExamples, aiResponseTemplates, 
-  marketingCampaigns, notifications, integrations, surveyTemplates, surveyCampaigns, surveyLandingPages, surveyResponses, leads,
+  marketingCampaigns, notifications, integrations, googleCalendarIntegrations, surveyTemplates, surveyCampaigns, surveyLandingPages, surveyResponses, leads,
   apiKeys, apiKeyUsage,
   type Account, type User, type InsertUser, type Contact, type InsertContact,
   type PoliticalParty, type PoliticalAlliance, type InsertPoliticalAlliance,
@@ -13,6 +13,7 @@ import {
   type MarketingCampaign, type InsertMarketingCampaign,
   type Notification, type InsertNotification,
   type Integration, type InsertIntegration,
+  type GoogleCalendarIntegration, type InsertGoogleCalendarIntegration,
   type SurveyTemplate, type InsertSurveyTemplate,
   type SurveyCampaign, type InsertSurveyCampaign,
   type SurveyLandingPage, type InsertSurveyLandingPage,
@@ -126,6 +127,11 @@ export interface IStorage {
   getIntegration(userId: string, accountId: string, service: string): Promise<Integration | null>;
   upsertIntegration(integration: InsertIntegration & { userId: string; accountId: string }): Promise<Integration>;
   deleteIntegration(id: string, userId: string, accountId: string): Promise<void>;
+  
+  // Google Calendar Integration
+  getGoogleCalendarIntegration(accountId: string): Promise<GoogleCalendarIntegration | null>;
+  upsertGoogleCalendarIntegration(integration: InsertGoogleCalendarIntegration & { userId: string; accountId: string }): Promise<GoogleCalendarIntegration>;
+  deleteGoogleCalendarIntegration(accountId: string): Promise<void>;
 
   // Survey Templates
   getSurveyTemplates(): Promise<SurveyTemplate[]>;
@@ -997,6 +1003,39 @@ export class DatabaseStorage implements IStorage {
         eq(integrations.userId, userId),
         eq(integrations.accountId, accountId)
       ));
+  }
+
+  // Google Calendar Integration
+  async getGoogleCalendarIntegration(accountId: string): Promise<GoogleCalendarIntegration | null> {
+    const [integration] = await db.select()
+      .from(googleCalendarIntegrations)
+      .where(eq(googleCalendarIntegrations.accountId, accountId));
+    return integration || null;
+  }
+
+  async upsertGoogleCalendarIntegration(integration: InsertGoogleCalendarIntegration & { userId: string; accountId: string }): Promise<GoogleCalendarIntegration> {
+    const existing = await this.getGoogleCalendarIntegration(integration.accountId);
+    
+    if (existing) {
+      const [updated] = await db.update(googleCalendarIntegrations)
+        .set({
+          ...integration,
+          updatedAt: new Date()
+        })
+        .where(eq(googleCalendarIntegrations.accountId, integration.accountId))
+        .returning();
+      return updated;
+    }
+    
+    const [created] = await db.insert(googleCalendarIntegrations)
+      .values(integration)
+      .returning();
+    return created;
+  }
+
+  async deleteGoogleCalendarIntegration(accountId: string): Promise<void> {
+    await db.delete(googleCalendarIntegrations)
+      .where(eq(googleCalendarIntegrations.accountId, accountId));
   }
 
   // Survey Templates
