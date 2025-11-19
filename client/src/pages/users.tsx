@@ -348,13 +348,12 @@ export default function UsersManagement() {
                           <UserIcon className="h-5 w-5 text-primary" />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <CardTitle className="text-base truncate">{user.name}</CardTitle>
+                          <Badge className={`${roleConfig.color}`}>
+                            <RoleIcon className="w-3 h-3 mr-1" />
+                            <span className="hidden sm:inline">{roleConfig.label}</span>
+                            <span className="sm:hidden">{roleConfig.label.substring(0, 3)}</span>
+                          </Badge>
                         </div>
-                        <Badge className={`${roleConfig.color} shrink-0`}>
-                          <RoleIcon className="w-3 h-3 mr-1" />
-                          <span className="hidden sm:inline">{roleConfig.label}</span>
-                          <span className="sm:hidden">{roleConfig.label.substring(0, 3)}</span>
-                        </Badge>
                       </div>
                       <Button
                         variant="ghost"
@@ -377,6 +376,9 @@ export default function UsersManagement() {
                 
                 {isExpanded && (
                   <CardContent className="p-6 pt-0 space-y-3">
+                    <p className="text-base font-medium truncate" title={user.name}>
+                      {user.name}
+                    </p>
                     <p className="text-sm text-muted-foreground truncate" title={user.email}>
                       {user.email}
                     </p>
