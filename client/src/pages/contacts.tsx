@@ -985,29 +985,29 @@ export default function Contacts() {
           </Dialog>
           <Dialog open={isProfileDialogOpen} onOpenChange={setIsProfileDialogOpen}>
             <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0" aria-describedby="voter-profile-dialog-description">
-              <DialogHeader className="px-6 pt-6 pb-4 border-b">
-                <DialogTitle className="text-2xl font-bold">Perfil dos Eleitores</DialogTitle>
-                <p id="voter-profile-dialog-description" className="text-sm text-muted-foreground mt-1">
+              <DialogHeader className="px-4 pt-4 pb-3 border-b">
+                <DialogTitle className="text-lg font-bold">Perfil dos Eleitores</DialogTitle>
+                <p id="voter-profile-dialog-description" className="text-xs text-muted-foreground mt-0.5">
                   Análise agregada dos dados cadastrados
                 </p>
               </DialogHeader>
-              <div className="flex-1 overflow-y-auto p-6">
+              <div className="flex-1 overflow-y-auto p-4">
                 {voterProfile && voterProfile.totalContacts > 0 ? (
-                  <div className="space-y-6">
-                    <div className="bg-muted/30 rounded-xl p-6 shadow-sm">
-                      <div className="flex items-center gap-2 mb-4">
-                        <TrendingUp className="w-5 h-5 text-primary" />
-                        <h3 className="text-lg font-semibold">Estatísticas Principais</h3>
+                  <div className="space-y-4">
+                    <div className="bg-muted/30 rounded-lg p-4 shadow-sm">
+                      <div className="flex items-center gap-1.5 mb-3">
+                        <TrendingUp className="w-4 h-4 text-primary" />
+                        <h3 className="text-sm font-semibold">Estatísticas Principais</h3>
                       </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <div>
-                          <p className="text-sm text-muted-foreground">Total de eleitores</p>
-                          <p className="text-3xl font-bold" data-testid="text-total-contacts">{voterProfile.totalContacts}</p>
+                          <p className="text-xs text-muted-foreground">Total de eleitores</p>
+                          <p className="text-2xl font-bold" data-testid="text-total-contacts">{voterProfile.totalContacts}</p>
                         </div>
                         {voterProfile.averageAge && voterProfile.totalContacts >= 3 && (
                           <div>
-                            <p className="text-sm text-muted-foreground">Idade média</p>
-                            <p className="text-3xl font-bold" data-testid="text-average-age">
+                            <p className="text-xs text-muted-foreground">Idade média</p>
+                            <p className="text-2xl font-bold" data-testid="text-average-age">
                               {voterProfile.averageAge.toFixed(1)} anos
                             </p>
                           </div>
@@ -1019,22 +1019,22 @@ export default function Contacts() {
 
                     {voterProfile.topInterests && voterProfile.topInterests.length > 0 && (
                       <>
-                        <div className="bg-muted/30 rounded-xl p-6 shadow-sm">
-                          <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
-                            <div className="flex items-center gap-2">
-                              <Info className="w-5 h-5 text-primary" />
-                              <h3 className="text-lg font-semibold">
+                        <div className="bg-muted/30 rounded-lg p-4 shadow-sm">
+                          <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                            <div className="flex items-center gap-1.5">
+                              <Info className="w-4 h-4 text-primary" />
+                              <h3 className="text-sm font-semibold">
                                 {selectedTopCount === 1 ? 'Interesse Mais Popular' : `Top ${selectedTopCount} Interesses`}
                               </h3>
                             </div>
-                            <div className="flex items-center gap-2 flex-wrap">
+                            <div className="flex items-center gap-1.5 flex-wrap">
                               {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((count) => (
                                 <Button
                                   key={count}
                                   variant={selectedTopCount === count ? "default" : "outline"}
                                   size="sm"
                                   onClick={() => setSelectedTopCount(count)}
-                                  className="w-8 h-8 p-0 rounded-full"
+                                  className="w-6 h-6 p-0 rounded-full text-xs"
                                   data-testid={`button-top-${count}`}
                                 >
                                   {count}
@@ -1042,16 +1042,16 @@ export default function Contacts() {
                               ))}
                             </div>
                           </div>
-                          <div className="flex flex-wrap gap-2">
+                          <div className="flex flex-wrap gap-1.5">
                             {voterProfile.topInterests.slice(0, selectedTopCount).map((item: { interest: string; count: number }) => {
                               const InterestIcon = INTEREST_ICONS[item.interest];
                               return (
                                 <Badge 
                                   key={item.interest}
-                                  className={`${getInterestColor(item.interest, true)} border-0 text-sm px-3 py-1.5 flex items-center gap-1.5 bg-transparent shadow-none`}
+                                  className={`${getInterestColor(item.interest, true)} border-0 text-xs px-2 py-1 flex items-center gap-1 bg-transparent shadow-none`}
                                   data-testid={`badge-interest-${item.interest}`}
                                 >
-                                  {InterestIcon && <InterestIcon className="w-3.5 h-3.5" />}
+                                  {InterestIcon && <InterestIcon className="w-3 h-3" />}
                                   {item.interest} ({item.count})
                                 </Badge>
                               );
@@ -1062,25 +1062,25 @@ export default function Contacts() {
                       </>
                     )}
 
-                    <div className="bg-muted/30 rounded-xl p-6 shadow-sm">
-                      <div className="flex items-center gap-2 mb-4">
-                        <MapPin className="w-5 h-5 text-primary" />
-                        <h3 className="text-lg font-semibold">Distribuição Geográfica</h3>
+                    <div className="bg-muted/30 rounded-lg p-4 shadow-sm">
+                      <div className="flex items-center gap-1.5 mb-3">
+                        <MapPin className="w-4 h-4 text-primary" />
+                        <h3 className="text-sm font-semibold">Distribuição Geográfica</h3>
                       </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {voterProfile.topStates && voterProfile.topStates.length > 0 && (
                           <div>
-                            <h4 className="text-sm font-medium mb-3 text-muted-foreground">Estados (Top 5)</h4>
-                            <div className="space-y-2">
+                            <h4 className="text-xs font-medium mb-2 text-muted-foreground">Estados (Top 5)</h4>
+                            <div className="space-y-1.5">
                               {voterProfile.topStates.map((item: { state: string; count: number }) => {
                                 const percentage = (item.count / voterProfile.totalContacts) * 100;
                                 return (
-                                  <div key={item.state} className="space-y-1" data-testid={`state-${item.state}`}>
-                                    <div className="flex justify-between items-center text-sm">
+                                  <div key={item.state} className="space-y-0.5" data-testid={`state-${item.state}`}>
+                                    <div className="flex justify-between items-center text-xs">
                                       <span className="font-medium">{item.state}</span>
                                       <span className="text-muted-foreground">{percentage.toFixed(1)}%</span>
                                     </div>
-                                    <Progress value={percentage} className="h-2" />
+                                    <Progress value={percentage} className="h-1.5" />
                                   </div>
                                 );
                               })}
@@ -1089,17 +1089,17 @@ export default function Contacts() {
                         )}
                         {voterProfile.topCities && voterProfile.topCities.length > 0 && (
                           <div>
-                            <h4 className="text-sm font-medium mb-3 text-muted-foreground">Cidades (Top 5)</h4>
-                            <div className="space-y-2">
+                            <h4 className="text-xs font-medium mb-2 text-muted-foreground">Cidades (Top 5)</h4>
+                            <div className="space-y-1.5">
                               {voterProfile.topCities.map((item: { city: string; count: number }) => {
                                 const percentage = (item.count / voterProfile.totalContacts) * 100;
                                 return (
-                                  <div key={item.city} className="space-y-1" data-testid={`city-${item.city}`}>
-                                    <div className="flex justify-between items-center text-sm">
+                                  <div key={item.city} className="space-y-0.5" data-testid={`city-${item.city}`}>
+                                    <div className="flex justify-between items-center text-xs">
                                       <span className="font-medium">{item.city}</span>
                                       <span className="text-muted-foreground">{percentage.toFixed(1)}%</span>
                                     </div>
-                                    <Progress value={percentage} className="h-2" />
+                                    <Progress value={percentage} className="h-1.5" />
                                   </div>
                                 );
                               })}
@@ -1112,21 +1112,21 @@ export default function Contacts() {
                     {voterProfile.topSources && voterProfile.topSources.length > 0 && (
                       <>
                         <Separator />
-                        <div className="bg-muted/30 rounded-xl p-6 shadow-sm">
-                          <div className="flex items-center gap-2 mb-4">
-                            <Users className="w-5 h-5 text-primary" />
-                            <h3 className="text-lg font-semibold">Fontes de Cadastro</h3>
+                        <div className="bg-muted/30 rounded-lg p-4 shadow-sm">
+                          <div className="flex items-center gap-1.5 mb-3">
+                            <Users className="w-4 h-4 text-primary" />
+                            <h3 className="text-sm font-semibold">Fontes de Cadastro</h3>
                           </div>
-                          <div className="space-y-3">
+                          <div className="space-y-2">
                             {voterProfile.topSources.map((item: { source: string; count: number }) => {
                               const percentage = (item.count / voterProfile.totalContacts) * 100;
                               return (
-                                <div key={item.source} className="space-y-1" data-testid={`source-${item.source}`}>
-                                  <div className="flex justify-between items-center text-sm">
+                                <div key={item.source} className="space-y-0.5" data-testid={`source-${item.source}`}>
+                                  <div className="flex justify-between items-center text-xs">
                                     <span className="font-medium">{item.source}</span>
                                     <span className="text-muted-foreground">{percentage.toFixed(1)}% ({item.count})</span>
                                   </div>
-                                  <Progress value={percentage} className="h-2" />
+                                  <Progress value={percentage} className="h-1.5" />
                                 </div>
                               );
                             })}
@@ -1138,12 +1138,12 @@ export default function Contacts() {
                     {voterProfile.genderDistribution && voterProfile.genderDistribution.counts && (
                       <>
                         <Separator />
-                        <div className="bg-muted/30 rounded-xl p-6 shadow-sm">
-                          <div className="flex items-center gap-2 mb-4">
-                            <Users className="w-5 h-5 text-primary" />
-                            <h3 className="text-lg font-semibold">Distribuição por Gênero</h3>
+                        <div className="bg-muted/30 rounded-lg p-4 shadow-sm">
+                          <div className="flex items-center gap-1.5 mb-3">
+                            <Users className="w-4 h-4 text-primary" />
+                            <h3 className="text-sm font-semibold">Distribuição por Gênero</h3>
                           </div>
-                          <div className="space-y-3">
+                          <div className="space-y-2">
                             {Object.entries(voterProfile.genderDistribution.counts)
                               .filter(([_, count]) => (count as number) > 0)
                               .map(([gender, count]) => {
@@ -1156,12 +1156,12 @@ export default function Contacts() {
                                 };
                                 
                                 return (
-                                  <div key={gender} className="space-y-1" data-testid={`gender-${gender}`}>
-                                    <div className="flex justify-between items-center text-sm">
+                                  <div key={gender} className="space-y-0.5" data-testid={`gender-${gender}`}>
+                                    <div className="flex justify-between items-center text-xs">
                                       <span className="font-medium">{gender}</span>
                                       <span className="text-muted-foreground">{percentage.toFixed(1)}% ({count})</span>
                                     </div>
-                                    <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
+                                    <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden">
                                       <div 
                                         className={`h-full ${getGenderColor(gender)} transition-all duration-300`}
                                         style={{ width: `${percentage}%` }}
