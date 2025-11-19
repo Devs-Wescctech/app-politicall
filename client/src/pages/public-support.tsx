@@ -64,6 +64,13 @@ export default function PublicSupport() {
     if (!partyAcronym) return "#40E0D0"; // Cor padrão (turquoise)
     return PARTY_COLORS[partyAcronym] || "#40E0D0";
   };
+  
+  // Criar gradiente com base na cor do partido
+  const getPartyGradient = (partyAcronym?: string) => {
+    const baseColor = getPartyColor(partyAcronym);
+    // Criar versões mais claras e escuras da cor
+    return `linear-gradient(135deg, ${baseColor} 0%, ${baseColor}dd 50%, ${baseColor}bb 100%)`;
+  };
 
   const { data: candidateData, isLoading: isLoadingCandidate, isError, error, refetch } = useQuery<any>({
     queryKey: ["/api/public/candidate", params?.slug],
@@ -247,11 +254,11 @@ export default function PublicSupport() {
               <div className="flex items-center gap-3">
                 <div 
                   className="w-3 h-3 rounded-full"
-                  style={{ backgroundColor: getPartyColor(candidateData.party.acronym) }}
+                  style={{ background: getPartyGradient(candidateData.party.acronym) }}
                 ></div>
                 <span 
-                  className="text-lg font-bold"
-                  style={{ color: getPartyColor(candidateData.party.acronym) }}
+                  className="text-lg font-bold bg-clip-text text-transparent"
+                  style={{ backgroundImage: getPartyGradient(candidateData.party.acronym) }}
                 >
                   {candidateData.party.acronym} - {candidateData.party.name}
                 </span>
@@ -265,28 +272,42 @@ export default function PublicSupport() {
         {/* Candidate Profile */}
         <div className="text-center space-y-6 mb-8 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md rounded-lg p-8 shadow-xl">
           <div className="flex flex-col items-center gap-4">
-            <Avatar 
-              className="w-32 h-32 shadow-lg ring-4 ring-white/50"
-              style={{ 
-                borderWidth: '4px',
-                borderStyle: 'solid',
-                borderColor: getPartyColor(candidateData.party?.acronym)
-              }}
-            >
-              <AvatarImage src={candidateData.avatar} alt={candidateData.name} />
-              <AvatarFallback className="text-3xl">{candidateData.name?.charAt(0)}</AvatarFallback>
-            </Avatar>
+            <div className="relative">
+              <Avatar 
+                className="w-32 h-32 shadow-lg ring-4 ring-white/50"
+                style={{ 
+                  borderWidth: '4px',
+                  borderStyle: 'solid',
+                  borderImage: `${getPartyGradient(candidateData.party?.acronym)} 1`
+                }}
+              >
+                <AvatarImage src={candidateData.avatar} alt={candidateData.name} />
+                <AvatarFallback className="text-3xl">{candidateData.name?.charAt(0)}</AvatarFallback>
+              </Avatar>
+              <div 
+                className="absolute inset-0 rounded-full opacity-20"
+                style={{ background: getPartyGradient(candidateData.party?.acronym) }}
+              ></div>
+            </div>
             <div className="space-y-2">
               <div className="flex items-center justify-center gap-2">
-                <Heart 
-                  className="w-6 h-6 fill-current"
-                  style={{ color: getPartyColor(candidateData.party?.acronym) }}
+                <div 
+                  className="w-6 h-6"
+                  style={{ 
+                    WebkitMaskImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 24 24\' fill=\'currentColor\'%3E%3Cpath d=\'M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z\'/%3E%3C/svg%3E")',
+                    maskImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 24 24\' fill=\'currentColor\'%3E%3Cpath d=\'M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z\'/%3E%3C/svg%3E")',
+                    WebkitMaskRepeat: 'no-repeat',
+                    maskRepeat: 'no-repeat',
+                    WebkitMaskPosition: 'center',
+                    maskPosition: 'center',
+                    background: getPartyGradient(candidateData.party?.acronym)
+                  }}
                 />
                 <h1 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white">Eu Apoio</h1>
               </div>
               <h2 
-                className="text-2xl md:text-3xl font-bold"
-                style={{ color: getPartyColor(candidateData.party?.acronym) }}
+                className="text-2xl md:text-3xl font-bold bg-clip-text text-transparent"
+                style={{ backgroundImage: getPartyGradient(candidateData.party?.acronym) }}
               >
                 {candidateData.name}
               </h2>
@@ -508,13 +529,12 @@ export default function PublicSupport() {
                 />
                 <Button 
                   type="submit" 
-                  className="w-full text-white" 
+                  className="w-full text-white border-0" 
                   size="lg"
                   disabled={submitMutation.isPending}
                   data-testid="button-submit-support"
                   style={{ 
-                    backgroundColor: getPartyColor(candidateData.party?.acronym),
-                    borderColor: getPartyColor(candidateData.party?.acronym)
+                    background: getPartyGradient(candidateData.party?.acronym)
                   }}
                 >
                   {submitMutation.isPending ? "Enviando..." : "Confirmar Apoio"}
