@@ -36,6 +36,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Check } from "lucide-react";
 import pdfMake from "pdfmake/build/pdfmake";
 import * as pdfFonts from "pdfmake/build/vfs_fonts";
+import logoUrl from "@assets/logo pol_1763308638963_1763559095972.png";
 
 (pdfMake as any).vfs = pdfFonts;
 
@@ -236,6 +237,10 @@ export default function Contacts() {
     queryKey: ["/api/contacts"],
   });
 
+  const { data: adminData } = useQuery<any>({
+    queryKey: ["/api/account/admin"],
+  });
+
   const form = useForm<InsertContact>({
     resolver: zodResolver(insertContactSchema),
     defaultValues: {
@@ -398,25 +403,90 @@ export default function Contacts() {
     });
   };
 
-  const handleExportPDF = () => {
+  const handleExportPDF = async () => {
     if (!filteredContacts || filteredContacts.length === 0) {
       toast({ title: "Nenhum contato para exportar", variant: "destructive" });
       return;
     }
 
+    // Converter logo para base64
+    const getBase64Image = async (url: string): Promise<string> => {
+      try {
+        const response = await fetch(url);
+        const blob = await response.blob();
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+      } catch (error) {
+        console.error('Erro ao carregar logo:', error);
+        return '';
+      }
+    };
+
+    const logoBase64 = await getBase64Image(logoUrl);
+
+    // Informações do admin
+    const adminName = adminData?.name || 'Administrador';
+    const adminParty = adminData?.party ? `${adminData.party.acronym} - ${adminData.party.name}` : 'Sem partido';
+    const adminPhone = adminData?.phone || 'Não informado';
+    const adminEmail = adminData?.email || 'Não informado';
+
     const docDefinition: any = {
       pageSize: 'A4',
-      pageMargins: [40, 60, 40, 60],
+      pageMargins: [40, 120, 40, 80],
+      header: {
+        margin: [40, 20, 40, 0],
+        columns: [
+          {
+            image: logoBase64,
+            width: 120,
+            alignment: 'center',
+            margin: [0, 0, 0, 10]
+          }
+        ]
+      },
+      footer: function(currentPage: number, pageCount: number) {
+        return {
+          margin: [40, 0, 40, 20],
+          columns: [
+            {
+              text: 'Gerado por Politicall - Sistema de Gestão Política',
+              alignment: 'center',
+              fontSize: 8,
+              color: '#6b7280',
+              margin: [0, 10, 0, 0]
+            }
+          ]
+        };
+      },
       content: [
+        {
+          columns: [
+            {
+              width: '*',
+              stack: [
+                { text: adminName, style: 'adminName' },
+                { text: adminParty, style: 'adminInfo' },
+                { text: `Telefone: ${adminPhone}`, style: 'adminInfo' },
+                { text: `Email: ${adminEmail}`, style: 'adminInfo' }
+              ]
+            }
+          ],
+          margin: [0, 0, 0, 20]
+        },
         {
           text: 'Relatório de Eleitores',
           style: 'header',
           alignment: 'center',
-          margin: [0, 0, 0, 20]
+          margin: [0, 0, 0, 5]
         },
         {
           text: `Total de eleitores: ${filteredContacts.length}`,
           style: 'subheader',
+          alignment: 'center',
           margin: [0, 0, 0, 20]
         },
         {
@@ -465,6 +535,17 @@ export default function Contacts() {
           bold: true,
           fontSize: 8,
           color: 'white'
+        },
+        adminName: {
+          fontSize: 12,
+          bold: true,
+          color: '#1f2937',
+          margin: [0, 0, 0, 3]
+        },
+        adminInfo: {
+          fontSize: 8,
+          color: '#6b7280',
+          margin: [0, 0, 0, 2]
         }
       },
       defaultStyle: {
