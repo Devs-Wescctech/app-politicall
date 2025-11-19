@@ -16,7 +16,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useCurrentUser } from "@/hooks/use-current-user";
-import { Shield, User as UserIcon, Users, Plus, Settings, Eye, EyeOff, Trash2, ChevronDown, ChevronUp, Trophy, Award } from "lucide-react";
+import { Shield, User as UserIcon, Users, Plus, Settings, Eye, EyeOff, Trash2, ChevronDown, ChevronUp, Trophy, Award, Sun, Calendar, CalendarDays, Infinity } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Cell, Tooltip } from "recharts";
 import {
@@ -454,10 +454,22 @@ export default function UsersManagement() {
             </div>
             <Tabs value={rankingPeriod} onValueChange={setRankingPeriod}>
               <TabsList className="rounded-full">
-                <TabsTrigger value="today" data-testid="filter-today" className="rounded-full text-xs">Hoje</TabsTrigger>
-                <TabsTrigger value="week" data-testid="filter-week" className="rounded-full text-xs">Semana</TabsTrigger>
-                <TabsTrigger value="month" data-testid="filter-month" className="rounded-full text-xs">Mês</TabsTrigger>
-                <TabsTrigger value="all" data-testid="filter-all" className="rounded-full text-xs">Todo Período</TabsTrigger>
+                <TabsTrigger value="today" data-testid="filter-today" className="rounded-full text-xs">
+                  <Sun className="w-3 h-3 mr-1" />
+                  Hoje
+                </TabsTrigger>
+                <TabsTrigger value="week" data-testid="filter-week" className="rounded-full text-xs">
+                  <Calendar className="w-3 h-3 mr-1" />
+                  Semana
+                </TabsTrigger>
+                <TabsTrigger value="month" data-testid="filter-month" className="rounded-full text-xs">
+                  <CalendarDays className="w-3 h-3 mr-1" />
+                  Mês
+                </TabsTrigger>
+                <TabsTrigger value="all" data-testid="filter-all" className="rounded-full text-xs">
+                  <Infinity className="w-3 h-3 mr-1" />
+                  Todo Período
+                </TabsTrigger>
               </TabsList>
             </Tabs>
           </div>
