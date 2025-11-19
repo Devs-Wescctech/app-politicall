@@ -40,6 +40,10 @@ export interface IStorage {
   createContact(contact: InsertContact & { userId: string; accountId: string }): Promise<Contact>;
   updateContact(id: string, accountId: string, contact: Partial<InsertContact>): Promise<Contact>;
   deleteContact(id: string, accountId: string): Promise<void>;
+  
+  // Public Support (no authentication required)
+  getCandidateBySlug(slug: string): Promise<{ id: string; accountId: string; name: string; email: string; avatar: string | null; politicalPosition: string | null; slug: string | null; party: PoliticalParty | null } | undefined>;
+  createPublicSupporter(slug: string, contact: InsertContact): Promise<Contact>;
 
   // Political Parties
   getAllParties(): Promise<PoliticalParty[]>;
@@ -237,6 +241,45 @@ export class DatabaseStorage implements IStorage {
       ))
       .returning();
     if (result.length === 0) throw new Error('Contact not found or access denied');
+  }
+
+  // Public Support (no authentication required)
+  async getCandidateBySlug(slug: string): Promise<{ id: string; accountId: string; name: string; email: string; avatar: string | null; politicalPosition: string | null; slug: string | null; party: PoliticalParty | null } | undefined> {
+    const result = await db.select({
+      id: users.id,
+      accountId: users.accountId,
+      name: users.name,
+      email: users.email,
+      avatar: users.avatar,
+      politicalPosition: users.politicalPosition,
+      slug: users.slug,
+      party: politicalParties
+    })
+      .from(users)
+      .leftJoin(politicalParties, eq(users.partyId, politicalParties.id))
+      .where(eq(users.slug, slug))
+      .limit(1);
+    
+    return result[0] || undefined;
+  }
+
+  async createPublicSupporter(slug: string, contact: InsertContact): Promise<Contact> {
+    // First, get the candidate by slug to get userId and accountId
+    const candidate = await this.getCandidateBySlug(slug);
+    if (!candidate) {
+      throw new Error('Candidate not found');
+    }
+    
+    // Create contact with automatic source "QR Code"
+    const contactData = {
+      ...contact,
+      userId: candidate.id,
+      accountId: candidate.accountId,
+      source: "QR Code"
+    };
+    
+    const [newContact] = await db.insert(contacts).values(contactData).returning();
+    return newContact;
   }
 
   // Political Parties

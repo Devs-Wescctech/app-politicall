@@ -2889,6 +2889,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ==================== PUBLIC SUPPORT (QR CODE) ====================
+  
+  // Get candidate data by slug (PUBLIC - no auth required)
+  app.get("/api/public/candidate/:slug", async (req, res) => {
+    try {
+      const { slug } = req.params;
+      const candidate = await storage.getCandidateBySlug(slug);
+      
+      if (!candidate) {
+        return res.status(404).json({ error: "Candidato não encontrado" });
+      }
+      
+      res.json(candidate);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Create public supporter (PUBLIC - no auth required)
+  app.post("/api/public/support/:slug", async (req, res) => {
+    try {
+      const { slug } = req.params;
+      const validatedData = insertContactSchema.parse(req.body);
+      
+      const supporter = await storage.createPublicSupporter(slug, validatedData);
+      
+      res.status(201).json(supporter);
+    } catch (error: any) {
+      if (error.message === "Candidate not found") {
+        return res.status(404).json({ error: "Candidato não encontrado" });
+      }
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // ==================== DASHBOARD STATS ====================
   
   app.get("/api/dashboard/stats", authenticateToken, async (req: AuthRequest, res) => {

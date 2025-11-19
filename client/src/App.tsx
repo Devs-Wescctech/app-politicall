@@ -29,6 +29,7 @@ import Marketing from "@/pages/marketing";
 import Settings from "@/pages/settings";
 import UsersManagement from "@/pages/users";
 import SurveyLanding from "@/pages/survey-landing";
+import PublicSupport from "@/pages/public-support";
 import LandingPage from "@/pages/landing";
 import ThankYouPage from "@/pages/thank-you";
 
@@ -121,6 +122,7 @@ function App() {
             <Route path="/admin" component={Admin} />
             <Route path="/contracts" component={Contracts} />
             <Route path="/pesquisa/:slug" component={SurveyLanding} />
+            <Route path="/apoio/:slug" component={PublicSupport} />
             <Route path="/thank-you" component={ThankYouPage} />
             <Route path="/" component={LandingPage} />
             <Route path="/:rest*">
