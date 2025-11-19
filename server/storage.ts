@@ -26,6 +26,7 @@ import { eq, desc, and, count, inArray } from "drizzle-orm";
 import { encryptApiKey, decryptApiKey } from "./crypto";
 import bcrypt from "bcrypt";
 import crypto from "crypto";
+import { normalizeText } from "@shared/text-normalization";
 
 export interface IStorage {
   // Accounts
@@ -231,8 +232,39 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createContact(contact: InsertContact & { userId: string; accountId: string }): Promise<Contact> {
-    const [newContact] = await db.insert(contacts).values(contact).returning();
-    return newContact;
+    // Normalize the contact name for deduplication
+    const normalized = normalizeText(contact.name);
+    
+    // Use transaction to ensure atomicity
+    const result = await db.transaction(async (tx) => {
+      // Check if a contact with the same normalized name already exists
+      const existing = await tx.select()
+        .from(contacts)
+        .where(and(
+          eq(contacts.accountId, contact.accountId),
+          eq(contacts.normalizedName, normalized)
+        ))
+        .limit(1);
+      
+      // If exists, delete the old one (keeping only the newest)
+      if (existing.length > 0) {
+        await tx.delete(contacts)
+          .where(eq(contacts.id, existing[0].id));
+        console.log(`Deduplicação: Removido contato duplicado "${existing[0].name}" (ID: ${existing[0].id})`);
+      }
+      
+      // Create the new contact with normalized name
+      const [newContact] = await tx.insert(contacts)
+        .values({
+          ...contact,
+          normalizedName: normalized
+        })
+        .returning();
+      
+      return newContact;
+    });
+    
+    return result;
   }
 
   async updateContact(id: string, accountId: string, contact: Partial<InsertContact>): Promise<Contact> {
@@ -285,6 +317,9 @@ export class DatabaseStorage implements IStorage {
       throw new Error('Candidate not found');
     }
     
+    // Normalize the contact name for deduplication
+    const normalized = normalizeText(contact.name);
+    
     // Create contact with automatic source "Politicall"
     const contactData = {
       ...contact,
@@ -293,8 +328,36 @@ export class DatabaseStorage implements IStorage {
       source: "Politicall"
     };
     
-    const [newContact] = await db.insert(contacts).values(contactData).returning();
-    return newContact;
+    // Use transaction to ensure atomicity and handle deduplication
+    const result = await db.transaction(async (tx) => {
+      // Check if a contact with the same normalized name already exists
+      const existing = await tx.select()
+        .from(contacts)
+        .where(and(
+          eq(contacts.accountId, candidate.accountId),
+          eq(contacts.normalizedName, normalized)
+        ))
+        .limit(1);
+      
+      // If exists, delete the old one (keeping only the newest)
+      if (existing.length > 0) {
+        await tx.delete(contacts)
+          .where(eq(contacts.id, existing[0].id));
+        console.log(`Deduplicação (público): Removido contato duplicado "${existing[0].name}" (ID: ${existing[0].id})`);
+      }
+      
+      // Create the new contact with normalized name
+      const [newContact] = await tx.insert(contacts)
+        .values({
+          ...contactData,
+          normalizedName: normalized
+        })
+        .returning();
+      
+      return newContact;
+    });
+    
+    return result;
   }
 
   async findAvailableSlug(baseSlug: string): Promise<string> {
