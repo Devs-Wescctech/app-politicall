@@ -49,6 +49,7 @@ export interface IStorage {
   // Public Support (no authentication required)
   getCandidateBySlug(slug: string): Promise<{ id: string; accountId: string; name: string; email: string; avatar: string | null; politicalPosition: string | null; electionNumber: string | null; slug: string | null; party: PoliticalParty | null } | undefined>;
   createPublicSupporter(slug: string, contact: InsertContact): Promise<Contact>;
+  findAvailableSlug(baseSlug: string): Promise<string>;
 
   // Political Parties
   getAllParties(): Promise<PoliticalParty[]>;
@@ -294,6 +295,25 @@ export class DatabaseStorage implements IStorage {
     
     const [newContact] = await db.insert(contacts).values(contactData).returning();
     return newContact;
+  }
+
+  async findAvailableSlug(baseSlug: string): Promise<string> {
+    // Try the original slug first
+    let candidateSlug = baseSlug;
+    let counter = 1;
+    
+    // Keep trying until we find an available slug
+    while (true) {
+      const existing = await this.getCandidateBySlug(candidateSlug);
+      if (!existing) {
+        // This slug is available
+        return candidateSlug;
+      }
+      
+      // Slug exists, try the next number
+      counter++;
+      candidateSlug = `${baseSlug}${counter}`;
+    }
   }
 
   // Political Parties
