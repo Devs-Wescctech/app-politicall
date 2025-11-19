@@ -54,25 +54,25 @@ const BRAZILIAN_STATES = [
   "Roraima", "Santa Catarina", "São Paulo", "Sergipe", "Tocantins"
 ];
 
-// Paleta de cores únicas para cada interesse
+// Paleta de cores únicas para cada interesse (apenas borda)
 const INTEREST_COLORS = [
-  "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 border-red-200",
-  "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 border-blue-200",
-  "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 border-green-200",
-  "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 border-yellow-200",
-  "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200 border-purple-200",
-  "bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-200 border-pink-200",
-  "bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200 border-indigo-200",
-  "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200 border-orange-200",
-  "bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200 border-teal-200",
-  "bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200 border-cyan-200",
-  "bg-lime-100 text-lime-800 dark:bg-lime-900 dark:text-lime-200 border-lime-200",
-  "bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200 border-emerald-200",
-  "bg-rose-100 text-rose-800 dark:bg-rose-900 dark:text-rose-200 border-rose-200",
-  "bg-fuchsia-100 text-fuchsia-800 dark:bg-fuchsia-900 dark:text-fuchsia-200 border-fuchsia-200",
-  "bg-violet-100 text-violet-800 dark:bg-violet-900 dark:text-violet-200 border-violet-200",
-  "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200 border-amber-200",
-  "bg-sky-100 text-sky-800 dark:bg-sky-900 dark:text-sky-200 border-sky-200",
+  "border-red-500 text-red-700 dark:text-red-400",
+  "border-blue-500 text-blue-700 dark:text-blue-400",
+  "border-green-500 text-green-700 dark:text-green-400",
+  "border-yellow-500 text-yellow-700 dark:text-yellow-400",
+  "border-purple-500 text-purple-700 dark:text-purple-400",
+  "border-pink-500 text-pink-700 dark:text-pink-400",
+  "border-indigo-500 text-indigo-700 dark:text-indigo-400",
+  "border-orange-500 text-orange-700 dark:text-orange-400",
+  "border-teal-500 text-teal-700 dark:text-teal-400",
+  "border-cyan-500 text-cyan-700 dark:text-cyan-400",
+  "border-lime-500 text-lime-700 dark:text-lime-400",
+  "border-emerald-500 text-emerald-700 dark:text-emerald-400",
+  "border-rose-500 text-rose-700 dark:text-rose-400",
+  "border-fuchsia-500 text-fuchsia-700 dark:text-fuchsia-400",
+  "border-violet-500 text-violet-700 dark:text-violet-400",
+  "border-amber-500 text-amber-700 dark:text-amber-400",
+  "border-sky-500 text-sky-700 dark:text-sky-400",
 ];
 
 // Função para gerar cor consistente baseada no nome do interesse
@@ -1025,8 +1025,9 @@ export default function Contacts() {
                               const InterestIcon = INTEREST_ICONS[item.interest];
                               return (
                                 <Badge 
-                                  key={item.interest} 
-                                  className={`${getInterestColor(item.interest)} text-sm px-3 py-1.5 flex items-center gap-1.5`}
+                                  key={item.interest}
+                                  variant="outline"
+                                  className={`${getInterestColor(item.interest)} border-2 text-sm px-3 py-1.5 flex items-center gap-1.5 bg-transparent`}
                                   data-testid={`badge-interest-${item.interest}`}
                                 >
                                   {InterestIcon && <InterestIcon className="w-3.5 h-3.5" />}
