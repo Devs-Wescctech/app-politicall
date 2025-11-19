@@ -724,11 +724,12 @@ export default function Demands() {
                     ) : (
                       <Button
                         size="icon"
-                        variant="ghost"
+                        variant="outline"
                         onClick={handleStartEdit}
                         data-testid="button-start-edit"
+                        className="border-primary/50 hover:border-primary hover:bg-primary/10"
                       >
-                        <Edit className="h-4 w-4" />
+                        <Edit className="h-5 w-5 text-primary" />
                       </Button>
                     )}
                   </div>
