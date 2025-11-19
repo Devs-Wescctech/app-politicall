@@ -3,11 +3,16 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription as DialogDesc } from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { User, Edit, Camera } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Textarea } from "@/components/ui/textarea";
+import { User, Edit, Camera, Key, Copy, Trash2, Calendar, Clock, CheckCircle2, XCircle, Plus, Code2, AlertCircle, Terminal, Globe } from "lucide-react";
 import { getAuthUser } from "@/lib/auth";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -15,10 +20,12 @@ import { z } from "zod";
 import { useState, useRef } from "react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type { PoliticalParty } from "@shared/schema";
+import type { PoliticalParty, ApiKey } from "@shared/schema";
 import { POLITICAL_POSITIONS } from "@shared/schema";
 import { BRAZILIAN_STATES, getCitiesByState } from "@shared/brazilian-locations";
 import { useEffect } from "react";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 const profileSchema = z.object({
   name: z.string().min(2, "Nome deve ter no mínimo 2 caracteres"),
@@ -58,12 +65,24 @@ const profileSchema = z.object({
   path: ["confirmPassword"],
 });
 
+const apiKeySchema = z.object({
+  name: z.string().min(3, "Nome deve ter pelo menos 3 caracteres"),
+  description: z.string().optional(),
+});
+
 type ProfileForm = z.infer<typeof profileSchema>;
+type ApiKeyForm = z.infer<typeof apiKeySchema>;
 
 export default function Settings() {
   const user = getAuthUser();
   const { toast } = useToast();
   const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showApiKeyDialog, setShowApiKeyDialog] = useState(false);
+  const [showNewKeyAlert, setShowNewKeyAlert] = useState(false);
+  const [newApiKey, setNewApiKey] = useState<string>("");
+  const [deleteKeyId, setDeleteKeyId] = useState<string | null>(null);
+  const [copiedKeyId, setCopiedKeyId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState("profile");
 
   const { data: parties } = useQuery<PoliticalParty[]>({
     queryKey: ["/api/parties"],
@@ -85,6 +104,11 @@ export default function Settings() {
     queryKey: ["/api/auth/me"],
   });
 
+  const { data: apiKeys, isLoading: loadingKeys } = useQuery<ApiKey[]>({
+    queryKey: ["/api/keys"],
+    enabled: activeTab === "api",
+  });
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [selectedState, setSelectedState] = useState(currentUser?.state || "");
@@ -104,6 +128,14 @@ export default function Settings() {
       currentPassword: "",
       newPassword: "",
       confirmPassword: "",
+    },
+  });
+
+  const apiKeyForm = useForm<ApiKeyForm>({
+    resolver: zodResolver(apiKeySchema),
+    defaultValues: {
+      name: "",
+      description: "",
     },
   });
 
@@ -167,6 +199,47 @@ export default function Settings() {
     },
   });
 
+  const createApiKeyMutation = useMutation({
+    mutationFn: async (data: ApiKeyForm) => {
+      return await apiRequest("POST", "/api/keys", data);
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/keys"] });
+      setNewApiKey(data.key);
+      setShowNewKeyAlert(true);
+      setShowApiKeyDialog(false);
+      apiKeyForm.reset();
+    },
+    onError: (error: any) => {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: error.message || "Erro ao criar chave de API",
+      });
+    },
+  });
+
+  const deleteApiKeyMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return await apiRequest("DELETE", `/api/keys/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/keys"] });
+      toast({
+        title: "Sucesso",
+        description: "Chave de API revogada com sucesso",
+      });
+      setDeleteKeyId(null);
+    },
+    onError: (error: any) => {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: error.message || "Erro ao revogar chave de API",
+      });
+    },
+  });
+
   const handleAvatarClick = () => {
     fileInputRef.current?.click();
   };
@@ -175,7 +248,6 @@ export default function Settings() {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    // Validate file type
     if (!file.type.startsWith('image/')) {
       toast({
         variant: "destructive",
@@ -185,7 +257,6 @@ export default function Settings() {
       return;
     }
 
-    // Validate file size (max 2MB)
     if (file.size > 2 * 1024 * 1024) {
       toast({
         variant: "destructive",
@@ -195,7 +266,6 @@ export default function Settings() {
       return;
     }
 
-    // Convert to base64
     const reader = new FileReader();
     reader.onload = (e) => {
       const base64 = e.target?.result as string;
@@ -206,6 +276,30 @@ export default function Settings() {
 
   const onSubmitProfile = (data: ProfileForm) => {
     updateProfileMutation.mutate(data);
+  };
+
+  const onSubmitApiKey = (data: ApiKeyForm) => {
+    createApiKeyMutation.mutate(data);
+  };
+
+  const copyToClipboard = async (text: string, keyId?: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      if (keyId) {
+        setCopiedKeyId(keyId);
+        setTimeout(() => setCopiedKeyId(null), 2000);
+      }
+      toast({
+        title: "Copiado!",
+        description: "Texto copiado para a área de transferência",
+      });
+    } catch (err) {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Não foi possível copiar o texto",
+      });
+    }
   };
 
   useEffect(() => {
@@ -258,6 +352,7 @@ export default function Settings() {
   };
 
   const selectedParty = parties?.find(p => p.id === form.watch("partyId"));
+  const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://your-domain.com';
 
   return (
     <div className="p-4 sm:p-6 md:p-8 space-y-6">
@@ -265,179 +360,442 @@ export default function Settings() {
         <h1 className="text-3xl font-bold">Configurações</h1>
         <p className="text-muted-foreground mt-2">Gerencie suas preferências e informações da conta</p>
       </div>
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>Informações da Conta</CardTitle>
-                  <CardDescription>Detalhes do seu perfil político</CardDescription>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleEditClick}
-                  className="rounded-full"
-                  data-testid="button-edit-profile"
-                >
-                  <Edit className="w-4 h-4 mr-2" />
-                  Editar
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Nome Completo</label>
-                <p className="text-base mt-1" data-testid="text-user-name">{currentUser?.name || "-"}</p>
-              </div>
-              <Separator />
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Telefone</label>
-                <p className="text-base mt-1" data-testid="text-user-phone">{currentUser?.phone || "-"}</p>
-              </div>
-              <Separator />
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Email</label>
-                <p className="text-base mt-1" data-testid="text-user-email">{currentUser?.email || "-"}</p>
-              </div>
-              <Separator />
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Partido Político</label>
-                <p className="text-base mt-1" data-testid="text-user-party">
-                  {parties && currentUser?.partyId 
-                    ? parties.find(p => p.id === currentUser.partyId)?.acronym || "-"
-                    : "-"}
-                </p>
-              </div>
-              <Separator />
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Cargo Político</label>
-                <p className="text-base mt-1" data-testid="text-user-position">{currentUser?.politicalPosition || "-"}</p>
-              </div>
-              <Separator />
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Número de Eleição</label>
-                <p className="text-base mt-1" data-testid="text-user-election-number">{currentUser?.electionNumber || "-"}</p>
-              </div>
-              <Separator />
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Ideologia</label>
-                <p className="text-base mt-1" data-testid="text-user-ideology">
-                  {parties && currentUser?.partyId 
-                    ? parties.find(p => p.id === currentUser.partyId)?.ideology || "-"
-                    : "-"}
-                </p>
-              </div>
-              <Separator />
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Votos na Última Eleição</label>
-                <p className="text-base mt-1" data-testid="text-user-votes">
-                  {currentUser?.lastElectionVotes ? currentUser.lastElectionVotes.toLocaleString('pt-BR') : "-"}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Sobre a Plataforma</CardTitle>
-              <CardDescription>Informações do sistema</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Versão</label>
-                <p className="text-base mt-1">1.0.0</p>
-              </div>
-              <Separator />
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Plataforma</label>
-                <p className="text-base mt-1">Gestão Política Completa</p>
-              </div>
-              
-            </CardContent>
-          </Card>
-        </div>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsTrigger value="profile" data-testid="tab-profile">
+            <User className="w-4 h-4 mr-2" />
+            Perfil
+          </TabsTrigger>
+          <TabsTrigger value="api" data-testid="tab-api">
+            <Key className="w-4 h-4 mr-2" />
+            Integrações API
+          </TabsTrigger>
+        </TabsList>
 
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <User className="w-5 h-5" />
-                Perfil
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-center justify-center">
-                <div 
-                  className="relative w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center cursor-pointer hover-elevate group"
-                  onClick={handleAvatarClick}
-                  data-testid="avatar-upload"
-                >
-                  {currentUser?.avatar ? (
-                    <img 
-                      src={currentUser.avatar} 
-                      alt="Avatar" 
-                      className="w-full h-full rounded-full object-cover"
+        <TabsContent value="profile" className="space-y-6 mt-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 space-y-6">
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle>Informações da Conta</CardTitle>
+                      <CardDescription>Detalhes do seu perfil político</CardDescription>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleEditClick}
+                      className="rounded-full"
+                      data-testid="button-edit-profile"
+                    >
+                      <Edit className="w-4 h-4 mr-2" />
+                      Editar
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Nome Completo</label>
+                    <p className="text-base mt-1" data-testid="text-user-name">{currentUser?.name || "-"}</p>
+                  </div>
+                  <Separator />
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Telefone</label>
+                    <p className="text-base mt-1" data-testid="text-user-phone">{currentUser?.phone || "-"}</p>
+                  </div>
+                  <Separator />
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Email</label>
+                    <p className="text-base mt-1" data-testid="text-user-email">{currentUser?.email || "-"}</p>
+                  </div>
+                  <Separator />
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Partido Político</label>
+                    <p className="text-base mt-1" data-testid="text-user-party">
+                      {parties && currentUser?.partyId 
+                        ? parties.find(p => p.id === currentUser.partyId)?.acronym || "-"
+                        : "-"}
+                    </p>
+                  </div>
+                  <Separator />
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Cargo Político</label>
+                    <p className="text-base mt-1" data-testid="text-user-position">{currentUser?.politicalPosition || "-"}</p>
+                  </div>
+                  <Separator />
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Número de Eleição</label>
+                    <p className="text-base mt-1" data-testid="text-user-election-number">{currentUser?.electionNumber || "-"}</p>
+                  </div>
+                  <Separator />
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Ideologia</label>
+                    <p className="text-base mt-1" data-testid="text-user-ideology">
+                      {parties && currentUser?.partyId 
+                        ? parties.find(p => p.id === currentUser.partyId)?.ideology || "-"
+                        : "-"}
+                    </p>
+                  </div>
+                  <Separator />
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Votos na Última Eleição</label>
+                    <p className="text-base mt-1" data-testid="text-user-votes">
+                      {currentUser?.lastElectionVotes ? currentUser.lastElectionVotes.toLocaleString('pt-BR') : "-"}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Sobre a Plataforma</CardTitle>
+                  <CardDescription>Informações do sistema</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Versão</label>
+                    <p className="text-base mt-1">1.0.0</p>
+                  </div>
+                  <Separator />
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Plataforma</label>
+                    <p className="text-base mt-1">Gestão Política Completa</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <User className="w-5 h-5" />
+                    Perfil
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex items-center justify-center">
+                    <div 
+                      className="relative w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center cursor-pointer hover-elevate group"
+                      onClick={handleAvatarClick}
+                      data-testid="avatar-upload"
+                    >
+                      {currentUser?.avatar ? (
+                        <img 
+                          src={currentUser.avatar} 
+                          alt="Avatar" 
+                          className="w-full h-full rounded-full object-cover"
+                        />
+                      ) : (
+                        <User className="w-12 h-12 text-primary" />
+                      )}
+                      <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Camera className="w-8 h-8 text-white" />
+                      </div>
+                    </div>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileChange}
+                      className="hidden"
+                      data-testid="input-avatar"
                     />
-                  ) : (
-                    <User className="w-12 h-12 text-primary" />
-                  )}
-                  <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Camera className="w-8 h-8 text-white" />
+                  </div>
+                  <div className="text-center">
+                    <p className="font-semibold text-lg">{currentUser?.name}</p>
+                    <p className="text-sm text-muted-foreground">{currentUser?.email}</p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Recursos</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3 text-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Eleitores</span>
+                      <Badge className="bg-green-500/10 text-green-500 hover:bg-green-500/20">Ativo</Badge>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Alianças</span>
+                      <Badge className="bg-green-500/10 text-green-500 hover:bg-green-500/20">Ativo</Badge>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Demandas</span>
+                      <Badge className="bg-green-500/10 text-green-500 hover:bg-green-500/20">Ativo</Badge>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Agenda</span>
+                      <Badge className="bg-green-500/10 text-green-500 hover:bg-green-500/20">Ativo</Badge>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Atendimento IA</span>
+                      <Badge className="bg-green-500/10 text-green-500 hover:bg-green-500/20">Ativo</Badge>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Pesquisas</span>
+                      <Badge className="bg-green-500/10 text-green-500 hover:bg-green-500/20">Ativo</Badge>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="api" className="space-y-6 mt-6">
+          <div className="grid gap-6">
+            {/* API Keys List */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>Chaves de API</CardTitle>
+                    <CardDescription>Gerencie suas chaves de acesso à API</CardDescription>
+                  </div>
+                  <Button 
+                    onClick={() => setShowApiKeyDialog(true)}
+                    data-testid="button-create-api-key"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Nova Chave
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {loadingKeys ? (
+                  <div className="space-y-4">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="flex items-center justify-between p-4 border rounded-lg">
+                        <div className="space-y-2 flex-1">
+                          <Skeleton className="h-4 w-32" />
+                          <Skeleton className="h-3 w-48" />
+                        </div>
+                        <Skeleton className="h-8 w-8" />
+                      </div>
+                    ))}
+                  </div>
+                ) : apiKeys && apiKeys.length > 0 ? (
+                  <div className="space-y-4">
+                    {apiKeys.map((apiKey) => (
+                      <div 
+                        key={apiKey.id} 
+                        className="flex items-center justify-between p-4 border rounded-lg hover-elevate"
+                        data-testid={`api-key-item-${apiKey.id}`}
+                      >
+                        <div className="space-y-2 flex-1">
+                          <div className="flex items-center gap-3">
+                            <p className="font-medium">{apiKey.name}</p>
+                            <Badge variant="outline" className="font-mono text-xs">
+                              {apiKey.keyPrefix}
+                            </Badge>
+                            {apiKey.isActive ? (
+                              <Badge className="bg-green-500/10 text-green-500 hover:bg-green-500/20">
+                                <CheckCircle2 className="w-3 h-3 mr-1" />
+                                Ativa
+                              </Badge>
+                            ) : (
+                              <Badge variant="destructive">
+                                <XCircle className="w-3 h-3 mr-1" />
+                                Revogada
+                              </Badge>
+                            )}
+                          </div>
+                          {apiKey.description && (
+                            <p className="text-sm text-muted-foreground">{apiKey.description}</p>
+                          )}
+                          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <Calendar className="w-3 h-3" />
+                              Criada em {format(new Date(apiKey.createdAt), "dd/MM/yyyy", { locale: ptBR })}
+                            </span>
+                            {apiKey.lastUsedAt && (
+                              <span className="flex items-center gap-1">
+                                <Clock className="w-3 h-3" />
+                                Último uso: {format(new Date(apiKey.lastUsedAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setDeleteKeyId(apiKey.id)}
+                          disabled={!apiKey.isActive}
+                          data-testid={`button-delete-key-${apiKey.id}`}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <Key className="w-12 h-12 mx-auto text-muted-foreground mb-3" />
+                    <p className="text-muted-foreground">Nenhuma chave de API criada ainda</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Crie uma chave para integrar com sistemas externos
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* API Documentation */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Code2 className="w-5 h-5" />
+                  Documentação da API
+                </CardTitle>
+                <CardDescription>Como usar as chaves de API para integração</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div>
+                  <h4 className="font-medium mb-2 flex items-center gap-2">
+                    <Globe className="w-4 h-4" />
+                    URL Base
+                  </h4>
+                  <div className="bg-muted p-3 rounded-md font-mono text-sm flex items-center justify-between">
+                    <span>{baseUrl}/api/v1</span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => copyToClipboard(`${baseUrl}/api/v1`)}
+                      data-testid="button-copy-base-url"
+                    >
+                      <Copy className="w-4 h-4" />
+                    </Button>
                   </div>
                 </div>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleFileChange}
-                  className="hidden"
-                  data-testid="input-avatar"
-                />
-              </div>
-              <div className="text-center">
-                <p className="font-semibold text-lg">{currentUser?.name}</p>
-                <p className="text-sm text-muted-foreground">{currentUser?.email}</p>
-              </div>
-            </CardContent>
-          </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Recursos</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3 text-sm">
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Eleitores</span>
-                  <Badge className="bg-green-500/10 text-green-500 hover:bg-green-500/20">Ativo</Badge>
+                <div>
+                  <h4 className="font-medium mb-2 flex items-center gap-2">
+                    <Key className="w-4 h-4" />
+                    Autenticação
+                  </h4>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Inclua sua chave de API no header Authorization de todas as requisições:
+                  </p>
+                  <div className="bg-muted p-3 rounded-md font-mono text-sm">
+                    Authorization: Bearer YOUR_API_KEY
+                  </div>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Alianças</span>
-                  <Badge className="bg-green-500/10 text-green-500 hover:bg-green-500/20">Ativo</Badge>
+
+                <div>
+                  <h4 className="font-medium mb-2 flex items-center gap-2">
+                    <Terminal className="w-4 h-4" />
+                    Exemplos de Uso
+                  </h4>
+                  
+                  <div className="space-y-4">
+                    <div>
+                      <p className="text-sm font-medium mb-2">Listar Contatos</p>
+                      <div className="bg-muted p-3 rounded-md">
+                        <pre className="text-xs font-mono overflow-x-auto">
+{`curl -X GET ${baseUrl}/api/v1/contacts \\
+  -H "Authorization: Bearer YOUR_API_KEY"`}
+                        </pre>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="mt-2"
+                        onClick={() => copyToClipboard(`curl -X GET ${baseUrl}/api/v1/contacts \\\n  -H "Authorization: Bearer YOUR_API_KEY"`)}
+                        data-testid="button-copy-curl-contacts"
+                      >
+                        <Copy className="w-3 h-3 mr-2" />
+                        Copiar
+                      </Button>
+                    </div>
+
+                    <div>
+                      <p className="text-sm font-medium mb-2">Criar Contato</p>
+                      <div className="bg-muted p-3 rounded-md">
+                        <pre className="text-xs font-mono overflow-x-auto">
+{`curl -X POST ${baseUrl}/api/v1/contacts \\
+  -H "Authorization: Bearer YOUR_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "name": "João Silva",
+    "email": "joao@example.com",
+    "phone": "(11) 98765-4321",
+    "state": "SP",
+    "city": "São Paulo"
+  }'`}
+                        </pre>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="mt-2"
+                        onClick={() => copyToClipboard(`curl -X POST ${baseUrl}/api/v1/contacts \\\n  -H "Authorization: Bearer YOUR_API_KEY" \\\n  -H "Content-Type: application/json" \\\n  -d '{\n    "name": "João Silva",\n    "email": "joao@example.com",\n    "phone": "(11) 98765-4321",\n    "state": "SP",\n    "city": "São Paulo"\n  }'`)}
+                        data-testid="button-copy-curl-create-contact"
+                      >
+                        <Copy className="w-3 h-3 mr-2" />
+                        Copiar
+                      </Button>
+                    </div>
+
+                    <div>
+                      <p className="text-sm font-medium mb-2">Buscar Contato por ID</p>
+                      <div className="bg-muted p-3 rounded-md">
+                        <pre className="text-xs font-mono overflow-x-auto">
+{`curl -X GET ${baseUrl}/api/v1/contacts/{contact_id} \\
+  -H "Authorization: Bearer YOUR_API_KEY"`}
+                        </pre>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="mt-2"
+                        onClick={() => copyToClipboard(`curl -X GET ${baseUrl}/api/v1/contacts/{contact_id} \\\n  -H "Authorization: Bearer YOUR_API_KEY"`)}
+                        data-testid="button-copy-curl-get-contact"
+                      >
+                        <Copy className="w-3 h-3 mr-2" />
+                        Copiar
+                      </Button>
+                    </div>
+
+                    <div>
+                      <p className="text-sm font-medium mb-2">Listar Alianças Políticas</p>
+                      <div className="bg-muted p-3 rounded-md">
+                        <pre className="text-xs font-mono overflow-x-auto">
+{`curl -X GET ${baseUrl}/api/v1/alliances \\
+  -H "Authorization: Bearer YOUR_API_KEY"`}
+                        </pre>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="mt-2"
+                        onClick={() => copyToClipboard(`curl -X GET ${baseUrl}/api/v1/alliances \\\n  -H "Authorization: Bearer YOUR_API_KEY"`)}
+                        data-testid="button-copy-curl-alliances"
+                      >
+                        <Copy className="w-3 h-3 mr-2" />
+                        Copiar
+                      </Button>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Demandas</span>
-                  <Badge className="bg-green-500/10 text-green-500 hover:bg-green-500/20">Ativo</Badge>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Agenda</span>
-                  <Badge className="bg-green-500/10 text-green-500 hover:bg-green-500/20">Ativo</Badge>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Atendimento IA</span>
-                  <Badge className="bg-green-500/10 text-green-500 hover:bg-green-500/20">Ativo</Badge>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Pesquisas</span>
-                  <Badge className="bg-green-500/10 text-green-500 hover:bg-green-500/20">Ativo</Badge>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+
+                <Alert>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    <strong>Limites de taxa:</strong> A API tem um limite de 100 requisições por minuto para leitura e 50 requisições por minuto para escrita.
+                  </AlertDescription>
+                </Alert>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+      </Tabs>
+
       {/* Edit Profile Dialog */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
         <DialogContent className="max-w-md max-h-[90vh] flex flex-col p-0" data-testid="dialog-edit-profile">
@@ -597,35 +955,35 @@ export default function Settings() {
                     </FormItem>
                   )}
                 />
-                <FormField
-                  control={form.control}
-                  name="city"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Cidade</FormLabel>
-                      <FormControl>
-                        <div className="relative">
-                          <Input 
-                            placeholder={selectedState ? "Digite a cidade" : "Selecione um estado primeiro"}
-                            disabled={!selectedState}
-                            list="cities-datalist"
-                            {...field}
-                            data-testid="input-city"
-                          />
-                          <datalist id="cities-datalist">
+                {selectedState && (
+                  <FormField
+                    control={form.control}
+                    name="city"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Cidade</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-city">
+                              <SelectValue placeholder="Selecione a cidade" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
                             {availableCities.map((city) => (
-                              <option key={city} value={city} />
+                              <SelectItem key={city} value={city}>
+                                {city}
+                              </SelectItem>
                             ))}
-                          </datalist>
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <Separator className="my-4" />
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+                <Separator />
                 <div className="space-y-2">
-                  <h3 className="text-sm font-medium">Alterar Senha (Opcional)</h3>
+                  <p className="text-sm font-medium">Alterar Senha</p>
                   <p className="text-xs text-muted-foreground">Deixe em branco para manter a senha atual</p>
                 </div>
                 <FormField
@@ -635,12 +993,7 @@ export default function Settings() {
                     <FormItem>
                       <FormLabel>Senha Atual</FormLabel>
                       <FormControl>
-                        <Input 
-                          type="password" 
-                          placeholder="Digite sua senha atual" 
-                          {...field} 
-                          data-testid="input-current-password" 
-                        />
+                        <Input type="password" placeholder="Digite sua senha atual" {...field} data-testid="input-current-password" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -653,12 +1006,7 @@ export default function Settings() {
                     <FormItem>
                       <FormLabel>Nova Senha</FormLabel>
                       <FormControl>
-                        <Input 
-                          type="password" 
-                          placeholder="Digite a nova senha (mín. 6 caracteres)" 
-                          {...field} 
-                          data-testid="input-new-password" 
-                        />
+                        <Input type="password" placeholder="Digite sua nova senha" {...field} data-testid="input-new-password" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -671,34 +1019,18 @@ export default function Settings() {
                     <FormItem>
                       <FormLabel>Confirmar Nova Senha</FormLabel>
                       <FormControl>
-                        <Input 
-                          type="password" 
-                          placeholder="Digite a nova senha novamente" 
-                          {...field} 
-                          data-testid="input-confirm-password" 
-                        />
+                        <Input type="password" placeholder="Confirme sua nova senha" {...field} data-testid="input-confirm-password" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
               </div>
-              <DialogFooter className="px-6 py-4 border-t grid grid-cols-2 gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setShowEditDialog(false)}
-                  data-testid="button-cancel"
-                  className="rounded-full w-full"
-                >
+              <DialogFooter className="px-6 py-4 border-t">
+                <Button type="button" variant="outline" onClick={() => setShowEditDialog(false)}>
                   Cancelar
                 </Button>
-                <Button
-                  type="submit"
-                  disabled={updateProfileMutation.isPending}
-                  data-testid="button-save"
-                  className="rounded-full w-full"
-                >
+                <Button type="submit" disabled={updateProfileMutation.isPending} data-testid="button-save-profile">
                   {updateProfileMutation.isPending ? "Salvando..." : "Salvar"}
                 </Button>
               </DialogFooter>
@@ -706,6 +1038,141 @@ export default function Settings() {
           </Form>
         </DialogContent>
       </Dialog>
+
+      {/* Create API Key Dialog */}
+      <Dialog open={showApiKeyDialog} onOpenChange={setShowApiKeyDialog}>
+        <DialogContent data-testid="dialog-create-api-key">
+          <DialogHeader>
+            <DialogTitle>Criar Nova Chave de API</DialogTitle>
+            <DialogDesc>
+              Crie uma nova chave de API para integrar com sistemas externos
+            </DialogDesc>
+          </DialogHeader>
+          <Form {...apiKeyForm}>
+            <form onSubmit={apiKeyForm.handleSubmit(onSubmitApiKey)} className="space-y-4">
+              <FormField
+                control={apiKeyForm.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nome da Chave</FormLabel>
+                    <FormControl>
+                      <Input 
+                        placeholder="Ex: Integração WhatsApp" 
+                        {...field} 
+                        data-testid="input-api-key-name"
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Um nome descritivo para identificar esta chave
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={apiKeyForm.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Descrição (Opcional)</FormLabel>
+                    <FormControl>
+                      <Textarea 
+                        placeholder="Descreva o propósito desta chave..."
+                        className="resize-none"
+                        {...field}
+                        data-testid="input-api-key-description"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setShowApiKeyDialog(false)}>
+                  Cancelar
+                </Button>
+                <Button 
+                  type="submit" 
+                  disabled={createApiKeyMutation.isPending}
+                  data-testid="button-submit-api-key"
+                >
+                  {createApiKeyMutation.isPending ? "Criando..." : "Criar Chave"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* New API Key Alert */}
+      <Dialog open={showNewKeyAlert} onOpenChange={setShowNewKeyAlert}>
+        <DialogContent data-testid="dialog-new-api-key">
+          <DialogHeader>
+            <DialogTitle>Chave de API Criada</DialogTitle>
+          </DialogHeader>
+          <Alert className="border-primary/20 bg-primary/5">
+            <AlertCircle className="h-4 w-4 text-primary" />
+            <AlertDescription>
+              <strong>Importante:</strong> Esta é a única vez que você verá esta chave completa. 
+              Copie-a agora e guarde-a em um local seguro.
+            </AlertDescription>
+          </Alert>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Sua nova chave de API:</label>
+              <div className="mt-2 p-3 bg-muted rounded-md font-mono text-sm break-all">
+                {newApiKey}
+              </div>
+            </div>
+            <Button
+              className="w-full"
+              onClick={() => {
+                copyToClipboard(newApiKey);
+              }}
+              data-testid="button-copy-new-key"
+            >
+              <Copy className="w-4 h-4 mr-2" />
+              Copiar Chave
+            </Button>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowNewKeyAlert(false);
+                setNewApiKey("");
+              }}
+              data-testid="button-close-new-key"
+            >
+              Fechar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deleteKeyId} onOpenChange={(open) => !open && setDeleteKeyId(null)}>
+        <AlertDialogContent data-testid="dialog-delete-api-key">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Revogar Chave de API</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja revogar esta chave de API? 
+              Todas as integrações que usam esta chave deixarão de funcionar imediatamente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteKeyId && deleteApiKeyMutation.mutate(deleteKeyId)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="button-confirm-delete"
+            >
+              Revogar Chave
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
