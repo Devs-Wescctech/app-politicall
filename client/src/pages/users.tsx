@@ -454,10 +454,10 @@ export default function UsersManagement() {
             </div>
             <Tabs value={rankingPeriod} onValueChange={setRankingPeriod}>
               <TabsList className="rounded-full">
-                <TabsTrigger value="today" data-testid="filter-today" className="rounded-full">Hoje</TabsTrigger>
-                <TabsTrigger value="week" data-testid="filter-week" className="rounded-full">Semana</TabsTrigger>
-                <TabsTrigger value="month" data-testid="filter-month" className="rounded-full">Mês</TabsTrigger>
-                <TabsTrigger value="all" data-testid="filter-all" className="rounded-full">Todo Período</TabsTrigger>
+                <TabsTrigger value="today" data-testid="filter-today" className="rounded-full text-xs">Hoje</TabsTrigger>
+                <TabsTrigger value="week" data-testid="filter-week" className="rounded-full text-xs">Semana</TabsTrigger>
+                <TabsTrigger value="month" data-testid="filter-month" className="rounded-full text-xs">Mês</TabsTrigger>
+                <TabsTrigger value="all" data-testid="filter-all" className="rounded-full text-xs">Todo Período</TabsTrigger>
               </TabsList>
             </Tabs>
           </div>
