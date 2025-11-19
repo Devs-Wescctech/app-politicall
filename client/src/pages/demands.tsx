@@ -737,9 +737,9 @@ export default function Demands() {
               </SheetHeader>
               <div className="flex-1 overflow-y-auto px-6 py-4">
               <Tabs defaultValue="details">
-                <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="details">Detalhes</TabsTrigger>
-                  <TabsTrigger value="comments">
+                <TabsList className="grid w-full grid-cols-2 rounded-full">
+                  <TabsTrigger value="details" className="rounded-full">Detalhes</TabsTrigger>
+                  <TabsTrigger value="comments" className="rounded-full">
                     <MessageSquare className="h-4 w-4 mr-2" />
                     Comentários
                   </TabsTrigger>
