@@ -22,6 +22,7 @@ export type UserPermissions = {
   marketing: boolean;
   petitions: boolean;
   users: boolean;
+  settings: boolean;
 };
 
 // Default permissions by role
@@ -35,7 +36,8 @@ export const DEFAULT_PERMISSIONS = {
     ai: true,
     marketing: true,
     petitions: true,
-    users: true
+    users: true,
+    settings: true
   },
   coordenador: {
     dashboard: true,
@@ -46,7 +48,8 @@ export const DEFAULT_PERMISSIONS = {
     ai: true,
     marketing: true,
     petitions: true,
-    users: false  // Coordenador NÃO gerencia usuários
+    users: false,  // Coordenador NÃO gerencia usuários
+    settings: true
   },
   assessor: {
     dashboard: true,
@@ -57,7 +60,8 @@ export const DEFAULT_PERMISSIONS = {
     ai: false,          // Assessor NÃO usa IA
     marketing: false,   // Assessor NÃO faz marketing
     petitions: false,   // Assessor NÃO acessa petições
-    users: false        // Assessor NÃO gerencia usuários
+    users: false,       // Assessor NÃO gerencia usuários
+    settings: false     // Assessor NÃO acessa configurações
   }
 } as const;
 
