@@ -28,9 +28,9 @@ import {
 } from "@/components/ui/form";
 
 const ROLE_CONFIG = {
-  admin: { label: "Adm", icon: Shield, color: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200" },
-  coordenador: { label: "Coordenador", icon: Users, color: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200" },
-  assessor: { label: "Assessor", icon: UserIcon, color: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" },
+  admin: { label: "Adm", icon: Shield, color: "text-red-600 dark:text-red-400" },
+  coordenador: { label: "Coordenador", icon: Users, color: "text-blue-600 dark:text-blue-400" },
+  assessor: { label: "Assessor", icon: UserIcon, color: "text-green-600 dark:text-green-400" },
 };
 
 // Roles disponíveis para criação/edição (sem admin)
@@ -347,12 +347,10 @@ export default function UsersManagement() {
                         <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                           <UserIcon className="h-5 w-5 text-primary" />
                         </div>
-                        <div className="min-w-0 flex-1">
-                          <Badge className={`${roleConfig.color}`}>
-                            <RoleIcon className="w-3 h-3 mr-1" />
-                            <span className="hidden sm:inline">{roleConfig.label}</span>
-                            <span className="sm:hidden">{roleConfig.label.substring(0, 3)}</span>
-                          </Badge>
+                        <div className={`min-w-0 flex-1 flex items-center gap-1 text-sm font-medium ${roleConfig.color}`}>
+                          <RoleIcon className="w-4 h-4" />
+                          <span className="hidden sm:inline">{roleConfig.label}</span>
+                          <span className="sm:hidden">{roleConfig.label.substring(0, 3)}</span>
                         </div>
                       </div>
                       <Button
