@@ -270,12 +270,12 @@ export class DatabaseStorage implements IStorage {
       throw new Error('Candidate not found');
     }
     
-    // Create contact with automatic source "QR Code"
+    // Create contact with automatic source "Politicall"
     const contactData = {
       ...contact,
       userId: candidate.id,
       accountId: candidate.accountId,
-      source: "QR Code"
+      source: "Politicall"
     };
     
     const [newContact] = await db.insert(contacts).values(contactData).returning();

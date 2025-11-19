@@ -51,7 +51,7 @@ Preferred communication style: Simple, everyday language.
   - **Automatic Slug Generation:** During account creation, admin's name is automatically converted to a unique URL slug (e.g., "Carlos Nedel" → "carlosnedel"). Helper function `generateSlugFromName()` removes accents, spaces, special characters, and converts to lowercase.
   - **QR Code Modal:** In Contacts page, admin can access QR Code modal showing QR code linking to public registration page at www.politicall.com.br/apoio/{slug}.
   - **Comprehensive Sharing Options:** Modal includes 6 sharing methods: WhatsApp (with pre-filled message), Facebook, X/Twitter, Email (with subject and body), Copy URL, and Download QR Code as PNG.
-  - **Public Landing Page:** /apoio/:slug displays admin's photo and professional registration form. Submitted data automatically creates contact with source "QR Code - Apoio Público" and isSupporter: true flag.
+  - **Public Landing Page:** /apoio/:slug displays admin's photo and professional registration form. Submitted data automatically creates contact with source "Politicall" and isSupporter: true flag.
   - **User Experience:** No manual slug configuration needed - system generates it automatically during registration. QR Code is immediately available after account creation.
 
 ## External Dependencies
