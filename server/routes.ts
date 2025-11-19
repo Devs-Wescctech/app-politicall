@@ -402,8 +402,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Seed admin user on startup
   await seedAdminUser();
   
-  // Update all users to have full permissions
-  await updateAllUserPermissions();
+  // DO NOT reset user permissions on startup - permissions are managed by admin
+  // await updateAllUserPermissions();
   
   // Seed political parties on startup
   await seedPoliticalParties();
@@ -904,7 +904,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           const [campaignsCount] = await db.select({ count: sql<number>`count(*)::int` })
             .from(surveyCampaigns)
-            .where(eq(surveyCampaigns.userId, row.userId));
+            .where(eq(surveyCampaigns.accountId, row.accountId));
           
           const totalActivities = 
             (eventsCount?.count || 0) +
@@ -1239,7 +1239,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           const [campaignsCount] = await db.select({ count: sql<number>`count(*)::int` })
             .from(surveyCampaigns)
-            .where(eq(surveyCampaigns.userId, user.id));
+            .where(eq(surveyCampaigns.accountId, user.accountId));
           
           const totalActivities = 
             (eventsCount?.count || 0) +
@@ -2367,14 +2367,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(403).json({ error: "Você não tem permissão para acessar este recurso" });
     }
     try {
-      // Fetch campaigns with templates and response counts
+      // Fetch campaigns with templates and response counts for this account (multi-tenant)
       const results = await db.select({
         campaign: surveyCampaigns,
         template: surveyTemplates
       })
         .from(surveyCampaigns)
         .innerJoin(surveyTemplates, eq(surveyCampaigns.templateId, surveyTemplates.id))
-        .where(eq(surveyCampaigns.userId, req.userId!))
+        .where(eq(surveyCampaigns.accountId, req.accountId!))
         .orderBy(desc(surveyCampaigns.createdAt));
 
       // Enrich with response counts
