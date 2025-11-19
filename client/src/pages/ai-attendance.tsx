@@ -34,7 +34,6 @@ const PLATFORMS = [
   { id: "facebook", name: "Facebook", icon: SiFacebook },
   { id: "instagram", name: "Instagram", icon: SiInstagram },
   { id: "twitter", name: "X (Twitter)", icon: SiX },
-  { id: "whatsapp", name: "WhatsApp", icon: SiWhatsapp },
 ];
 
 const TRAINING_CATEGORIES = [
