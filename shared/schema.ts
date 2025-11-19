@@ -89,6 +89,7 @@ export const users = pgTable("users", {
   permissions: jsonb("permissions").$type<UserPermissions>(),
   phone: text("phone"),
   avatar: text("avatar"), // Base64 encoded image or URL
+  slug: text("slug").unique(), // URL slug for public supporter page (e.g., "joao-silva")
   partyId: varchar("party_id").references(() => politicalParties.id),
   politicalPosition: text("political_position"),
   lastElectionVotes: integer("last_election_votes"),
