@@ -773,13 +773,6 @@ export default function Contacts() {
                       />
                     </div>
                     <div className="space-y-3">
-                      <div className="p-3 bg-muted rounded-lg">
-                        <p className="text-xs text-muted-foreground mb-1">URL de Cadastro Público:</p>
-                        <p className="text-sm font-mono break-all font-semibold">
-                          www.politicall.com.br/apoio/{qrCodeSlug}
-                        </p>
-                      </div>
-                      
                       {/* Botões de ação principais */}
                       <div className="flex gap-2">
                         <Button
