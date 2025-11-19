@@ -26,6 +26,7 @@ import { Button } from "@/components/ui/button";
 import { removeAuthToken } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrentUser } from "@/hooks/use-current-user";
+import { useQuery } from "@tanstack/react-query";
 import { DEFAULT_PERMISSIONS, type UserPermissions } from "@shared/schema";
 import logoUrl from "@assets/icon politicall_1763309153389.png";
 
@@ -42,6 +43,12 @@ export function AppSidebar() {
   const [location, setLocation] = useLocation();
   const { toast } = useToast();
   const { user } = useCurrentUser();
+  
+  // Fetch admin information for sidebar header
+  const { data: adminData } = useQuery<any>({
+    queryKey: ["/api/account/admin"],
+    enabled: !!user, // Only fetch when user is logged in
+  });
   
   // Get permissions from backend user - NO fallback to default permissions
   // Non-admin users see ONLY modules they have explicit permission for
@@ -170,25 +177,25 @@ export function AppSidebar() {
     <Sidebar>
       <div className="sticky top-0 z-50 bg-sidebar px-4 py-6 border-b shadow-md">
         <div className="flex items-center gap-3">
-          {user?.avatar ? (
+          {adminData?.avatar ? (
             <img 
-              src={user.avatar} 
-              alt="Foto de Perfil" 
+              src={adminData.avatar} 
+              alt="Foto do Admin" 
               className="h-12 w-12 rounded-full object-cover"
               data-testid="avatar-image"
             />
           ) : (
             <img src={logoUrl} alt="Logo" className="h-12 w-auto" />
           )}
-          {user?.name && (
+          {adminData?.name && (
             <div className="flex flex-col">
               <span className="text-base font-semibold text-foreground" data-testid="text-user-name">
-                {getShortName(user.name)}
+                {getShortName(adminData.name)}
               </span>
               <span className="text-[11px] text-muted-foreground" data-testid="text-party-ideology">
-                {user?.party 
-                  ? `${user.party.acronym} | ${user.party.ideology} | ${getRoleLabel(user.role)}`
-                  : getRoleLabel(user.role)
+                {adminData?.party 
+                  ? `${adminData.party.acronym} | ${adminData.party.ideology} | ${getRoleLabel(user?.role)}`
+                  : getRoleLabel(user?.role)
                 }
               </span>
             </div>

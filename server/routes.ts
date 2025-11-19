@@ -536,6 +536,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get account admin information (for sidebar header)
+  app.get("/api/account/admin", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      // Find the admin user for this account
+      const [adminUser] = await db
+        .select()
+        .from(users)
+        .where(and(
+          eq(users.accountId, req.accountId!),
+          eq(users.role, "admin")
+        ))
+        .limit(1);
+
+      if (!adminUser) {
+        return res.status(404).json({ error: "Admin não encontrado para esta conta" });
+      }
+
+      // Get party information if admin has partyId
+      let party = null;
+      if (adminUser.partyId) {
+        const [partyData] = await db.select().from(politicalParties).where(eq(politicalParties.id, adminUser.partyId));
+        if (partyData) {
+          party = {
+            id: partyData.id,
+            name: partyData.name,
+            acronym: partyData.acronym,
+            ideology: partyData.ideology,
+          };
+        }
+      }
+
+      const { password, ...sanitizedAdmin } = adminUser;
+      res.json({
+        ...sanitizedAdmin,
+        party
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Update current user's profile
   app.patch("/api/auth/profile", authenticateToken, async (req: AuthRequest, res) => {
     try {
