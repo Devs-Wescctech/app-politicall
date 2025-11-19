@@ -42,7 +42,7 @@ export interface IStorage {
   deleteContact(id: string, accountId: string): Promise<void>;
   
   // Public Support (no authentication required)
-  getCandidateBySlug(slug: string): Promise<{ id: string; accountId: string; name: string; email: string; avatar: string | null; politicalPosition: string | null; slug: string | null; party: PoliticalParty | null } | undefined>;
+  getCandidateBySlug(slug: string): Promise<{ id: string; accountId: string; name: string; email: string; avatar: string | null; politicalPosition: string | null; electionNumber: string | null; slug: string | null; party: PoliticalParty | null } | undefined>;
   createPublicSupporter(slug: string, contact: InsertContact): Promise<Contact>;
 
   // Political Parties
@@ -244,7 +244,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Public Support (no authentication required)
-  async getCandidateBySlug(slug: string): Promise<{ id: string; accountId: string; name: string; email: string; avatar: string | null; politicalPosition: string | null; slug: string | null; party: PoliticalParty | null } | undefined> {
+  async getCandidateBySlug(slug: string): Promise<{ id: string; accountId: string; name: string; email: string; avatar: string | null; politicalPosition: string | null; electionNumber: string | null; slug: string | null; party: PoliticalParty | null } | undefined> {
     const result = await db.select({
       id: users.id,
       accountId: users.accountId,
@@ -252,6 +252,7 @@ export class DatabaseStorage implements IStorage {
       email: users.email,
       avatar: users.avatar,
       politicalPosition: users.politicalPosition,
+      electionNumber: users.electionNumber,
       slug: users.slug,
       party: politicalParties
     })
