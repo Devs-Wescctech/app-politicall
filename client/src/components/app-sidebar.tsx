@@ -62,6 +62,7 @@ export function AppSidebar() {
     marketing: false,
     petitions: false,
     users: false,
+    settings: false,
   };
 
   // Define menu items with permission mappings
@@ -97,16 +98,16 @@ export function AppSidebar() {
       permissionKey: "agenda",
     },
     {
-      title: "Atendimento IA",
-      url: "/ai-attendance",
-      icon: Bot,
-      permissionKey: "ai",
-    },
-    {
       title: "Pesquisas de Intenção",
       url: "/marketing",
       icon: Megaphone,
       permissionKey: "marketing",
+    },
+    {
+      title: "Atendimento IA",
+      url: "/ai-attendance",
+      icon: Bot,
+      permissionKey: "ai",
     },
     {
       title: "Usuários",
