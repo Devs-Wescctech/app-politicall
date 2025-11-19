@@ -380,14 +380,14 @@ export default function UsersManagement() {
                     <p className="text-sm text-muted-foreground truncate" title={user.email}>
                       {user.email}
                     </p>
-                    <div className="flex items-center justify-between text-xs text-muted-foreground">
-                      <span>
+                    <div className="space-y-1 text-xs text-muted-foreground">
+                      <div>
                         <span className="hidden sm:inline">Cadastrado em </span>
                         {new Date(user.createdAt).toLocaleDateString("pt-BR")}
-                      </span>
-                      <span className="font-medium">
+                      </div>
+                      <div className="font-medium">
                         Atividades: {(user as any).activityCount || 0}
-                      </span>
+                      </div>
                     </div>
                     <div className="flex items-center gap-2 flex-wrap pt-2">
                       {user.role !== 'admin' && (
