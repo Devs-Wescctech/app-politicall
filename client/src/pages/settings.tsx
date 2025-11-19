@@ -12,7 +12,8 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
-import { User, Edit, Camera, Key, Copy, Trash2, Calendar, Clock, CheckCircle2, XCircle, Plus, Code2, AlertCircle, Terminal, Globe } from "lucide-react";
+import { User, Edit, Camera, Key, Copy, Trash2, Calendar, Clock, CheckCircle2, XCircle, Plus, Code2, AlertCircle, Terminal, Globe, ChevronDown } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { getAuthUser } from "@/lib/auth";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -83,6 +84,7 @@ export default function Settings() {
   const [deleteKeyId, setDeleteKeyId] = useState<string | null>(null);
   const [copiedKeyId, setCopiedKeyId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("profile");
+  const [isDocumentationOpen, setIsDocumentationOpen] = useState(false);
 
   const { data: parties } = useQuery<PoliticalParty[]>({
     queryKey: ["/api/parties"],
@@ -648,14 +650,32 @@ export default function Settings() {
 
             {/* API Documentation */}
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Code2 className="w-5 h-5" />
-                  Documentação da API
-                </CardTitle>
-                <CardDescription>Como usar as chaves de API para integração</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
+              <Collapsible 
+                open={isDocumentationOpen} 
+                onOpenChange={setIsDocumentationOpen}
+              >
+                <CollapsibleTrigger asChild>
+                  <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-1.5">
+                        <CardTitle className="flex items-center gap-2">
+                          <Code2 className="w-5 h-5" />
+                          Documentação da API
+                        </CardTitle>
+                        <CardDescription>Como usar as chaves de API para integração</CardDescription>
+                      </div>
+                      <Button variant="ghost" size="icon" className="shrink-0">
+                        <ChevronDown 
+                          className={`h-4 w-4 transition-transform ${
+                            isDocumentationOpen ? "rotate-180" : ""
+                          }`}
+                        />
+                      </Button>
+                    </div>
+                  </CardHeader>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <CardContent className="space-y-6 pt-0">
                 <div>
                   <h4 className="font-medium mb-2 flex items-center gap-2">
                     <Globe className="w-4 h-4" />
@@ -790,7 +810,9 @@ export default function Settings() {
                     <strong>Limites de taxa:</strong> A API tem um limite de 100 requisições por minuto para leitura e 50 requisições por minuto para escrita.
                   </AlertDescription>
                 </Alert>
-              </CardContent>
+                  </CardContent>
+                </CollapsibleContent>
+              </Collapsible>
             </Card>
           </div>
         </TabsContent>
