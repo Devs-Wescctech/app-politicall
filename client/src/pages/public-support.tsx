@@ -263,10 +263,57 @@ export default function PublicSupport() {
         {/* Main Content */}
         <div className="container mx-auto px-4 py-8 max-w-2xl">
         {/* Candidate Profile */}
-        <div className="text-center space-y-6 mb-8 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md rounded-lg p-8 shadow-xl">
-          <div className="flex flex-col items-center gap-4">
+        <div className="text-center space-y-6 mb-8 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md rounded-lg p-8 md:p-12 shadow-xl relative overflow-hidden">
+          {/* Background decorative element */}
+          <div className="absolute inset-0 opacity-5">
+            <div 
+              className="absolute top-0 right-0 w-64 h-64 rounded-full blur-3xl"
+              style={{ backgroundColor: getPartyColor(candidateData.party?.acronym) }}
+            ></div>
+          </div>
+          
+          <div className="relative z-10 flex flex-col items-center gap-6">
+            {/* Big Bold Text - Similar to reference */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-center gap-4">
+                <h1 
+                  className="text-5xl md:text-7xl lg:text-8xl font-black uppercase tracking-tight leading-none"
+                  style={{ 
+                    color: getPartyColor(candidateData.party?.acronym),
+                    textShadow: '2px 2px 4px rgba(0,0,0,0.1)'
+                  }}
+                >
+                  EU
+                </h1>
+                <Heart 
+                  className="w-16 h-16 md:w-20 md:h-20 lg:w-24 lg:h-24 fill-current drop-shadow-lg"
+                  style={{ color: getPartyColor(candidateData.party?.acronym) }}
+                />
+              </div>
+              
+              <h1 
+                className="text-5xl md:text-7xl lg:text-8xl font-black uppercase tracking-tight leading-none text-white"
+                style={{ 
+                  textShadow: '3px 3px 6px rgba(0,0,0,0.3)'
+                }}
+              >
+                APOIO
+              </h1>
+              
+              <h2 
+                className="text-4xl md:text-6xl lg:text-7xl font-black uppercase tracking-tight leading-none"
+                style={{ 
+                  color: getPartyColor(candidateData.party?.acronym),
+                  textShadow: '2px 2px 4px rgba(0,0,0,0.1)'
+                }}
+              >
+                {candidateData.name?.toUpperCase()}!
+              </h2>
+            </div>
+
+            {/* Avatar below the text */}
             <Avatar 
-              className="w-32 h-32 shadow-lg ring-4 ring-white/50"
+              className="w-24 h-24 md:w-32 md:h-32 shadow-2xl ring-4 ring-white/70 mt-4"
               style={{ 
                 borderWidth: '4px',
                 borderStyle: 'solid',
@@ -276,28 +323,16 @@ export default function PublicSupport() {
               <AvatarImage src={candidateData.avatar} alt={candidateData.name} />
               <AvatarFallback className="text-3xl">{candidateData.name?.charAt(0)}</AvatarFallback>
             </Avatar>
-            <div className="space-y-2">
-              <div className="flex items-center justify-center gap-2">
-                <Heart 
-                  className="w-6 h-6 fill-current"
-                  style={{ color: getPartyColor(candidateData.party?.acronym) }}
-                />
-                <h1 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white">Eu Apoio</h1>
-              </div>
-              <h2 
-                className="text-2xl md:text-3xl font-bold"
-                style={{ color: getPartyColor(candidateData.party?.acronym) }}
-              >
-                {candidateData.name}
-              </h2>
-              {candidateData.politicalPosition && (
-                <p className="text-lg text-gray-700 dark:text-gray-300">
-                  {candidateData.politicalPosition}
-                </p>
-              )}
-            </div>
+
+            {/* Political position */}
+            {candidateData.politicalPosition && (
+              <p className="text-xl md:text-2xl font-bold text-gray-800 dark:text-gray-200">
+                {candidateData.politicalPosition}
+              </p>
+            )}
           </div>
-          <p className="text-lg text-gray-700 dark:text-gray-300 max-w-xl mx-auto">
+          
+          <p className="text-base md:text-lg text-gray-700 dark:text-gray-300 max-w-xl mx-auto relative z-10">
             Cadastre-se como apoiador e faça parte dessa mudança! 
             Juntos construiremos um futuro melhor.
           </p>
