@@ -31,9 +31,20 @@ export default function PublicSupport() {
   const { toast } = useToast();
   const [isSubmitted, setIsSubmitted] = useState(false);
 
-  const { data: candidateData, isLoading: isLoadingCandidate } = useQuery<any>({
+  const { data: candidateData, isLoading: isLoadingCandidate, isError, error, refetch } = useQuery<any>({
     queryKey: ["/api/public/candidate", params?.slug],
+    queryFn: async () => {
+      const res = await fetch(`/api/public/candidate/${params?.slug}`);
+      if (!res.ok) {
+        if (res.status === 404) {
+          throw new Error("NOT_FOUND");
+        }
+        throw new Error("NETWORK_ERROR");
+      }
+      return res.json();
+    },
     enabled: !!params?.slug,
+    retry: 1,
   });
 
   const capitalizeWords = (str: string) => {
@@ -59,8 +70,12 @@ export default function PublicSupport() {
   });
 
   const submitMutation = useMutation({
-    mutationFn: (data: InsertContact) =>
-      apiRequest("POST", `/api/public/support/${params?.slug}`, data),
+    mutationFn: (data: InsertContact) => {
+      if (!params?.slug) {
+        throw new Error("Slug não encontrado");
+      }
+      return apiRequest("POST", `/api/public/support/${params.slug}`, data);
+    },
     onSuccess: () => {
       setIsSubmitted(true);
       toast({ 
@@ -98,6 +113,37 @@ export default function PublicSupport() {
     );
   }
 
+  if (isError) {
+    const errorMessage = error?.message || "NETWORK_ERROR";
+    const isNotFound = errorMessage === "NOT_FOUND";
+    
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-primary/10 to-background p-4">
+        <Card className="max-w-md w-full">
+          <CardContent className="p-8 text-center space-y-4">
+            <div className="w-16 h-16 mx-auto bg-destructive/10 rounded-full flex items-center justify-center">
+              <X className="w-8 h-8 text-destructive" />
+            </div>
+            <h2 className="text-2xl font-bold">
+              {isNotFound ? "Página não encontrada" : "Erro ao carregar"}
+            </h2>
+            <p className="text-muted-foreground">
+              {isNotFound 
+                ? "O link que você está tentando acessar não é válido ou foi removido."
+                : "Não foi possível carregar as informações do candidato. Verifique sua conexão e tente novamente."
+              }
+            </p>
+            {!isNotFound && (
+              <Button onClick={() => refetch()} data-testid="button-retry">
+                Tentar Novamente
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   if (!candidateData) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-primary/10 to-background p-4">
@@ -106,9 +152,9 @@ export default function PublicSupport() {
             <div className="w-16 h-16 mx-auto bg-destructive/10 rounded-full flex items-center justify-center">
               <X className="w-8 h-8 text-destructive" />
             </div>
-            <h2 className="text-2xl font-bold">Página não encontrada</h2>
+            <h2 className="text-2xl font-bold">Carregando...</h2>
             <p className="text-muted-foreground">
-              O link que você está tentando acessar não é válido ou foi removido.
+              Aguarde enquanto carregamos as informações.
             </p>
           </CardContent>
         </Card>
