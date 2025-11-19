@@ -61,11 +61,17 @@ export default function Dashboard() {
     queryKey: ["/api/dashboard/stats"],
   });
 
+  // Fetch current user for role checks
   const { data: currentUser, isLoading: userLoading } = useQuery<CurrentUser>({
     queryKey: ["/api/auth/me"],
   });
 
-  const isLoading = statsLoading || userLoading;
+  // Fetch admin data for campaign goals (all users see admin's campaign metrics)
+  const { data: adminData, isLoading: adminLoading } = useQuery<CurrentUser>({
+    queryKey: ["/api/account/admin"],
+  });
+
+  const isLoading = statsLoading || userLoading || adminLoading;
 
   if (isLoading) {
     return (
@@ -88,12 +94,12 @@ export default function Dashboard() {
     );
   }
 
-  // Calcular metas baseadas no cargo político
-  const position = currentUser?.politicalPosition || '';
+  // Calcular metas baseadas no cargo político do ADMIN (todos veem as mesmas metas)
+  const position = adminData?.politicalPosition || '';
   const baseGoals = POSITION_GOALS[position] || { voters: 5000, alliances: 10, description: 'Metas recomendadas para sua campanha' };
   
-  // Ajustar metas baseadas na última eleição
-  const lastElectionVotes = currentUser?.lastElectionVotes || 0;
+  // Ajustar metas baseadas na última eleição do ADMIN
+  const lastElectionVotes = adminData?.lastElectionVotes || 0;
   const voterGoal = lastElectionVotes > 0 
     ? Math.max(baseGoals.voters, Math.ceil(lastElectionVotes * 1.2)) // 20% acima da última eleição
     : baseGoals.voters;
