@@ -999,10 +999,10 @@ export default function Contacts() {
                         <div className="bg-muted/30 rounded-xl p-6 shadow-sm">
                           <div className="flex items-center gap-2 mb-4">
                             <Info className="w-5 h-5 text-primary" />
-                            <h3 className="text-lg font-semibold">Top 10 Interesses Mais Comuns</h3>
+                            <h3 className="text-lg font-semibold">Interesse Mais Popular</h3>
                           </div>
                           <div className="flex flex-wrap gap-2">
-                            {voterProfile.topInterests.slice(0, 10).map((item: { interest: string; count: number }) => {
+                            {voterProfile.topInterests.slice(0, 1).map((item: { interest: string; count: number }) => {
                               const InterestIcon = INTEREST_ICONS[item.interest];
                               return (
                                 <Badge 
