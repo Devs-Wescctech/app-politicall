@@ -236,6 +236,7 @@ export default function Contacts() {
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
   const [isQrCodeDialogOpen, setIsQrCodeDialogOpen] = useState(false);
   const [isProfileDialogOpen, setIsProfileDialogOpen] = useState(false);
+  const [selectedTopCount, setSelectedTopCount] = useState(1);
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [isStateFocused, setIsStateFocused] = useState(false);
@@ -997,12 +998,30 @@ export default function Contacts() {
                     {voterProfile.topInterests && voterProfile.topInterests.length > 0 && (
                       <>
                         <div className="bg-muted/30 rounded-xl p-6 shadow-sm">
-                          <div className="flex items-center gap-2 mb-4">
-                            <Info className="w-5 h-5 text-primary" />
-                            <h3 className="text-lg font-semibold">Interesse Mais Popular</h3>
+                          <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+                            <div className="flex items-center gap-2">
+                              <Info className="w-5 h-5 text-primary" />
+                              <h3 className="text-lg font-semibold">
+                                {selectedTopCount === 1 ? 'Interesse Mais Popular' : `Top ${selectedTopCount} Interesses`}
+                              </h3>
+                            </div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {[2, 3, 4, 5, 6, 7, 8, 9, 10].map((count) => (
+                                <Button
+                                  key={count}
+                                  variant={selectedTopCount === count ? "default" : "outline"}
+                                  size="sm"
+                                  onClick={() => setSelectedTopCount(count)}
+                                  className="w-8 h-8 p-0 rounded-full"
+                                  data-testid={`button-top-${count}`}
+                                >
+                                  {count}
+                                </Button>
+                              ))}
+                            </div>
                           </div>
                           <div className="flex flex-wrap gap-2">
-                            {voterProfile.topInterests.slice(0, 1).map((item: { interest: string; count: number }) => {
+                            {voterProfile.topInterests.slice(0, selectedTopCount).map((item: { interest: string; count: number }) => {
                               const InterestIcon = INTEREST_ICONS[item.interest];
                               return (
                                 <Badge 
