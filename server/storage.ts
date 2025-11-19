@@ -144,9 +144,9 @@ export interface IStorage {
 
   // Leads
   createLead(lead: InsertLead): Promise<Lead>;
-  getLeads(accountId: string): Promise<Lead[]>;
-  deleteLead(id: string, accountId: string): Promise<void>;
-  deleteLeads(ids: string[], accountId: string): Promise<void>;
+  getLeads(): Promise<Lead[]>;
+  deleteLead(id: string): Promise<void>;
+  deleteLeads(ids: string[]): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1063,30 +1063,23 @@ export class DatabaseStorage implements IStorage {
     return newLead;
   }
 
-  async getLeads(accountId: string): Promise<Lead[]> {
+  async getLeads(): Promise<Lead[]> {
     return await db.select()
       .from(leads)
-      .where(eq(leads.accountId, accountId))
       .orderBy(desc(leads.createdAt));
   }
 
-  async deleteLead(id: string, accountId: string): Promise<void> {
+  async deleteLead(id: string): Promise<void> {
     const result = await db.delete(leads)
-      .where(and(
-        eq(leads.id, id),
-        eq(leads.accountId, accountId)
-      ))
+      .where(eq(leads.id, id))
       .returning();
-    if (result.length === 0) throw new Error('Lead not found or access denied');
+    if (result.length === 0) throw new Error('Lead not found');
   }
 
-  async deleteLeads(ids: string[], accountId: string): Promise<void> {
+  async deleteLeads(ids: string[]): Promise<void> {
     if (ids.length === 0) return;
     await db.delete(leads)
-      .where(and(
-        inArray(leads.id, ids),
-        eq(leads.accountId, accountId)
-      ));
+      .where(inArray(leads.id, ids));
   }
 }
 

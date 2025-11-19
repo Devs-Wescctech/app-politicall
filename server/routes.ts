@@ -2972,10 +2972,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get all leads (admin only)
   app.get("/api/leads", authenticateAdminToken, async (req: AuthRequest, res) => {
     try {
-      if (!req.accountId) {
-        return res.status(401).json({ error: "AccountId não encontrado" });
-      }
-      const leads = await storage.getLeads(req.accountId);
+      const leads = await storage.getLeads();
       res.json(leads);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -2985,10 +2982,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Delete single lead (admin only)
   app.delete("/api/leads/:id", authenticateAdminToken, async (req: AuthRequest, res) => {
     try {
-      if (!req.accountId) {
-        return res.status(401).json({ error: "AccountId não encontrado" });
-      }
-      await storage.deleteLead(req.params.id, req.accountId);
+      await storage.deleteLead(req.params.id);
       res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -2998,14 +2992,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Delete multiple leads (admin only)
   app.post("/api/leads/delete-multiple", authenticateAdminToken, async (req: AuthRequest, res) => {
     try {
-      if (!req.accountId) {
-        return res.status(401).json({ error: "AccountId não encontrado" });
-      }
       const { ids } = req.body;
       if (!Array.isArray(ids)) {
         return res.status(400).json({ error: "IDs devem ser um array" });
       }
-      await storage.deleteLeads(ids, req.accountId);
+      await storage.deleteLeads(ids);
       res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
