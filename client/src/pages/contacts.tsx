@@ -1208,7 +1208,7 @@ export default function Contacts() {
             </DialogContent>
           </Dialog>
           <Dialog open={isProfileDialogOpen} onOpenChange={setIsProfileDialogOpen}>
-            <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0" aria-describedby="voter-profile-dialog-description">
+            <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0 [&>button]:hidden" aria-describedby="voter-profile-dialog-description">
               <DialogHeader className="px-4 pt-4 pb-3 border-b">
                 <div className="flex items-center justify-between">
                   <div>
