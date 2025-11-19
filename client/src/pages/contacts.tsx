@@ -984,14 +984,14 @@ export default function Contacts() {
             </DialogContent>
           </Dialog>
           <Dialog open={isProfileDialogOpen} onOpenChange={setIsProfileDialogOpen}>
-            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-0" aria-describedby="voter-profile-dialog-description">
+            <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0" aria-describedby="voter-profile-dialog-description">
               <DialogHeader className="px-6 pt-6 pb-4 border-b">
                 <DialogTitle className="text-2xl font-bold">Perfil dos Eleitores</DialogTitle>
                 <p id="voter-profile-dialog-description" className="text-sm text-muted-foreground mt-1">
                   Análise agregada dos dados cadastrados
                 </p>
               </DialogHeader>
-              <div className="p-6">
+              <div className="flex-1 overflow-y-auto p-6">
                 {voterProfile && voterProfile.totalContacts > 0 ? (
                   <div className="space-y-6">
                     <div className="bg-muted/30 rounded-xl p-6 shadow-sm">
