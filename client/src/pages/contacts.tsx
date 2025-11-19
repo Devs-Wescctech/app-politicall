@@ -639,7 +639,13 @@ export default function Contacts() {
       <Card>
         <CardHeader>
           <div className="flex flex-wrap md:flex-nowrap items-center gap-4">
-            <div className={`relative flex-1 w-full transition-all duration-300 ${isSearchFocused ? 'md:max-w-2xl' : 'md:max-w-md'}`}>
+            <div className={`relative flex-1 w-full transition-all duration-300 ${
+              isSearchFocused 
+                ? 'md:max-w-2xl' 
+                : (isStateFocused || isCityFocused || isInterestFocused) 
+                  ? 'md:max-w-sm' 
+                  : 'md:max-w-md'
+            }`}>
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Buscar contatos..."
