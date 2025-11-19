@@ -557,8 +557,8 @@ export default function Settings() {
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div>
-                    <CardTitle>Chaves de API</CardTitle>
-                    <CardDescription>Gerencie suas chaves de acesso à API</CardDescription>
+                    <CardTitle className="text-xs">Chaves de API</CardTitle>
+                    <CardDescription className="text-xs">Gerencie suas chaves de acesso à API</CardDescription>
                   </div>
                   <Button 
                     onClick={() => setShowApiKeyDialog(true)}
@@ -592,24 +592,24 @@ export default function Settings() {
                       >
                         <div className="space-y-2 flex-1">
                           <div className="flex items-center gap-3">
-                            <p className="font-medium">{apiKey.name}</p>
+                            <p className="font-medium text-xs">{apiKey.name}</p>
                             <Badge variant="outline" className="font-mono text-xs">
                               {apiKey.keyPrefix}
                             </Badge>
                             {apiKey.isActive ? (
-                              <Badge className="bg-green-500/10 text-green-500 hover:bg-green-500/20">
+                              <Badge className="bg-green-500/10 text-green-500 hover:bg-green-500/20 text-xs">
                                 <CheckCircle2 className="w-3 h-3 mr-1" />
                                 Ativa
                               </Badge>
                             ) : (
-                              <Badge variant="destructive">
+                              <Badge variant="destructive" className="text-xs">
                                 <XCircle className="w-3 h-3 mr-1" />
                                 Revogada
                               </Badge>
                             )}
                           </div>
                           {apiKey.description && (
-                            <p className="text-sm text-muted-foreground">{apiKey.description}</p>
+                            <p className="text-xs text-muted-foreground">{apiKey.description}</p>
                           )}
                           <div className="flex items-center gap-4 text-xs text-muted-foreground">
                             <span className="flex items-center gap-1">
@@ -639,8 +639,8 @@ export default function Settings() {
                 ) : (
                   <div className="text-center py-8">
                     <Key className="w-12 h-12 mx-auto text-muted-foreground mb-3" />
-                    <p className="text-muted-foreground">Nenhuma chave de API criada ainda</p>
-                    <p className="text-sm text-muted-foreground mt-1">
+                    <p className="text-muted-foreground text-xs">Nenhuma chave de API criada ainda</p>
+                    <p className="text-xs text-muted-foreground mt-1">
                       Crie uma chave para integrar com sistemas externos
                     </p>
                   </div>
@@ -658,11 +658,11 @@ export default function Settings() {
                   <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
                     <div className="flex items-center justify-between">
                       <div className="space-y-1.5">
-                        <CardTitle className="flex items-center gap-2">
+                        <CardTitle className="flex items-center gap-2 text-xs">
                           <Code2 className="w-5 h-5" />
                           Documentação da API
                         </CardTitle>
-                        <CardDescription>Como usar as chaves de API para integração</CardDescription>
+                        <CardDescription className="text-xs">Como usar as chaves de API para integração</CardDescription>
                       </div>
                       <Button variant="ghost" size="icon" className="shrink-0">
                         <ChevronDown 
@@ -677,11 +677,11 @@ export default function Settings() {
                 <CollapsibleContent>
                   <CardContent className="space-y-6 pt-0">
                 <div>
-                  <h4 className="font-medium mb-2 flex items-center gap-2">
+                  <h4 className="font-medium mb-2 flex items-center gap-2 text-xs">
                     <Globe className="w-4 h-4" />
                     URL Base
                   </h4>
-                  <div className="bg-muted p-3 rounded-md font-mono text-sm flex items-center justify-between">
+                  <div className="bg-muted p-3 rounded-md font-mono text-xs flex items-center justify-between">
                     <span>{baseUrl}/api/v1</span>
                     <Button
                       variant="ghost"
@@ -695,27 +695,27 @@ export default function Settings() {
                 </div>
 
                 <div>
-                  <h4 className="font-medium mb-2 flex items-center gap-2">
+                  <h4 className="font-medium mb-2 flex items-center gap-2 text-xs">
                     <Key className="w-4 h-4" />
                     Autenticação
                   </h4>
-                  <p className="text-sm text-muted-foreground mb-3">
+                  <p className="text-xs text-muted-foreground mb-3">
                     Inclua sua chave de API no header Authorization de todas as requisições:
                   </p>
-                  <div className="bg-muted p-3 rounded-md font-mono text-sm">
+                  <div className="bg-muted p-3 rounded-md font-mono text-xs">
                     Authorization: Bearer YOUR_API_KEY
                   </div>
                 </div>
 
                 <div>
-                  <h4 className="font-medium mb-2 flex items-center gap-2">
+                  <h4 className="font-medium mb-2 flex items-center gap-2 text-xs">
                     <Terminal className="w-4 h-4" />
                     Exemplos de Uso
                   </h4>
                   
                   <div className="space-y-4">
                     <div>
-                      <p className="text-sm font-medium mb-2">Listar Contatos</p>
+                      <p className="text-xs font-medium mb-2">Listar Contatos</p>
                       <div className="bg-muted p-3 rounded-md">
                         <pre className="text-xs font-mono overflow-x-auto">
 {`curl -X GET ${baseUrl}/api/v1/contacts \\
@@ -735,7 +735,7 @@ export default function Settings() {
                     </div>
 
                     <div>
-                      <p className="text-sm font-medium mb-2">Criar Contato</p>
+                      <p className="text-xs font-medium mb-2">Criar Contato</p>
                       <div className="bg-muted p-3 rounded-md">
                         <pre className="text-xs font-mono overflow-x-auto">
 {`curl -X POST ${baseUrl}/api/v1/contacts \\
@@ -763,7 +763,7 @@ export default function Settings() {
                     </div>
 
                     <div>
-                      <p className="text-sm font-medium mb-2">Buscar Contato por ID</p>
+                      <p className="text-xs font-medium mb-2">Buscar Contato por ID</p>
                       <div className="bg-muted p-3 rounded-md">
                         <pre className="text-xs font-mono overflow-x-auto">
 {`curl -X GET ${baseUrl}/api/v1/contacts/{contact_id} \\
@@ -783,7 +783,7 @@ export default function Settings() {
                     </div>
 
                     <div>
-                      <p className="text-sm font-medium mb-2">Listar Alianças Políticas</p>
+                      <p className="text-xs font-medium mb-2">Listar Alianças Políticas</p>
                       <div className="bg-muted p-3 rounded-md">
                         <pre className="text-xs font-mono overflow-x-auto">
 {`curl -X GET ${baseUrl}/api/v1/alliances \\
@@ -806,7 +806,7 @@ export default function Settings() {
 
                 <Alert>
                   <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>
+                  <AlertDescription className="text-xs">
                     <strong>Limites de taxa:</strong> A API tem um limite de 100 requisições por minuto para leitura e 50 requisições por minuto para escrita.
                   </AlertDescription>
                 </Alert>
