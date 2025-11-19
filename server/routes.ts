@@ -2696,6 +2696,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Esta pesquisa não está mais aceitando respostas" });
       }
 
+      // Get the accountId from the user who created the campaign
+      const campaignUser = await db.select()
+        .from(users)
+        .where(eq(users.id, campaign.userId))
+        .limit(1);
+      
+      if (campaignUser.length === 0) {
+        return res.status(500).json({ error: "Erro ao processar pesquisa" });
+      }
+
+      const accountId = campaignUser[0].accountId;
+
       // Get IP address from request (handles proxies)
       const ipAddress = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || 
                         req.ip || 
@@ -2718,12 +2730,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Validate response data (without campaignId and respondentIp which will be added server-side)
-      const validatedData = insertSurveyResponseSchema.omit({ campaignId: true, respondentIp: true }).parse(req.body);
+      // Validate response data (without accountId, campaignId and respondentIp which will be added server-side)
+      const validatedData = insertSurveyResponseSchema.omit({ accountId: true, campaignId: true, respondentIp: true }).parse(req.body);
 
-      // Create the response with campaignId and IP address
+      // Create the response with accountId, campaignId and IP address
       const response = await storage.createSurveyResponse({
         ...validatedData,
+        accountId,
         campaignId: campaign.id,
         respondentIp: ipAddress,
       });
