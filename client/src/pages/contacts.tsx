@@ -754,42 +754,44 @@ export default function Contacts() {
             </DialogContent>
           </Dialog>
           <Dialog open={isQrCodeDialogOpen} onOpenChange={setIsQrCodeDialogOpen}>
-            <DialogContent className="max-w-md p-0" aria-describedby="qr-code-dialog-description">
-              <DialogHeader className="px-6 pt-6 pb-4 border-b">
-                <DialogTitle className="text-xl font-bold">QR Code de Apoio</DialogTitle>
-                <p id="qr-code-dialog-description" className="text-sm text-muted-foreground mt-1">
-                  Compartilhe este QR Code para que apoiadores se cadastrem automaticamente
+            <DialogContent className="max-w-sm p-0" aria-describedby="qr-code-dialog-description">
+              <DialogHeader className="px-4 pt-4 pb-3 border-b">
+                <DialogTitle className="text-lg font-bold">QR Code de Apoio</DialogTitle>
+                <p id="qr-code-dialog-description" className="text-xs text-muted-foreground mt-0.5">
+                  Compartilhe para que apoiadores se cadastrem
                 </p>
               </DialogHeader>
-              <div className="p-6 space-y-6">
+              <div className="p-4 space-y-3">
                 {qrCodeSlug ? (
                   <>
-                    <div className="flex justify-center p-6 bg-white dark:bg-gray-100 rounded-lg">
+                    <div className="flex justify-center p-4 bg-white dark:bg-gray-100 rounded-lg">
                       <QRCodeSVG
                         value={`https://www.politicall.com.br/apoio/${qrCodeSlug}`}
-                        size={256}
+                        size={200}
                         level="H"
                         includeMargin={true}
                       />
                     </div>
-                    <div className="space-y-3">
+                    <div className="space-y-2">
                       {/* Botões de ação principais */}
                       <div className="flex gap-2">
                         <Button
                           variant="outline"
                           className="flex-1"
+                          size="sm"
                           onClick={() => {
                             navigator.clipboard.writeText(`https://www.politicall.com.br/apoio/${qrCodeSlug}`);
                             toast({ title: "URL copiada com sucesso!" });
                           }}
                           data-testid="button-copy-qr-url"
                         >
-                          <Copy className="w-4 h-4 mr-2" />
+                          <Copy className="w-3.5 h-3.5 mr-1.5" />
                           Copiar URL
                         </Button>
                         <Button
                           variant="outline"
                           className="flex-1"
+                          size="sm"
                           onClick={() => {
                             const svg = document.querySelector('#qr-code-dialog-description')?.parentElement?.parentElement?.querySelector('svg');
                             if (svg) {
@@ -813,19 +815,19 @@ export default function Contacts() {
                           }}
                           data-testid="button-download-qr"
                         >
-                          <Download className="w-4 h-4 mr-2" />
+                          <Download className="w-3.5 h-3.5 mr-1.5" />
                           Baixar
                         </Button>
                       </div>
                       
                       {/* Ícones de compartilhamento em redes sociais */}
-                      <div className="space-y-2">
-                        <p className="text-xs text-muted-foreground text-center">Compartilhar em:</p>
-                        <div className="flex justify-center gap-2">
+                      <div className="space-y-1.5">
+                        <p className="text-xs text-muted-foreground text-center">Compartilhar:</p>
+                        <div className="flex justify-center gap-1.5">
                           <Button
                             size="icon"
                             variant="outline"
-                            className="h-10 w-10 rounded-full"
+                            className="h-9 w-9 rounded-full"
                             onClick={() => {
                               const url = `https://www.politicall.com.br/apoio/${qrCodeSlug}`;
                               const text = `Declare seu apoio a ${qrCodeName}! Cadastre-se aqui:`;
@@ -834,12 +836,12 @@ export default function Contacts() {
                             data-testid="button-share-whatsapp"
                             title="Compartilhar no WhatsApp"
                           >
-                            <SiWhatsapp className="h-5 w-5 text-green-600" />
+                            <SiWhatsapp className="h-4 w-4 text-green-600" />
                           </Button>
                           <Button
                             size="icon"
                             variant="outline"
-                            className="h-10 w-10 rounded-full"
+                            className="h-9 w-9 rounded-full"
                             onClick={() => {
                               const url = `https://www.politicall.com.br/apoio/${qrCodeSlug}`;
                               window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`, '_blank');
@@ -847,12 +849,12 @@ export default function Contacts() {
                             data-testid="button-share-facebook"
                             title="Compartilhar no Facebook"
                           >
-                            <SiFacebook className="h-5 w-5 text-blue-600" />
+                            <SiFacebook className="h-4 w-4 text-blue-600" />
                           </Button>
                           <Button
                             size="icon"
                             variant="outline"
-                            className="h-10 w-10 rounded-full"
+                            className="h-9 w-9 rounded-full"
                             onClick={() => {
                               const url = `https://www.politicall.com.br/apoio/${qrCodeSlug}`;
                               const text = `Declare seu apoio a ${qrCodeName}!`;
@@ -861,12 +863,12 @@ export default function Contacts() {
                             data-testid="button-share-twitter"
                             title="Compartilhar no X (Twitter)"
                           >
-                            <SiX className="h-4 w-4" />
+                            <SiX className="h-3.5 w-3.5" />
                           </Button>
                           <Button
                             size="icon"
                             variant="outline"
-                            className="h-10 w-10 rounded-full"
+                            className="h-9 w-9 rounded-full"
                             onClick={() => {
                               const url = `https://www.politicall.com.br/apoio/${qrCodeSlug}`;
                               const subject = `Apoie ${qrCodeName}`;
@@ -876,25 +878,18 @@ export default function Contacts() {
                             data-testid="button-share-email"
                             title="Compartilhar por Email"
                           >
-                            <Mail className="h-5 w-5" />
+                            <Mail className="h-4 w-4" />
                           </Button>
                         </div>
                       </div>
                     </div>
-                    <div className="p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-800">
-                      <p className="text-xs text-blue-800 dark:text-blue-200">
-                        <strong>Como funciona:</strong> Quando alguém escanear este QR Code ou acessar a URL, 
-                        verá uma página profissional com sua foto e poderá se cadastrar como apoiador automaticamente, 
-                        sem precisar de login no sistema.
-                      </p>
-                    </div>
                   </>
                 ) : (
-                  <div className="p-6 text-center space-y-3">
-                    <div className="w-16 h-16 mx-auto bg-yellow-100 dark:bg-yellow-900/30 rounded-full flex items-center justify-center">
-                      <QrCode className="w-8 h-8 text-yellow-600 dark:text-yellow-400" />
+                  <div className="p-4 text-center space-y-2">
+                    <div className="w-12 h-12 mx-auto bg-yellow-100 dark:bg-yellow-900/30 rounded-full flex items-center justify-center">
+                      <QrCode className="w-6 h-6 text-yellow-600 dark:text-yellow-400" />
                     </div>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-xs text-muted-foreground">
                       Carregando QR Code...
                     </p>
                   </div>
