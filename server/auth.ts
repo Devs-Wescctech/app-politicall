@@ -81,6 +81,11 @@ export function requirePermission(permission: keyof UserPermissions) {
       return res.status(401).json({ error: "Usuário não autenticado" });
     }
 
+    // Admin users always have all permissions, regardless of what's stored in database
+    if (req.user.role === "admin") {
+      return next();
+    }
+
     if (!req.user.permissions || !req.user.permissions[permission]) {
       return res.status(403).json({ error: "Você não tem permissão para acessar este recurso" });
     }
