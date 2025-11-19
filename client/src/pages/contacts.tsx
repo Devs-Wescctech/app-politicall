@@ -13,19 +13,19 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { 
   Plus, Search, Pencil, Trash2, Mail, MessageCircle, Send, Copy, X,
-  Church, Cross, Sparkles, Flame, Globe2, Footprints, Volleyball, 
-  Dribbble, Waves, Swords, PersonStanding, Bike, Dumbbell, 
+  Church, Cross, Sparkles, Flame, Globe2, CircleDot, Volleyball, 
+  Circle, Waves, Swords, Zap, Bike, Dumbbell, 
   Wind, Mountain, UtensilsCrossed, Leaf, Wine, Beer, Coffee,
   Music, HeartPulse, Disc3, Guitar, Radio, PartyPopper, Film,
-  Drama, BookOpen, Palette, Camera, Music2, Scissors, Flower2,
+  Drama, BookOpen, Palette, Camera, Music2, Paintbrush, Flower2,
   Dog, Trees, Sprout, Recycle, GraduationCap, Cpu, Gamepad2,
   Lightbulb, HandHeart, Users, Scale, Heart, Rainbow, Users2,
   Baby, BrainCircuit, Activity, Apple, Shirt, Sparkle, Plane,
   Map, Tent, Fish, Target, Tractor, Beef, Factory, Store,
   Building2, Wrench, Bus, Shield, Siren, Landmark, Vote,
-  Flag, Home, Droplet, Lamp, Construction, Hospital, Building,
+  Flag, Home, Droplet, Construction, Hospital, Building,
   School, University, Baby as BabyIcon, Smile, Drum, Cake,
-  Calendar as CalendarIcon
+  Calendar as CalendarIcon, Star, Mic2, ShoppingCart
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -83,103 +83,136 @@ const formatName = (name: string): string => {
     .join(' ');
 };
 
-// Mapeamento de interesses para ícones correspondentes
+// Mapeamento de interesses para ícones correspondentes EXATOS
 const INTEREST_ICONS: Record<string, any> = {
-  "Religião Católica": Church,
-  "Religião Evangélica": Cross,
-  "Religião Espírita": Sparkles,
-  "Religião Umbanda/Candomblé": Flame,
-  "Outras Religiões": Globe2,
-  "Futebol": Footprints,
-  "Vôlei": Volleyball,
-  "Basquete": Dribbble,
-  "Natação": Waves,
-  "Artes Marciais": Swords,
-  "Corrida/Atletismo": PersonStanding,
-  "Ciclismo": Bike,
-  "Crossfit/Academia": Dumbbell,
-  "Yoga/Pilates": Wind,
-  "Esportes Radicais": Mountain,
-  "Gastronomia": UtensilsCrossed,
-  "Culinária Vegana/Vegetariana": Leaf,
-  "Vinhos": Wine,
-  "Cervejas Artesanais": Beer,
-  "Café Especial": Coffee,
-  "Música Sertaneja": Music,
-  "Música Gospel": HeartPulse,
-  "MPB": Disc3,
-  "Rock": Guitar,
-  "Música Clássica": Radio,
-  "Pagode/Samba": PartyPopper,
-  "Funk": Music2,
-  "Música Eletrônica": Radio,
-  "Jazz": Music,
-  "Cinema": Film,
-  "Teatro": Drama,
-  "Literatura": BookOpen,
-  "Artes Plásticas": Palette,
-  "Fotografia": Camera,
-  "Dança": Music2,
-  "Artesanato": Scissors,
-  "Jardinagem": Flower2,
-  "Pets/Animais de Estimação": Dog,
-  "Meio Ambiente": Trees,
-  "Sustentabilidade": Sprout,
-  "Reciclagem": Recycle,
-  "Educação": GraduationCap,
-  "Tecnologia": Cpu,
-  "Games/E-sports": Gamepad2,
-  "Empreendedorismo": Lightbulb,
-  "Voluntariado": HandHeart,
-  "Causas Sociais": Users,
-  "Direitos Humanos": Scale,
-  "Feminismo": Heart,
-  "LGBTQIA+": Rainbow,
-  "Movimento Negro": Flag,
-  "Terceira Idade": Users2,
-  "Juventude": Users,
-  "Infância": Baby,
-  "Saúde Mental": BrainCircuit,
-  "Saúde e Bem-Estar": Activity,
-  "Nutrição": Apple,
-  "Moda": Shirt,
-  "Beleza": Sparkle,
-  "Turismo": Plane,
-  "Viagens": Map,
-  "Camping/Trilhas": Tent,
-  "Pesca": Fish,
-  "Caça": Target,
-  "Agricultura Familiar": Tractor,
-  "Pecuária": Beef,
-  "Agronegócio": Tractor,
-  "Comércio Local": Store,
-  "Indústria": Factory,
-  "Serviços": Wrench,
-  "Transporte Público": Bus,
-  "Mobilidade Urbana": Bike,
-  "Segurança Pública": Shield,
-  "Defesa Civil": Siren,
-  "Bombeiros": Flame,
-  "Política Partidária": Landmark,
-  "Movimentos Sociais": Vote,
-  "Sindicatos": Flag,
-  "Associações de Classe": Building2,
-  "Moradia Popular": Home,
-  "Saneamento Básico": Droplet,
-  "Iluminação Pública": Lamp,
-  "Pavimentação": Construction,
-  "Saúde Pública": Hospital,
-  "Hospitais": Hospital,
-  "Postos de Saúde": Building,
-  "Escolas Públicas": School,
-  "Universidades": University,
-  "Creches": BabyIcon,
-  "Cultura Popular": Smile,
-  "Festas Tradicionais": Drum,
-  "Carnaval": PartyPopper,
-  "Festas Juninas": Cake,
-  "Rodeios": Beef,
-  "Feiras e Exposições": CalendarIcon,
+  // RELIGIÕES
+  "Religião Católica": Church,           // Igreja católica
+  "Religião Evangélica": Cross,          // Cruz cristã
+  "Religião Espírita": Sparkles,         // Espiritualidade/luz
+  "Religião Umbanda/Candomblé": Flame,   // Vela/energia espiritual
+  "Outras Religiões": Star,              // Estrela espiritual
+  
+  // ESPORTES
+  "Futebol": CircleDot,                  // Bola de futebol
+  "Vôlei": Volleyball,                   // Bola de vôlei
+  "Basquete": Circle,                    // Bola de basquete
+  "Natação": Waves,                      // Ondas/água
+  "Artes Marciais": Swords,              // Espadas/luta
+  "Corrida/Atletismo": Zap,              // Raio/velocidade
+  "Ciclismo": Bike,                      // Bicicleta
+  "Crossfit/Academia": Dumbbell,         // Halteres/musculação
+  "Yoga/Pilates": Wind,                  // Respiração/equilíbrio
+  "Esportes Radicais": Mountain,         // Montanha/aventura
+  
+  // GASTRONOMIA
+  "Gastronomia": UtensilsCrossed,        // Talheres
+  "Culinária Vegana/Vegetariana": Leaf,  // Folha verde
+  "Vinhos": Wine,                        // Taça de vinho
+  "Cervejas Artesanais": Beer,           // Caneca de cerveja
+  "Café Especial": Coffee,               // Xícara de café
+  
+  // MÚSICA
+  "Música Sertaneja": Guitar,            // Violão sertanejo
+  "Música Gospel": HeartPulse,           // Coração/fé
+  "MPB": Mic2,                           // Microfone/performance
+  "Rock": Guitar,                        // Guitarra elétrica
+  "Música Clássica": Radio,              // Orquestra/clássico
+  "Pagode/Samba": Drum,                  // Tambor/percussão
+  "Funk": Radio,                         // Som/batida
+  "Música Eletrônica": Radio,            // DJ/eletrônica
+  "Jazz": Music,                         // Música jazz
+  
+  // ARTES E CULTURA
+  "Cinema": Film,                        // Película/filme
+  "Teatro": Drama,                       // Máscaras teatro
+  "Literatura": BookOpen,                // Livro aberto
+  "Artes Plásticas": Palette,            // Paleta de pintura
+  "Fotografia": Camera,                  // Câmera fotográfica
+  "Dança": Music2,                       // Música/dança
+  "Artesanato": Paintbrush,              // Pincel artesanato
+  "Jardinagem": Flower2,                 // Flor/planta
+  
+  // PETS E NATUREZA
+  "Pets/Animais de Estimação": Dog,      // Cachorro/pet
+  "Meio Ambiente": Trees,                // Árvores/floresta
+  "Sustentabilidade": Sprout,            // Broto/crescimento
+  "Reciclagem": Recycle,                 // Símbolo reciclagem
+  
+  // EDUCAÇÃO E TECNOLOGIA
+  "Educação": GraduationCap,             // Capelo formatura
+  "Tecnologia": Cpu,                     // Processador/tech
+  "Games/E-sports": Gamepad2,            // Controle videogame
+  "Empreendedorismo": Lightbulb,         // Lâmpada/ideia
+  
+  // CAUSAS SOCIAIS
+  "Voluntariado": HandHeart,             // Mão coração/ajuda
+  "Causas Sociais": Users,               // Pessoas/comunidade
+  "Direitos Humanos": Scale,             // Balança/justiça
+  "Feminismo": Heart,                    // Coração/igualdade
+  "LGBTQIA+": Rainbow,                   // Arco-íris/orgulho
+  "Movimento Negro": Flag,               // Bandeira/movimento
+  "Terceira Idade": Users2,              // Idosos/grupo
+  "Juventude": Users,                    // Jovens/grupo
+  "Infância": Baby,                      // Bebê/criança
+  
+  // SAÚDE
+  "Saúde Mental": BrainCircuit,          // Cérebro/mente
+  "Saúde e Bem-Estar": Activity,         // Atividade/saúde
+  "Nutrição": Apple,                     // Maçã/alimentação
+  
+  // MODA E BELEZA
+  "Moda": Shirt,                         // Roupa/camisa
+  "Beleza": Sparkle,                     // Brilho/beleza
+  
+  // VIAGENS E LAZER
+  "Turismo": Plane,                      // Avião/viagem
+  "Viagens": Map,                        // Mapa/exploração
+  "Camping/Trilhas": Tent,               // Barraca/camping
+  "Pesca": Fish,                         // Peixe/pescaria
+  "Caça": Target,                        // Alvo/caça
+  
+  // AGRICULTURA E PECUÁRIA
+  "Agricultura Familiar": Tractor,       // Trator/fazenda
+  "Pecuária": Beef,                      // Gado/carne
+  "Agronegócio": Tractor,                // Trator/agricultura
+  
+  // ECONOMIA E TRABALHO
+  "Comércio Local": ShoppingCart,        // Carrinho/comércio
+  "Indústria": Factory,                  // Fábrica/indústria
+  "Serviços": Wrench,                    // Chave/serviço
+  
+  // INFRAESTRUTURA URBANA
+  "Transporte Público": Bus,             // Ônibus/transporte
+  "Mobilidade Urbana": Bike,             // Bicicleta/mobilidade
+  "Segurança Pública": Shield,           // Escudo/proteção
+  "Defesa Civil": Siren,                 // Sirene/emergência
+  "Bombeiros": Flame,                    // Chama/fogo
+  
+  // POLÍTICA
+  "Política Partidária": Landmark,       // Monumento/política
+  "Movimentos Sociais": Vote,            // Voto/participação
+  "Sindicatos": Flag,                    // Bandeira/união
+  "Associações de Classe": Building2,    // Prédio/organização
+  
+  // SERVIÇOS PÚBLICOS
+  "Moradia Popular": Home,               // Casa/moradia
+  "Saneamento Básico": Droplet,          // Gota/água
+  "Iluminação Pública": Lightbulb,       // Lâmpada/luz
+  "Pavimentação": Construction,          // Construção/obra
+  "Saúde Pública": Hospital,             // Hospital/saúde
+  "Hospitais": Hospital,                 // Hospital
+  "Postos de Saúde": Building,           // Posto/prédio
+  "Escolas Públicas": School,            // Escola/educação
+  "Universidades": University,           // Universidade/ensino
+  "Creches": BabyIcon,                   // Bebê/creche
+  
+  // FESTAS E TRADIÇÕES
+  "Cultura Popular": Smile,              // Sorriso/alegria
+  "Festas Tradicionais": Drum,           // Tambor/festa
+  "Carnaval": PartyPopper,               // Confete/carnaval
+  "Festas Juninas": Flame,               // Fogueira junina
+  "Rodeios": Beef,                       // Gado/rodeio
+  "Feiras e Exposições": Store,          // Feira/mercado
 };
 
 export default function Contacts() {
