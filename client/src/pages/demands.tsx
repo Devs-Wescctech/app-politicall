@@ -14,7 +14,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, Calendar as CalendarIcon, MessageSquare, Clock, User, CalendarDays, RefreshCw, Play, Check, X, Trash2 } from "lucide-react";
+import { Plus, Calendar as CalendarIcon, MessageSquare, Clock, User, CalendarDays, RefreshCw, Play, Check, X, Trash2, Edit, Save } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -69,6 +69,13 @@ export default function Demands() {
   const [dueDateFilter, setDueDateFilter] = useState<string>("all");
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [demandToDelete, setDemandToDelete] = useState<string | null>(null);
+  const [isEditingDemand, setIsEditingDemand] = useState(false);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editPriority, setEditPriority] = useState("");
+  const [editAssignee, setEditAssignee] = useState("");
+  const [editDueDate, setEditDueDate] = useState<Date | undefined>(undefined);
+  const [editRecurrence, setEditRecurrence] = useState("");
   const [visibleCounts, setVisibleCounts] = useState<Record<string, number>>({
     pending: 5,
     in_progress: 5,
@@ -154,6 +161,55 @@ export default function Demands() {
   const handleAddComment = () => {
     if (commentText.trim() && selectedDemand) {
       addCommentMutation.mutate({ demandId: selectedDemand.id, comment: commentText });
+    }
+  };
+
+  const handleStartEdit = () => {
+    if (selectedDemand) {
+      setEditTitle(selectedDemand.title);
+      setEditDescription(selectedDemand.description || "");
+      setEditPriority(selectedDemand.priority);
+      setEditAssignee(selectedDemand.assignee || "");
+      setEditDueDate(selectedDemand.dueDate ? new Date(selectedDemand.dueDate) : undefined);
+      setEditRecurrence(selectedDemand.recurrence || "none");
+      setIsEditingDemand(true);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditingDemand(false);
+  };
+
+  const handleSaveEdit = () => {
+    if (selectedDemand && editTitle.trim()) {
+      updateMutation.mutate(
+        { 
+          id: selectedDemand.id, 
+          data: {
+            title: editTitle,
+            description: editDescription,
+            priority: editPriority,
+            assignee: editAssignee,
+            dueDate: editDueDate ? editDueDate.toISOString() : null,
+            recurrence: editRecurrence,
+          }
+        },
+        {
+          onSuccess: () => {
+            setIsEditingDemand(false);
+            // Atualizar a demanda selecionada com os novos dados
+            setSelectedDemand({
+              ...selectedDemand,
+              title: editTitle,
+              description: editDescription,
+              priority: editPriority,
+              assignee: editAssignee,
+              dueDate: editDueDate ? editDueDate.toISOString() : null,
+              recurrence: editRecurrence,
+            });
+          }
+        }
+      );
     }
   };
 
@@ -623,12 +679,60 @@ export default function Demands() {
         </div>
       </div>
 
-      <Sheet open={!!selectedDemand} onOpenChange={(open) => !open && setSelectedDemand(null)}>
+      <Sheet open={!!selectedDemand} onOpenChange={(open) => {
+        if (!open) {
+          setSelectedDemand(null);
+          setIsEditingDemand(false);
+        }
+      }}>
         <SheetContent className="w-full sm:max-w-xl overflow-y-auto">
           {selectedDemand && (
             <>
               <SheetHeader>
-                <SheetTitle>{selectedDemand.title}</SheetTitle>
+                <div className="flex items-center justify-between">
+                  {isEditingDemand ? (
+                    <Input
+                      value={editTitle}
+                      onChange={(e) => setEditTitle(e.target.value)}
+                      className="text-lg font-semibold"
+                      data-testid="input-edit-title"
+                    />
+                  ) : (
+                    <SheetTitle>{selectedDemand.title}</SheetTitle>
+                  )}
+                  <div className="flex items-center gap-2">
+                    {isEditingDemand ? (
+                      <>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={handleCancelEdit}
+                          data-testid="button-cancel-edit"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="default"
+                          onClick={handleSaveEdit}
+                          disabled={!editTitle.trim() || updateMutation.isPending}
+                          data-testid="button-save-edit"
+                        >
+                          <Save className="h-4 w-4" />
+                        </Button>
+                      </>
+                    ) : (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={handleStartEdit}
+                        data-testid="button-start-edit"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
               </SheetHeader>
               <Tabs defaultValue="details" className="mt-6">
                 <TabsList className="grid w-full grid-cols-2">
@@ -641,7 +745,7 @@ export default function Demands() {
                 <TabsContent value="details" className="space-y-4 mt-4">
                   <div>
                     <label className="text-sm font-medium">Status</label>
-                    <Select value={selectedDemand.status} onValueChange={(value) => handleStatusChange(selectedDemand, value)}>
+                    <Select value={selectedDemand.status} onValueChange={(value) => handleStatusChange(selectedDemand, value)} disabled={isEditingDemand}>
                       <SelectTrigger className="mt-2">
                         <SelectValue />
                       </SelectTrigger>
@@ -654,48 +758,117 @@ export default function Demands() {
                   </div>
                   <div>
                     <label className="text-sm font-medium">Prioridade</label>
-                    <p className={`${PRIORITY_CONFIG[selectedDemand.priority as keyof typeof PRIORITY_CONFIG].color} text-sm font-medium mt-2`}>
-                      {PRIORITY_CONFIG[selectedDemand.priority as keyof typeof PRIORITY_CONFIG].label}
-                    </p>
-                  </div>
-                  {selectedDemand.description && (
-                    <div>
-                      <label className="text-sm font-medium">Descrição</label>
-                      <p className="text-sm text-muted-foreground mt-2">{selectedDemand.description}</p>
-                    </div>
-                  )}
-                  {selectedDemand.assignee && (
-                    <div>
-                      <label className="text-sm font-medium">Responsável</label>
-                      <p className="text-sm mt-2">{selectedDemand.assignee}</p>
-                    </div>
-                  )}
-                  {selectedDemand.recurrence && selectedDemand.recurrence !== "none" && (
-                    <div>
-                      <label className="text-sm font-medium">Recorrência</label>
-                      <p className="text-sm mt-2">{RECURRENCE_CONFIG[selectedDemand.recurrence as keyof typeof RECURRENCE_CONFIG].label}</p>
-                    </div>
-                  )}
-                  {selectedDemand.dueDate && (
-                    <div>
-                      <label className="text-sm font-medium">Data de vencimento</label>
-                      <p className="text-sm mt-2">
-                        {format(new Date(selectedDemand.dueDate), "dd/MM/yyyy", { locale: ptBR })}
-                        {(() => {
-                          const dueDateStr = typeof selectedDemand.dueDate === 'string' ? selectedDemand.dueDate : selectedDemand.dueDate?.toISOString();
-                          const dueDateStatus = getDueDateStatus(dueDateStr, selectedDemand.status);
-                          return dueDateStatus ? (
-                            <>
-                              {" - "}
-                              <span className={dueDateStatus.color}>
-                                {dueDateStatus.label}
-                              </span>
-                            </>
-                          ) : null;
-                        })()}
+                    {isEditingDemand ? (
+                      <Select value={editPriority} onValueChange={setEditPriority}>
+                        <SelectTrigger className="mt-2" data-testid="select-edit-priority">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Object.entries(PRIORITY_CONFIG).map(([key, config]) => (
+                            <SelectItem key={key} value={key}>{config.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <p className={`${PRIORITY_CONFIG[selectedDemand.priority as keyof typeof PRIORITY_CONFIG].color} text-sm font-medium mt-2`}>
+                        {PRIORITY_CONFIG[selectedDemand.priority as keyof typeof PRIORITY_CONFIG].label}
                       </p>
-                    </div>
-                  )}
+                    )}
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">Descrição</label>
+                    {isEditingDemand ? (
+                      <Textarea
+                        value={editDescription}
+                        onChange={(e) => setEditDescription(e.target.value)}
+                        className="mt-2"
+                        placeholder="Descrição da demanda"
+                        data-testid="input-edit-description"
+                      />
+                    ) : (
+                      selectedDemand.description && (
+                        <p className="text-sm text-muted-foreground mt-2">{selectedDemand.description}</p>
+                      )
+                    )}
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">Responsável</label>
+                    {isEditingDemand ? (
+                      <Input
+                        value={editAssignee}
+                        onChange={(e) => setEditAssignee(e.target.value)}
+                        className="mt-2"
+                        placeholder="Nome do responsável"
+                        data-testid="input-edit-assignee"
+                      />
+                    ) : (
+                      selectedDemand.assignee && (
+                        <p className="text-sm mt-2">{selectedDemand.assignee}</p>
+                      )
+                    )}
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">Recorrência</label>
+                    {isEditingDemand ? (
+                      <Select value={editRecurrence} onValueChange={setEditRecurrence}>
+                        <SelectTrigger className="mt-2" data-testid="select-edit-recurrence">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Object.entries(RECURRENCE_CONFIG).map(([key, config]) => (
+                            <SelectItem key={key} value={key}>{config.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      selectedDemand.recurrence && selectedDemand.recurrence !== "none" && (
+                        <p className="text-sm mt-2">{RECURRENCE_CONFIG[selectedDemand.recurrence as keyof typeof RECURRENCE_CONFIG].label}</p>
+                      )
+                    )}
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">Data de vencimento</label>
+                    {isEditingDemand ? (
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className="w-full mt-2 justify-start text-left font-normal"
+                            data-testid="button-edit-due-date"
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {editDueDate ? format(editDueDate, "dd/MM/yyyy", { locale: ptBR }) : "Selecione uma data"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0">
+                          <Calendar
+                            mode="single"
+                            selected={editDueDate}
+                            onSelect={setEditDueDate}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    ) : (
+                      selectedDemand.dueDate && (
+                        <p className="text-sm mt-2">
+                          {format(new Date(selectedDemand.dueDate), "dd/MM/yyyy", { locale: ptBR })}
+                          {(() => {
+                            const dueDateStr = typeof selectedDemand.dueDate === 'string' ? selectedDemand.dueDate : selectedDemand.dueDate?.toISOString();
+                            const dueDateStatus = getDueDateStatus(dueDateStr, selectedDemand.status);
+                            return dueDateStatus ? (
+                              <>
+                                {" - "}
+                                <span className={dueDateStatus.color}>
+                                  {dueDateStatus.label}
+                                </span>
+                              </>
+                            ) : null;
+                          })()}
+                        </p>
+                      )
+                    )}
+                  </div>
                 </TabsContent>
                 <TabsContent value="comments" className="space-y-4 mt-4">
                   <div className="space-y-3">
