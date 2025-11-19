@@ -376,10 +376,10 @@ export default function UsersManagement() {
                 
                 {isExpanded && (
                   <CardContent className="p-6 pt-0 space-y-3">
-                    <p className="text-base font-medium truncate" title={user.name}>
+                    <p className="text-base font-medium truncate pb-3 border-b" title={user.name}>
                       {user.name}
                     </p>
-                    <p className="text-sm text-muted-foreground truncate" title={user.email}>
+                    <p className="text-sm text-muted-foreground truncate pb-3 border-b" title={user.email}>
                       {user.email}
                     </p>
                     <div className="space-y-1 text-xs text-muted-foreground">
