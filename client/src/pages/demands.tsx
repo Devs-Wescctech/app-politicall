@@ -748,7 +748,7 @@ export default function Demands() {
                   <div>
                     <label className="text-sm font-medium">Status</label>
                     <Select value={selectedDemand.status} onValueChange={(value) => handleStatusChange(selectedDemand, value)} disabled={isEditingDemand}>
-                      <SelectTrigger className="mt-2">
+                      <SelectTrigger className="mt-2 rounded-full">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -762,7 +762,7 @@ export default function Demands() {
                     <label className="text-sm font-medium">Prioridade</label>
                     {isEditingDemand ? (
                       <Select value={editPriority} onValueChange={setEditPriority}>
-                        <SelectTrigger className="mt-2" data-testid="select-edit-priority">
+                        <SelectTrigger className="mt-2 rounded-full" data-testid="select-edit-priority">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -813,7 +813,7 @@ export default function Demands() {
                     <label className="text-sm font-medium">Recorrência</label>
                     {isEditingDemand ? (
                       <Select value={editRecurrence} onValueChange={setEditRecurrence}>
-                        <SelectTrigger className="mt-2" data-testid="select-edit-recurrence">
+                        <SelectTrigger className="mt-2 rounded-full" data-testid="select-edit-recurrence">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
