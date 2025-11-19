@@ -685,11 +685,11 @@ export default function Demands() {
           setIsEditingDemand(false);
         }
       }}>
-        <SheetContent className="w-full sm:max-w-xl overflow-y-auto">
+        <SheetContent className="w-full sm:max-w-xl p-0 flex flex-col">
           {selectedDemand && (
             <>
-              <SheetHeader>
-                <div className="flex items-center justify-between">
+              <SheetHeader className="px-6 pt-6 pb-4 border-b">
+                <div className="flex items-center justify-between gap-4">
                   {isEditingDemand ? (
                     <Input
                       value={editTitle}
@@ -734,7 +734,8 @@ export default function Demands() {
                   </div>
                 </div>
               </SheetHeader>
-              <Tabs defaultValue="details" className="mt-6">
+              <div className="flex-1 overflow-y-auto px-6 py-4">
+              <Tabs defaultValue="details">
                 <TabsList className="grid w-full grid-cols-2">
                   <TabsTrigger value="details">Detalhes</TabsTrigger>
                   <TabsTrigger value="comments">
@@ -897,6 +898,16 @@ export default function Demands() {
                   </div>
                 </TabsContent>
               </Tabs>
+              </div>
+              <div className="px-6 py-4 border-t">
+                <Button
+                  onClick={() => setSelectedDemand(null)}
+                  className="w-full"
+                  data-testid="button-close-demand"
+                >
+                  Fechar
+                </Button>
+              </div>
             </>
           )}
         </SheetContent>
