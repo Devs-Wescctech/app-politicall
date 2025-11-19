@@ -58,14 +58,14 @@ export default function Contacts() {
   // Extract unique cities from contacts
   const cities = useMemo(() => {
     if (!contacts) return [];
-    const uniqueCities = Array.from(new Set(contacts.map(c => c.city).filter(Boolean)));
+    const uniqueCities = Array.from(new Set(contacts.map(c => c.city).filter((city): city is string => Boolean(city))));
     return uniqueCities.sort();
   }, [contacts]);
 
   // Extract unique states from contacts
   const states = useMemo(() => {
     if (!contacts) return [];
-    const uniqueStates = Array.from(new Set(contacts.map(c => c.state).filter(Boolean)));
+    const uniqueStates = Array.from(new Set(contacts.map(c => c.state).filter((state): state is string => Boolean(state))));
     return uniqueStates.sort();
   }, [contacts]);
 
@@ -521,6 +521,7 @@ export default function Contacts() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Nome</TableHead>
+                  <TableHead>Interesses</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
@@ -529,6 +530,19 @@ export default function Contacts() {
                   filteredContacts.map((contact) => (
                     <TableRow key={contact.id} data-testid={`row-contact-${contact.id}`}>
                       <TableCell className="font-medium">{contact.name}</TableCell>
+                      <TableCell>
+                        <div className="flex gap-1 flex-wrap">
+                          {contact.interests && contact.interests.length > 0 ? (
+                            contact.interests.map((interest, idx) => (
+                              <Badge key={idx} variant="secondary" className="text-xs">
+                                {interest}
+                              </Badge>
+                            ))
+                          ) : (
+                            <span className="text-xs text-muted-foreground">-</span>
+                          )}
+                        </div>
+                      </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
                           {contact.email && (
@@ -578,7 +592,7 @@ export default function Contacts() {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={2} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={3} className="text-center text-muted-foreground py-8">
                       {searchQuery ? "Nenhum contato encontrado" : "Nenhum contato cadastrado"}
                     </TableCell>
                   </TableRow>
