@@ -30,7 +30,7 @@ import demandsImage from "@assets/Técnico- Luis Flores (6)_1763413913827.png";
 import eventsImage from "@assets/Técnico- Luis Flores (7)_1763414009496.png";
 import aiImage from "@assets/dsfsdfdsfdsfdsf_1763412976580.png";
 import surveysImage from "@assets/Técnico- Luis Flores (8)_1763415574038.png";
-import ctaBackground from "@assets/2151190606_1763415381149.jpg";
+import ctaBackgroundVideo from "@assets/grok-video-6d926f7e-74be-453e-93b2-58c35cc06668_1763589440485.mp4";
 
 const BRAZILIAN_STATES = [
   "Acre", "Alagoas", "Amapá", "Amazonas", "Bahia", "Ceará", "Distrito Federal",
@@ -817,10 +817,16 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section 
-        className="py-24 bg-background relative bg-cover bg-center"
-        style={{ backgroundImage: `url(${ctaBackground})` }}
-      >
+      <section className="py-24 bg-background relative overflow-hidden">
+        <video
+          autoPlay
+          loop
+          muted
+          playsInline
+          className="absolute inset-0 w-full h-full object-cover"
+        >
+          <source src={ctaBackgroundVideo} type="video/mp4" />
+        </video>
         <div className="absolute inset-0 bg-black/60"></div>
         <div className="container mx-auto px-4 relative z-10">
           <div className="max-w-4xl mx-auto text-center">
