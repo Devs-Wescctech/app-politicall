@@ -13,7 +13,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
-import { User, Edit, Camera, Key, Copy, Trash2, Calendar, Clock, CheckCircle2, XCircle, Plus, Code2, AlertCircle, Terminal, Globe, ChevronDown, ExternalLink, RefreshCw, Settings2, Link } from "lucide-react";
+import { User, Edit, Camera, Key, Copy, Trash2, Calendar, Clock, CheckCircle2, XCircle, Plus, Code2, AlertCircle, Terminal, Globe, ChevronDown, ExternalLink, RefreshCw, Settings2, Link, Lock } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { getAuthUser } from "@/lib/auth";
 import { useForm } from "react-hook-form";
@@ -151,6 +151,10 @@ export default function Settings() {
   } | null>({
     queryKey: ["/api/google-calendar"],
     enabled: activeTab === "google-calendar",
+  });
+
+  const { data: adminData } = useQuery<any>({
+    queryKey: ["/api/account/admin"],
   });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -669,30 +673,29 @@ export default function Settings() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3 text-sm">
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Eleitores</span>
-                      <Badge className="bg-green-500/10 text-green-500 hover:bg-green-500/20">Ativo</Badge>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Alianças</span>
-                      <Badge className="bg-green-500/10 text-green-500 hover:bg-green-500/20">Ativo</Badge>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Demandas</span>
-                      <Badge className="bg-green-500/10 text-green-500 hover:bg-green-500/20">Ativo</Badge>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Agenda</span>
-                      <Badge className="bg-green-500/10 text-green-500 hover:bg-green-500/20">Ativo</Badge>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Atendimento IA</span>
-                      <Badge className="bg-green-500/10 text-green-500 hover:bg-green-500/20">Ativo</Badge>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Pesquisas</span>
-                      <Badge className="bg-green-500/10 text-green-500 hover:bg-green-500/20">Ativo</Badge>
-                    </div>
+                    {[
+                      { key: 'contacts', label: 'Eleitores' },
+                      { key: 'alliances', label: 'Alianças' },
+                      { key: 'demands', label: 'Demandas' },
+                      { key: 'agenda', label: 'Agenda' },
+                      { key: 'ai', label: 'Atendimento IA' },
+                      { key: 'marketing', label: 'Pesquisas' },
+                    ].map(({ key, label }) => {
+                      const isActive = adminData?.permissions?.[key] === true;
+                      return (
+                        <div key={key} className="flex items-center justify-between">
+                          <span className="text-muted-foreground flex items-center gap-2">
+                            {!isActive && <Lock className="w-3 h-3" />}
+                            {label}
+                          </span>
+                          {isActive ? (
+                            <Badge className="bg-green-500/10 text-green-500 hover:bg-green-500/20">Ativo</Badge>
+                          ) : (
+                            <Badge variant="secondary" className="text-muted-foreground">Bloqueado</Badge>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </CardContent>
               </Card>
