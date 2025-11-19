@@ -216,6 +216,14 @@ export const CONTACT_SOURCES = [
   "Outros"
 ] as const;
 
+export const GENDER_OPTIONS = [
+  "Masculino",
+  "Feminino",
+  "Não-binário",
+  "Outro",
+  "Prefiro não responder"
+] as const;
+
 // Contacts table
 export const contacts = pgTable("contacts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -225,6 +233,7 @@ export const contacts = pgTable("contacts", {
   email: text("email"),
   phone: text("phone"),
   age: integer("age"),
+  gender: text("gender"),
   state: text("state"),
   city: text("city"),
   interests: text("interests").array(),
@@ -652,6 +661,7 @@ export const insertContactSchema = createInsertSchema(contacts).omit({
   createdAt: true,
 }).extend({
   age: z.number().int().positive().max(120).optional(),
+  gender: z.enum(["Masculino", "Feminino", "Não-binário", "Outro", "Prefiro não responder"]).optional(),
 });
 
 export const insertPoliticalAllianceSchema = createInsertSchema(politicalAlliances).omit({
