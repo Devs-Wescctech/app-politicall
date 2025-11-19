@@ -25,7 +25,7 @@ import {
   Building2, Wrench, Bus, Shield, Siren, Landmark, Vote,
   Flag, Home, Droplet, Construction, Hospital, Building,
   School, University, Baby as BabyIcon, Smile, Drum, Cake,
-  Calendar as CalendarIcon, Star, Mic2, ShoppingCart, Download, FileText, Sheet, MoreVertical
+  Calendar as CalendarIcon, Star, Mic2, ShoppingCart, Download, FileText, Sheet, MoreVertical, QrCode
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -39,6 +39,7 @@ import pdfMake from "pdfmake/build/pdfmake";
 import * as pdfFonts from "pdfmake/build/vfs_fonts";
 import * as XLSX from 'xlsx';
 import logoUrl from "@assets/logo pol_1763308638963_1763559095972.png";
+import { QRCodeSVG } from 'qrcode.react';
 
 (pdfMake as any).vfs = pdfFonts;
 
@@ -229,6 +230,7 @@ export default function Contacts() {
   const [selectedInterest, setSelectedInterest] = useState<string>("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
+  const [isQrCodeDialogOpen, setIsQrCodeDialogOpen] = useState(false);
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [isStateFocused, setIsStateFocused] = useState(false);
@@ -636,6 +638,15 @@ export default function Contacts() {
           <Button 
             variant="outline"
             size="icon"
+            onClick={() => setIsQrCodeDialogOpen(true)}
+            data-testid="button-qr-code"
+            title="Compartilhar QR Code de apoio"
+          >
+            <QrCode className="w-4 h-4" />
+          </Button>
+          <Button 
+            variant="outline"
+            size="icon"
             onClick={handleBulkEmail}
             data-testid="button-bulk-email"
             title="Enviar email em massa"
@@ -728,6 +739,97 @@ export default function Contacts() {
                     </CardContent>
                   </Card>
                 </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+          <Dialog open={isQrCodeDialogOpen} onOpenChange={setIsQrCodeDialogOpen}>
+            <DialogContent className="max-w-md p-0" aria-describedby="qr-code-dialog-description">
+              <DialogHeader className="px-6 pt-6 pb-4 border-b">
+                <DialogTitle className="text-xl font-bold">QR Code de Apoio</DialogTitle>
+                <p id="qr-code-dialog-description" className="text-sm text-muted-foreground mt-1">
+                  Compartilhe este QR Code para que apoiadores se cadastrem automaticamente
+                </p>
+              </DialogHeader>
+              <div className="p-6 space-y-6">
+                {adminData?.slug ? (
+                  <>
+                    <div className="flex justify-center p-6 bg-white dark:bg-gray-100 rounded-lg">
+                      <QRCodeSVG
+                        value={`https://www.politicall.com.br/apoio/${adminData.slug}`}
+                        size={256}
+                        level="H"
+                        includeMargin={true}
+                      />
+                    </div>
+                    <div className="space-y-3">
+                      <div className="p-3 bg-muted rounded-lg">
+                        <p className="text-xs text-muted-foreground mb-1">URL de Cadastro Público:</p>
+                        <p className="text-sm font-mono break-all font-semibold">
+                          www.politicall.com.br/apoio/{adminData.slug}
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          className="flex-1"
+                          onClick={() => {
+                            navigator.clipboard.writeText(`https://www.politicall.com.br/apoio/${adminData.slug}`);
+                            toast({ title: "URL copiada com sucesso!" });
+                          }}
+                          data-testid="button-copy-qr-url"
+                        >
+                          <Copy className="w-4 h-4 mr-2" />
+                          Copiar URL
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="flex-1"
+                          onClick={() => {
+                            const svg = document.querySelector('#qr-code-dialog-description')?.parentElement?.parentElement?.querySelector('svg');
+                            if (svg) {
+                              const svgData = new XMLSerializer().serializeToString(svg);
+                              const canvas = document.createElement('canvas');
+                              const ctx = canvas.getContext('2d');
+                              const img = new Image();
+                              img.onload = () => {
+                                canvas.width = img.width;
+                                canvas.height = img.height;
+                                ctx?.drawImage(img, 0, 0);
+                                const pngFile = canvas.toDataURL('image/png');
+                                const downloadLink = document.createElement('a');
+                                downloadLink.download = `qr-code-apoio-${adminData.slug}.png`;
+                                downloadLink.href = pngFile;
+                                downloadLink.click();
+                              };
+                              img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
+                            }
+                            toast({ title: "QR Code baixado com sucesso!" });
+                          }}
+                          data-testid="button-download-qr"
+                        >
+                          <Download className="w-4 h-4 mr-2" />
+                          Baixar QR Code
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-800">
+                      <p className="text-xs text-blue-800 dark:text-blue-200">
+                        <strong>Como funciona:</strong> Quando alguém escanear este QR Code ou acessar a URL, 
+                        verá uma página profissional com sua foto e poderá se cadastrar como apoiador automaticamente, 
+                        sem precisar de login no sistema.
+                      </p>
+                    </div>
+                  </>
+                ) : (
+                  <div className="p-6 text-center space-y-3">
+                    <div className="w-16 h-16 mx-auto bg-yellow-100 dark:bg-yellow-900/30 rounded-full flex items-center justify-center">
+                      <QrCode className="w-8 h-8 text-yellow-600 dark:text-yellow-400" />
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Para gerar o QR Code, você precisa primeiro configurar um nome de usuário (slug) único nas configurações.
+                    </p>
+                  </div>
+                )}
               </div>
             </DialogContent>
           </Dialog>
