@@ -1073,15 +1073,16 @@ export default function Settings() {
                         name="clientId"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Client ID</FormLabel>
+                            <FormLabel className="text-xs">Client ID</FormLabel>
                             <FormControl>
                               <Input 
                                 placeholder="Digite o Client ID do Google OAuth" 
                                 {...field}
                                 data-testid="input-google-client-id"
+                                className="text-xs"
                               />
                             </FormControl>
-                            <FormMessage />
+                            <FormMessage className="text-xs" />
                           </FormItem>
                         )}
                       />
@@ -1091,19 +1092,20 @@ export default function Settings() {
                         name="clientSecret"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Client Secret</FormLabel>
+                            <FormLabel className="text-xs">Client Secret</FormLabel>
                             <FormControl>
                               <Input 
                                 type="password"
                                 placeholder="Digite o Client Secret do Google OAuth" 
                                 {...field}
                                 data-testid="input-google-client-secret"
+                                className="text-xs"
                               />
                             </FormControl>
-                            <FormDescription>
+                            <FormDescription className="text-xs">
                               O Client Secret será criptografado antes de ser armazenado
                             </FormDescription>
-                            <FormMessage />
+                            <FormMessage className="text-xs" />
                           </FormItem>
                         )}
                       />
@@ -1113,18 +1115,19 @@ export default function Settings() {
                         name="redirectUri"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Redirect URI</FormLabel>
+                            <FormLabel className="text-xs">Redirect URI</FormLabel>
                             <FormControl>
                               <Input 
                                 {...field}
                                 disabled
                                 data-testid="input-google-redirect-uri"
+                                className="text-xs"
                               />
                             </FormControl>
-                            <FormDescription>
+                            <FormDescription className="text-xs">
                               Este é o URI que deve ser configurado no Google Cloud Console
                             </FormDescription>
-                            <FormMessage />
+                            <FormMessage className="text-xs" />
                           </FormItem>
                         )}
                       />
@@ -1132,17 +1135,17 @@ export default function Settings() {
                       <Separator />
 
                       <div className="space-y-4">
-                        <p className="text-sm font-medium">Preferências de Sincronização</p>
+                        <p className="text-xs font-medium">Preferências de Sincronização</p>
                         
                         <FormField
                           control={googleCalendarForm.control}
                           name="syncDirection"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Direção da Sincronização</FormLabel>
+                              <FormLabel className="text-xs">Direção da Sincronização</FormLabel>
                               <Select onValueChange={field.onChange} value={field.value}>
                                 <FormControl>
-                                  <SelectTrigger className="rounded-full" data-testid="select-sync-direction">
+                                  <SelectTrigger className="rounded-full text-xs" data-testid="select-sync-direction">
                                     <SelectValue placeholder="Selecione a direção" />
                                   </SelectTrigger>
                                 </FormControl>
@@ -1152,10 +1155,10 @@ export default function Settings() {
                                   <SelectItem value="both">Bidirecional</SelectItem>
                                 </SelectContent>
                               </Select>
-                              <FormDescription>
+                              <FormDescription className="text-xs">
                                 Define se os eventos serão sincronizados para o Google, do Google ou em ambas as direções
                               </FormDescription>
-                              <FormMessage />
+                              <FormMessage className="text-xs" />
                             </FormItem>
                           )}
                         />
@@ -1164,12 +1167,12 @@ export default function Settings() {
                           control={googleCalendarForm.control}
                           name="autoCreateMeet"
                           render={({ field }) => (
-                            <FormItem className="flex items-center justify-between rounded-lg border p-4">
+                            <FormItem className="flex items-center justify-between rounded-lg border p-3">
                               <div className="space-y-0.5">
-                                <FormLabel className="text-base">
+                                <FormLabel className="text-xs">
                                   Google Meet Automático
                                 </FormLabel>
-                                <FormDescription>
+                                <FormDescription className="text-xs">
                                   Criar automaticamente links do Google Meet para novos eventos
                                 </FormDescription>
                               </div>
@@ -1188,12 +1191,12 @@ export default function Settings() {
                           control={googleCalendarForm.control}
                           name="syncReminders"
                           render={({ field }) => (
-                            <FormItem className="flex items-center justify-between rounded-lg border p-4">
+                            <FormItem className="flex items-center justify-between rounded-lg border p-3">
                               <div className="space-y-0.5">
-                                <FormLabel className="text-base">
+                                <FormLabel className="text-xs">
                                   Sincronizar Lembretes
                                 </FormLabel>
-                                <FormDescription>
+                                <FormDescription className="text-xs">
                                   Incluir lembretes ao sincronizar eventos
                                 </FormDescription>
                               </div>
@@ -1249,19 +1252,19 @@ export default function Settings() {
                     {/* Status Display */}
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium">Status:</span>
+                        <span className="text-xs font-medium">Status:</span>
                         {googleCalendarConfig.isAuthorized ? (
-                          <Badge variant="default" className="rounded-full">
+                          <Badge variant="default" className="rounded-full text-xs">
                             <CheckCircle2 className="w-3 h-3 mr-1" />
                             Conectado
                           </Badge>
                         ) : googleCalendarConfig.isConfigured ? (
-                          <Badge variant="secondary" className="rounded-full">
+                          <Badge variant="secondary" className="rounded-full text-xs">
                             <AlertCircle className="w-3 h-3 mr-1" />
                             Configurado (não autorizado)
                           </Badge>
                         ) : (
-                          <Badge variant="outline" className="rounded-full">
+                          <Badge variant="outline" className="rounded-full text-xs">
                             <XCircle className="w-3 h-3 mr-1" />
                             Não configurado
                           </Badge>
@@ -1270,15 +1273,15 @@ export default function Settings() {
 
                       {googleCalendarConfig.email && (
                         <div className="flex items-center justify-between">
-                          <span className="text-sm font-medium">Conta Google:</span>
-                          <span className="text-sm text-muted-foreground">{googleCalendarConfig.email}</span>
+                          <span className="text-xs font-medium">Conta Google:</span>
+                          <span className="text-xs text-muted-foreground">{googleCalendarConfig.email}</span>
                         </div>
                       )}
 
                       {googleCalendarConfig.lastSyncAt && (
                         <div className="flex items-center justify-between">
-                          <span className="text-sm font-medium">Última Sincronização:</span>
-                          <span className="text-sm text-muted-foreground">
+                          <span className="text-xs font-medium">Última Sincronização:</span>
+                          <span className="text-xs text-muted-foreground">
                             {format(new Date(googleCalendarConfig.lastSyncAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
                           </span>
                         </div>
@@ -1362,7 +1365,7 @@ export default function Settings() {
                     {!googleCalendarConfig.isConfigured && (
                       <Alert>
                         <AlertCircle className="h-4 w-4" />
-                        <AlertDescription>
+                        <AlertDescription className="text-xs">
                           Configure as credenciais OAuth acima para começar a usar a integração com Google Calendar.
                         </AlertDescription>
                       </Alert>
@@ -1371,7 +1374,7 @@ export default function Settings() {
                 ) : (
                   <Alert>
                     <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>
+                    <AlertDescription className="text-xs">
                       Nenhuma configuração encontrada. Configure as credenciais OAuth acima para começar.
                     </AlertDescription>
                   </Alert>
