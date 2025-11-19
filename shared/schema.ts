@@ -789,8 +789,8 @@ export const insertSurveyResponseSchema = createInsertSchema(surveyResponses).om
 
 // API Keys - External API integration
 export const apiKeys = pgTable("api_keys", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  accountId: uuid("account_id").notNull().references(() => accounts.id, { onDelete: 'cascade' }),
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  accountId: varchar("account_id").notNull().references(() => accounts.id, { onDelete: 'cascade' }),
   name: text("name").notNull(),
   description: text("description"),
   keyPrefix: text("key_prefix").notNull(), // First 8 chars to help identify the key
@@ -802,8 +802,8 @@ export const apiKeys = pgTable("api_keys", {
 });
 
 export const apiKeyUsage = pgTable("api_key_usage", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  apiKeyId: uuid("api_key_id").notNull().references(() => apiKeys.id, { onDelete: 'cascade' }),
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  apiKeyId: varchar("api_key_id").notNull().references(() => apiKeys.id, { onDelete: 'cascade' }),
   endpoint: text("endpoint").notNull(),
   method: text("method").notNull(),
   ipAddress: text("ip_address"),
