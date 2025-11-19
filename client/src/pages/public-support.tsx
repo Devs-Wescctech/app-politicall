@@ -272,14 +272,7 @@ export default function PublicSupport() {
         {/* Candidate Profile */}
         <div className="text-center space-y-6 mb-8 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md rounded-lg p-8 shadow-xl">
           <div className="flex flex-col items-center gap-4">
-            <Avatar 
-              className="w-32 h-32 shadow-lg ring-4 ring-white/50"
-              style={{ 
-                borderWidth: '4px',
-                borderStyle: 'solid',
-                borderImage: `${getPartyGradient(candidateData.party?.acronym)} 1`
-              }}
-            >
+            <Avatar className="w-32 h-32 shadow-lg">
               <AvatarImage src={candidateData.avatar} alt={candidateData.name} />
               <AvatarFallback className="text-3xl">{candidateData.name?.charAt(0)}</AvatarFallback>
             </Avatar>
