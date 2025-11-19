@@ -229,6 +229,7 @@ export default function Contacts() {
   const [selectedCity, setSelectedCity] = useState<string>("");
   const [selectedState, setSelectedState] = useState<string>("");
   const [selectedInterest, setSelectedInterest] = useState<string>("");
+  const [selectedSource, setSelectedSource] = useState<string>("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
   const [isQrCodeDialogOpen, setIsQrCodeDialogOpen] = useState(false);
@@ -237,6 +238,7 @@ export default function Contacts() {
   const [isStateFocused, setIsStateFocused] = useState(false);
   const [isCityFocused, setIsCityFocused] = useState(false);
   const [isInterestFocused, setIsInterestFocused] = useState(false);
+  const [isSourceFocused, setIsSourceFocused] = useState(false);
   const { toast } = useToast();
 
   const { data: contacts, isLoading } = useQuery<Contact[]>({
@@ -284,6 +286,13 @@ export default function Contacts() {
     if (!contacts) return [];
     const uniqueStates = Array.from(new Set(contacts.map(c => c.state).filter((state): state is string => Boolean(state))));
     return uniqueStates.sort();
+  }, [contacts]);
+
+  // Extract unique sources from contacts
+  const sources = useMemo(() => {
+    if (!contacts) return [];
+    const uniqueSources = Array.from(new Set(contacts.map(c => c.source).filter((source): source is string => Boolean(source))));
+    return uniqueSources.sort();
   }, [contacts]);
 
   const getUniqueCities = () => {
@@ -369,7 +378,7 @@ export default function Contacts() {
     }
   };
 
-  // Filter contacts based on search query, city, state, and interests
+  // Filter contacts based on search query, city, state, interests, and source
   const filteredContacts = useMemo(() => {
     if (!contacts) return [];
     
@@ -382,10 +391,11 @@ export default function Contacts() {
       const matchesCity = !selectedCity || contact.city === selectedCity;
       const matchesState = !selectedState || contact.state === selectedState;
       const matchesInterest = !selectedInterest || contact.interests?.includes(selectedInterest);
+      const matchesSource = !selectedSource || contact.source === selectedSource;
       
-      return matchesSearch && matchesCity && matchesState && matchesInterest;
+      return matchesSearch && matchesCity && matchesState && matchesInterest && matchesSource;
     });
-  }, [contacts, searchQuery, selectedCity, selectedState, selectedInterest]);
+  }, [contacts, searchQuery, selectedCity, selectedState, selectedInterest, selectedSource]);
 
   const handleBulkEmail = () => {
     const emailAddresses = contacts?.filter(c => c.email).map(c => c.email).join(',');
@@ -1161,7 +1171,7 @@ export default function Contacts() {
             <div className="relative transition-all duration-300 ease-in-out" style={{
               width: isSearchFocused 
                 ? '600px' 
-                : (isStateFocused || isCityFocused || isInterestFocused) 
+                : (isStateFocused || isCityFocused || isInterestFocused || isSourceFocused) 
                   ? '200px' 
                   : '350px'
             }}>
@@ -1232,6 +1242,26 @@ export default function Contacts() {
                 {CONTACT_INTERESTS.map((interest) => (
                   <SelectItem key={interest} value={interest}>
                     {interest}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select 
+              value={selectedSource} 
+              onValueChange={(value) => setSelectedSource(value === "all" ? "" : value)}
+              onOpenChange={(open) => setIsSourceFocused(open)}
+            >
+              <SelectTrigger 
+                className={`rounded-full transition-all duration-300 ${isSourceFocused ? 'w-[240px]' : 'w-[180px]'}`} 
+                data-testid="select-source-filter"
+              >
+                <SelectValue placeholder="Fonte" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas as fontes</SelectItem>
+                {sources.map((source) => (
+                  <SelectItem key={source} value={source}>
+                    {source}
                   </SelectItem>
                 ))}
               </SelectContent>
