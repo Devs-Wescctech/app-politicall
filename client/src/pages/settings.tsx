@@ -7,12 +7,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
-import { User, Edit, Camera, Key, Copy, Trash2, Calendar, Clock, CheckCircle2, XCircle, Plus, Code2, AlertCircle, Terminal, Globe, ChevronDown } from "lucide-react";
+import { User, Edit, Camera, Key, Copy, Trash2, Calendar, Clock, CheckCircle2, XCircle, Plus, Code2, AlertCircle, Terminal, Globe, ChevronDown, ExternalLink, RefreshCw, Settings2, Link } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { getAuthUser } from "@/lib/auth";
 import { useForm } from "react-hook-form";
@@ -71,8 +72,18 @@ const apiKeySchema = z.object({
   description: z.string().optional(),
 });
 
+const googleCalendarSchema = z.object({
+  clientId: z.string().min(1, "Client ID é obrigatório"),
+  clientSecret: z.string().min(1, "Client Secret é obrigatório"),
+  redirectUri: z.string().min(1, "Redirect URI é obrigatório"),
+  syncDirection: z.enum(["to_google", "from_google", "both"]).default("both"),
+  autoCreateMeet: z.boolean().default(false),
+  syncReminders: z.boolean().default(true),
+});
+
 type ProfileForm = z.infer<typeof profileSchema>;
 type ApiKeyForm = z.infer<typeof apiKeySchema>;
+type GoogleCalendarForm = z.infer<typeof googleCalendarSchema>;
 
 export default function Settings() {
   const user = getAuthUser();
@@ -85,6 +96,8 @@ export default function Settings() {
   const [copiedKeyId, setCopiedKeyId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("profile");
   const [isDocumentationOpen, setIsDocumentationOpen] = useState(false);
+  const [showGoogleAuthDialog, setShowGoogleAuthDialog] = useState(false);
+  const [isAuthorizing, setIsAuthorizing] = useState(false);
 
   const { data: parties } = useQuery<PoliticalParty[]>({
     queryKey: ["/api/parties"],
@@ -109,6 +122,27 @@ export default function Settings() {
   const { data: apiKeys, isLoading: loadingKeys } = useQuery<ApiKey[]>({
     queryKey: ["/api/keys"],
     enabled: activeTab === "api",
+  });
+
+  const { data: googleCalendarConfig, isLoading: loadingGoogleCalendar } = useQuery<{
+    id?: string;
+    accountId?: string;
+    clientId?: string;
+    redirectUri?: string;
+    email?: string;
+    calendarId?: string;
+    syncEnabled?: boolean;
+    lastSyncAt?: string;
+    syncDirection?: string;
+    autoCreateMeet?: boolean;
+    syncReminders?: boolean;
+    isConfigured?: boolean;
+    isAuthorized?: boolean;
+    createdAt?: string;
+    updatedAt?: string;
+  } | null>({
+    queryKey: ["/api/google-calendar"],
+    enabled: activeTab === "google-calendar",
   });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -138,6 +172,18 @@ export default function Settings() {
     defaultValues: {
       name: "",
       description: "",
+    },
+  });
+
+  const googleCalendarForm = useForm<GoogleCalendarForm>({
+    resolver: zodResolver(googleCalendarSchema),
+    defaultValues: {
+      clientId: googleCalendarConfig?.clientId || "",
+      clientSecret: "",
+      redirectUri: "https://www.politicall.com.br/api/google-calendar/callback",
+      syncDirection: (googleCalendarConfig?.syncDirection as "to_google" | "from_google" | "both") || "both",
+      autoCreateMeet: googleCalendarConfig?.autoCreateMeet || false,
+      syncReminders: googleCalendarConfig?.syncReminders !== false,
     },
   });
 
@@ -221,6 +267,94 @@ export default function Settings() {
     },
   });
 
+  const saveGoogleCalendarMutation = useMutation({
+    mutationFn: async (data: GoogleCalendarForm) => {
+      return await apiRequest("POST", "/api/google-calendar", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/google-calendar"] });
+      toast({
+        title: "Sucesso",
+        description: "Credenciais do Google Calendar salvas com sucesso",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: error.message || "Erro ao salvar credenciais",
+      });
+    },
+  });
+
+  const authorizeGoogleCalendarMutation = useMutation<{ authUrl: string }, Error, void>({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/google-calendar/auth", {});
+      return await response.json();
+    },
+    onSuccess: (data) => {
+      setIsAuthorizing(true);
+      // Open Google OAuth in a new window
+      const authWindow = window.open(data.authUrl, "_blank", "width=600,height=600");
+      
+      // Check if the window closed or the user came back
+      const checkInterval = setInterval(() => {
+        if (authWindow?.closed) {
+          clearInterval(checkInterval);
+          setIsAuthorizing(false);
+          queryClient.invalidateQueries({ queryKey: ["/api/google-calendar"] });
+        }
+      }, 1000);
+    },
+    onError: (error: any) => {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: error.message || "Erro ao iniciar autorização",
+      });
+    },
+  });
+
+  const disconnectGoogleCalendarMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("DELETE", "/api/google-calendar", {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/google-calendar"] });
+      toast({
+        title: "Sucesso",
+        description: "Integração com Google Calendar removida",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: error.message || "Erro ao desconectar",
+      });
+    },
+  });
+
+  const syncGoogleCalendarMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("POST", "/api/google-calendar/sync", {});
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/google-calendar"] });
+      toast({
+        title: "Sucesso",
+        description: data.message || "Sincronização concluída",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: error.message || "Erro ao sincronizar",
+      });
+    },
+  });
+
   const deleteApiKeyMutation = useMutation({
     mutationFn: async (id: string) => {
       return await apiRequest("DELETE", `/api/keys/${id}`);
@@ -282,6 +416,10 @@ export default function Settings() {
 
   const onSubmitApiKey = (data: ApiKeyForm) => {
     createApiKeyMutation.mutate(data);
+  };
+
+  const onSubmitGoogleCalendar = (data: GoogleCalendarForm) => {
+    saveGoogleCalendarMutation.mutate(data);
   };
 
   const copyToClipboard = async (text: string, keyId?: string) => {
@@ -364,10 +502,14 @@ export default function Settings() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full max-w-md grid-cols-2 rounded-full p-1">
+        <TabsList className="grid w-full max-w-lg grid-cols-3 rounded-full p-1">
           <TabsTrigger value="profile" data-testid="tab-profile" className="rounded-full">
             <User className="w-4 h-4 mr-2" />
             Perfil
+          </TabsTrigger>
+          <TabsTrigger value="google-calendar" data-testid="tab-google-calendar" className="rounded-full">
+            <Calendar className="w-4 h-4 mr-2" />
+            Google Calendar
           </TabsTrigger>
           <TabsTrigger value="api" data-testid="tab-api" className="rounded-full">
             <Key className="w-4 h-4 mr-2" />
@@ -813,6 +955,428 @@ export default function Settings() {
                   </CardContent>
                 </CollapsibleContent>
               </Collapsible>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="google-calendar" className="space-y-6 mt-6">
+          <div className="grid gap-6">
+            {/* Setup Instructions Card */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <ExternalLink className="w-5 h-5 mr-2" />
+                  Instruções de Configuração
+                </CardTitle>
+                <CardDescription>
+                  Configure a integração com o Google Calendar seguindo estes passos
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-3">
+                  <div className="flex gap-3">
+                    <div className="flex-shrink-0 w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center text-sm font-semibold">1</div>
+                    <div className="space-y-1">
+                      <p className="font-medium">Acesse o Google Cloud Console</p>
+                      <p className="text-sm text-muted-foreground">
+                        Vá para <a href="https://console.cloud.google.com/" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">console.cloud.google.com</a> e crie um novo projeto ou selecione um existente
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <div className="flex-shrink-0 w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center text-sm font-semibold">2</div>
+                    <div className="space-y-1">
+                      <p className="font-medium">Ative a Google Calendar API</p>
+                      <p className="text-sm text-muted-foreground">
+                        No menu lateral, vá para "APIs e Serviços" → "Biblioteca" e procure por "Google Calendar API". Clique em "Ativar"
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <div className="flex-shrink-0 w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center text-sm font-semibold">3</div>
+                    <div className="space-y-1">
+                      <p className="font-medium">Crie as credenciais OAuth 2.0</p>
+                      <p className="text-sm text-muted-foreground">
+                        Vá para "Credenciais" → "Criar credenciais" → "ID do cliente OAuth". Escolha "Aplicativo da Web"
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <div className="flex-shrink-0 w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center text-sm font-semibold">4</div>
+                    <div className="space-y-1">
+                      <p className="font-medium">Configure o Redirect URI</p>
+                      <div className="mt-2 p-3 bg-muted rounded-lg">
+                        <p className="text-xs font-mono break-all">https://www.politicall.com.br/api/google-calendar/callback</p>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="mt-2 rounded-full"
+                          onClick={() => copyToClipboard("https://www.politicall.com.br/api/google-calendar/callback")}
+                          data-testid="button-copy-redirect-uri"
+                        >
+                          <Copy className="w-3 h-3 mr-2" />
+                          Copiar
+                        </Button>
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-2">
+                        Adicione este URI exato em "URIs de redirecionamento autorizados"
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <div className="flex-shrink-0 w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center text-sm font-semibold">5</div>
+                    <div className="space-y-1">
+                      <p className="font-medium">Copie as credenciais</p>
+                      <p className="text-sm text-muted-foreground">
+                        Após criar, copie o "Client ID" e "Client Secret" e cole nos campos abaixo
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <Alert>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription className="text-sm">
+                    <strong>Importante:</strong> Esta é uma configuração única por conta. Cada gabinete deve fornecer suas próprias credenciais do Google.
+                  </AlertDescription>
+                </Alert>
+              </CardContent>
+            </Card>
+
+            {/* Configuration Form Card */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Settings2 className="w-5 h-5 mr-2" />
+                  Configuração de Credenciais
+                </CardTitle>
+                <CardDescription>
+                  Insira as credenciais OAuth do seu projeto Google Cloud
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {loadingGoogleCalendar ? (
+                  <div className="space-y-4">
+                    <Skeleton className="h-10 w-full" />
+                    <Skeleton className="h-10 w-full" />
+                    <Skeleton className="h-10 w-full" />
+                  </div>
+                ) : (
+                  <Form {...googleCalendarForm}>
+                    <form onSubmit={googleCalendarForm.handleSubmit(onSubmitGoogleCalendar)} className="space-y-4">
+                      <FormField
+                        control={googleCalendarForm.control}
+                        name="clientId"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Client ID</FormLabel>
+                            <FormControl>
+                              <Input 
+                                placeholder="Digite o Client ID do Google OAuth" 
+                                {...field}
+                                data-testid="input-google-client-id"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={googleCalendarForm.control}
+                        name="clientSecret"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Client Secret</FormLabel>
+                            <FormControl>
+                              <Input 
+                                type="password"
+                                placeholder="Digite o Client Secret do Google OAuth" 
+                                {...field}
+                                data-testid="input-google-client-secret"
+                              />
+                            </FormControl>
+                            <FormDescription>
+                              O Client Secret será criptografado antes de ser armazenado
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={googleCalendarForm.control}
+                        name="redirectUri"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Redirect URI</FormLabel>
+                            <FormControl>
+                              <Input 
+                                {...field}
+                                disabled
+                                data-testid="input-google-redirect-uri"
+                              />
+                            </FormControl>
+                            <FormDescription>
+                              Este é o URI que deve ser configurado no Google Cloud Console
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <Separator />
+
+                      <div className="space-y-4">
+                        <p className="text-sm font-medium">Preferências de Sincronização</p>
+                        
+                        <FormField
+                          control={googleCalendarForm.control}
+                          name="syncDirection"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Direção da Sincronização</FormLabel>
+                              <Select onValueChange={field.onChange} value={field.value}>
+                                <FormControl>
+                                  <SelectTrigger className="rounded-full" data-testid="select-sync-direction">
+                                    <SelectValue placeholder="Selecione a direção" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  <SelectItem value="to_google">Para o Google Calendar</SelectItem>
+                                  <SelectItem value="from_google">Do Google Calendar</SelectItem>
+                                  <SelectItem value="both">Bidirecional</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <FormDescription>
+                                Define se os eventos serão sincronizados para o Google, do Google ou em ambas as direções
+                              </FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={googleCalendarForm.control}
+                          name="autoCreateMeet"
+                          render={({ field }) => (
+                            <FormItem className="flex items-center justify-between rounded-lg border p-4">
+                              <div className="space-y-0.5">
+                                <FormLabel className="text-base">
+                                  Google Meet Automático
+                                </FormLabel>
+                                <FormDescription>
+                                  Criar automaticamente links do Google Meet para novos eventos
+                                </FormDescription>
+                              </div>
+                              <FormControl>
+                                <Switch
+                                  checked={field.value}
+                                  onCheckedChange={field.onChange}
+                                  data-testid="switch-auto-meet"
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={googleCalendarForm.control}
+                          name="syncReminders"
+                          render={({ field }) => (
+                            <FormItem className="flex items-center justify-between rounded-lg border p-4">
+                              <div className="space-y-0.5">
+                                <FormLabel className="text-base">
+                                  Sincronizar Lembretes
+                                </FormLabel>
+                                <FormDescription>
+                                  Incluir lembretes ao sincronizar eventos
+                                </FormDescription>
+                              </div>
+                              <FormControl>
+                                <Switch
+                                  checked={field.value}
+                                  onCheckedChange={field.onChange}
+                                  data-testid="switch-sync-reminders"
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+
+                      <Button 
+                        type="submit" 
+                        className="w-full rounded-full"
+                        disabled={saveGoogleCalendarMutation.isPending}
+                        data-testid="button-save-google-credentials"
+                      >
+                        {saveGoogleCalendarMutation.isPending ? (
+                          <>
+                            <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                            Salvando...
+                          </>
+                        ) : (
+                          "Salvar Credenciais"
+                        )}
+                      </Button>
+                    </form>
+                  </Form>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Connection Status Card */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Link className="w-5 h-5 mr-2" />
+                  Status da Conexão
+                </CardTitle>
+                <CardDescription>
+                  Gerencie a conexão com sua conta Google
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {loadingGoogleCalendar ? (
+                  <Skeleton className="h-20 w-full" />
+                ) : googleCalendarConfig ? (
+                  <>
+                    {/* Status Display */}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium">Status:</span>
+                        {googleCalendarConfig.isAuthorized ? (
+                          <Badge variant="default" className="rounded-full">
+                            <CheckCircle2 className="w-3 h-3 mr-1" />
+                            Conectado
+                          </Badge>
+                        ) : googleCalendarConfig.isConfigured ? (
+                          <Badge variant="secondary" className="rounded-full">
+                            <AlertCircle className="w-3 h-3 mr-1" />
+                            Configurado (não autorizado)
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="rounded-full">
+                            <XCircle className="w-3 h-3 mr-1" />
+                            Não configurado
+                          </Badge>
+                        )}
+                      </div>
+
+                      {googleCalendarConfig.email && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium">Conta Google:</span>
+                          <span className="text-sm text-muted-foreground">{googleCalendarConfig.email}</span>
+                        </div>
+                      )}
+
+                      {googleCalendarConfig.lastSyncAt && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium">Última Sincronização:</span>
+                          <span className="text-sm text-muted-foreground">
+                            {format(new Date(googleCalendarConfig.lastSyncAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    <Separator />
+
+                    {/* Action Buttons */}
+                    <div className="space-y-2">
+                      {googleCalendarConfig.isConfigured && !googleCalendarConfig.isAuthorized && (
+                        <Button
+                          onClick={() => authorizeGoogleCalendarMutation.mutate()}
+                          disabled={authorizeGoogleCalendarMutation.isPending || isAuthorizing}
+                          className="w-full rounded-full"
+                          data-testid="button-authorize-google"
+                        >
+                          {authorizeGoogleCalendarMutation.isPending || isAuthorizing ? (
+                            <>
+                              <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                              Autorizando...
+                            </>
+                          ) : (
+                            <>
+                              <ExternalLink className="w-4 h-4 mr-2" />
+                              Autorizar com Google
+                            </>
+                          )}
+                        </Button>
+                      )}
+
+                      {googleCalendarConfig.isAuthorized && (
+                        <>
+                          <Button
+                            onClick={() => syncGoogleCalendarMutation.mutate()}
+                            disabled={syncGoogleCalendarMutation.isPending}
+                            variant="outline"
+                            className="w-full rounded-full"
+                            data-testid="button-sync-calendar"
+                          >
+                            {syncGoogleCalendarMutation.isPending ? (
+                              <>
+                                <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                                Sincronizando...
+                              </>
+                            ) : (
+                              <>
+                                <RefreshCw className="w-4 h-4 mr-2" />
+                                Sincronizar Agora
+                              </>
+                            )}
+                          </Button>
+
+                          <Button
+                            onClick={() => {
+                              if (confirm("Tem certeza que deseja desconectar sua conta Google? Você precisará autorizar novamente para sincronizar eventos.")) {
+                                disconnectGoogleCalendarMutation.mutate();
+                              }
+                            }}
+                            disabled={disconnectGoogleCalendarMutation.isPending}
+                            variant="destructive"
+                            className="w-full rounded-full"
+                            data-testid="button-disconnect-google"
+                          >
+                            {disconnectGoogleCalendarMutation.isPending ? (
+                              <>
+                                <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                                Desconectando...
+                              </>
+                            ) : (
+                              <>
+                                <XCircle className="w-4 h-4 mr-2" />
+                                Desconectar
+                              </>
+                            )}
+                          </Button>
+                        </>
+                      )}
+                    </div>
+
+                    {!googleCalendarConfig.isConfigured && (
+                      <Alert>
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertDescription>
+                          Configure as credenciais OAuth acima para começar a usar a integração com Google Calendar.
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                  </>
+                ) : (
+                  <Alert>
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>
+                      Nenhuma configuração encontrada. Configure as credenciais OAuth acima para começar.
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </CardContent>
             </Card>
           </div>
         </TabsContent>

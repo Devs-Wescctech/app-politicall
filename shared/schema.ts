@@ -676,6 +676,7 @@ export const insertUserSchema = createInsertSchema(users).pick({
     marketing: z.boolean(),
     petitions: z.boolean(),
     users: z.boolean(),
+    settings: z.boolean(),
   }).optional(),
   phone: z.string().optional(),
   avatar: z.string().optional(),

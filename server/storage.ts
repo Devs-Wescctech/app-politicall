@@ -36,7 +36,7 @@ export interface IStorage {
   // Users
   getUser(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
+  createUser(user: InsertUser & { accountId: string }): Promise<User>;
   getAllUsers(accountId: string): Promise<User[]>;
   updateUser(id: string, accountId: string, user: Partial<Omit<User, "id" | "password" | "createdAt">>): Promise<User>;
   deleteUser(id: string, accountId: string): Promise<void>;
@@ -117,7 +117,7 @@ export interface IStorage {
   // Notifications
   getNotifications(userId: string, accountId: string, limit?: number): Promise<Notification[]>;
   getUnreadCount(userId: string, accountId: string): Promise<number>;
-  createNotification(notification: InsertNotification & { userId: string }): Promise<Notification>;
+  createNotification(notification: InsertNotification & { userId: string; accountId: string }): Promise<Notification>;
   markAsRead(id: string, userId: string, accountId: string): Promise<Notification | null>;
   markAllAsRead(userId: string, accountId: string): Promise<void>;
   deleteNotification(id: string, userId: string, accountId: string): Promise<boolean>;
@@ -188,8 +188,8 @@ export class DatabaseStorage implements IStorage {
     return user || undefined;
   }
 
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const [user] = await db.insert(users).values(insertUser).returning();
+  async createUser(insertUser: InsertUser & { accountId: string }): Promise<User> {
+    const [user] = await db.insert(users).values([insertUser]).returning();
     return user;
   }
 
@@ -913,8 +913,8 @@ export class DatabaseStorage implements IStorage {
     return result[0]?.count || 0;
   }
 
-  async createNotification(notification: InsertNotification & { userId: string }): Promise<Notification> {
-    const [newNotification] = await db.insert(notifications).values(notification).returning();
+  async createNotification(notification: InsertNotification & { userId: string; accountId: string }): Promise<Notification> {
+    const [newNotification] = await db.insert(notifications).values([notification]).returning();
     return newNotification;
   }
 

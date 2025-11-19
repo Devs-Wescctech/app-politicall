@@ -19,6 +19,7 @@ const DEFAULT_USER_PERMISSIONS: UserPermissions = {
   marketing: false,
   petitions: false,
   users: false,
+  settings: false,
 };
 
 // Extended request interface with user data

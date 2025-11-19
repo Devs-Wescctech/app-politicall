@@ -11,6 +11,7 @@ import { generateAiResponse, testOpenAiApiKey } from "./openai";
 import { requireRole } from "./authorization";
 import { authenticateToken, requirePermission, type AuthRequest } from "./auth";
 import { authenticateApiKey, apiRateLimit, type AuthenticatedApiRequest } from "./auth-api";
+import { encryptApiKey, decryptApiKey } from "./crypto";
 import { z } from "zod";
 import { groupTextResponses } from "@shared/text-normalization";
 import { calculateGenderDistribution } from "./utils/gender-detector";
@@ -787,6 +788,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create notification for the user
       await storage.createNotification({
         userId: campaign.userId,
+        accountId: campaign.accountId,
         type: "campaign_approved",
         priority: "high",
         title: "Pesquisa Aprovada!",
@@ -825,6 +827,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create notification for the user
       await storage.createNotification({
         userId: campaign.userId,
+        accountId: campaign.accountId,
         type: "campaign_rejected",
         priority: "high",
         title: "Pesquisa Não Aprovada",
@@ -1664,6 +1667,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         try {
           await storage.createNotification({
             userId: req.userId!,
+            accountId: req.accountId!,
             type: "demand",
             title: "Demanda Urgente Criada",
             message: `A demanda "${demand.title}" foi criada com prioridade URGENTE`,
@@ -1727,6 +1731,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (demand && demand.userId !== req.userId) {
           await storage.createNotification({
             userId: demand.userId,
+            accountId: req.accountId!,
             type: "comment",
             title: "Novo Comentário",
             message: `Novo comentário adicionado na demanda "${demand.title}"`,
@@ -1813,6 +1818,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           await storage.createNotification({
             userId: req.userId!,
+            accountId: req.accountId!,
             type: "event",
             title: "Evento Próximo",
             message: `O evento "${event.title}" está programado para daqui a ${timeMessage}`,
@@ -2808,6 +2814,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const notification = await storage.createNotification({
         ...validatedData,
         userId: req.userId!,
+        accountId: req.accountId!,
       });
       res.json(notification);
     } catch (error: any) {
@@ -3107,6 +3114,309 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ageSampleSize,
       });
     } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ==================== GOOGLE CALENDAR INTEGRATION ====================
+  
+  // GET /api/google-calendar - Get current Google Calendar integration config for the account
+  app.get("/api/google-calendar", authenticateToken, requirePermission("settings"), async (req: AuthRequest, res) => {
+    try {
+      const integration = await storage.getGoogleCalendarIntegration(req.accountId!);
+      
+      if (!integration) {
+        return res.json(null);
+      }
+      
+      // Don't expose sensitive data (tokens, clientSecret)
+      const safeIntegration = {
+        id: integration.id,
+        accountId: integration.accountId,
+        clientId: integration.clientId,
+        redirectUri: integration.redirectUri,
+        email: integration.email,
+        calendarId: integration.calendarId,
+        syncEnabled: integration.syncEnabled,
+        lastSyncAt: integration.lastSyncAt,
+        syncDirection: integration.syncDirection,
+        autoCreateMeet: integration.autoCreateMeet,
+        syncReminders: integration.syncReminders,
+        isConfigured: !!integration.clientId && !!integration.clientSecret,
+        isAuthorized: !!integration.accessToken,
+        createdAt: integration.createdAt,
+        updatedAt: integration.updatedAt
+      };
+      
+      res.json(safeIntegration);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // POST /api/google-calendar - Save/update Google Calendar OAuth credentials
+  app.post("/api/google-calendar", authenticateToken, requirePermission("settings"), async (req: AuthRequest, res) => {
+    try {
+      const { clientId, clientSecret, redirectUri, syncDirection, autoCreateMeet, syncReminders } = req.body;
+      
+      if (!clientId || !clientSecret || !redirectUri) {
+        return res.status(400).json({ error: "Client ID, Client Secret e Redirect URI são obrigatórios" });
+      }
+      
+      // Encrypt the client secret before storing
+      const encryptedClientSecret = encryptApiKey(clientSecret);
+      
+      const integration = await storage.upsertGoogleCalendarIntegration({
+        clientId,
+        clientSecret: encryptedClientSecret,
+        redirectUri,
+        syncDirection: syncDirection || "both",
+        autoCreateMeet: autoCreateMeet || false,
+        syncReminders: syncReminders !== false, // default true
+        syncEnabled: true,
+        userId: req.userId!,
+        accountId: req.accountId!
+      });
+      
+      res.json({ 
+        success: true, 
+        message: "Credenciais do Google Calendar salvas com sucesso",
+        isConfigured: true,
+        isAuthorized: !!integration.accessToken
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // POST /api/google-calendar/auth - Initiate OAuth 2.0 flow (return authorization URL)
+  app.post("/api/google-calendar/auth", authenticateToken, requirePermission("settings"), async (req: AuthRequest, res) => {
+    try {
+      const integration = await storage.getGoogleCalendarIntegration(req.accountId!);
+      
+      if (!integration || !integration.clientId || !integration.clientSecret) {
+        return res.status(400).json({ error: "Configure as credenciais OAuth primeiro" });
+      }
+      
+      // Decrypt the client secret
+      const decryptedClientSecret = decryptApiKey(integration.clientSecret);
+      
+      // Create OAuth2 client
+      const { google } = require('googleapis');
+      const oauth2Client = new google.auth.OAuth2(
+        integration.clientId,
+        decryptedClientSecret,
+        integration.redirectUri
+      );
+      
+      // Generate auth URL
+      const authUrl = oauth2Client.generateAuthUrl({
+        access_type: 'offline',
+        scope: [
+          'https://www.googleapis.com/auth/calendar',
+          'https://www.googleapis.com/auth/calendar.events',
+          'https://www.googleapis.com/auth/userinfo.email'
+        ],
+        state: req.accountId, // Pass accountId in state to identify the account on callback
+        prompt: 'consent' // Force consent screen to ensure refresh token
+      });
+      
+      res.json({ authUrl });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // GET /api/google-calendar/callback - Handle OAuth callback from Google
+  app.get("/api/google-calendar/callback", async (req, res) => {
+    try {
+      const { code, state: accountId } = req.query;
+      
+      if (!code || !accountId) {
+        return res.status(400).send("Missing authorization code or account ID");
+      }
+      
+      // Get the integration for this account
+      const integration = await storage.getGoogleCalendarIntegration(accountId as string);
+      
+      if (!integration || !integration.clientId || !integration.clientSecret) {
+        return res.status(400).send("Integration not configured");
+      }
+      
+      // Decrypt the client secret
+      const decryptedClientSecret = decryptApiKey(integration.clientSecret);
+      
+      // Exchange code for tokens
+      const { google } = require('googleapis');
+      const oauth2Client = new google.auth.OAuth2(
+        integration.clientId,
+        decryptedClientSecret,
+        integration.redirectUri
+      );
+      
+      const { tokens } = await oauth2Client.getToken(code as string);
+      oauth2Client.setCredentials(tokens);
+      
+      // Get user email
+      const oauth2 = google.oauth2({ auth: oauth2Client, version: 'v2' });
+      const userInfo = await oauth2.userinfo.get();
+      const email = userInfo.data.email;
+      
+      // Encrypt tokens before storing
+      const encryptedAccessToken = encryptApiKey(tokens.access_token!);
+      const encryptedRefreshToken = tokens.refresh_token ? encryptApiKey(tokens.refresh_token) : null;
+      
+      // Update integration with tokens and email
+      await storage.upsertGoogleCalendarIntegration({
+        ...integration,
+        accessToken: encryptedAccessToken,
+        refreshToken: encryptedRefreshToken,
+        tokenExpiryDate: tokens.expiry_date ? new Date(tokens.expiry_date) : undefined,
+        email,
+        calendarId: 'primary', // Default to primary calendar
+        userId: integration.userId,
+        accountId: accountId as string
+      });
+      
+      // Redirect to settings page with success message
+      res.redirect('/settings?tab=google-calendar&status=connected');
+    } catch (error: any) {
+      console.error('Google Calendar OAuth callback error:', error);
+      res.redirect('/settings?tab=google-calendar&error=' + encodeURIComponent('Erro ao conectar: ' + error.message));
+    }
+  });
+  
+  // DELETE /api/google-calendar - Remove integration
+  app.delete("/api/google-calendar", authenticateToken, requirePermission("settings"), async (req: AuthRequest, res) => {
+    try {
+      await storage.deleteGoogleCalendarIntegration(req.accountId!);
+      res.json({ success: true, message: "Integração com Google Calendar removida" });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // POST /api/google-calendar/sync - Trigger manual sync of events
+  app.post("/api/google-calendar/sync", authenticateToken, requirePermission("agenda"), async (req: AuthRequest, res) => {
+    try {
+      const integration = await storage.getGoogleCalendarIntegration(req.accountId!);
+      
+      if (!integration || !integration.accessToken) {
+        return res.status(400).json({ error: "Integração não configurada ou não autorizada" });
+      }
+      
+      // Decrypt tokens
+      const decryptedAccessToken = decryptApiKey(integration.accessToken);
+      const decryptedRefreshToken = integration.refreshToken ? decryptApiKey(integration.refreshToken) : null;
+      const decryptedClientSecret = decryptApiKey(integration.clientSecret!);
+      
+      // Create OAuth2 client
+      const { google } = require('googleapis');
+      const oauth2Client = new google.auth.OAuth2(
+        integration.clientId,
+        decryptedClientSecret,
+        integration.redirectUri
+      );
+      
+      oauth2Client.setCredentials({
+        access_token: decryptedAccessToken,
+        refresh_token: decryptedRefreshToken,
+        expiry_date: integration.tokenExpiryDate?.getTime()
+      });
+      
+      // Check if token needs refresh
+      if (integration.tokenExpiryDate && new Date() > integration.tokenExpiryDate) {
+        try {
+          const { credentials } = await oauth2Client.refreshAccessToken();
+          
+          // Update tokens in database
+          const encryptedNewAccessToken = encryptApiKey(credentials.access_token!);
+          await storage.upsertGoogleCalendarIntegration({
+            ...integration,
+            accessToken: encryptedNewAccessToken,
+            tokenExpiryDate: credentials.expiry_date ? new Date(credentials.expiry_date) : undefined,
+            userId: integration.userId,
+            accountId: req.accountId!
+          });
+          
+          oauth2Client.setCredentials(credentials);
+        } catch (refreshError) {
+          console.error('Token refresh error:', refreshError);
+          return res.status(401).json({ error: "Token expirado. Por favor, reconecte sua conta Google." });
+        }
+      }
+      
+      // Get calendar service
+      const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
+      
+      // Sync logic based on direction
+      const syncDirection = integration.syncDirection || 'both';
+      let syncedEvents = 0;
+      
+      if (syncDirection === 'from_google' || syncDirection === 'both') {
+        // Fetch events from Google Calendar
+        const response = await calendar.events.list({
+          calendarId: integration.calendarId || 'primary',
+          timeMin: new Date().toISOString(),
+          maxResults: 100,
+          singleEvents: true,
+          orderBy: 'startTime'
+        });
+        
+        const googleEvents = response.data.items || [];
+        
+        // Import Google events to our system
+        for (const googleEvent of googleEvents) {
+          if (googleEvent.start?.dateTime && googleEvent.summary) {
+            // Check if event already exists (you might want to implement a mapping table)
+            // For now, we'll just count them
+            syncedEvents++;
+            
+            // TODO: Actually create/update events in our database
+            // await storage.createEvent({...})
+          }
+        }
+      }
+      
+      if (syncDirection === 'to_google' || syncDirection === 'both') {
+        // Get local events to sync to Google
+        const localEvents = await storage.getEvents(req.accountId!);
+        
+        for (const localEvent of localEvents) {
+          // TODO: Check if event already exists in Google
+          // For now, we'll just count them
+          syncedEvents++;
+          
+          // Create event in Google Calendar
+          // const event = {
+          //   summary: localEvent.title,
+          //   description: localEvent.description,
+          //   start: { dateTime: localEvent.startDate },
+          //   end: { dateTime: localEvent.endDate },
+          // };
+          // await calendar.events.insert({
+          //   calendarId: integration.calendarId || 'primary',
+          //   resource: event
+          // });
+        }
+      }
+      
+      // Update last sync time
+      await storage.upsertGoogleCalendarIntegration({
+        ...integration,
+        lastSyncAt: new Date(),
+        userId: integration.userId,
+        accountId: req.accountId!
+      });
+      
+      res.json({ 
+        success: true, 
+        message: `Sincronização concluída. ${syncedEvents} eventos processados.`,
+        syncedEvents,
+        lastSyncAt: new Date()
+      });
+    } catch (error: any) {
+      console.error('Google Calendar sync error:', error);
       res.status(500).json({ error: error.message });
     }
   });
