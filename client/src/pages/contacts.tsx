@@ -436,7 +436,7 @@ export default function Contacts() {
 
     const docDefinition: any = {
       pageSize: 'A4',
-      pageMargins: [40, 120, 40, 80],
+      pageMargins: [40, 120, 40, 60],
       header: {
         margin: [40, 20, 40, 0],
         columns: [
@@ -450,16 +450,11 @@ export default function Contacts() {
       },
       footer: function(currentPage: number, pageCount: number) {
         return {
-          margin: [40, 0, 40, 20],
-          columns: [
-            {
-              text: 'Gerado por Politicall - Sistema de Gestão Política',
-              alignment: 'center',
-              fontSize: 8,
-              color: '#6b7280',
-              margin: [0, 10, 0, 0]
-            }
-          ]
+          margin: [40, 20, 40, 20],
+          text: 'Gerado por Politicall - Sistema de Gestão Política',
+          alignment: 'center',
+          fontSize: 8,
+          color: '#6b7280'
         };
       },
       content: [
