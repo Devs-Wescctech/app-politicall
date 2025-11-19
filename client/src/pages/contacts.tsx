@@ -765,12 +765,19 @@ export default function Contacts() {
                 {qrCodeSlug ? (
                   <>
                     <div className="flex justify-center p-4 bg-white dark:bg-gray-100 rounded-lg">
-                      <QRCodeSVG
-                        value={`https://www.politicall.com.br/apoio/${qrCodeSlug}`}
-                        size={200}
-                        level="H"
-                        includeMargin={true}
-                      />
+                      <div className="relative">
+                        <QRCodeSVG
+                          value={`https://www.politicall.com.br/apoio/${qrCodeSlug}`}
+                          size={200}
+                          level="H"
+                          includeMargin={true}
+                        />
+                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white/95 dark:bg-black/85 px-3 py-1.5 rounded">
+                          <span className="text-lg font-black text-black dark:text-white" data-testid="text-qr-scan-me">
+                            SCAN ME
+                          </span>
+                        </div>
+                      </div>
                     </div>
                     <div className="space-y-2">
                       {/* Botões de ação principais */}
