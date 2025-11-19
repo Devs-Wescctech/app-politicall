@@ -987,6 +987,26 @@ export default function Contacts() {
                   />
                   <FormField
                     control={form.control}
+                    name="age"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Idade</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="number" 
+                            placeholder="Ex: 35" 
+                            data-testid="input-contact-age" 
+                            {...field} 
+                            value={field.value || ""} 
+                            onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
                     name="state"
                     render={({ field }) => (
                       <FormItem>
