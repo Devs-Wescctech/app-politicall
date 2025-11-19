@@ -252,7 +252,7 @@ export default function PublicSupport() {
         {/* Main Content */}
         <div className="container mx-auto px-4 py-8 max-w-2xl">
         {/* Candidate Profile */}
-        <div className="text-center space-y-3 mb-6 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md rounded-lg p-6 md:p-8 shadow-xl relative overflow-hidden">
+        <div className="text-center space-y-3 mb-6 bg-white/90 backdrop-blur-md rounded-lg p-6 md:p-8 shadow-xl relative overflow-hidden">
           {/* Background with profile image */}
           <div className="absolute inset-0 opacity-25">
             {candidateData.avatar && (
@@ -321,7 +321,7 @@ export default function PublicSupport() {
 
             {/* Political position and party */}
             {candidateData.politicalPosition && (
-              <p className="text-lg md:text-xl font-bold text-gray-800 dark:text-gray-200">
+              <p className="text-lg md:text-xl font-bold text-gray-800">
                 {candidateData.politicalPosition}
                 {candidateData.party && (
                   <>
@@ -336,14 +336,14 @@ export default function PublicSupport() {
             )}
           </div>
           
-          <p className="text-sm md:text-base text-gray-700 dark:text-gray-300 max-w-xl mx-auto relative z-10">
+          <p className="text-sm md:text-base text-gray-700 max-w-xl mx-auto relative z-10">
             Cadastre-se como apoiador e faça parte dessa mudança! 
             Juntos construiremos um futuro melhor.
           </p>
         </div>
 
         {/* Registration Form */}
-        <Card className="shadow-xl bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border-white/20">
+        <Card className="shadow-xl bg-white/95 backdrop-blur-md border-white/20">
           <CardContent className="p-6">
             <h3 className="text-xl font-bold mb-6 text-center">
               Cadastro de Apoiador
