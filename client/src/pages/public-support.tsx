@@ -273,6 +273,19 @@ export default function PublicSupport() {
           </div>
           
           <div className="relative z-10 flex flex-col items-center gap-6">
+            {/* Avatar at the top */}
+            <Avatar 
+              className="w-28 h-28 md:w-36 md:h-36 lg:w-40 lg:h-40 shadow-2xl ring-4 ring-white/70"
+              style={{ 
+                borderWidth: '5px',
+                borderStyle: 'solid',
+                borderColor: getPartyColor(candidateData.party?.acronym)
+              }}
+            >
+              <AvatarImage src={candidateData.avatar} alt={candidateData.name} />
+              <AvatarFallback className="text-4xl">{candidateData.name?.charAt(0)}</AvatarFallback>
+            </Avatar>
+
             {/* Big Bold Text - Similar to reference */}
             <div className="space-y-2">
               <div className="flex items-center justify-center gap-4">
@@ -310,19 +323,6 @@ export default function PublicSupport() {
                 {candidateData.name?.toUpperCase()}!
               </h2>
             </div>
-
-            {/* Avatar below the text */}
-            <Avatar 
-              className="w-24 h-24 md:w-32 md:h-32 shadow-2xl ring-4 ring-white/70 mt-4"
-              style={{ 
-                borderWidth: '4px',
-                borderStyle: 'solid',
-                borderColor: getPartyColor(candidateData.party?.acronym)
-              }}
-            >
-              <AvatarImage src={candidateData.avatar} alt={candidateData.name} />
-              <AvatarFallback className="text-3xl">{candidateData.name?.charAt(0)}</AvatarFallback>
-            </Avatar>
 
             {/* Political position */}
             {candidateData.politicalPosition && (
