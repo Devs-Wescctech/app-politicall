@@ -263,7 +263,7 @@ export default function PublicSupport() {
         {/* Main Content */}
         <div className="container mx-auto px-4 py-8 max-w-2xl">
         {/* Candidate Profile */}
-        <div className="text-center space-y-6 mb-8 bg-white/10 dark:bg-gray-900/10 backdrop-blur-xl rounded-lg p-8 md:p-12 shadow-xl relative overflow-hidden border border-white/20">
+        <div className="text-center space-y-6 mb-8 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md rounded-lg p-8 md:p-12 shadow-xl relative overflow-hidden">
           {/* Background decorative element */}
           <div className="absolute inset-0 opacity-5">
             <div 
