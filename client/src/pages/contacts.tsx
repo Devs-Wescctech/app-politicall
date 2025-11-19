@@ -258,6 +258,7 @@ export default function Contacts() {
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
   const [isQrCodeDialogOpen, setIsQrCodeDialogOpen] = useState(false);
   const [isProfileDialogOpen, setIsProfileDialogOpen] = useState(false);
+  const [isProfileExportDialogOpen, setIsProfileExportDialogOpen] = useState(false);
   const [selectedTopCount, setSelectedTopCount] = useState(1);
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
@@ -697,6 +698,220 @@ export default function Contacts() {
     setIsExportDialogOpen(false);
   };
 
+  const handleExportProfilePDF = async () => {
+    if (!voterProfile || voterProfile.totalContacts === 0) {
+      toast({ title: "Nenhum dado de perfil para exportar", variant: "destructive" });
+      return;
+    }
+
+    const docDefinition: any = {
+      pageSize: 'A4',
+      pageMargins: [40, 100, 40, 60],
+      header: {
+        margin: [40, 20, 40, 0],
+        columns: [
+          {
+            image: logoUrl,
+            width: 50,
+            alignment: 'left'
+          },
+          {
+            stack: [
+              { text: adminData?.name || 'Gabinete', style: 'header' },
+              { text: 'Perfil dos Eleitores', style: 'subheader' }
+            ],
+            alignment: 'right'
+          }
+        ]
+      },
+      content: [
+        { text: 'Estatísticas Principais', style: 'sectionTitle' },
+        {
+          columns: [
+            { text: `Total de eleitores: ${voterProfile.totalContacts}`, style: 'stat' },
+            voterProfile.averageAge && voterProfile.totalContacts >= 3 
+              ? { text: `Idade média: ${voterProfile.averageAge.toFixed(1)} anos`, style: 'stat' }
+              : { text: '' }
+          ]
+        },
+        { text: '', margin: [0, 10] },
+
+        ...(voterProfile.topInterests && voterProfile.topInterests.length > 0 ? [
+          { text: `Top ${selectedTopCount} Interesses`, style: 'sectionTitle' },
+          {
+            ul: voterProfile.topInterests.slice(0, selectedTopCount).map((item: any) => 
+              `${item.interest}: ${item.count} ${item.count === 1 ? 'eleitor' : 'eleitores'}`
+            ),
+            style: 'list'
+          },
+          { text: '', margin: [0, 10] }
+        ] : []),
+
+        { text: 'Distribuição Geográfica', style: 'sectionTitle' },
+        ...(voterProfile.topStates && voterProfile.topStates.length > 0 ? [
+          { text: 'Estados (Top 5):', style: 'subsectionTitle' },
+          {
+            ul: voterProfile.topStates.map((item: any) => {
+              const percentage = (item.count / voterProfile.totalContacts) * 100;
+              return `${item.state}: ${percentage.toFixed(1)}% (${item.count})`;
+            }),
+            style: 'list'
+          },
+          { text: '', margin: [0, 5] }
+        ] : []),
+        ...(voterProfile.topCities && voterProfile.topCities.length > 0 ? [
+          { text: 'Cidades (Top 5):', style: 'subsectionTitle' },
+          {
+            ul: voterProfile.topCities.map((item: any) => {
+              const percentage = (item.count / voterProfile.totalContacts) * 100;
+              return `${item.city}: ${percentage.toFixed(1)}% (${item.count})`;
+            }),
+            style: 'list'
+          },
+          { text: '', margin: [0, 10] }
+        ] : []),
+
+        ...(voterProfile.topSources && voterProfile.topSources.length > 0 ? [
+          { text: 'Fontes de Cadastro', style: 'sectionTitle' },
+          {
+            ul: voterProfile.topSources.map((item: any) => {
+              const percentage = (item.count / voterProfile.totalContacts) * 100;
+              return `${item.source}: ${percentage.toFixed(1)}% (${item.count})`;
+            }),
+            style: 'list'
+          },
+          { text: '', margin: [0, 10] }
+        ] : []),
+
+        ...(voterProfile.genderDistribution && voterProfile.genderDistribution.counts ? [
+          { text: 'Distribuição por Gênero', style: 'sectionTitle' },
+          {
+            ul: Object.entries(voterProfile.genderDistribution.counts)
+              .filter(([_, count]) => (count as number) > 0)
+              .map(([gender, count]) => {
+                const percentage = voterProfile.genderDistribution.percentages[gender as keyof typeof voterProfile.genderDistribution.percentages];
+                return `${gender}: ${percentage.toFixed(1)}% (${count})`;
+              }),
+            style: 'list'
+          }
+        ] : [])
+      ],
+      styles: {
+        header: {
+          fontSize: 14,
+          bold: true,
+          color: '#333333'
+        },
+        subheader: {
+          fontSize: 10,
+          color: '#666666'
+        },
+        sectionTitle: {
+          fontSize: 14,
+          bold: true,
+          margin: [0, 10, 0, 5]
+        },
+        subsectionTitle: {
+          fontSize: 11,
+          bold: true,
+          margin: [0, 5, 0, 3]
+        },
+        stat: {
+          fontSize: 12,
+          margin: [0, 0, 0, 5]
+        },
+        list: {
+          fontSize: 10,
+          margin: [0, 0, 0, 5]
+        }
+      }
+    };
+
+    pdfMake.createPdf(docDefinition).download(`perfil-eleitores-${new Date().toISOString().split('T')[0]}.pdf`);
+    toast({ title: 'PDF do perfil gerado com sucesso!' });
+    setIsProfileExportDialogOpen(false);
+  };
+
+  const handleExportProfileExcel = async () => {
+    if (!voterProfile || voterProfile.totalContacts === 0) {
+      toast({ title: "Nenhum dado de perfil para exportar", variant: "destructive" });
+      return;
+    }
+
+    const worksheetData: any[][] = [
+      ['PERFIL DOS ELEITORES'],
+      [''],
+      ['ESTATÍSTICAS PRINCIPAIS'],
+      ['Total de eleitores', voterProfile.totalContacts],
+    ];
+
+    if (voterProfile.averageAge && voterProfile.totalContacts >= 3) {
+      worksheetData.push(['Idade média', `${voterProfile.averageAge.toFixed(1)} anos`]);
+    }
+
+    worksheetData.push(['']);
+
+    if (voterProfile.topInterests && voterProfile.topInterests.length > 0) {
+      worksheetData.push([`TOP ${selectedTopCount} INTERESSES`]);
+      voterProfile.topInterests.slice(0, selectedTopCount).forEach((item: any) => {
+        worksheetData.push([item.interest, item.count]);
+      });
+      worksheetData.push(['']);
+    }
+
+    worksheetData.push(['DISTRIBUIÇÃO GEOGRÁFICA']);
+    if (voterProfile.topStates && voterProfile.topStates.length > 0) {
+      worksheetData.push(['Estados (Top 5)']);
+      voterProfile.topStates.forEach((item: any) => {
+        const percentage = (item.count / voterProfile.totalContacts) * 100;
+        worksheetData.push([item.state, `${percentage.toFixed(1)}%`, item.count]);
+      });
+      worksheetData.push(['']);
+    }
+
+    if (voterProfile.topCities && voterProfile.topCities.length > 0) {
+      worksheetData.push(['Cidades (Top 5)']);
+      voterProfile.topCities.forEach((item: any) => {
+        const percentage = (item.count / voterProfile.totalContacts) * 100;
+        worksheetData.push([item.city, `${percentage.toFixed(1)}%`, item.count]);
+      });
+      worksheetData.push(['']);
+    }
+
+    if (voterProfile.topSources && voterProfile.topSources.length > 0) {
+      worksheetData.push(['FONTES DE CADASTRO']);
+      voterProfile.topSources.forEach((item: any) => {
+        const percentage = (item.count / voterProfile.totalContacts) * 100;
+        worksheetData.push([item.source, `${percentage.toFixed(1)}%`, item.count]);
+      });
+      worksheetData.push(['']);
+    }
+
+    if (voterProfile.genderDistribution && voterProfile.genderDistribution.counts) {
+      worksheetData.push(['DISTRIBUIÇÃO POR GÊNERO']);
+      Object.entries(voterProfile.genderDistribution.counts)
+        .filter(([_, count]) => (count as number) > 0)
+        .forEach(([gender, count]) => {
+          const percentage = voterProfile.genderDistribution.percentages[gender as keyof typeof voterProfile.genderDistribution.percentages];
+          worksheetData.push([gender, `${percentage.toFixed(1)}%`, count]);
+        });
+    }
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(worksheetData);
+
+    ws['!cols'] = [
+      { wch: 30 },
+      { wch: 15 },
+      { wch: 15 }
+    ];
+
+    XLSX.utils.book_append_sheet(wb, ws, 'Perfil Eleitores');
+    XLSX.writeFile(wb, `perfil-eleitores-${new Date().toISOString().split('T')[0]}.xlsx`);
+    toast({ title: 'Excel do perfil gerado com sucesso!' });
+    setIsProfileExportDialogOpen(false);
+  };
+
   return (
     <div className="p-4 sm:p-6 md:p-8 space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -986,10 +1201,24 @@ export default function Contacts() {
           <Dialog open={isProfileDialogOpen} onOpenChange={setIsProfileDialogOpen}>
             <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0" aria-describedby="voter-profile-dialog-description">
               <DialogHeader className="px-4 pt-4 pb-3 border-b">
-                <DialogTitle className="text-lg font-bold">Perfil dos Eleitores</DialogTitle>
-                <p id="voter-profile-dialog-description" className="text-xs text-muted-foreground mt-0.5">
-                  Análise agregada dos dados cadastrados
-                </p>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <DialogTitle className="text-lg font-bold">Perfil dos Eleitores</DialogTitle>
+                    <p id="voter-profile-dialog-description" className="text-xs text-muted-foreground mt-0.5">
+                      Análise agregada dos dados cadastrados
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setIsProfileExportDialogOpen(true)}
+                    data-testid="button-export-profile"
+                    title="Exportar perfil"
+                    className="h-8 w-8"
+                  >
+                    <Download className="w-4 h-4" />
+                  </Button>
+                </div>
               </DialogHeader>
               <div className="flex-1 overflow-y-auto p-4">
                 {voterProfile && voterProfile.totalContacts > 0 ? (
@@ -1185,6 +1414,59 @@ export default function Contacts() {
                     </p>
                   </div>
                 )}
+              </div>
+            </DialogContent>
+          </Dialog>
+          <Dialog open={isProfileExportDialogOpen} onOpenChange={setIsProfileExportDialogOpen}>
+            <DialogContent className="max-w-md p-0" aria-describedby="profile-export-dialog-description">
+              <DialogHeader className="px-5 pt-5 pb-3 border-b">
+                <DialogTitle className="text-xl font-bold">Exportar Perfil</DialogTitle>
+                <p id="profile-export-dialog-description" className="text-xs text-muted-foreground mt-1">
+                  Selecione o formato para exportar o perfil dos eleitores
+                </p>
+              </DialogHeader>
+              <div className="p-4">
+                <div className="grid gap-3">
+                  <Card 
+                    className="cursor-pointer transition-all hover-elevate active-elevate-2 border-2 hover:border-primary/20"
+                    onClick={handleExportProfilePDF}
+                    data-testid="button-export-profile-pdf"
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-start gap-3">
+                        <div className="w-9 h-9 rounded-lg bg-red-100 dark:bg-red-900/30 flex items-center justify-center flex-shrink-0">
+                          <FileText className="h-5 w-5 text-red-600 dark:text-red-400" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-base font-semibold mb-0.5">Exportar como PDF</h3>
+                          <p className="text-xs text-muted-foreground leading-snug">
+                            Documento formatado com estatísticas do perfil prontas para apresentação
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card 
+                    className="cursor-pointer transition-all hover-elevate active-elevate-2 border-2 hover:border-primary/20"
+                    onClick={handleExportProfileExcel}
+                    data-testid="button-export-profile-excel"
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-start gap-3">
+                        <div className="w-9 h-9 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center flex-shrink-0">
+                          <Sheet className="h-5 w-5 text-green-600 dark:text-green-400" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-base font-semibold mb-0.5">Exportar como Excel</h3>
+                          <p className="text-xs text-muted-foreground leading-snug">
+                            Planilha editável com dados do perfil para análise detalhada
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
               </div>
             </DialogContent>
           </Dialog>
