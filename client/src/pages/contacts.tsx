@@ -25,7 +25,7 @@ import {
   Building2, Wrench, Bus, Shield, Siren, Landmark, Vote,
   Flag, Home, Droplet, Construction, Hospital, Building,
   School, University, Baby as BabyIcon, Smile, Drum, Cake,
-  Calendar as CalendarIcon, Star, Mic2, ShoppingCart
+  Calendar as CalendarIcon, Star, Mic2, ShoppingCart, FileText
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -34,6 +34,10 @@ import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Check } from "lucide-react";
+import pdfMake from "pdfmake/build/pdfmake";
+import * as pdfFonts from "pdfmake/build/vfs_fonts";
+
+(pdfMake as any).vfs = pdfFonts;
 
 const BRAZILIAN_STATES = [
   "Acre", "Alagoas", "Amapá", "Amazonas", "Bahia", "Ceará", "Distrito Federal",
@@ -394,6 +398,84 @@ export default function Contacts() {
     });
   };
 
+  const handleExportPDF = () => {
+    if (!filteredContacts || filteredContacts.length === 0) {
+      toast({ title: "Nenhum contato para exportar", variant: "destructive" });
+      return;
+    }
+
+    const docDefinition: any = {
+      pageSize: 'A4',
+      pageMargins: [40, 60, 40, 60],
+      content: [
+        {
+          text: 'Relatório de Eleitores',
+          style: 'header',
+          alignment: 'center',
+          margin: [0, 0, 0, 20]
+        },
+        {
+          text: `Total de eleitores: ${filteredContacts.length}`,
+          style: 'subheader',
+          margin: [0, 0, 0, 20]
+        },
+        {
+          table: {
+            headerRows: 1,
+            widths: ['*', 'auto', 'auto', 'auto'],
+            body: [
+              [
+                { text: 'Nome', style: 'tableHeader' },
+                { text: 'Telefone', style: 'tableHeader' },
+                { text: 'Cidade/Estado', style: 'tableHeader' },
+                { text: 'Interesses', style: 'tableHeader' }
+              ],
+              ...filteredContacts.map(contact => [
+                formatName(contact.name),
+                contact.phone || '-',
+                `${contact.city || '-'}/${contact.state || '-'}`,
+                contact.interests && contact.interests.length > 0 
+                  ? contact.interests.join(', ') 
+                  : '-'
+              ])
+            ]
+          },
+          layout: {
+            fillColor: function (rowIndex: number) {
+              return rowIndex === 0 ? '#40E0D0' : (rowIndex % 2 === 0 ? '#f3f4f6' : null);
+            },
+            hLineWidth: function () { return 0.5; },
+            vLineWidth: function () { return 0.5; },
+            hLineColor: function () { return '#e5e7eb'; },
+            vLineColor: function () { return '#e5e7eb'; }
+          }
+        }
+      ],
+      styles: {
+        header: {
+          fontSize: 18,
+          bold: true,
+          color: '#1f2937'
+        },
+        subheader: {
+          fontSize: 12,
+          color: '#6b7280'
+        },
+        tableHeader: {
+          bold: true,
+          fontSize: 10,
+          color: 'white'
+        }
+      },
+      defaultStyle: {
+        fontSize: 9
+      }
+    };
+
+    pdfMake.createPdf(docDefinition).download(`eleitores-${new Date().toISOString().split('T')[0]}.pdf`);
+    toast({ title: `PDF gerado com ${filteredContacts.length} eleitores!` });
+  };
+
   return (
     <div className="p-4 sm:p-6 md:p-8 space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -418,6 +500,15 @@ export default function Contacts() {
             title="Copiar números para WhatsApp Business"
           >
             <Copy className="w-4 h-4" />
+          </Button>
+          <Button 
+            variant="outline"
+            size="icon"
+            onClick={handleExportPDF}
+            data-testid="button-export-pdf"
+            title="Exportar PDF com eleitores filtrados"
+          >
+            <FileText className="w-4 h-4" />
           </Button>
           <Dialog open={isDialogOpen} onOpenChange={(open) => {
             setIsDialogOpen(open);
