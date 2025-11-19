@@ -99,6 +99,14 @@ export default function Settings() {
   const [showGoogleAuthDialog, setShowGoogleAuthDialog] = useState(false);
   const [isAuthorizing, setIsAuthorizing] = useState(false);
 
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const tabParam = urlParams.get('tab');
+    if (tabParam && ['profile', 'api', 'google-calendar'].includes(tabParam)) {
+      setActiveTab(tabParam);
+    }
+  }, []);
+
   const { data: parties } = useQuery<PoliticalParty[]>({
     queryKey: ["/api/parties"],
   });
