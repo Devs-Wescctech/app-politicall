@@ -462,6 +462,37 @@ export const integrations = pgTable("integrations", {
   updatedAt: timestamp("updated_at").defaultNow().notNull()
 });
 
+// Google Calendar Integration - OAuth credentials and tokens per account
+export const googleCalendarIntegrations = pgTable("google_calendar_integrations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  accountId: varchar("account_id").notNull().unique().references(() => accounts.id, { onDelete: 'cascade' }),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }), // User who set up the integration
+  
+  // OAuth Credentials (provided by admin in settings)
+  clientId: text("client_id"),
+  clientSecret: text("client_secret"),
+  redirectUri: text("redirect_uri"),
+  
+  // OAuth Tokens (received from Google after authorization)
+  accessToken: text("access_token"),
+  refreshToken: text("refresh_token"),
+  tokenExpiryDate: timestamp("token_expiry_date"),
+  
+  // Integration settings
+  email: text("email"), // Google account email connected
+  calendarId: text("calendar_id"), // Which calendar to sync with (default: primary)
+  syncEnabled: boolean("sync_enabled").default(true).notNull(),
+  lastSyncAt: timestamp("last_sync_at"),
+  
+  // Sync preferences
+  syncDirection: text("sync_direction").default("both").notNull(), // "to_google", "from_google", "both"
+  autoCreateMeet: boolean("auto_create_meet").default(false).notNull(), // Auto-create Google Meet links
+  syncReminders: boolean("sync_reminders").default(true).notNull(),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull()
+});
+
 // Survey Templates - Predefined survey types
 export const surveyTemplates = pgTable("survey_templates", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -751,6 +782,14 @@ export const insertIntegrationSchema = createInsertSchema(integrations).omit({
   updatedAt: true,
 });
 
+export const insertGoogleCalendarIntegrationSchema = createInsertSchema(googleCalendarIntegrations).omit({
+  id: true,
+  userId: true,
+  accountId: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export const insertSurveyTemplateSchema = createInsertSchema(surveyTemplates).omit({
   id: true,
   createdAt: true,
@@ -895,6 +934,9 @@ export type InsertNotification = z.infer<typeof insertNotificationSchema>;
 
 export type Integration = typeof integrations.$inferSelect;
 export type InsertIntegration = z.infer<typeof insertIntegrationSchema>;
+
+export type GoogleCalendarIntegration = typeof googleCalendarIntegrations.$inferSelect;
+export type InsertGoogleCalendarIntegration = z.infer<typeof insertGoogleCalendarIntegrationSchema>;
 
 export type SurveyTemplate = typeof surveyTemplates.$inferSelect;
 export type InsertSurveyTemplate = z.infer<typeof insertSurveyTemplateSchema>;
