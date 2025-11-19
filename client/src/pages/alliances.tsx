@@ -600,36 +600,33 @@ export default function Alliances() {
           )}
 
           <Button 
+            size="icon"
             variant="outline"
             onClick={handleBulkEmail}
             data-testid="button-bulk-email"
             title="Enviar email em massa"
-            className="rounded-full"
           >
-            <Send className="w-4 h-4 mr-2" />
-            Enviar E-mail
+            <Send className="w-4 h-4" />
           </Button>
           
           <Button 
+            size="icon"
             variant="outline"
             onClick={handleCopyWhatsAppNumbers}
             data-testid="button-copy-whatsapp"
             title="Copiar números para WhatsApp Business"
-            className="rounded-full"
           >
-            <Copy className="w-4 h-4 mr-2" />
-            WhatsApp
+            <Copy className="w-4 h-4" />
           </Button>
 
           <Button 
+            size="icon"
             variant="outline"
             onClick={() => setIsExportDialogOpen(true)}
             data-testid="button-export-alliances"
             title="Exportar alianças"
-            className="rounded-full"
           >
-            <Download className="w-4 h-4 mr-2" />
-            Exportar
+            <Download className="w-4 h-4" />
           </Button>
 
           <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
