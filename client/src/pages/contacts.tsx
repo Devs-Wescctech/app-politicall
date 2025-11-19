@@ -25,7 +25,7 @@ import {
   Building2, Wrench, Bus, Shield, Siren, Landmark, Vote,
   Flag, Home, Droplet, Construction, Hospital, Building,
   School, University, Baby as BabyIcon, Smile, Drum, Cake,
-  Calendar as CalendarIcon, Star, Mic2, ShoppingCart, FileText
+  Calendar as CalendarIcon, Star, Mic2, ShoppingCart, Download
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -588,7 +588,7 @@ export default function Contacts() {
             data-testid="button-export-pdf"
             title="Exportar PDF com eleitores filtrados"
           >
-            <FileText className="w-4 h-4" />
+            <Download className="w-4 h-4" />
           </Button>
           <Dialog open={isDialogOpen} onOpenChange={(open) => {
             setIsDialogOpen(open);
