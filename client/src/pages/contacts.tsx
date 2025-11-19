@@ -1048,8 +1048,7 @@ export default function Contacts() {
                               return (
                                 <Badge 
                                   key={item.interest}
-                                  variant="outline"
-                                  className={`${getInterestColor(item.interest, true)} border-2 text-sm px-3 py-1.5 flex items-center gap-1.5 bg-transparent`}
+                                  className={`${getInterestColor(item.interest, true)} border-0 text-sm px-3 py-1.5 flex items-center gap-1.5 bg-transparent shadow-none`}
                                   data-testid={`badge-interest-${item.interest}`}
                                 >
                                   {InterestIcon && <InterestIcon className="w-3.5 h-3.5" />}
