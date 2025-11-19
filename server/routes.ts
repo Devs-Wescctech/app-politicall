@@ -2360,8 +2360,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get all survey campaigns for user
-  app.get("/api/survey-campaigns", authenticateToken, requirePermission("marketing"), async (req: AuthRequest, res) => {
+  // Get all survey campaigns for user (accessible from Dashboard or Marketing module)
+  app.get("/api/survey-campaigns", authenticateToken, async (req: AuthRequest, res) => {
+    // Allow access if user has dashboard OR marketing permission (or is admin)
+    if (req.user?.role !== "admin" && !req.user?.permissions?.dashboard && !req.user?.permissions?.marketing) {
+      return res.status(403).json({ error: "Você não tem permissão para acessar este recurso" });
+    }
     try {
       // Fetch campaigns with templates and response counts
       const results = await db.select({
