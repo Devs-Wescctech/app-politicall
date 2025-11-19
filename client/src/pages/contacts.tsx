@@ -1006,7 +1006,7 @@ export default function Contacts() {
                               </h3>
                             </div>
                             <div className="flex items-center gap-2 flex-wrap">
-                              {[2, 3, 4, 5, 6, 7, 8, 9, 10].map((count) => (
+                              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((count) => (
                                 <Button
                                   key={count}
                                   variant={selectedTopCount === count ? "default" : "outline"}
