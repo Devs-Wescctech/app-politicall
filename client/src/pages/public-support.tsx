@@ -17,7 +17,7 @@ import { Check, Heart, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import logoUrl from "@assets/logo pol_1763308638963_1763559095972.png";
-import backgroundVideo from "@assets/grok-video-6d926f7e-74be-453e-93b2-58c35cc06668_1763562439869.mp4";
+import backgroundImage from "@assets/242_1763562569627.jpg";
 
 const BRAZILIAN_STATES = [
   "Acre", "Alagoas", "Amapá", "Amazonas", "Bahia", "Ceará", "Distrito Federal",
@@ -196,16 +196,11 @@ export default function PublicSupport() {
 
   return (
     <div className="min-h-screen relative overflow-hidden">
-      {/* Video Background */}
-      <video
-        autoPlay
-        muted
-        loop
-        playsInline
-        className="fixed inset-0 w-full h-full object-cover z-0"
-      >
-        <source src={backgroundVideo} type="video/mp4" />
-      </video>
+      {/* Background Image */}
+      <div 
+        className="fixed inset-0 w-full h-full bg-cover bg-center z-0"
+        style={{ backgroundImage: `url(${backgroundImage})` }}
+      ></div>
       
       {/* Dark Overlay for readability */}
       <div className="fixed inset-0 bg-black/60 z-10"></div>
