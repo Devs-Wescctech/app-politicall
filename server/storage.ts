@@ -268,8 +268,14 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateContact(id: string, accountId: string, contact: Partial<InsertContact>): Promise<Contact> {
+    // If updating the name, also update the normalizedName
+    const updateData = { ...contact };
+    if (contact.name) {
+      updateData.normalizedName = normalizeText(contact.name);
+    }
+    
     const [updated] = await db.update(contacts)
-      .set(contact)
+      .set(updateData)
       .where(and(
         eq(contacts.id, id),
         eq(contacts.accountId, accountId)
