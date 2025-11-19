@@ -765,17 +765,22 @@ export default function Contacts() {
               <div className="p-4 space-y-3">
                 {qrCodeSlug ? (
                   <>
-                    <div className="flex justify-center p-4 bg-white dark:bg-gray-100 rounded-lg">
-                      <div className="relative">
+                    <div className="flex justify-center p-4 bg-white dark:bg-gray-100 rounded-2xl">
+                      <div className="relative overflow-hidden rounded-2xl">
                         <QRCodeSVG
                           value={`https://www.politicall.com.br/apoio/${qrCodeSlug}`}
                           size={200}
                           level="H"
                           includeMargin={true}
+                          style={{
+                            height: 'auto',
+                            maxWidth: '100%',
+                            width: '100%',
+                          }}
                         />
                         {qrCodeAvatar && (
                           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
-                            <div className="w-14 h-14 rounded-full bg-white dark:bg-gray-100 p-1 shadow-lg">
+                            <div className="w-16 h-16 rounded-full bg-white dark:bg-gray-100 p-1.5 shadow-xl ring-2 ring-white/50">
                               <img 
                                 src={qrCodeAvatar} 
                                 alt={qrCodeName || 'Avatar'}
