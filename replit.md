@@ -8,6 +8,10 @@ Politicall is a comprehensive political management platform for Brazilian politi
 
 Preferred communication style: Simple, everyday language.
 
+## Pending Features
+
+- **Google Calendar Integration**: User inquired about Google Calendar integration for the agenda module. Integration connector was proposed but dismissed by user. Consider implementing manual integration using Google Calendar API if user provides OAuth credentials (Client ID, Client Secret).
+
 ## System Architecture
 
 ### Frontend
