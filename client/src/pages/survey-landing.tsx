@@ -19,6 +19,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { CheckCircle2, AlertCircle } from "lucide-react";
 import logoUrl from "@assets/logo pol_1763308638963.png";
+import surveyBackground from "@assets/d39a8f83-9488-4450-a920-1ca2b1507b3e_1763589660859.jpg";
 
 type SurveyData = {
   campaign: {
@@ -291,7 +292,7 @@ export default function SurveyLanding() {
     <div 
       className="min-h-screen relative"
       style={{
-        backgroundImage: 'url(/assets/brazil-flag.jpg)',
+        backgroundImage: `url(${surveyBackground})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundAttachment: 'fixed'
