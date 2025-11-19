@@ -480,7 +480,7 @@ export default function Admin() {
   };
 
   const handleCopyLink = async (campaign: CampaignWithTemplate) => {
-    const surveyUrl = `${window.location.origin}/survey/${campaign.slug}`;
+    const surveyUrl = `${window.location.origin}/pesquisa/${campaign.slug}`;
     try {
       await navigator.clipboard.writeText(surveyUrl);
       setCopiedId(campaign.id);
