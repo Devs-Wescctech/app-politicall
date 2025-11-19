@@ -690,26 +690,13 @@ export default function Admin() {
               </Button>
             ) : (
               <>
-                {currentStageInfo.prev && (
-                  <Button
-                    onClick={() => handleMoveStage(campaign.id, currentStageInfo.prev!)}
-                    disabled={updateStageMutation.isPending}
-                    size="sm"
-                    variant="outline"
-                    className="flex-1"
-                    data-testid={`button-stage-prev-${campaign.id}`}
-                  >
-                    <ChevronLeft className="w-3 h-3 mr-1" />
-                    Voltar
-                  </Button>
-                )}
                 {currentStageInfo.next && (
                   <Button
                     onClick={() => handleMoveStage(campaign.id, currentStageInfo.next!)}
                     disabled={updateStageMutation.isPending}
                     size="sm"
                     variant="outline"
-                    className="flex-1"
+                    className="w-full"
                     data-testid={`button-stage-next-${campaign.id}`}
                   >
                     Avançar
