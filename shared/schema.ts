@@ -629,18 +629,21 @@ export const loginSchema = z.object({
 export const insertContactSchema = createInsertSchema(contacts).omit({
   id: true,
   userId: true,
+  accountId: true,
   createdAt: true,
 });
 
 export const insertPoliticalAllianceSchema = createInsertSchema(politicalAlliances).omit({
   id: true,
   userId: true,
+  accountId: true,
   createdAt: true,
 });
 
 export const insertDemandSchema = createInsertSchema(demands).omit({
   id: true,
   userId: true,
+  accountId: true,
   createdAt: true,
   updatedAt: true,
 }).extend({
@@ -657,36 +660,42 @@ export const insertDemandSchema = createInsertSchema(demands).omit({
 export const insertDemandCommentSchema = createInsertSchema(demandComments).omit({
   id: true,
   userId: true,
+  accountId: true,
   createdAt: true,
 });
 
 export const insertEventSchema = createInsertSchema(events).omit({
   id: true,
   userId: true,
+  accountId: true,
   createdAt: true,
 });
 
 export const insertAiConfigurationSchema = createInsertSchema(aiConfigurations).omit({
   id: true,
   userId: true,
+  accountId: true,
   updatedAt: true,
 });
 
 export const insertAiTrainingExampleSchema = createInsertSchema(aiTrainingExamples).omit({
   id: true,
   userId: true,
+  accountId: true,
   createdAt: true,
 });
 
 export const insertAiResponseTemplateSchema = createInsertSchema(aiResponseTemplates).omit({
   id: true,
   userId: true,
+  accountId: true,
   createdAt: true,
 });
 
 export const insertMarketingCampaignSchema = createInsertSchema(marketingCampaigns).omit({
   id: true,
   userId: true,
+  accountId: true,
   sentAt: true,
   createdAt: true,
 });
@@ -694,12 +703,14 @@ export const insertMarketingCampaignSchema = createInsertSchema(marketingCampaig
 export const insertNotificationSchema = createInsertSchema(notifications).omit({
   id: true,
   userId: true,
+  accountId: true,
   createdAt: true,
 });
 
 export const insertIntegrationSchema = createInsertSchema(integrations).omit({
   id: true,
   userId: true,
+  accountId: true,
   createdAt: true,
   updatedAt: true,
 });
@@ -712,6 +723,7 @@ export const insertSurveyTemplateSchema = createInsertSchema(surveyTemplates).om
 export const insertSurveyCampaignSchema = createInsertSchema(surveyCampaigns).omit({
   id: true,
   userId: true,
+  accountId: true,
   createdAt: true,
   updatedAt: true,
   viewCount: true,
