@@ -243,9 +243,19 @@ export default function Contacts() {
     queryKey: ["/api/contacts"],
   });
 
+  // Buscar dados do usuário atual (já está em cache, carregamento instantâneo)
+  const { data: currentUser } = useQuery<any>({
+    queryKey: ["/api/auth/me"],
+  });
+
+  // Buscar dados do admin da conta (usado para relatórios e exportações)
   const { data: adminData } = useQuery<any>({
     queryKey: ["/api/account/admin"],
   });
+
+  // Usar slug do usuário se for admin, caso contrário usar do adminData
+  const qrCodeSlug = currentUser?.role === 'admin' ? currentUser?.slug : adminData?.slug;
+  const qrCodeName = currentUser?.role === 'admin' ? currentUser?.name : adminData?.name;
 
   const form = useForm<InsertContact>({
     resolver: zodResolver(insertContactSchema),
@@ -752,11 +762,11 @@ export default function Contacts() {
                 </p>
               </DialogHeader>
               <div className="p-6 space-y-6">
-                {adminData?.slug ? (
+                {qrCodeSlug ? (
                   <>
                     <div className="flex justify-center p-6 bg-white dark:bg-gray-100 rounded-lg">
                       <QRCodeSVG
-                        value={`https://www.politicall.com.br/apoio/${adminData.slug}`}
+                        value={`https://www.politicall.com.br/apoio/${qrCodeSlug}`}
                         size={256}
                         level="H"
                         includeMargin={true}
@@ -766,7 +776,7 @@ export default function Contacts() {
                       <div className="p-3 bg-muted rounded-lg">
                         <p className="text-xs text-muted-foreground mb-1">URL de Cadastro Público:</p>
                         <p className="text-sm font-mono break-all font-semibold">
-                          www.politicall.com.br/apoio/{adminData.slug}
+                          www.politicall.com.br/apoio/{qrCodeSlug}
                         </p>
                       </div>
                       
@@ -776,7 +786,7 @@ export default function Contacts() {
                           variant="outline"
                           className="flex-1"
                           onClick={() => {
-                            navigator.clipboard.writeText(`https://www.politicall.com.br/apoio/${adminData.slug}`);
+                            navigator.clipboard.writeText(`https://www.politicall.com.br/apoio/${qrCodeSlug}`);
                             toast({ title: "URL copiada com sucesso!" });
                           }}
                           data-testid="button-copy-qr-url"
@@ -800,7 +810,7 @@ export default function Contacts() {
                                 ctx?.drawImage(img, 0, 0);
                                 const pngFile = canvas.toDataURL('image/png');
                                 const downloadLink = document.createElement('a');
-                                downloadLink.download = `qr-code-apoio-${adminData.slug}.png`;
+                                downloadLink.download = `qr-code-apoio-${qrCodeSlug}.png`;
                                 downloadLink.href = pngFile;
                                 downloadLink.click();
                               };
@@ -824,8 +834,8 @@ export default function Contacts() {
                             variant="outline"
                             className="h-10 w-10 rounded-full"
                             onClick={() => {
-                              const url = `https://www.politicall.com.br/apoio/${adminData.slug}`;
-                              const text = `Declare seu apoio a ${adminData.name}! Cadastre-se aqui:`;
+                              const url = `https://www.politicall.com.br/apoio/${qrCodeSlug}`;
+                              const text = `Declare seu apoio a ${qrCodeName}! Cadastre-se aqui:`;
                               window.open(`https://wa.me/?text=${encodeURIComponent(text + ' ' + url)}`, '_blank');
                             }}
                             data-testid="button-share-whatsapp"
@@ -838,7 +848,7 @@ export default function Contacts() {
                             variant="outline"
                             className="h-10 w-10 rounded-full"
                             onClick={() => {
-                              const url = `https://www.politicall.com.br/apoio/${adminData.slug}`;
+                              const url = `https://www.politicall.com.br/apoio/${qrCodeSlug}`;
                               window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`, '_blank');
                             }}
                             data-testid="button-share-facebook"
@@ -851,8 +861,8 @@ export default function Contacts() {
                             variant="outline"
                             className="h-10 w-10 rounded-full"
                             onClick={() => {
-                              const url = `https://www.politicall.com.br/apoio/${adminData.slug}`;
-                              const text = `Declare seu apoio a ${adminData.name}!`;
+                              const url = `https://www.politicall.com.br/apoio/${qrCodeSlug}`;
+                              const text = `Declare seu apoio a ${qrCodeName}!`;
                               window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`, '_blank');
                             }}
                             data-testid="button-share-twitter"
@@ -865,9 +875,9 @@ export default function Contacts() {
                             variant="outline"
                             className="h-10 w-10 rounded-full"
                             onClick={() => {
-                              const url = `https://www.politicall.com.br/apoio/${adminData.slug}`;
-                              const subject = `Apoie ${adminData.name}`;
-                              const body = `Olá!\n\nConheça e declare seu apoio a ${adminData.name}!\n\nAcesse: ${url}`;
+                              const url = `https://www.politicall.com.br/apoio/${qrCodeSlug}`;
+                              const subject = `Apoie ${qrCodeName}`;
+                              const body = `Olá!\n\nConheça e declare seu apoio a ${qrCodeName}!\n\nAcesse: ${url}`;
                               window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
                             }}
                             data-testid="button-share-email"
