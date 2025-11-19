@@ -765,7 +765,7 @@ export default function Contacts() {
               <div className="p-4 space-y-3">
                 {qrCodeSlug ? (
                   <>
-                    <div className="flex justify-center items-center p-6 bg-white dark:bg-gray-100 rounded-2xl">
+                    <div className="flex justify-center items-center p-6 bg-white dark:bg-gray-100 rounded-2xl pt-[2px] pb-[2px] pl-[24px] pr-[24px] mt-[0px] mb-[0px]">
                       <div className="relative">
                         <div className="p-4 bg-white dark:bg-gray-100 rounded-xl">
                           <QRCodeSVG
