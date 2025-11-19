@@ -364,12 +364,12 @@ export default function Settings() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full max-w-md grid-cols-2">
-          <TabsTrigger value="profile" data-testid="tab-profile">
+        <TabsList className="grid w-full max-w-md grid-cols-2 rounded-full p-1">
+          <TabsTrigger value="profile" data-testid="tab-profile" className="rounded-full">
             <User className="w-4 h-4 mr-2" />
             Perfil
           </TabsTrigger>
-          <TabsTrigger value="api" data-testid="tab-api">
+          <TabsTrigger value="api" data-testid="tab-api" className="rounded-full">
             <Key className="w-4 h-4 mr-2" />
             Integrações API
           </TabsTrigger>
