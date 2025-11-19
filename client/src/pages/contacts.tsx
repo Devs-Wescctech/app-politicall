@@ -1424,6 +1424,15 @@ export default function Contacts() {
                   </div>
                 )}
               </div>
+              <DialogFooter className="px-4 py-3 border-t">
+                <Button
+                  onClick={() => setIsProfileDialogOpen(false)}
+                  className="w-full"
+                  data-testid="button-close-profile"
+                >
+                  Fechar
+                </Button>
+              </DialogFooter>
             </DialogContent>
           </Dialog>
           <Dialog open={isProfileExportDialogOpen} onOpenChange={setIsProfileExportDialogOpen}>
