@@ -240,26 +240,6 @@ export default function PublicSupport() {
       
       {/* Content */}
       <div className="relative z-20 min-h-screen">
-        {/* Header */}
-        <div className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border-b shadow-sm">
-          <div className="container mx-auto px-4 py-4 flex items-center justify-center gap-4">
-            {candidateData?.party && (
-              <div className="flex items-center gap-3">
-                <div 
-                  className="w-3 h-3 rounded-full"
-                  style={{ backgroundColor: getPartyColor(candidateData.party.acronym) }}
-                ></div>
-                <span 
-                  className="text-lg font-bold"
-                  style={{ color: getPartyColor(candidateData.party.acronym) }}
-                >
-                  {candidateData.party.acronym} - {candidateData.party.name}
-                </span>
-              </div>
-            )}
-          </div>
-        </div>
-
         {/* Main Content */}
         <div className="container mx-auto px-4 py-8 max-w-2xl">
         {/* Candidate Profile */}
