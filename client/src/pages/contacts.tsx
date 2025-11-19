@@ -487,21 +487,25 @@ export default function Contacts() {
         {
           table: {
             headerRows: 1,
-            widths: ['*', 'auto', 'auto', 'auto'],
+            widths: ['*', 'auto', 'auto', 'auto', 'auto', '*'],
             body: [
               [
                 { text: 'Nome', style: 'tableHeader' },
+                { text: 'Email', style: 'tableHeader' },
                 { text: 'Telefone', style: 'tableHeader' },
                 { text: 'Cidade/Estado', style: 'tableHeader' },
-                { text: 'Interesses', style: 'tableHeader' }
+                { text: 'Interesses', style: 'tableHeader' },
+                { text: 'Observações', style: 'tableHeader' }
               ],
               ...filteredContacts.map(contact => [
                 formatName(contact.name),
+                contact.email || '-',
                 contact.phone || '-',
                 `${contact.city || '-'}/${contact.state || '-'}`,
                 contact.interests && contact.interests.length > 0 
                   ? contact.interests.join(', ') 
-                  : '-'
+                  : '-',
+                contact.notes || '-'
               ])
             ]
           },
