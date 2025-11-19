@@ -265,7 +265,7 @@ export default function PublicSupport() {
         {/* Candidate Profile */}
         <div className="text-center space-y-3 mb-6 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md rounded-lg p-6 md:p-8 shadow-xl relative overflow-hidden">
           {/* Background with profile image */}
-          <div className="absolute inset-0 opacity-10">
+          <div className="absolute inset-0 opacity-25">
             {candidateData.avatar && (
               <div 
                 className="absolute inset-0 bg-cover bg-center blur-sm"
