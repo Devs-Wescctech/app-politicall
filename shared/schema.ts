@@ -234,6 +234,7 @@ export const contacts = pgTable("contacts", {
   accountId: varchar("account_id").notNull().references(() => accounts.id, { onDelete: 'cascade' }),
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
+  normalizedName: text("normalized_name"), // For deduplication
   email: text("email"),
   phone: text("phone"),
   age: integer("age"),
