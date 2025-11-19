@@ -656,40 +656,40 @@ export default function Contacts() {
             <Download className="w-4 h-4" />
           </Button>
           <Dialog open={isExportDialogOpen} onOpenChange={setIsExportDialogOpen}>
-            <DialogContent className="max-w-xl p-0" aria-describedby="export-dialog-description">
-              <DialogHeader className="px-6 pt-6 pb-4 border-b">
-                <DialogTitle className="text-2xl font-bold">Exportar Eleitores</DialogTitle>
-                <p id="export-dialog-description" className="text-sm text-muted-foreground mt-2">
-                  Selecione o formato desejado para exportar <span className="font-semibold text-foreground">{filteredContacts?.length || 0}</span> eleitor(es) com todos os filtros aplicados
+            <DialogContent className="max-w-md p-0" aria-describedby="export-dialog-description">
+              <DialogHeader className="px-5 pt-5 pb-3 border-b">
+                <DialogTitle className="text-xl font-bold">Exportar Eleitores</DialogTitle>
+                <p id="export-dialog-description" className="text-xs text-muted-foreground mt-1">
+                  Selecione o formato para exportar <span className="font-semibold text-foreground">{filteredContacts?.length || 0}</span> eleitor(es)
                 </p>
               </DialogHeader>
-              <div className="p-6">
-                <div className="grid gap-4">
+              <div className="p-4">
+                <div className="grid gap-3">
                   <Card 
                     className="cursor-pointer transition-all hover-elevate active-elevate-2 border-2 hover:border-primary/20"
                     onClick={handleExportPDF}
                     data-testid="button-export-pdf"
                   >
-                    <CardContent className="p-6">
-                      <div className="flex items-start gap-4">
-                        <div className="flex-shrink-0 w-12 h-12 rounded-lg bg-red-50 dark:bg-red-950/30 flex items-center justify-center">
-                          <FileText className="h-6 w-6 text-red-600 dark:text-red-400" />
+                    <CardContent className="p-4">
+                      <div className="flex items-start gap-3">
+                        <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-red-50 dark:bg-red-950/30 flex items-center justify-center">
+                          <FileText className="h-5 w-5 text-red-600 dark:text-red-400" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <h3 className="text-lg font-semibold mb-1">Exportar como PDF</h3>
-                          <p className="text-sm text-muted-foreground leading-relaxed">
-                            Documento profissional formatado com logo, informações do responsável e tabela de dados pronta para impressão
+                          <h3 className="text-base font-semibold mb-0.5">Exportar como PDF</h3>
+                          <p className="text-xs text-muted-foreground leading-snug">
+                            Documento formatado com logo e dados prontos para impressão
                           </p>
-                          <div className="flex items-center gap-2 mt-3 text-xs text-muted-foreground">
-                            <Badge variant="outline" className="font-normal">
+                          <div className="flex items-center gap-1.5 mt-2">
+                            <Badge variant="outline" className="font-normal text-[10px] px-1.5 py-0">
                               Somente leitura
                             </Badge>
-                            <Badge variant="outline" className="font-normal">
-                              Formato A4
+                            <Badge variant="outline" className="font-normal text-[10px] px-1.5 py-0">
+                              A4
                             </Badge>
                           </div>
                         </div>
-                        <Download className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                        <Download className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                       </div>
                     </CardContent>
                   </Card>
@@ -699,26 +699,26 @@ export default function Contacts() {
                     onClick={handleExportExcel}
                     data-testid="button-export-excel"
                   >
-                    <CardContent className="p-6">
-                      <div className="flex items-start gap-4">
-                        <div className="flex-shrink-0 w-12 h-12 rounded-lg bg-green-50 dark:bg-green-950/30 flex items-center justify-center">
-                          <Sheet className="h-6 w-6 text-green-600 dark:text-green-400" />
+                    <CardContent className="p-4">
+                      <div className="flex items-start gap-3">
+                        <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-green-50 dark:bg-green-950/30 flex items-center justify-center">
+                          <Sheet className="h-5 w-5 text-green-600 dark:text-green-400" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <h3 className="text-lg font-semibold mb-1">Exportar como Excel</h3>
-                          <p className="text-sm text-muted-foreground leading-relaxed">
-                            Planilha editável com dados completos, informações do responsável e formatação otimizada para análise de dados
+                          <h3 className="text-base font-semibold mb-0.5">Exportar como Excel</h3>
+                          <p className="text-xs text-muted-foreground leading-snug">
+                            Planilha editável otimizada para análise de dados
                           </p>
-                          <div className="flex items-center gap-2 mt-3 text-xs text-muted-foreground">
-                            <Badge variant="outline" className="font-normal">
+                          <div className="flex items-center gap-1.5 mt-2">
+                            <Badge variant="outline" className="font-normal text-[10px] px-1.5 py-0">
                               Editável
                             </Badge>
-                            <Badge variant="outline" className="font-normal">
-                              Formato .xlsx
+                            <Badge variant="outline" className="font-normal text-[10px] px-1.5 py-0">
+                              .xlsx
                             </Badge>
                           </div>
                         </div>
-                        <Download className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                        <Download className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                       </div>
                     </CardContent>
                   </Card>
