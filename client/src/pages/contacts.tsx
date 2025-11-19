@@ -256,6 +256,7 @@ export default function Contacts() {
   // Usar slug do usuário se for admin, caso contrário usar do adminData
   const qrCodeSlug = currentUser?.role === 'admin' ? currentUser?.slug : adminData?.slug;
   const qrCodeName = currentUser?.role === 'admin' ? currentUser?.name : adminData?.name;
+  const qrCodeAvatar = currentUser?.role === 'admin' ? currentUser?.avatar : adminData?.avatar;
 
   const form = useForm<InsertContact>({
     resolver: zodResolver(insertContactSchema),
@@ -772,11 +773,18 @@ export default function Contacts() {
                           level="H"
                           includeMargin={true}
                         />
-                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white/95 dark:bg-black/85 px-3 py-1.5 rounded">
-                          <span className="text-lg font-black text-black dark:text-white" data-testid="text-qr-scan-me">
-                            SCAN ME
-                          </span>
-                        </div>
+                        {qrCodeAvatar && (
+                          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
+                            <div className="w-14 h-14 rounded-full bg-white dark:bg-gray-100 p-1 shadow-lg">
+                              <img 
+                                src={qrCodeAvatar} 
+                                alt={qrCodeName || 'Avatar'}
+                                className="w-full h-full rounded-full object-cover"
+                                data-testid="img-qr-avatar"
+                              />
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                     <div className="space-y-2">
