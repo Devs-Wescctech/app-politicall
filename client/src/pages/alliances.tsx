@@ -11,10 +11,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, Trash2, Mail, MessageCircle, Edit, UserPlus, Users, TrendingUp, Send, Copy } from "lucide-react";
+import { Plus, Trash2, Mail, MessageCircle, Edit, UserPlus, Users, TrendingUp, Send, Copy, Download, FileText, Sheet } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Skeleton } from "@/components/ui/skeleton";
+import pdfMake from "pdfmake/build/pdfmake";
+import * as pdfFonts from "pdfmake/build/vfs_fonts";
+import * as XLSX from 'xlsx';
+import logoUrl from "@assets/logo pol_1763308638963_1763559095972.png";
 
 const IDEOLOGY_COLORS = {
   'Esquerda': '#ef4444',
@@ -59,6 +63,7 @@ export default function Alliances() {
   const [stateFilter, setStateFilter] = useState<string>("");
   const [cityFilter, setCityFilter] = useState<string>("");
   const [filterKey, setFilterKey] = useState(0);
+  const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
   const { toast } = useToast();
 
   const { data: alliances, isLoading: loadingAlliances } = useQuery<AllianceWithParty[]>({
@@ -71,6 +76,11 @@ export default function Alliances() {
 
   const { data: contacts } = useQuery<Contact[]>({
     queryKey: ["/api/contacts"],
+  });
+
+  // Buscar dados do admin da conta (usado para relatórios e exportações)
+  const { data: adminData } = useQuery<any>({
+    queryKey: ["/api/account/admin"],
   });
 
   const form = useForm<InsertPoliticalAlliance>({
@@ -309,6 +319,225 @@ export default function Alliances() {
     });
   };
 
+  const handleExportPDF = async () => {
+    const filteredAlliances = getFilteredAlliances();
+    if (!filteredAlliances || filteredAlliances.length === 0) {
+      toast({ title: "Nenhuma aliança para exportar", variant: "destructive" });
+      return;
+    }
+
+    // Converter logo para base64
+    const logoBase64 = await fetch(logoUrl)
+      .then(res => res.blob())
+      .then(blob => new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.readAsDataURL(blob);
+      }));
+
+    const adminName = adminData?.name || 'Administrador';
+    const adminParty = adminData?.party ? `${adminData.party.acronym} - ${adminData.party.name}` : 'Sem partido';
+    const adminPhone = adminData?.phone || 'Não informado';
+    const adminEmail = adminData?.email || 'Não informado';
+
+    const docDefinition: any = {
+      pageSize: 'A4',
+      pageOrientation: 'landscape',
+      pageMargins: [40, 100, 40, 60],
+      header: {
+        margin: [40, 20, 40, 0],
+        columns: [
+          {
+            image: logoBase64,
+            width: 50,
+            alignment: 'left'
+          },
+          {
+            stack: [
+              { text: 'RELATÓRIO DE ALIANÇAS POLÍTICAS', style: 'header' },
+              { text: `Gerado em: ${new Date().toLocaleDateString('pt-BR')}`, style: 'subheader' }
+            ],
+            alignment: 'right'
+          }
+        ]
+      },
+      footer: function(currentPage: number, pageCount: number) {
+        return {
+          margin: [40, 0],
+          columns: [
+            { text: adminName, style: 'adminName' },
+            { text: `Página ${currentPage} de ${pageCount}`, alignment: 'right', style: 'adminInfo' }
+          ]
+        };
+      },
+      content: [
+        { text: 'Informações do Responsável', style: 'sectionTitle' },
+        {
+          columns: [
+            { text: `Nome: ${adminName}`, style: 'adminInfo' },
+            { text: `Partido: ${adminParty}`, style: 'adminInfo' }
+          ]
+        },
+        {
+          columns: [
+            { text: `Telefone: ${adminPhone}`, style: 'adminInfo' },
+            { text: `Email: ${adminEmail}`, style: 'adminInfo' }
+          ]
+        },
+        { text: '', margin: [0, 10] },
+        { text: `Total de alianças: ${filteredAlliances.length}`, style: 'sectionTitle' },
+        { text: '', margin: [0, 5] },
+        {
+          table: {
+            headerRows: 1,
+            widths: ['*', 'auto', '*', 'auto', 'auto', 'auto', '*'],
+            body: [
+              [
+                { text: 'Nome', style: 'tableHeader' },
+                { text: 'Partido', style: 'tableHeader' },
+                { text: 'Cargo', style: 'tableHeader' },
+                { text: 'Estado', style: 'tableHeader' },
+                { text: 'Cidade', style: 'tableHeader' },
+                { text: 'Telefone', style: 'tableHeader' },
+                { text: 'Email', style: 'tableHeader' }
+              ],
+              ...filteredAlliances.map(alliance => {
+                const party = parties?.find(p => p.id === alliance.partyId);
+                return [
+                  alliance.allyName,
+                  party?.acronym || '-',
+                  alliance.position || '-',
+                  alliance.state || '-',
+                  alliance.city || '-',
+                  alliance.phone || '-',
+                  alliance.email || '-'
+                ];
+              })
+            ]
+          },
+          layout: {
+            fillColor: function (rowIndex: number) {
+              return rowIndex === 0 ? '#40E0D0' : (rowIndex % 2 === 0 ? '#f3f4f6' : null);
+            },
+            hLineWidth: function () { return 0.5; },
+            vLineWidth: function () { return 0.5; },
+            hLineColor: function () { return '#e5e7eb'; },
+            vLineColor: function () { return '#e5e7eb'; }
+          }
+        }
+      ],
+      styles: {
+        header: {
+          fontSize: 14,
+          bold: true,
+          color: '#1f2937'
+        },
+        subheader: {
+          fontSize: 10,
+          color: '#6b7280'
+        },
+        sectionTitle: {
+          fontSize: 11,
+          bold: true,
+          color: '#1f2937',
+          margin: [0, 5, 0, 5]
+        },
+        tableHeader: {
+          bold: true,
+          fontSize: 8,
+          color: 'white'
+        },
+        adminName: {
+          fontSize: 12,
+          bold: true,
+          color: '#1f2937',
+          margin: [0, 0, 0, 3]
+        },
+        adminInfo: {
+          fontSize: 8,
+          color: '#6b7280',
+          margin: [0, 0, 0, 2]
+        }
+      },
+      defaultStyle: {
+        fontSize: 7
+      }
+    };
+
+    pdfMake.createPdf(docDefinition).download(`aliancas-${new Date().toISOString().split('T')[0]}.pdf`);
+    toast({ title: `PDF gerado com ${filteredAlliances.length} alianças!` });
+    setIsExportDialogOpen(false);
+  };
+
+  const handleExportExcel = async () => {
+    const filteredAlliances = getFilteredAlliances();
+    if (!filteredAlliances || filteredAlliances.length === 0) {
+      toast({ title: "Nenhuma aliança para exportar", variant: "destructive" });
+      return;
+    }
+
+    const adminName = adminData?.name || 'Administrador';
+    const adminParty = adminData?.party ? `${adminData.party.acronym} - ${adminData.party.name}` : 'Sem partido';
+    const adminPhone = adminData?.phone || 'Não informado';
+    const adminEmail = adminData?.email || 'Não informado';
+
+    // Criar dados da planilha
+    const worksheetData = [
+      ['RELATÓRIO DE ALIANÇAS POLÍTICAS'],
+      [],
+      ['Responsável:', adminName],
+      ['Partido:', adminParty],
+      ['Telefone:', adminPhone],
+      ['Email:', adminEmail],
+      [],
+      [`Total de alianças: ${filteredAlliances.length}`],
+      [],
+      ['Nome', 'Partido', 'Cargo', 'Estado', 'Cidade', 'Telefone', 'Email', 'Observações'],
+      ...filteredAlliances.map(alliance => {
+        const party = parties?.find(p => p.id === alliance.partyId);
+        return [
+          alliance.allyName,
+          party?.acronym || '-',
+          alliance.position || '-',
+          alliance.state || '-',
+          alliance.city || '-',
+          alliance.phone || '-',
+          alliance.email || '-',
+          alliance.notes || '-'
+        ];
+      })
+    ];
+
+    // Criar workbook e worksheet
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(worksheetData);
+
+    // Definir larguras das colunas
+    ws['!cols'] = [
+      { wch: 30 }, // Nome
+      { wch: 15 }, // Partido
+      { wch: 25 }, // Cargo
+      { wch: 10 }, // Estado
+      { wch: 20 }, // Cidade
+      { wch: 18 }, // Telefone
+      { wch: 30 }, // Email
+      { wch: 40 }  // Observações
+    ];
+
+    // Mesclar células para o título
+    ws['!merges'] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 7 } }, // Título principal
+    ];
+
+    // Adicionar worksheet ao workbook
+    XLSX.utils.book_append_sheet(wb, ws, 'Alianças');
+
+    // Baixar arquivo
+    XLSX.writeFile(wb, `aliancas-${new Date().toISOString().split('T')[0]}.xlsx`);
+    toast({ title: `Excel gerado com ${filteredAlliances.length} alianças!` });
+    setIsExportDialogOpen(false);
+  };
+
   return (
     <div className="p-4 sm:p-6 md:p-8 space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
@@ -390,6 +619,17 @@ export default function Alliances() {
           >
             <Copy className="w-4 h-4 mr-2" />
             WhatsApp
+          </Button>
+
+          <Button 
+            variant="outline"
+            onClick={() => setIsExportDialogOpen(true)}
+            data-testid="button-export-alliances"
+            title="Exportar alianças"
+            className="rounded-full"
+          >
+            <Download className="w-4 h-4 mr-2" />
+            Exportar
           </Button>
 
           <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
@@ -599,6 +839,60 @@ export default function Alliances() {
                 </DialogFooter>
               </form>
             </Form>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={isExportDialogOpen} onOpenChange={setIsExportDialogOpen}>
+          <DialogContent className="max-w-md p-0" aria-describedby="export-dialog-description">
+            <DialogHeader className="px-5 pt-5 pb-3 border-b">
+              <DialogTitle className="text-xl font-bold">Exportar Alianças</DialogTitle>
+              <p id="export-dialog-description" className="text-xs text-muted-foreground mt-1">
+                Selecione o formato para exportar os dados das alianças políticas
+              </p>
+            </DialogHeader>
+            <div className="p-4">
+              <div className="grid gap-3">
+                <Card 
+                  className="cursor-pointer transition-all hover-elevate active-elevate-2 border-2 hover:border-primary/20"
+                  onClick={handleExportPDF}
+                  data-testid="button-export-pdf"
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="w-9 h-9 rounded-lg bg-red-100 dark:bg-red-900/30 flex items-center justify-center flex-shrink-0">
+                        <FileText className="h-5 w-5 text-red-600 dark:text-red-400" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-base font-semibold mb-0.5">Exportar como PDF</h3>
+                        <p className="text-xs text-muted-foreground leading-snug">
+                          Documento formatado com todas as alianças prontas para apresentação
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card 
+                  className="cursor-pointer transition-all hover-elevate active-elevate-2 border-2 hover:border-primary/20"
+                  onClick={handleExportExcel}
+                  data-testid="button-export-excel"
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="w-9 h-9 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center flex-shrink-0">
+                        <Sheet className="h-5 w-5 text-green-600 dark:text-green-400" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-base font-semibold mb-0.5">Exportar como Excel</h3>
+                        <p className="text-xs text-muted-foreground leading-snug">
+                          Planilha editável com todos os dados para análise detalhada
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
           </DialogContent>
         </Dialog>
         </div>
