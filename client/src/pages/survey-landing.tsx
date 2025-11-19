@@ -507,33 +507,33 @@ export default function SurveyLanding() {
                     control={form.control}
                     name="answer"
                     render={({ field }) => (
-                      <FormItem className="space-y-3">
+                      <FormItem>
                         <FormControl>
                           <RadioGroup
                             onValueChange={field.onChange}
                             value={field.value}
-                            className="space-y-3"
                             data-testid="radio-group-single-choice"
                           >
-                            {surveyData.template.options!.map((option, index) => (
-                              <div
-                                key={index}
-                                className="flex items-center space-x-3 rounded-lg border p-4 hover-elevate cursor-pointer"
-                                onClick={() => field.onChange(option)}
-                              >
-                                <RadioGroupItem 
-                                  value={option} 
-                                  id={`option-${index}`}
-                                  data-testid={`radio-option-${index}`}
-                                />
-                                <Label
-                                  htmlFor={`option-${index}`}
-                                  className="flex-1 cursor-pointer text-base"
+                            <div className="space-y-3">
+                              {surveyData.template.options!.map((option, index) => (
+                                <div
+                                  key={index}
+                                  className="flex items-center space-x-3 rounded-lg border p-4 hover-elevate"
                                 >
-                                  {option}
-                                </Label>
-                              </div>
-                            ))}
+                                  <RadioGroupItem 
+                                    value={option} 
+                                    id={`option-${index}`}
+                                    data-testid={`radio-option-${index}`}
+                                  />
+                                  <Label
+                                    htmlFor={`option-${index}`}
+                                    className="flex-1 cursor-pointer text-base"
+                                  >
+                                    {option}
+                                  </Label>
+                                </div>
+                              ))}
+                            </div>
                           </RadioGroup>
                         </FormControl>
                         <FormMessage />
