@@ -650,6 +650,8 @@ export const insertContactSchema = createInsertSchema(contacts).omit({
   userId: true,
   accountId: true,
   createdAt: true,
+}).extend({
+  age: z.number().int().positive().max(120).optional(),
 });
 
 export const insertPoliticalAllianceSchema = createInsertSchema(politicalAlliances).omit({
