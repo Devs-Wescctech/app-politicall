@@ -1033,6 +1033,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Delete user account (admin panel only)
+  app.delete("/api/admin/users/:id", authenticateAdminToken, async (req: AuthRequest, res) => {
+    try {
+      const { id } = req.params;
+      
+      // Get user to find their accountId and verify they exist
+      const user = await storage.getUser(id);
+      if (!user) {
+        return res.status(404).json({ error: "Usuário não encontrado" });
+      }
+      
+      // Prevent admin from deleting themselves
+      if (id === req.userId) {
+        return res.status(400).json({ error: "Você não pode excluir sua própria conta" });
+      }
+      
+      // Delete user
+      await storage.deleteUser(id, user.accountId);
+      
+      res.json({ message: "Usuário excluído com sucesso" });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
   // ==================== USER MANAGEMENT (Admin Only) ====================
   
   // Get user activity ranking with period filter

@@ -106,6 +106,8 @@ export default function ContractsPage() {
   const [selectedLeads, setSelectedLeads] = useState<Set<string>>(new Set());
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [leadToDelete, setLeadToDelete] = useState<string | null>(null);
+  const [deleteUserConfirmOpen, setDeleteUserConfirmOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<User | null>(null);
 
   // Verify admin token on mount
   useEffect(() => {
@@ -356,6 +358,50 @@ export default function ContractsPage() {
   const handlePaymentConfirm = () => {
     if (selectedUser) {
       paymentMutation.mutate(selectedUser.id);
+    }
+  };
+
+  // Delete user mutation
+  const deleteUserMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      const token = localStorage.getItem('admin_token');
+      const response = await fetch(`/api/admin/users/${userId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Erro ao excluir conta');
+      }
+      
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
+      toast({
+        title: "Conta excluída!",
+        description: "A conta foi removida permanentemente do sistema.",
+      });
+      setDeleteUserConfirmOpen(false);
+      setDetailsDialogOpen(false);
+      setUserToDelete(null);
+      setSelectedUser(null);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro ao excluir conta",
+        description: error.message || "Não foi possível excluir a conta.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleDeleteUserConfirm = () => {
+    if (userToDelete) {
+      deleteUserMutation.mutate(userToDelete.id);
     }
   };
 
@@ -645,12 +691,8 @@ export default function ContractsPage() {
                 <Button
                   variant="destructive"
                   onClick={() => {
-                    setDetailsDialogOpen(false);
-                    // TODO: Implement delete functionality
-                    toast({
-                      title: "Em desenvolvimento",
-                      description: "Funcionalidade de exclusão em breve.",
-                    });
+                    setUserToDelete(selectedUser);
+                    setDeleteUserConfirmOpen(true);
                   }}
                   className="flex-1"
                   data-testid="button-delete-user"
@@ -826,6 +868,61 @@ export default function ContractsPage() {
               data-testid="button-close-inbox"
             >
               Fechar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete User Confirmation Dialog */}
+      <Dialog open={deleteUserConfirmOpen} onOpenChange={setDeleteUserConfirmOpen}>
+        <DialogContent data-testid="dialog-delete-user-confirm">
+          <DialogHeader>
+            <DialogTitle data-testid="text-dialog-delete-user-title">Confirmar Exclusão Permanente</DialogTitle>
+            <DialogDescription data-testid="text-dialog-delete-user-description">
+              {userToDelete && (
+                <>
+                  Você está prestes a excluir permanentemente a conta de: <strong>{userToDelete.name}</strong>
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="bg-destructive/10 p-4 rounded-lg border border-destructive/30">
+              <p className="text-sm font-semibold text-destructive mb-2">
+                ⚠️ Esta ação é irreversível!
+              </p>
+              <ul className="text-sm text-muted-foreground space-y-1 ml-4 list-disc">
+                <li>Todos os dados do usuário serão excluídos permanentemente</li>
+                <li>O acesso ao sistema será revogado imediatamente</li>
+                <li>Esta ação não pode ser desfeita</li>
+              </ul>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Tem certeza que deseja continuar?
+            </p>
+          </div>
+
+          <DialogFooter className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDeleteUserConfirmOpen(false);
+                setUserToDelete(null);
+              }}
+              className="flex-1"
+              data-testid="button-cancel-delete-user"
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteUserConfirm}
+              disabled={deleteUserMutation.isPending}
+              className="flex-1"
+              data-testid="button-confirm-delete-user"
+            >
+              {deleteUserMutation.isPending ? "Excluindo..." : "Sim, Excluir Permanentemente"}
             </Button>
           </DialogFooter>
         </DialogContent>
