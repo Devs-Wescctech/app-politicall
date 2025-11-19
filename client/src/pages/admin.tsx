@@ -62,6 +62,7 @@ export default function Admin() {
   const [isVerifying, setIsVerifying] = useState(true);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [paidDialogOpen, setPaidDialogOpen] = useState(false);
+  const [deleteCampaignDialogOpen, setDeleteCampaignDialogOpen] = useState(false);
   const [inboxDialogOpen, setInboxDialogOpen] = useState(false);
   const [selectedCampaign, setSelectedCampaign] = useState<CampaignWithTemplate | null>(null);
   const [rejectNotes, setRejectNotes] = useState("");
@@ -474,6 +475,41 @@ export default function Admin() {
     },
   });
 
+  const deleteCampaignMutation = useMutation({
+    mutationFn: async (campaignId: string) => {
+      const token = localStorage.getItem("admin_token");
+      const response = await fetch(`/api/admin/survey-campaigns/${campaignId}`, {
+        method: "DELETE",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error("Erro ao excluir campanha");
+      }
+      
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/survey-campaigns"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/survey-campaigns"] });
+      setDeleteCampaignDialogOpen(false);
+      setSelectedCampaign(null);
+      toast({
+        title: "Campanha excluída",
+        description: "A campanha foi excluída permanentemente do sistema.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erro ao excluir campanha",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleLogout = () => {
     localStorage.removeItem("admin_token");
     setLocation("/login");
@@ -528,6 +564,17 @@ export default function Admin() {
   const handlePaidConfirm = () => {
     if (selectedCampaign) {
       deletePaidMutation.mutate(selectedCampaign.id);
+    }
+  };
+
+  const handleDeleteCampaignClick = (campaign: CampaignWithTemplate) => {
+    setSelectedCampaign(campaign);
+    setDeleteCampaignDialogOpen(true);
+  };
+
+  const handleDeleteCampaignConfirm = () => {
+    if (selectedCampaign) {
+      deleteCampaignMutation.mutate(selectedCampaign.id);
     }
   };
 
@@ -617,19 +664,32 @@ export default function Admin() {
                 </p>
               </div>
               {campaign.status === "approved" && (
-                <Button
-                  onClick={() => handleCopyLink(campaign)}
-                  size="sm"
-                  variant="ghost"
-                  className="h-8 w-8 p-0 flex-shrink-0"
-                  data-testid={`button-copy-link-${campaign.id}`}
-                >
-                  {copiedId === campaign.id ? (
-                    <Check className="w-4 h-4 text-[#40E0D0]" />
-                  ) : (
-                    <Copy className="w-4 h-4 text-muted-foreground hover:text-[#40E0D0]" />
+                <div className="flex gap-1 flex-shrink-0">
+                  <Button
+                    onClick={() => handleCopyLink(campaign)}
+                    size="sm"
+                    variant="ghost"
+                    className="h-8 w-8 p-0"
+                    data-testid={`button-copy-link-${campaign.id}`}
+                  >
+                    {copiedId === campaign.id ? (
+                      <Check className="w-4 h-4 text-[#40E0D0]" />
+                    ) : (
+                      <Copy className="w-4 h-4 text-muted-foreground hover:text-[#40E0D0]" />
+                    )}
+                  </Button>
+                  {campaign.campaignStage === "aguardando" && (
+                    <Button
+                      onClick={() => handleDeleteCampaignClick(campaign)}
+                      size="sm"
+                      variant="ghost"
+                      className="h-8 w-8 p-0"
+                      data-testid={`button-delete-campaign-${campaign.id}`}
+                    >
+                      <Trash2 className="w-4 h-4 text-destructive hover:text-destructive/80" />
+                    </Button>
                   )}
-                </Button>
+                </div>
               )}
             </div>
 
@@ -1002,6 +1062,53 @@ export default function Admin() {
             >
               <DollarSign className="w-4 h-4 mr-2" />
               Confirmar Pagamento
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Campaign Dialog */}
+      <Dialog open={deleteCampaignDialogOpen} onOpenChange={setDeleteCampaignDialogOpen}>
+        <DialogContent data-testid="dialog-delete-campaign">
+          <DialogHeader>
+            <DialogTitle data-testid="text-dialog-delete-campaign-title">Excluir Campanha</DialogTitle>
+            <DialogDescription data-testid="text-dialog-delete-campaign-description">
+              {selectedCampaign && (
+                <>
+                  Você está excluindo permanentemente a campanha: <strong>{selectedCampaign.campaignName}</strong>
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-muted-foreground">
+              Ao confirmar, esta campanha será excluída permanentemente do sistema. 
+              Esta ação não pode ser desfeita.
+            </p>
+          </div>
+
+          <DialogFooter className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDeleteCampaignDialogOpen(false);
+                setSelectedCampaign(null);
+              }}
+              className="flex-1"
+              data-testid="button-cancel-delete-campaign"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleDeleteCampaignConfirm}
+              disabled={deleteCampaignMutation.isPending}
+              variant="destructive"
+              className="flex-1"
+              data-testid="button-confirm-delete-campaign"
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Confirmar Exclusão
             </Button>
           </DialogFooter>
         </DialogContent>
