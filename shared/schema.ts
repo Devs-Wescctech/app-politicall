@@ -314,6 +314,7 @@ export const events = pgTable("events", {
   recurrence: text("recurrence"), // none, daily, weekly, monthly
   reminder: boolean("reminder").default(false),
   reminderMinutes: integer("reminder_minutes"), // minutes before event
+  googleEventId: text("google_event_id"), // Google Calendar event ID for synced events
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

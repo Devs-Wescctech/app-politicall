@@ -14,7 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, Calendar as CalendarIcon, List, Clock, Trash2, Pencil, MapPin } from "lucide-react";
+import { Plus, Calendar as CalendarIcon, List, Clock, Trash2, Pencil, MapPin, RefreshCw, CheckCircle2, AlertCircle, Link2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -22,6 +22,8 @@ import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, startOf
 import { ptBR } from "date-fns/locale";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { SiGooglecalendar } from "react-icons/si";
+import { Link } from "wouter";
 
 const CATEGORY_CONFIG = {
   meeting: { label: "Reunião", color: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200", borderColor: "#3b82f6" },
@@ -111,11 +113,49 @@ export default function Agenda() {
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [view, setView] = useState<"list" | "calendar" | "timeline">("list");
+  const [isSyncing, setIsSyncing] = useState(false);
   const { toast } = useToast();
 
   const { data: events, isLoading } = useQuery<Event[]>({
     queryKey: ["/api/events"],
     refetchInterval: 60000, // Atualizar a cada minuto para remover eventos passados
+  });
+
+  // Query for Google Calendar integration status
+  const { data: googleCalendarStatus, refetch: refetchGoogleCalendar } = useQuery<{
+    configured: boolean;
+    authorized: boolean;
+    email?: string;
+    lastSyncAt?: string;
+  }>({
+    queryKey: ["/api/google-calendar"],
+    refetchInterval: 60000, // Check status every minute
+  });
+
+  // Mutation for syncing Google Calendar
+  const syncGoogleCalendarMutation = useMutation({
+    mutationFn: async () => {
+      setIsSyncing(true);
+      return apiRequest("POST", "/api/google-calendar/sync");
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/events"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/google-calendar"] });
+      toast({ 
+        title: "Sincronização concluída!", 
+        description: data.message || `${data.synced || 0} eventos sincronizados com o Google Calendar` 
+      });
+      setIsSyncing(false);
+    },
+    onError: (error: any) => {
+      console.error("Erro ao sincronizar com Google Calendar:", error);
+      toast({ 
+        title: "Erro na sincronização", 
+        description: error.response?.data?.error || "Falha ao sincronizar com o Google Calendar",
+        variant: "destructive" 
+      });
+      setIsSyncing(false);
+    }
   });
 
   // Filtrar eventos passados e ordenar por proximidade
@@ -314,6 +354,76 @@ export default function Agenda() {
 
   return (
     <div className="container mx-auto p-6">
+      {/* Google Calendar Integration Status */}
+      <Card className="mb-6">
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <SiGooglecalendar className="h-6 w-6 text-blue-500" />
+              <div className="flex items-center gap-3">
+                {!googleCalendarStatus?.configured ? (
+                  <>
+                    <span className="text-sm text-muted-foreground">
+                      Google Calendar não configurado
+                    </span>
+                    <Link href="/settings?tab=google-calendar">
+                      <Button variant="outline" size="sm" className="rounded-full" data-testid="button-connect-google-calendar">
+                        <Link2 className="h-4 w-4 mr-2" />
+                        Conectar Google Calendar
+                      </Button>
+                    </Link>
+                  </>
+                ) : googleCalendarStatus?.authorized ? (
+                  <>
+                    <Badge variant="outline" className="gap-1 text-green-600 border-green-600">
+                      <CheckCircle2 className="h-3 w-3" />
+                      Conectado ao Google Calendar
+                    </Badge>
+                    {googleCalendarStatus?.email && (
+                      <span className="text-xs text-muted-foreground">
+                        {googleCalendarStatus.email}
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <Badge variant="outline" className="gap-1 text-yellow-600 border-yellow-600">
+                      <AlertCircle className="h-3 w-3" />
+                      Google Calendar não autorizado
+                    </Badge>
+                    <Link href="/settings?tab=google-calendar">
+                      <Button variant="outline" size="sm" className="rounded-full" data-testid="button-authorize-google-calendar">
+                        Autorizar
+                      </Button>
+                    </Link>
+                  </>
+                )}
+              </div>
+            </div>
+            {googleCalendarStatus?.configured && googleCalendarStatus?.authorized && (
+              <div className="flex items-center gap-3">
+                {googleCalendarStatus?.lastSyncAt && (
+                  <span className="text-xs text-muted-foreground">
+                    Última sincronização: {format(new Date(googleCalendarStatus.lastSyncAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                  </span>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="rounded-full"
+                  onClick={() => syncGoogleCalendarMutation.mutate()}
+                  disabled={isSyncing || syncGoogleCalendarMutation.isPending}
+                  data-testid="button-sync-google-calendar"
+                >
+                  <RefreshCw className={`h-4 w-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
+                  {isSyncing ? 'Sincronizando...' : 'Sincronizar Agora'}
+                </Button>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">Agenda</h1>
         <div className="flex gap-4">
@@ -608,9 +718,12 @@ export default function Agenda() {
                           <div className="flex-1 space-y-2">
                             <div className="flex items-center gap-3 flex-wrap">
                               <h4 className="font-semibold">{event.title}</h4>
+                              {(event as any).googleEventId && (
+                                <SiGooglecalendar className="h-4 w-4 text-blue-500" title="Sincronizado com Google Calendar" />
+                              )}
                               {event.category && (
                                 <Badge 
-                                  variant="ghost"
+                                  variant="secondary"
                                   style={{ 
                                     color: event.borderColor || CATEGORY_CONFIG[event.category as keyof typeof CATEGORY_CONFIG]?.borderColor || "#3b82f6"
                                   }}
@@ -699,14 +812,17 @@ export default function Agenda() {
                       {dayEvents.slice(0, 3).map((event) => (
                         <div
                           key={event.id}
-                          className="text-xs p-1 rounded truncate cursor-pointer hover-elevate border-l-4"
+                          className="text-xs p-1 rounded truncate cursor-pointer hover-elevate border-l-4 flex items-center gap-1"
                           style={{ 
                             backgroundColor: (event.borderColor || CATEGORY_CONFIG[event.category as keyof typeof CATEGORY_CONFIG]?.borderColor || "#3b82f6") + "20",
                             borderLeftColor: event.borderColor || CATEGORY_CONFIG[event.category as keyof typeof CATEGORY_CONFIG]?.borderColor || "#3b82f6"
                           }}
                           onClick={() => handleEdit(event)}
                         >
-                          {event.title}
+                          {(event as any).googleEventId && (
+                            <SiGooglecalendar className="h-3 w-3 text-blue-500 flex-shrink-0" />
+                          )}
+                          <span className="truncate">{event.title}</span>
                         </div>
                       ))}
                       {dayEvents.length > 3 && (
@@ -736,6 +852,9 @@ export default function Agenda() {
                         <div className="flex-1 space-y-2">
                           <div className="flex items-center gap-3 flex-wrap">
                             <h4 className="font-semibold">{event.title}</h4>
+                            {(event as any).googleEventId && (
+                              <SiGooglecalendar className="h-4 w-4 text-blue-500" title="Sincronizado com Google Calendar" />
+                            )}
                             {event.category && (
                               <Badge 
                                 variant="ghost"
