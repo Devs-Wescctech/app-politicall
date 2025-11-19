@@ -109,7 +109,7 @@ export default function PublicSupport() {
       state: "",
       city: "",
       interests: [],
-      source: "QR Code",
+      source: "Politicall",
       notes: "",
     },
   });
