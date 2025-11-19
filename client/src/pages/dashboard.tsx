@@ -15,6 +15,11 @@ interface DashboardStats {
   totalEvents: number;
   upcomingEvents: number;
   ideologyDistribution: { ideology: string; count: number }[];
+  genderDistribution?: {
+    counts: { Masculino: number; Feminino: number; Indefinido: number };
+    percentages: { Masculino: number; Feminino: number; Indefinido: number };
+    total: number;
+  };
 }
 
 interface CurrentUser {
@@ -305,6 +310,75 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Distribuição por Gênero */}
+      {stats?.genderDistribution && stats.genderDistribution.total > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5 text-primary" />
+              Distribuição por Gênero
+            </CardTitle>
+            <CardDescription>Identificação automática baseada nos nomes cadastrados</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {/* Masculino */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium">Masculino</span>
+                  <span className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                    {stats.genderDistribution.percentages.Masculino.toFixed(1)}%
+                  </span>
+                </div>
+                <Progress 
+                  value={stats.genderDistribution.percentages.Masculino} 
+                  className="h-3"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  {stats.genderDistribution.counts.Masculino.toLocaleString('pt-BR')} eleitores
+                </p>
+              </div>
+
+              {/* Feminino */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium">Feminino</span>
+                  <span className="text-2xl font-bold text-pink-600 dark:text-pink-400">
+                    {stats.genderDistribution.percentages.Feminino.toFixed(1)}%
+                  </span>
+                </div>
+                <Progress 
+                  value={stats.genderDistribution.percentages.Feminino} 
+                  className="h-3"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  {stats.genderDistribution.counts.Feminino.toLocaleString('pt-BR')} eleitores
+                </p>
+              </div>
+
+              {/* Indefinido (se houver) */}
+              {stats.genderDistribution.counts.Indefinido > 0 && (
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium">Não identificado</span>
+                    <span className="text-2xl font-bold text-muted-foreground">
+                      {stats.genderDistribution.percentages.Indefinido.toFixed(1)}%
+                    </span>
+                  </div>
+                  <Progress 
+                    value={stats.genderDistribution.percentages.Indefinido} 
+                    className="h-3"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {stats.genderDistribution.counts.Indefinido.toLocaleString('pt-BR')} eleitores
+                  </p>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Gráficos de Pesquisas Mercadológicas */}
       <SurveyCampaignsCharts />
