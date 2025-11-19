@@ -240,6 +240,7 @@ export default function Settings() {
       phone: currentUser?.phone || "",
       partyId: currentUser?.partyId || "",
       politicalPosition: currentUser?.politicalPosition || "",
+      electionNumber: currentUser?.electionNumber || "",
       lastElectionVotes: formattedVotes,
       state: currentUser?.state || "",
       city: currentUser?.city || "",
