@@ -310,10 +310,18 @@ export default function PublicSupport() {
               </h2>
             </div>
 
-            {/* Political position */}
+            {/* Political position and party */}
             {candidateData.politicalPosition && (
               <p className="text-lg md:text-xl font-bold text-gray-800 dark:text-gray-200">
                 {candidateData.politicalPosition}
+                {candidateData.party && (
+                  <>
+                    {" | "}
+                    <span style={{ color: getPartyColor(candidateData.party?.acronym) }}>
+                      {candidateData.party.acronym} - {candidateData.party.name}
+                    </span>
+                  </>
+                )}
               </p>
             )}
           </div>
