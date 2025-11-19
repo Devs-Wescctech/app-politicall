@@ -704,6 +704,15 @@ export default function Contacts() {
       return;
     }
 
+    // Converter logo para base64
+    const logoBase64 = await fetch(logoUrl)
+      .then(res => res.blob())
+      .then(blob => new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.readAsDataURL(blob);
+      }));
+
     const docDefinition: any = {
       pageSize: 'A4',
       pageMargins: [40, 100, 40, 60],
@@ -711,7 +720,7 @@ export default function Contacts() {
         margin: [40, 20, 40, 0],
         columns: [
           {
-            image: logoUrl,
+            image: logoBase64,
             width: 50,
             alignment: 'left'
           },
