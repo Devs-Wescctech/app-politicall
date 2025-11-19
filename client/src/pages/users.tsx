@@ -578,7 +578,7 @@ export default function UsersManagement() {
                       demands: 'Demandas',
                       agenda: 'Agenda',
                       ai: 'Atendimento IA',
-                      marketing: 'Pesquisa',
+                      marketing: 'Pesquisas',
                       users: 'Usuários'
                     }).map(([key, label]) => (
                       <div key={key} className="flex items-center space-x-2">
@@ -796,7 +796,7 @@ export default function UsersManagement() {
                       demands: 'Demandas',
                       agenda: 'Agenda',
                       ai: 'Atendimento IA',
-                      marketing: 'Pesquisa',
+                      marketing: 'Pesquisas',
                       users: 'Usuários'
                     }).map(([key, label]) => (
                       <div key={key} className="flex items-center space-x-2">
