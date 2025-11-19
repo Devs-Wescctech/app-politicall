@@ -616,6 +616,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         avatar: z.string().optional(),
         partyId: z.string().optional(),
         politicalPosition: z.string().optional(),
+        electionNumber: z.string().optional(),
         lastElectionVotes: z.number().int().nonnegative().optional(),
         state: z.string().optional(),
         city: z.string().optional(),

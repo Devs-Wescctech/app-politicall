@@ -25,6 +25,7 @@ const profileSchema = z.object({
   phone: z.string().optional(),
   partyId: z.string().optional(),
   politicalPosition: z.string().optional(),
+  electionNumber: z.string().optional(),
   lastElectionVotes: z.string().optional(),
   state: z.string().optional(),
   city: z.string().optional(),
@@ -76,6 +77,7 @@ export default function Settings() {
     avatar?: string;
     partyId?: string;
     politicalPosition?: string;
+    electionNumber?: string;
     lastElectionVotes?: number;
     state?: string;
     city?: string;
@@ -95,6 +97,7 @@ export default function Settings() {
       phone: currentUser?.phone || "",
       partyId: currentUser?.partyId || "",
       politicalPosition: currentUser?.politicalPosition || "",
+      electionNumber: currentUser?.electionNumber || "",
       lastElectionVotes: currentUser?.lastElectionVotes?.toString() || "",
       state: currentUser?.state || "",
       city: currentUser?.city || "",
@@ -114,6 +117,7 @@ export default function Settings() {
         phone: data.phone || undefined,
         partyId: data.partyId || undefined,
         politicalPosition: data.politicalPosition || undefined,
+        electionNumber: data.electionNumber || undefined,
         lastElectionVotes: votesNumber,
         state: data.state || undefined,
         city: data.city || undefined,
@@ -513,6 +517,25 @@ export default function Settings() {
                           ))}
                         </SelectContent>
                       </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="electionNumber"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Número de Eleição</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="text" 
+                          placeholder="12345" 
+                          {...field}
+                          value={field.value || ''}
+                          data-testid="input-election-number" 
+                        />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}

@@ -92,6 +92,7 @@ export const users = pgTable("users", {
   slug: text("slug").unique(), // URL slug for public supporter page (e.g., "joao-silva")
   partyId: varchar("party_id").references(() => politicalParties.id),
   politicalPosition: text("political_position"),
+  electionNumber: text("election_number"), // Número de eleição (ex: 12345)
   lastElectionVotes: integer("last_election_votes"),
   state: text("state"),
   city: text("city"),
@@ -612,6 +613,7 @@ export const insertUserSchema = createInsertSchema(users).pick({
   avatar: true,
   partyId: true,
   politicalPosition: true,
+  electionNumber: true,
   lastElectionVotes: true,
 }).extend({
   email: z.string().email("Email inválido"),
@@ -633,6 +635,7 @@ export const insertUserSchema = createInsertSchema(users).pick({
   avatar: z.string().optional(),
   partyId: z.string().optional(),
   politicalPosition: z.string().optional(),
+  electionNumber: z.string().optional(),
   lastElectionVotes: z.number().int().nonnegative().optional(),
 });
 
