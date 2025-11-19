@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, integer, boolean, jsonb, numeric } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, integer, boolean, jsonb, numeric, uuid } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -783,6 +783,31 @@ export const insertSurveyResponseSchema = createInsertSchema(surveyResponses).om
   politicalIdeology: z.enum(["direita", "centro", "esquerda", "prefiro_nao_comentar"]),
 });
 
+// API Keys - External API integration
+export const apiKeys = pgTable("api_keys", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  accountId: uuid("account_id").notNull().references(() => accounts.id, { onDelete: 'cascade' }),
+  name: text("name").notNull(),
+  description: text("description"),
+  keyPrefix: text("key_prefix").notNull(), // First 8 chars to help identify the key
+  hashedKey: text("hashed_key").notNull().unique(), // bcrypt hash of the full key
+  lastUsedAt: timestamp("last_used_at"),
+  expiresAt: timestamp("expires_at"),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const apiKeyUsage = pgTable("api_key_usage", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  apiKeyId: uuid("api_key_id").notNull().references(() => apiKeys.id, { onDelete: 'cascade' }),
+  endpoint: text("endpoint").notNull(),
+  method: text("method").notNull(),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  statusCode: integer("status_code"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Leads - Landing page lead capture (global, não precisa de accountId pois é landing pública)
 export const leads = pgTable("leads", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -794,6 +819,22 @@ export const leads = pgTable("leads", {
   city: text("city").notNull(),
   message: text("message"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertApiKeySchema = createInsertSchema(apiKeys, {
+  name: z.string().min(3, "Nome deve ter pelo menos 3 caracteres"),
+  description: z.string().optional(),
+}).omit({ 
+  id: true, 
+  keyPrefix: true, // Will be generated from the key
+  hashedKey: true, // Will be generated on the server
+  lastUsedAt: true,
+  createdAt: true 
+});
+
+export const insertApiKeyUsageSchema = createInsertSchema(apiKeyUsage).omit({
+  id: true,
+  createdAt: true
 });
 
 export const insertLeadSchema = createInsertSchema(leads, {
@@ -861,6 +902,12 @@ export type InsertSurveyLandingPage = z.infer<typeof insertSurveyLandingPageSche
 
 export type SurveyResponse = typeof surveyResponses.$inferSelect;
 export type InsertSurveyResponse = z.infer<typeof insertSurveyResponseSchema>;
+
+export type ApiKey = typeof apiKeys.$inferSelect;
+export type InsertApiKey = z.infer<typeof insertApiKeySchema>;
+
+export type ApiKeyUsage = typeof apiKeyUsage.$inferSelect;
+export type InsertApiKeyUsage = z.infer<typeof insertApiKeyUsageSchema>;
 
 export type Lead = typeof leads.$inferSelect;
 export type InsertLead = z.infer<typeof insertLeadSchema>;

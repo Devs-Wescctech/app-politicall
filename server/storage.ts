@@ -3,6 +3,7 @@ import {
   accounts, users, contacts, politicalParties, politicalAlliances, demands, demandComments, events,
   aiConfigurations, aiConversations, aiTrainingExamples, aiResponseTemplates, 
   marketingCampaigns, notifications, integrations, surveyTemplates, surveyCampaigns, surveyLandingPages, surveyResponses, leads,
+  apiKeys, apiKeyUsage,
   type Account, type User, type InsertUser, type Contact, type InsertContact,
   type PoliticalParty, type PoliticalAlliance, type InsertPoliticalAlliance,
   type Demand, type InsertDemand, type DemandComment, type InsertDemandComment,
@@ -16,11 +17,15 @@ import {
   type SurveyCampaign, type InsertSurveyCampaign,
   type SurveyLandingPage, type InsertSurveyLandingPage,
   type SurveyResponse, type InsertSurveyResponse,
-  type Lead, type InsertLead
+  type Lead, type InsertLead,
+  type ApiKey, type InsertApiKey,
+  type ApiKeyUsage, type InsertApiKeyUsage
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, count, inArray } from "drizzle-orm";
 import { encryptApiKey, decryptApiKey } from "./crypto";
+import bcrypt from "bcrypt";
+import crypto from "crypto";
 
 export interface IStorage {
   // Accounts
@@ -147,6 +152,14 @@ export interface IStorage {
   getLeads(): Promise<Lead[]>;
   deleteLead(id: string): Promise<void>;
   deleteLeads(ids: string[]): Promise<void>;
+
+  // API Keys
+  getApiKeys(accountId: string): Promise<ApiKey[]>;
+  getApiKey(id: string, accountId: string): Promise<ApiKey | undefined>;
+  createApiKey(key: InsertApiKey & { accountId: string }): Promise<{ apiKey: ApiKey; plainKey: string }>;
+  deleteApiKey(id: string, accountId: string): Promise<void>;
+  validateApiKey(key: string): Promise<ApiKey | null>;
+  updateApiKeyUsage(apiKeyId: string, usage: Omit<InsertApiKeyUsage, "apiKeyId">): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1080,6 +1093,111 @@ export class DatabaseStorage implements IStorage {
     if (ids.length === 0) return;
     await db.delete(leads)
       .where(inArray(leads.id, ids));
+  }
+
+  // API Keys
+  private generateApiKey(): string {
+    // Generate a secure random API key with prefix "pk_" (production key)
+    const randomBytes = crypto.randomBytes(32);
+    const key = randomBytes.toString('base64url');
+    return `pk_${key}`;
+  }
+
+  async getApiKeys(accountId: string): Promise<ApiKey[]> {
+    return await db.select()
+      .from(apiKeys)
+      .where(and(
+        eq(apiKeys.accountId, accountId),
+        eq(apiKeys.isActive, true)
+      ))
+      .orderBy(desc(apiKeys.createdAt));
+  }
+
+  async getApiKey(id: string, accountId: string): Promise<ApiKey | undefined> {
+    const [key] = await db.select()
+      .from(apiKeys)
+      .where(and(
+        eq(apiKeys.id, id),
+        eq(apiKeys.accountId, accountId)
+      ));
+    return key;
+  }
+
+  async createApiKey(key: InsertApiKey & { accountId: string }): Promise<{ apiKey: ApiKey; plainKey: string }> {
+    // Generate the full API key
+    const plainKey = this.generateApiKey();
+    
+    // Hash the key for storage
+    const hashedKey = await bcrypt.hash(plainKey, 10);
+    
+    // Extract prefix for display (first 8 chars after "pk_")
+    const keyPrefix = plainKey.substring(0, 11) + "...";
+    
+    // Create expiration date (1 year from now by default)
+    const expiresAt = new Date();
+    expiresAt.setFullYear(expiresAt.getFullYear() + 1);
+    
+    const [newKey] = await db.insert(apiKeys)
+      .values({
+        ...key,
+        keyPrefix,
+        hashedKey,
+        expiresAt,
+      })
+      .returning();
+    
+    return { apiKey: newKey, plainKey };
+  }
+
+  async deleteApiKey(id: string, accountId: string): Promise<void> {
+    const result = await db.update(apiKeys)
+      .set({ isActive: false })
+      .where(and(
+        eq(apiKeys.id, id),
+        eq(apiKeys.accountId, accountId)
+      ))
+      .returning();
+    
+    if (result.length === 0) {
+      throw new Error('API key not found or access denied');
+    }
+  }
+
+  async validateApiKey(key: string): Promise<ApiKey | null> {
+    // Get all active API keys
+    const activeKeys = await db.select()
+      .from(apiKeys)
+      .where(and(
+        eq(apiKeys.isActive, true)
+      ));
+    
+    // Check each key
+    for (const apiKey of activeKeys) {
+      const isValid = await bcrypt.compare(key, apiKey.hashedKey);
+      if (isValid) {
+        // Check if expired
+        if (apiKey.expiresAt && apiKey.expiresAt < new Date()) {
+          return null;
+        }
+        
+        // Update last used timestamp
+        await db.update(apiKeys)
+          .set({ lastUsedAt: new Date() })
+          .where(eq(apiKeys.id, apiKey.id));
+        
+        return apiKey;
+      }
+    }
+    
+    return null;
+  }
+
+  async updateApiKeyUsage(apiKeyId: string, usage: Omit<InsertApiKeyUsage, "apiKeyId">): Promise<void> {
+    await db.insert(apiKeyUsage)
+      .values({
+        ...usage,
+        apiKeyId,
+      });
   }
 }
 
