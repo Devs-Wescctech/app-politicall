@@ -25,8 +25,9 @@ import {
   Building2, Wrench, Bus, Shield, Siren, Landmark, Vote,
   Flag, Home, Droplet, Construction, Hospital, Building,
   School, University, Baby as BabyIcon, Smile, Drum, Cake,
-  Calendar as CalendarIcon, Star, Mic2, ShoppingCart, Download, FileText, Sheet, MoreVertical, QrCode
+  Calendar as CalendarIcon, Star, Mic2, ShoppingCart, Download, FileText, Sheet, MoreVertical, QrCode, Share2
 } from "lucide-react";
+import { SiWhatsapp, SiFacebook, SiX } from "react-icons/si";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -768,6 +769,8 @@ export default function Contacts() {
                           www.politicall.com.br/apoio/{adminData.slug}
                         </p>
                       </div>
+                      
+                      {/* Botões de ação principais */}
                       <div className="flex gap-2">
                         <Button
                           variant="outline"
@@ -808,8 +811,71 @@ export default function Contacts() {
                           data-testid="button-download-qr"
                         >
                           <Download className="w-4 h-4 mr-2" />
-                          Baixar QR Code
+                          Baixar
                         </Button>
+                      </div>
+                      
+                      {/* Ícones de compartilhamento em redes sociais */}
+                      <div className="space-y-2">
+                        <p className="text-xs text-muted-foreground text-center">Compartilhar em:</p>
+                        <div className="flex justify-center gap-2">
+                          <Button
+                            size="icon"
+                            variant="outline"
+                            className="h-10 w-10 rounded-full"
+                            onClick={() => {
+                              const url = `https://www.politicall.com.br/apoio/${adminData.slug}`;
+                              const text = `Declare seu apoio a ${adminData.name}! Cadastre-se aqui:`;
+                              window.open(`https://wa.me/?text=${encodeURIComponent(text + ' ' + url)}`, '_blank');
+                            }}
+                            data-testid="button-share-whatsapp"
+                            title="Compartilhar no WhatsApp"
+                          >
+                            <SiWhatsapp className="h-5 w-5 text-green-600" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="outline"
+                            className="h-10 w-10 rounded-full"
+                            onClick={() => {
+                              const url = `https://www.politicall.com.br/apoio/${adminData.slug}`;
+                              window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`, '_blank');
+                            }}
+                            data-testid="button-share-facebook"
+                            title="Compartilhar no Facebook"
+                          >
+                            <SiFacebook className="h-5 w-5 text-blue-600" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="outline"
+                            className="h-10 w-10 rounded-full"
+                            onClick={() => {
+                              const url = `https://www.politicall.com.br/apoio/${adminData.slug}`;
+                              const text = `Declare seu apoio a ${adminData.name}!`;
+                              window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`, '_blank');
+                            }}
+                            data-testid="button-share-twitter"
+                            title="Compartilhar no X (Twitter)"
+                          >
+                            <SiX className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="outline"
+                            className="h-10 w-10 rounded-full"
+                            onClick={() => {
+                              const url = `https://www.politicall.com.br/apoio/${adminData.slug}`;
+                              const subject = `Apoie ${adminData.name}`;
+                              const body = `Olá!\n\nConheça e declare seu apoio a ${adminData.name}!\n\nAcesse: ${url}`;
+                              window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+                            }}
+                            data-testid="button-share-email"
+                            title="Compartilhar por Email"
+                          >
+                            <Mail className="h-5 w-5" />
+                          </Button>
+                        </div>
                       </div>
                     </div>
                     <div className="p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-800">
@@ -826,7 +892,7 @@ export default function Contacts() {
                       <QrCode className="w-8 h-8 text-yellow-600 dark:text-yellow-400" />
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      Para gerar o QR Code, você precisa primeiro configurar um nome de usuário (slug) único nas configurações.
+                      Carregando QR Code...
                     </p>
                   </div>
                 )}
