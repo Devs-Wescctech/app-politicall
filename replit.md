@@ -61,3 +61,9 @@ Preferred communication style: Simple, everyday language.
 - **Development Tools:** Vite, Replit plugins, ESBuild, Drizzle Kit.
 - **UI Component Libraries:** Radix UI, Recharts, date-fns, react-icons, cmdk, vaul.
 - **Validation & Type Safety:** Zod schemas, Drizzle-Zod integration, TypeScript.
+
+## Production & Deployment
+
+- **Demo Admin Account:** Automatically created on server startup with email `adm@politicall.com.br` and password `admin123`. This account is linked to a demo gabinete account ("Gabinete Politicall Demo") with fixed IDs for consistency across deployments.
+- **Admin Credentials:** Email: adm@politicall.com.br | Password: admin123 (password is ALWAYS reset to this value on every server startup)
+- **Server Startup Seeding:** On every server restart, the system automatically seeds political parties, survey templates, and the demo admin account. Password is always reset to `admin123` for the demo account.

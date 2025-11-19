@@ -316,6 +316,7 @@ async function seedAdminUser() {
     const adminEmail = 'adm@politicall.com.br';
     const adminPassword = 'admin123';
     const hashedPassword = await bcrypt.hash(adminPassword, 10);
+    const adminAccountId = 'a1111111-1111-1111-1111-111111111111'; // Fixed account ID for demo admin
     
     const existingAdmin = await storage.getUserByEmail(adminEmail);
     if (existingAdmin) {
@@ -328,16 +329,30 @@ async function seedAdminUser() {
       return;
     }
     
+    // First, create or get the account for this admin
     await db.execute(sql`
-      INSERT INTO users (id, email, name, password, role, political_position, permissions, created_at)
+      INSERT INTO accounts (id, name, created_at)
+      VALUES (
+        ${adminAccountId},
+        'Gabinete Politicall Demo',
+        NOW()
+      )
+      ON CONFLICT (id) DO NOTHING
+    `);
+    
+    // Then create the admin user linked to this account
+    await db.execute(sql`
+      INSERT INTO users (id, account_id, email, name, password, role, political_position, permissions, slug, created_at)
       VALUES (
         'd0476e06-f1b0-4204-8280-111fa6478fc9',
+        ${adminAccountId},
         ${adminEmail},
         'Carlos Nedel',
         ${hashedPassword},
         'admin',
         'Vereador',
         ${JSON.stringify(DEFAULT_PERMISSIONS.admin)}::jsonb,
+        'carlosnedel',
         NOW()
       )
       ON CONFLICT (email) DO UPDATE SET
