@@ -495,13 +495,13 @@ export default function Settings() {
   const baseUrl = 'https://www.politicall.com.br';
 
   return (
-    <div className="p-4 sm:p-6 md:p-8 space-y-6">
-      <div>
+    <div className="h-full flex flex-col p-4 sm:p-6 md:p-8">
+      <div className="mb-6">
         <h1 className="text-3xl font-bold">Configurações</h1>
         <p className="text-muted-foreground mt-2">Gerencie suas preferências e informações da conta</p>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex-1 flex flex-col min-h-0">
         <TabsList className="grid w-full max-w-lg grid-cols-3 rounded-full p-1">
           <TabsTrigger value="profile" data-testid="tab-profile" className="rounded-full">
             <User className="w-4 h-4 mr-2" />
@@ -517,8 +517,8 @@ export default function Settings() {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="profile" className="space-y-6 mt-6">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <TabsContent value="profile" className="mt-6 overflow-y-auto flex-1">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pb-6">
             <div className="lg:col-span-2 space-y-6">
               <Card>
                 <CardHeader>
@@ -692,8 +692,8 @@ export default function Settings() {
           </div>
         </TabsContent>
 
-        <TabsContent value="api" className="space-y-6 mt-6">
-          <div className="grid gap-6">
+        <TabsContent value="api" className="mt-6 overflow-y-auto flex-1">
+          <div className="grid gap-6 pb-6">
             {/* API Keys List */}
             <Card>
               <CardHeader>
@@ -959,8 +959,8 @@ export default function Settings() {
           </div>
         </TabsContent>
 
-        <TabsContent value="google-calendar" className="space-y-6 mt-6">
-          <div className="grid gap-6">
+        <TabsContent value="google-calendar" className="mt-6 overflow-y-auto flex-1">
+          <div className="grid gap-6 pb-6">
             {/* Setup Instructions Card */}
             <Card>
               <CardHeader>
