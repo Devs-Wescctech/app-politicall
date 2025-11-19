@@ -17,6 +17,7 @@ import { Check, Heart, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import logoUrl from "@assets/logo pol_1763308638963_1763559095972.png";
+import backgroundVideo from "@assets/grok-video-6d926f7e-74be-453e-93b2-58c35cc06668_1763562439869.mp4";
 
 const BRAZILIAN_STATES = [
   "Acre", "Alagoas", "Amapá", "Amazonas", "Bahia", "Ceará", "Distrito Federal",
@@ -194,38 +195,54 @@ export default function PublicSupport() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-primary/10 to-background">
-      {/* Header */}
-      <div className="bg-white dark:bg-gray-900 border-b shadow-sm">
-        <div className="container mx-auto px-4 py-4">
-          <img src={logoUrl} alt="Politicall" className="h-12 mx-auto" />
+    <div className="min-h-screen relative overflow-hidden">
+      {/* Video Background */}
+      <video
+        autoPlay
+        muted
+        loop
+        playsInline
+        className="fixed inset-0 w-full h-full object-cover z-0"
+      >
+        <source src={backgroundVideo} type="video/mp4" />
+      </video>
+      
+      {/* Dark Overlay for readability */}
+      <div className="fixed inset-0 bg-black/60 z-10"></div>
+      
+      {/* Content */}
+      <div className="relative z-20 min-h-screen">
+        {/* Header */}
+        <div className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border-b shadow-sm">
+          <div className="container mx-auto px-4 py-4">
+            <img src={logoUrl} alt="Politicall" className="h-12 mx-auto" />
+          </div>
         </div>
-      </div>
 
-      {/* Main Content */}
-      <div className="container mx-auto px-4 py-8 max-w-2xl">
+        {/* Main Content */}
+        <div className="container mx-auto px-4 py-8 max-w-2xl">
         {/* Candidate Profile */}
-        <div className="text-center space-y-6 mb-8">
+        <div className="text-center space-y-6 mb-8 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md rounded-lg p-8 shadow-xl">
           <div className="flex flex-col items-center gap-4">
-            <Avatar className="w-32 h-32 border-4 border-primary shadow-lg">
+            <Avatar className="w-32 h-32 border-4 border-primary shadow-lg ring-4 ring-white/50">
               <AvatarImage src={candidateData.avatar} alt={candidateData.name} />
               <AvatarFallback className="text-3xl">{candidateData.name?.charAt(0)}</AvatarFallback>
             </Avatar>
             <div className="space-y-2">
               <div className="flex items-center justify-center gap-2">
                 <Heart className="w-6 h-6 text-primary fill-primary" />
-                <h1 className="text-3xl md:text-4xl font-bold">Eu Apoio</h1>
+                <h1 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white">Eu Apoio</h1>
               </div>
               <h2 className="text-2xl md:text-3xl font-bold text-primary">
                 {candidateData.name}
               </h2>
               {candidateData.politicalPosition && (
-                <p className="text-lg text-muted-foreground">
+                <p className="text-lg text-gray-700 dark:text-gray-300">
                   {candidateData.politicalPosition}
                 </p>
               )}
               {candidateData.party && (
-                <div className="inline-block px-4 py-1.5 bg-primary/10 rounded-full">
+                <div className="inline-block px-4 py-1.5 bg-primary/20 backdrop-blur-sm rounded-full border border-primary/30">
                   <p className="font-semibold text-primary">
                     {candidateData.party.acronym} - {candidateData.party.name}
                   </p>
@@ -233,14 +250,14 @@ export default function PublicSupport() {
               )}
             </div>
           </div>
-          <p className="text-lg text-muted-foreground max-w-xl mx-auto">
+          <p className="text-lg text-gray-700 dark:text-gray-300 max-w-xl mx-auto">
             Cadastre-se como apoiador e faça parte dessa mudança! 
             Juntos construiremos um futuro melhor.
           </p>
         </div>
 
         {/* Registration Form */}
-        <Card className="shadow-lg">
+        <Card className="shadow-xl bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border-white/20">
           <CardContent className="p-6">
             <h3 className="text-xl font-bold mb-6 text-center">
               Cadastro de Apoiador
@@ -460,8 +477,9 @@ export default function PublicSupport() {
         </Card>
 
         {/* Footer */}
-        <div className="text-center mt-8 text-sm text-muted-foreground">
+        <div className="text-center mt-8 text-sm text-white/80">
           <p>Plataforma Politicall - Gestão Política Inteligente</p>
+        </div>
         </div>
       </div>
     </div>
