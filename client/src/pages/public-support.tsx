@@ -27,10 +27,43 @@ const BRAZILIAN_STATES = [
   "Roraima", "Santa Catarina", "São Paulo", "Sergipe", "Tocantins"
 ];
 
+// Cores oficiais dos partidos políticos brasileiros
+const PARTY_COLORS: Record<string, string> = {
+  "PL": "#0047AB",       // Azul
+  "PT": "#DA251D",       // Vermelho
+  "PSDB": "#0080FF",     // Azul
+  "PSB": "#FF8C00",      // Laranja
+  "PDT": "#008000",      // Verde
+  "MDB": "#008000",      // Verde
+  "PP": "#0047AB",       // Azul
+  "PSD": "#00A86B",      // Verde
+  "PSOL": "#DA251D",     // Vermelho
+  "PSC": "#00A86B",      // Verde
+  "REPUBLICANOS": "#0047AB", // Azul
+  "CIDADANIA": "#9B59B6",    // Roxo
+  "AVANTE": "#FF6B35",       // Laranja
+  "SOLIDARIEDADE": "#FF6B35", // Laranja
+  "PODE": "#0047AB",         // Azul
+  "PCdoB": "#DA251D",        // Vermelho
+  "REDE": "#00A86B",         // Verde
+  "PRTB": "#0047AB",         // Azul
+  "DC": "#00A86B",           // Verde
+  "PMB": "#008000",          // Verde
+  "NOVO": "#FF8C00",         // Laranja
+  "UP": "#DA251D",           // Vermelho
+  "UNIÃO": "#0047AB",        // Azul
+};
+
 export default function PublicSupport() {
   const [, params] = useRoute("/apoio/:slug");
   const { toast } = useToast();
   const [isSubmitted, setIsSubmitted] = useState(false);
+  
+  // Obter cor do partido dinamicamente
+  const getPartyColor = (partyAcronym?: string) => {
+    if (!partyAcronym) return "#40E0D0"; // Cor padrão (turquoise)
+    return PARTY_COLORS[partyAcronym] || "#40E0D0";
+  };
 
   const { data: candidateData, isLoading: isLoadingCandidate, isError, error, refetch } = useQuery<any>({
     queryKey: ["/api/public/candidate", params?.slug],
@@ -209,8 +242,21 @@ export default function PublicSupport() {
       <div className="relative z-20 min-h-screen">
         {/* Header */}
         <div className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border-b shadow-sm">
-          <div className="container mx-auto px-4 py-4">
-            <img src={logoUrl} alt="Politicall" className="h-12 mx-auto" />
+          <div className="container mx-auto px-4 py-4 flex items-center justify-center gap-4">
+            {candidateData?.party && (
+              <div className="flex items-center gap-3">
+                <div 
+                  className="w-3 h-3 rounded-full"
+                  style={{ backgroundColor: getPartyColor(candidateData.party.acronym) }}
+                ></div>
+                <span 
+                  className="text-lg font-bold"
+                  style={{ color: getPartyColor(candidateData.party.acronym) }}
+                >
+                  {candidateData.party.acronym} - {candidateData.party.name}
+                </span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -219,29 +265,35 @@ export default function PublicSupport() {
         {/* Candidate Profile */}
         <div className="text-center space-y-6 mb-8 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md rounded-lg p-8 shadow-xl">
           <div className="flex flex-col items-center gap-4">
-            <Avatar className="w-32 h-32 border-4 border-primary shadow-lg ring-4 ring-white/50">
+            <Avatar 
+              className="w-32 h-32 shadow-lg ring-4 ring-white/50"
+              style={{ 
+                borderWidth: '4px',
+                borderStyle: 'solid',
+                borderColor: getPartyColor(candidateData.party?.acronym)
+              }}
+            >
               <AvatarImage src={candidateData.avatar} alt={candidateData.name} />
               <AvatarFallback className="text-3xl">{candidateData.name?.charAt(0)}</AvatarFallback>
             </Avatar>
             <div className="space-y-2">
               <div className="flex items-center justify-center gap-2">
-                <Heart className="w-6 h-6 text-primary fill-primary" />
+                <Heart 
+                  className="w-6 h-6 fill-current"
+                  style={{ color: getPartyColor(candidateData.party?.acronym) }}
+                />
                 <h1 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white">Eu Apoio</h1>
               </div>
-              <h2 className="text-2xl md:text-3xl font-bold text-primary">
+              <h2 
+                className="text-2xl md:text-3xl font-bold"
+                style={{ color: getPartyColor(candidateData.party?.acronym) }}
+              >
                 {candidateData.name}
               </h2>
               {candidateData.politicalPosition && (
                 <p className="text-lg text-gray-700 dark:text-gray-300">
                   {candidateData.politicalPosition}
                 </p>
-              )}
-              {candidateData.party && (
-                <div className="inline-block px-4 py-1.5 bg-primary/20 backdrop-blur-sm rounded-full border border-primary/30">
-                  <p className="font-semibold text-primary">
-                    {candidateData.party.acronym} - {candidateData.party.name}
-                  </p>
-                </div>
               )}
             </div>
           </div>
@@ -456,10 +508,14 @@ export default function PublicSupport() {
                 />
                 <Button 
                   type="submit" 
-                  className="w-full" 
+                  className="w-full text-white" 
                   size="lg"
                   disabled={submitMutation.isPending}
                   data-testid="button-submit-support"
+                  style={{ 
+                    backgroundColor: getPartyColor(candidateData.party?.acronym),
+                    borderColor: getPartyColor(candidateData.party?.acronym)
+                  }}
                 >
                   {submitMutation.isPending ? "Enviando..." : "Confirmar Apoio"}
                 </Button>
