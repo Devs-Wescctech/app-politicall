@@ -975,39 +975,39 @@ export default function Settings() {
               <CardContent className="space-y-4">
                 <div className="space-y-3">
                   <div className="flex gap-3">
-                    <div className="flex-shrink-0 w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center text-sm font-semibold">1</div>
+                    <div className="flex-shrink-0 w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center text-xs font-semibold">1</div>
                     <div className="space-y-1">
-                      <p className="font-medium">Acesse o Google Cloud Console</p>
-                      <p className="text-sm text-muted-foreground">
+                      <p className="font-medium text-xs">Acesse o Google Cloud Console</p>
+                      <p className="text-xs text-muted-foreground">
                         Vá para <a href="https://console.cloud.google.com/" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">console.cloud.google.com</a> e crie um novo projeto ou selecione um existente
                       </p>
                     </div>
                   </div>
 
                   <div className="flex gap-3">
-                    <div className="flex-shrink-0 w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center text-sm font-semibold">2</div>
+                    <div className="flex-shrink-0 w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center text-xs font-semibold">2</div>
                     <div className="space-y-1">
-                      <p className="font-medium">Ative a Google Calendar API</p>
-                      <p className="text-sm text-muted-foreground">
+                      <p className="font-medium text-xs">Ative a Google Calendar API</p>
+                      <p className="text-xs text-muted-foreground">
                         No menu lateral, vá para "APIs e Serviços" → "Biblioteca" e procure por "Google Calendar API". Clique em "Ativar"
                       </p>
                     </div>
                   </div>
 
                   <div className="flex gap-3">
-                    <div className="flex-shrink-0 w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center text-sm font-semibold">3</div>
+                    <div className="flex-shrink-0 w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center text-xs font-semibold">3</div>
                     <div className="space-y-1">
-                      <p className="font-medium">Crie as credenciais OAuth 2.0</p>
-                      <p className="text-sm text-muted-foreground">
+                      <p className="font-medium text-xs">Crie as credenciais OAuth 2.0</p>
+                      <p className="text-xs text-muted-foreground">
                         Vá para "Credenciais" → "Criar credenciais" → "ID do cliente OAuth". Escolha "Aplicativo da Web"
                       </p>
                     </div>
                   </div>
 
                   <div className="flex gap-3">
-                    <div className="flex-shrink-0 w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center text-sm font-semibold">4</div>
+                    <div className="flex-shrink-0 w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center text-xs font-semibold">4</div>
                     <div className="space-y-1">
-                      <p className="font-medium">Configure o Redirect URI</p>
+                      <p className="font-medium text-xs">Configure o Redirect URI</p>
                       <div className="mt-2 p-3 bg-muted rounded-lg">
                         <p className="text-xs font-mono break-all">https://www.politicall.com.br/api/google-calendar/callback</p>
                         <Button
@@ -1021,17 +1021,17 @@ export default function Settings() {
                           Copiar
                         </Button>
                       </div>
-                      <p className="text-sm text-muted-foreground mt-2">
+                      <p className="text-xs text-muted-foreground mt-2">
                         Adicione este URI exato em "URIs de redirecionamento autorizados"
                       </p>
                     </div>
                   </div>
 
                   <div className="flex gap-3">
-                    <div className="flex-shrink-0 w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center text-sm font-semibold">5</div>
+                    <div className="flex-shrink-0 w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center text-xs font-semibold">5</div>
                     <div className="space-y-1">
-                      <p className="font-medium">Copie as credenciais</p>
-                      <p className="text-sm text-muted-foreground">
+                      <p className="font-medium text-xs">Copie as credenciais</p>
+                      <p className="text-xs text-muted-foreground">
                         Após criar, copie o "Client ID" e "Client Secret" e cole nos campos abaixo
                       </p>
                     </div>
@@ -1040,7 +1040,7 @@ export default function Settings() {
 
                 <Alert>
                   <AlertCircle className="h-4 w-4" />
-                  <AlertDescription className="text-sm">
+                  <AlertDescription className="text-xs">
                     <strong>Importante:</strong> Esta é uma configuração única por conta. Cada gabinete deve fornecer suas próprias credenciais do Google.
                   </AlertDescription>
                 </Alert>
