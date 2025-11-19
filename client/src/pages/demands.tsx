@@ -685,7 +685,7 @@ export default function Demands() {
           setIsEditingDemand(false);
         }
       }}>
-        <SheetContent className="w-full sm:max-w-xl p-0 flex flex-col">
+        <SheetContent className="w-full sm:max-w-xl p-0 flex flex-col [&>button]:hidden">
           {selectedDemand && (
             <>
               <SheetHeader className="px-6 pt-6 pb-4 border-b">
