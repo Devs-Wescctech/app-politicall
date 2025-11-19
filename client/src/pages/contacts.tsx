@@ -25,7 +25,7 @@ import {
   Building2, Wrench, Bus, Shield, Siren, Landmark, Vote,
   Flag, Home, Droplet, Construction, Hospital, Building,
   School, University, Baby as BabyIcon, Smile, Drum, Cake,
-  Calendar as CalendarIcon, Star, Mic2, ShoppingCart, Download, FileText, Sheet
+  Calendar as CalendarIcon, Star, Mic2, ShoppingCart, Download, FileText, Sheet, MoreVertical
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -34,6 +34,7 @@ import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Check } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import pdfMake from "pdfmake/build/pdfmake";
 import * as pdfFonts from "pdfmake/build/vfs_fonts";
 import * as XLSX from 'xlsx';
@@ -1101,49 +1102,56 @@ export default function Contacts() {
                         </div>
                       </TableCell>
                       <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          {contact.email && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
                             <Button
                               variant="ghost"
                               size="icon"
-                              onClick={() => window.location.href = `mailto:${contact.email}`}
-                              data-testid={`button-email-${contact.id}`}
-                              title="Enviar email"
+                              data-testid={`button-actions-${contact.id}`}
                             >
-                              <Mail className="h-4 w-4" />
+                              <MoreVertical className="h-4 w-4" />
                             </Button>
-                          )}
-                          {contact.phone && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => {
-                                const cleanPhone = contact.phone!.replace(/\D/g, '');
-                                window.open(`https://wa.me/55${cleanPhone}`, '_blank');
-                              }}
-                              data-testid={`button-whatsapp-${contact.id}`}
-                              title="Abrir WhatsApp"
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            {contact.email && (
+                              <DropdownMenuItem
+                                onClick={() => window.location.href = `mailto:${contact.email}`}
+                                data-testid={`button-email-${contact.id}`}
+                              >
+                                <Mail className="h-4 w-4 mr-2" />
+                                Enviar email
+                              </DropdownMenuItem>
+                            )}
+                            {contact.phone && (
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  const cleanPhone = contact.phone!.replace(/\D/g, '');
+                                  window.open(`https://wa.me/55${cleanPhone}`, '_blank');
+                                }}
+                                data-testid={`button-whatsapp-${contact.id}`}
+                              >
+                                <MessageCircle className="h-4 w-4 mr-2" />
+                                Abrir WhatsApp
+                              </DropdownMenuItem>
+                            )}
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={() => handleEdit(contact)}
+                              data-testid={`button-edit-${contact.id}`}
                             >
-                              <MessageCircle className="h-4 w-4" />
-                            </Button>
-                          )}
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleEdit(contact)}
-                            data-testid={`button-edit-${contact.id}`}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDelete(contact.id)}
-                            data-testid={`button-delete-${contact.id}`}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
+                              <Pencil className="h-4 w-4 mr-2" />
+                              Editar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleDelete(contact.id)}
+                              data-testid={`button-delete-${contact.id}`}
+                              className="text-destructive focus:text-destructive"
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Excluir
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </TableCell>
                     </TableRow>
                   ))
