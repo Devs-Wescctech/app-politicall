@@ -74,6 +74,15 @@ const getInterestColor = (interest: string): string => {
   return INTEREST_COLORS[index];
 };
 
+// Função para formatar nome com primeira letra maiúscula em cada palavra
+const formatName = (name: string): string => {
+  return name
+    .toLowerCase()
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+};
+
 // Mapeamento de interesses para ícones correspondentes
 const INTEREST_ICONS: Record<string, any> = {
   "Religião Católica": Church,
@@ -674,7 +683,7 @@ export default function Contacts() {
                 {filteredContacts && filteredContacts.length > 0 ? (
                   filteredContacts.map((contact) => (
                     <TableRow key={contact.id} data-testid={`row-contact-${contact.id}`}>
-                      <TableCell className="font-medium">{contact.name}</TableCell>
+                      <TableCell className="font-medium">{formatName(contact.name)}</TableCell>
                       <TableCell>
                         <div className="flex gap-1 flex-wrap">
                           {contact.interests && contact.interests.length > 0 ? (
