@@ -34,7 +34,7 @@ Preferred communication style: Simple, everyday language.
 ### Core Features & Implementations
 
 - **Multi-Tenant System (Complete):** Every account (gabinete) has completely isolated data. Implementation details:
-  - **Registration Flow:** POST /register creates new account + first user (admin) with partyId: null, avatar: null. Optional fields (phone, planValue, etc) preserved.
+  - **Registration Flow:** POST /register creates new account + first user (admin) with partyId: null, avatar: null, and auto-generated slug from admin name. Optional fields (phone, planValue, etc) preserved. Slug generation removes accents, spaces, special characters and converts to lowercase (e.g., "Carlos Nedel" → "carlosnedel").
   - **User Creation:** POST /users/create adds users to existing account (inherits accountId from admin).
   - **JWT Authentication:** Tokens include userId, accountId, and role. Middleware extracts accountId from every request.
   - **Data Isolation:** ALL storage methods filter by accountId on read (getContacts, getDemands, etc). ALL update/delete methods validate BOTH id AND accountId before allowing modification. Zero cross-tenant access possible.
@@ -47,6 +47,12 @@ Preferred communication style: Simple, everyday language.
 - **Admin Campaign Management:** Admin panel with a tab system ("Todas", "Pendentes", "Aprovadas", "Rejeitadas") for organizing campaigns. Campaign cards display status with color-coded badges. Campaigns remain visible after approval/rejection. User panel synchronizes with admin actions, showing updated campaign statuses.
 - **Public Survey Landing Pages:** Public-facing survey response collection at /survey/:slug. Completely isolated from authenticated system (no sidebar, header, or admin UI). Supports 4 question types (open_text, single_choice, multiple_choice, rating). All surveys include mandatory demographic fields (gender, age range, employment type, housing type, children, political ideology) collected before main question. Anonymous response submission to survey_responses table with demographic data stored in dedicated columns. GET /api/survey/:slug and POST /api/survey/:slug/submit public endpoints. Only approved/active campaigns accessible. Responsive design with SEO optimization. **IP-Based Duplicate Prevention:** Each survey can only be answered once per IP address. The system captures the respondent's IP (handling proxies via X-Forwarded-For header) and validates against existing responses before accepting submissions, returning a user-friendly error if the IP has already responded to that specific campaign.
 - **Survey Campaign Notifications:** Automatic high-priority notifications sent to users when their survey campaigns are approved or rejected by admin. Approved campaigns notify that the survey is live for 7 days. Rejected campaigns include the admin's rejection reason.
+- **Public Supporter Registration System:** Automatic QR Code generation and sharing system for public supporter registration. Implementation details:
+  - **Automatic Slug Generation:** During account creation, admin's name is automatically converted to a unique URL slug (e.g., "Carlos Nedel" → "carlosnedel"). Helper function `generateSlugFromName()` removes accents, spaces, special characters, and converts to lowercase.
+  - **QR Code Modal:** In Contacts page, admin can access QR Code modal showing QR code linking to public registration page at www.politicall.com.br/apoio/{slug}.
+  - **Comprehensive Sharing Options:** Modal includes 6 sharing methods: WhatsApp (with pre-filled message), Facebook, X/Twitter, Email (with subject and body), Copy URL, and Download QR Code as PNG.
+  - **Public Landing Page:** /apoio/:slug displays admin's photo and professional registration form. Submitted data automatically creates contact with source "QR Code - Apoio Público" and isSupporter: true flag.
+  - **User Experience:** No manual slug configuration needed - system generates it automatically during registration. QR Code is immediately available after account creation.
 
 ## External Dependencies
 
