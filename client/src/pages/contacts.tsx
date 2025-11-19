@@ -93,9 +93,9 @@ const INTEREST_ICONS: Record<string, any> = {
   "Outras Religiões": Star,              // Estrela espiritual
   
   // ESPORTES
-  "Futebol": Circle,                     // Bola de futebol
+  "Futebol": CircleDot,                  // Bola de futebol (círculo com ponto)
   "Vôlei": Volleyball,                   // Bola de vôlei
-  "Basquete": CircleDot,                 // Bola de basquete
+  "Basquete": Circle,                    // Bola de basquete
   "Natação": Waves,                      // Ondas/água
   "Artes Marciais": Swords,              // Espadas/luta
   "Corrida/Atletismo": Zap,              // Raio/velocidade
