@@ -961,11 +961,11 @@ export default function Settings() {
           {/* Setup Instructions Card */}
           <Card>
               <CardHeader>
-                <CardTitle className="flex items-center">
+                <CardTitle className="flex items-center text-xs">
                   <ExternalLink className="w-5 h-5 mr-2" />
                   Instruções de Configuração
                 </CardTitle>
-                <CardDescription>
+                <CardDescription className="text-xs">
                   Configure a integração com o Google Calendar seguindo estes passos
                 </CardDescription>
               </CardHeader>
@@ -1047,11 +1047,11 @@ export default function Settings() {
             {/* Configuration Form Card */}
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center">
+                <CardTitle className="flex items-center text-xs">
                   <Settings2 className="w-5 h-5 mr-2" />
                   Configuração de Credenciais
                 </CardTitle>
-                <CardDescription>
+                <CardDescription className="text-xs">
                   Insira as credenciais OAuth do seu projeto Google Cloud
                 </CardDescription>
               </CardHeader>
@@ -1233,11 +1233,11 @@ export default function Settings() {
             {/* Connection Status Card */}
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center">
+                <CardTitle className="flex items-center text-xs">
                   <Link className="w-5 h-5 mr-2" />
                   Status da Conexão
                 </CardTitle>
-                <CardDescription>
+                <CardDescription className="text-xs">
                   Gerencie a conexão com sua conta Google
                 </CardDescription>
               </CardHeader>
