@@ -12,6 +12,7 @@ import { requireRole } from "./authorization";
 import { authenticateToken, requirePermission, type AuthRequest } from "./auth";
 import { z } from "zod";
 import { groupTextResponses } from "@shared/text-normalization";
+import { calculateGenderDistribution } from "./utils/gender-detector";
 import fs from "fs";
 import path from "path";
 
@@ -2981,6 +2982,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         count,
       }));
 
+      // Calculate gender distribution
+      const genderDistribution = calculateGenderDistribution(contacts);
+
       const now = new Date();
       const pendingDemands = demands.filter(d => d.status === "pending").length;
       const upcomingEvents = events.filter(e => new Date(e.startDate) > now).length;
@@ -2993,6 +2997,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         totalEvents: events.length,
         upcomingEvents,
         ideologyDistribution: ideologyDistributionArray,
+        genderDistribution,
       });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
