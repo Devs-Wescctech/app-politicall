@@ -453,22 +453,22 @@ export default function Contacts() {
       ],
       styles: {
         header: {
-          fontSize: 18,
+          fontSize: 14,
           bold: true,
           color: '#1f2937'
         },
         subheader: {
-          fontSize: 12,
+          fontSize: 10,
           color: '#6b7280'
         },
         tableHeader: {
           bold: true,
-          fontSize: 10,
+          fontSize: 8,
           color: 'white'
         }
       },
       defaultStyle: {
-        fontSize: 9
+        fontSize: 7
       }
     };
 
