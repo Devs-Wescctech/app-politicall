@@ -352,7 +352,7 @@ export default function Settings() {
   };
 
   const selectedParty = parties?.find(p => p.id === form.watch("partyId"));
-  const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://your-domain.com';
+  const baseUrl = 'https://www.politicall.com.br';
 
   return (
     <div className="p-4 sm:p-6 md:p-8 space-y-6">
