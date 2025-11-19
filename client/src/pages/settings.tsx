@@ -693,7 +693,6 @@ export default function Settings() {
         </TabsContent>
 
         <TabsContent value="api" className="space-y-6 mt-6">
-          <div className="grid gap-6">
             {/* API Keys List */}
             <Card>
               <CardHeader>
@@ -956,13 +955,11 @@ export default function Settings() {
                 </CollapsibleContent>
               </Collapsible>
             </Card>
-          </div>
         </TabsContent>
 
         <TabsContent value="google-calendar" className="space-y-6 mt-6">
-          <div className="grid gap-6">
-            {/* Setup Instructions Card */}
-            <Card>
+          {/* Setup Instructions Card */}
+          <Card>
               <CardHeader>
                 <CardTitle className="flex items-center">
                   <ExternalLink className="w-5 h-5 mr-2" />
@@ -1381,7 +1378,6 @@ export default function Settings() {
                 )}
               </CardContent>
             </Card>
-          </div>
         </TabsContent>
       </Tabs>
 
