@@ -857,7 +857,7 @@ export default function Agenda() {
                             )}
                             {event.category && (
                               <Badge 
-                                variant="ghost"
+                                variant="secondary"
                                 style={{ 
                                   color: event.borderColor || CATEGORY_CONFIG[event.category as keyof typeof CATEGORY_CONFIG]?.borderColor || "#3b82f6"
                                 }}
