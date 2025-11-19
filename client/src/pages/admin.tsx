@@ -276,6 +276,26 @@ export default function Admin() {
       
       return response.json();
     },
+    onMutate: async (campaignId: string) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ["/api/admin/survey-campaigns"] });
+      
+      // Snapshot the previous value
+      const previousCampaigns = queryClient.getQueryData<CampaignWithTemplate[]>(["/api/admin/survey-campaigns"]);
+      
+      // Optimistically update to the new value
+      queryClient.setQueryData<CampaignWithTemplate[]>(["/api/admin/survey-campaigns"], (old) => {
+        if (!old) return old;
+        return old.map(campaign => 
+          campaign.id === campaignId 
+            ? { ...campaign, status: "approved", campaignStage: "aprovado" } 
+            : campaign
+        );
+      });
+      
+      // Return a context object with the snapshotted value
+      return { previousCampaigns };
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/survey-campaigns"] });
       toast({
@@ -283,7 +303,11 @@ export default function Admin() {
         description: "A campanha foi aprovada com sucesso.",
       });
     },
-    onError: (error: Error) => {
+    onError: (error: Error, campaignId, context) => {
+      // Rollback to the previous value on error
+      if (context?.previousCampaigns) {
+        queryClient.setQueryData(["/api/admin/survey-campaigns"], context.previousCampaigns);
+      }
       toast({
         title: "Erro ao aprovar",
         description: error.message,
@@ -311,6 +335,26 @@ export default function Admin() {
       
       return response.json();
     },
+    onMutate: async ({ campaignId, adminNotes }) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ["/api/admin/survey-campaigns"] });
+      
+      // Snapshot the previous value
+      const previousCampaigns = queryClient.getQueryData<CampaignWithTemplate[]>(["/api/admin/survey-campaigns"]);
+      
+      // Optimistically update to the new value
+      queryClient.setQueryData<CampaignWithTemplate[]>(["/api/admin/survey-campaigns"], (old) => {
+        if (!old) return old;
+        return old.map(campaign => 
+          campaign.id === campaignId 
+            ? { ...campaign, status: "rejected", adminNotes } 
+            : campaign
+        );
+      });
+      
+      // Return a context object with the snapshotted value
+      return { previousCampaigns };
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/survey-campaigns"] });
       setRejectDialogOpen(false);
@@ -321,7 +365,11 @@ export default function Admin() {
         description: "A campanha foi rejeitada com sucesso.",
       });
     },
-    onError: (error: Error) => {
+    onError: (error: Error, variables, context) => {
+      // Rollback to the previous value on error
+      if (context?.previousCampaigns) {
+        queryClient.setQueryData(["/api/admin/survey-campaigns"], context.previousCampaigns);
+      }
       toast({
         title: "Erro ao rejeitar",
         description: error.message,
@@ -349,6 +397,26 @@ export default function Admin() {
       
       return response.json();
     },
+    onMutate: async ({ campaignId, campaignStage }) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ["/api/admin/survey-campaigns"] });
+      
+      // Snapshot the previous value
+      const previousCampaigns = queryClient.getQueryData<CampaignWithTemplate[]>(["/api/admin/survey-campaigns"]);
+      
+      // Optimistically update to the new value
+      queryClient.setQueryData<CampaignWithTemplate[]>(["/api/admin/survey-campaigns"], (old) => {
+        if (!old) return old;
+        return old.map(campaign => 
+          campaign.id === campaignId 
+            ? { ...campaign, campaignStage } 
+            : campaign
+        );
+      });
+      
+      // Return a context object with the snapshotted value
+      return { previousCampaigns };
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/survey-campaigns"] });
       queryClient.invalidateQueries({ queryKey: ["/api/survey-campaigns"] });
@@ -357,7 +425,11 @@ export default function Admin() {
         description: "O estágio da campanha foi atualizado com sucesso.",
       });
     },
-    onError: (error: Error) => {
+    onError: (error: Error, variables, context) => {
+      // Rollback to the previous value on error
+      if (context?.previousCampaigns) {
+        queryClient.setQueryData(["/api/admin/survey-campaigns"], context.previousCampaigns);
+      }
       toast({
         title: "Erro ao atualizar estágio",
         description: error.message,
