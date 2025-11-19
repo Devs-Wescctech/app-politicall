@@ -16,8 +16,22 @@ interface DashboardStats {
   upcomingEvents: number;
   ideologyDistribution: { ideology: string; count: number }[];
   genderDistribution?: {
-    counts: { Masculino: number; Feminino: number; Indefinido: number };
-    percentages: { Masculino: number; Feminino: number; Indefinido: number };
+    counts: { 
+      Masculino: number; 
+      Feminino: number; 
+      'Não-binário': number;
+      Outro: number;
+      'Prefiro não responder': number;
+      Indefinido: number;
+    };
+    percentages: { 
+      Masculino: number; 
+      Feminino: number; 
+      'Não-binário': number;
+      Outro: number;
+      'Prefiro não responder': number;
+      Indefinido: number;
+    };
     total: number;
   };
 }
@@ -356,6 +370,63 @@ export default function Dashboard() {
                   {stats.genderDistribution.counts.Feminino.toLocaleString('pt-BR')} eleitores
                 </p>
               </div>
+
+              {/* Não-binário */}
+              {stats.genderDistribution.counts['Não-binário'] > 0 && (
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium">Não-binário</span>
+                    <span className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+                      {stats.genderDistribution.percentages['Não-binário'].toFixed(1)}%
+                    </span>
+                  </div>
+                  <Progress 
+                    value={stats.genderDistribution.percentages['Não-binário']} 
+                    className="h-3"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {stats.genderDistribution.counts['Não-binário'].toLocaleString('pt-BR')} eleitores
+                  </p>
+                </div>
+              )}
+
+              {/* Outro */}
+              {stats.genderDistribution.counts.Outro > 0 && (
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium">Outro</span>
+                    <span className="text-2xl font-bold text-orange-600 dark:text-orange-400">
+                      {stats.genderDistribution.percentages.Outro.toFixed(1)}%
+                    </span>
+                  </div>
+                  <Progress 
+                    value={stats.genderDistribution.percentages.Outro} 
+                    className="h-3"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {stats.genderDistribution.counts.Outro.toLocaleString('pt-BR')} eleitores
+                  </p>
+                </div>
+              )}
+
+              {/* Prefiro não responder */}
+              {stats.genderDistribution.counts['Prefiro não responder'] > 0 && (
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium">Prefiro não responder</span>
+                    <span className="text-2xl font-bold text-gray-600 dark:text-gray-400">
+                      {stats.genderDistribution.percentages['Prefiro não responder'].toFixed(1)}%
+                    </span>
+                  </div>
+                  <Progress 
+                    value={stats.genderDistribution.percentages['Prefiro não responder']} 
+                    className="h-3"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {stats.genderDistribution.counts['Prefiro não responder'].toLocaleString('pt-BR')} eleitores
+                  </p>
+                </div>
+              )}
 
               {/* Indefinido (se houver) */}
               {stats.genderDistribution.counts.Indefinido > 0 && (

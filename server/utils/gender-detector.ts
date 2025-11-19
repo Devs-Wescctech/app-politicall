@@ -105,19 +105,32 @@ export function detectGenderFromName(fullName: string): 'Masculino' | 'Feminino'
 
 /**
  * Calcula a distribuição de gênero em uma lista de contatos
- * @param contacts Array de contatos com campo 'name'
+ * @param contacts Array de contatos com campo 'name' e opcionalmente 'gender'
  * @returns Objeto com contagem de masculino, feminino e indefinido
  */
-export function calculateGenderDistribution(contacts: { name: string }[]) {
+export function calculateGenderDistribution(contacts: { name: string; gender?: string | null }[]) {
   const distribution = {
     Masculino: 0,
     Feminino: 0,
+    'Não-binário': 0,
+    Outro: 0,
+    'Prefiro não responder': 0,
     Indefinido: 0,
   };
 
   for (const contact of contacts) {
-    const gender = detectGenderFromName(contact.name);
-    distribution[gender]++;
+    // Prioriza o campo manual de gênero se disponível
+    if (contact.gender) {
+      if (contact.gender in distribution) {
+        distribution[contact.gender as keyof typeof distribution]++;
+      } else {
+        distribution.Indefinido++;
+      }
+    } else {
+      // Usa detecção automática por nome se o gênero não foi informado
+      const gender = detectGenderFromName(contact.name);
+      distribution[gender]++;
+    }
   }
 
   const total = contacts.length;
@@ -127,6 +140,9 @@ export function calculateGenderDistribution(contacts: { name: string }[]) {
     percentages: {
       Masculino: total > 0 ? (distribution.Masculino / total) * 100 : 0,
       Feminino: total > 0 ? (distribution.Feminino / total) * 100 : 0,
+      'Não-binário': total > 0 ? (distribution['Não-binário'] / total) * 100 : 0,
+      Outro: total > 0 ? (distribution.Outro / total) * 100 : 0,
+      'Prefiro não responder': total > 0 ? (distribution['Prefiro não responder'] / total) * 100 : 0,
       Indefinido: total > 0 ? (distribution.Indefinido / total) * 100 : 0,
     },
     total,
