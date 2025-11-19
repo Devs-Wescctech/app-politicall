@@ -17,7 +17,6 @@ import { Check, Heart, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import logoUrl from "@assets/logo pol_1763308638963_1763559095972.png";
-import backgroundImage from "@assets/242_1763562569627.jpg";
 
 const BRAZILIAN_STATES = [
   "Acre", "Alagoas", "Amapá", "Amazonas", "Bahia", "Ceará", "Distrito Federal",
@@ -238,14 +237,23 @@ export default function PublicSupport() {
 
   return (
     <div className="min-h-screen relative overflow-hidden">
-      {/* Background Image */}
+      {/* Gradient Background with Party Colors */}
       <div 
-        className="fixed inset-0 w-full h-full bg-cover bg-center z-0"
-        style={{ backgroundImage: `url(${backgroundImage})` }}
+        className="fixed inset-0 z-0"
+        style={{
+          background: `linear-gradient(135deg, ${getPartyColor(candidateData.party?.acronym)} 0%, ${getPartyColor(candidateData.party?.acronym)}88 50%, ${getPartyColor(candidateData.party?.acronym)}44 100%)`,
+        }}
       ></div>
       
-      {/* Dark Overlay for readability */}
-      <div className="fixed inset-0 bg-black/60 z-10"></div>
+      {/* Animated gradient overlay */}
+      <div 
+        className="fixed inset-0 z-5 opacity-50"
+        style={{
+          background: `radial-gradient(circle at 20% 80%, ${getPartyColor(candidateData.party?.acronym)}66 0%, transparent 50%),
+                       radial-gradient(circle at 80% 20%, ${getPartyColor(candidateData.party?.acronym)}44 0%, transparent 50%),
+                       radial-gradient(circle at 40% 40%, ${getPartyColor(candidateData.party?.acronym)}33 0%, transparent 50%)`,
+        }}
+      ></div>
       
       {/* Content */}
       <div 
