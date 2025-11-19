@@ -2985,6 +2985,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Calculate gender distribution
       const genderDistribution = calculateGenderDistribution(contacts);
 
+      // Calculate average age
+      const contactsWithAge = contacts.filter(c => c.age != null && c.age > 0 && c.age < 120);
+      const averageAge = contactsWithAge.length >= 3
+        ? Number((contactsWithAge.reduce((sum, c) => sum + (c.age || 0), 0) / contactsWithAge.length).toFixed(1))
+        : undefined;
+      const ageSampleSize = contactsWithAge.length;
+
       const now = new Date();
       const pendingDemands = demands.filter(d => d.status === "pending").length;
       const upcomingEvents = events.filter(e => new Date(e.startDate) > now).length;
@@ -2998,6 +3005,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         upcomingEvents,
         ideologyDistribution: ideologyDistributionArray,
         genderDistribution,
+        averageAge,
+        ageSampleSize,
       });
     } catch (error: any) {
       res.status(500).json({ error: error.message });

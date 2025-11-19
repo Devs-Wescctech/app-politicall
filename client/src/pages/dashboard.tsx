@@ -1,10 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Users, Handshake, ClipboardList, Calendar, TrendingUp, TrendingDown, Target, AlertCircle, CheckCircle2, Award, Zap, Info, BarChart } from "lucide-react";
+import { Users, Handshake, ClipboardList, Calendar, TrendingUp, TrendingDown, Target, AlertCircle, CheckCircle2, Award, Zap, Info, BarChart, UserRound, Cake } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Separator } from "@/components/ui/separator";
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart as RechartsBarChart, Bar, XAxis, YAxis, Tooltip, Legend } from "recharts";
 
 interface DashboardStats {
@@ -34,6 +35,8 @@ interface DashboardStats {
     };
     total: number;
   };
+  averageAge?: number;
+  ageSampleSize?: number;
 }
 
 interface CurrentUser {
@@ -325,127 +328,251 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {/* Distribuição por Gênero */}
+      {/* Demografia dos Eleitores */}
       {stats?.genderDistribution && stats.genderDistribution.total > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Users className="h-5 w-5 text-primary" />
-              Distribuição por Gênero
+        <Card className="shadow-sm">
+          <CardHeader className="pb-4">
+            <CardTitle className="flex items-center gap-2 text-xl">
+              <UserRound className="h-5 w-5 text-primary" />
+              Demografia dos Eleitores
             </CardTitle>
-            <CardDescription>Identificação automática baseada nos nomes cadastrados</CardDescription>
+            <CardDescription>
+              Distribuição por gênero e faixa etária
+            </CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {/* Masculino */}
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium">Masculino</span>
-                  <span className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                    {stats.genderDistribution.percentages.Masculino.toFixed(1)}%
-                  </span>
+          <CardContent className="pt-0">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {/* Coluna Esquerda: Estatísticas */}
+              <div className="space-y-6">
+                {/* Estatísticas Principais */}
+                <div className="space-y-4">
+                  <div className="flex items-start gap-3 p-4 bg-muted/30 rounded-xl">
+                    <Users className="h-5 w-5 text-primary mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-sm text-muted-foreground mb-1">Total de Eleitores</p>
+                      <p className="text-3xl font-bold" data-testid="text-total-contacts">
+                        {stats.genderDistribution.total.toLocaleString('pt-BR')}
+                      </p>
+                    </div>
+                  </div>
+
+                  {stats.averageAge !== undefined && stats.ageSampleSize && stats.ageSampleSize >= 3 && (
+                    <div className="flex items-start gap-3 p-4 bg-muted/30 rounded-xl">
+                      <Cake className="h-5 w-5 text-primary mt-0.5" />
+                      <div className="flex-1">
+                        <p className="text-sm text-muted-foreground mb-1">Idade Média</p>
+                        <div className="flex items-baseline gap-2">
+                          <p className="text-3xl font-bold" data-testid="text-average-age">
+                            {stats.averageAge}
+                          </p>
+                          <span className="text-lg text-muted-foreground">anos</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Baseado em {stats.ageSampleSize.toLocaleString('pt-BR')} {stats.ageSampleSize === 1 ? 'eleitor' : 'eleitores'}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {(!stats.averageAge || !stats.ageSampleSize || stats.ageSampleSize < 3) && (
+                    <div className="flex items-start gap-3 p-4 bg-muted/30 rounded-xl border border-dashed">
+                      <Info className="h-5 w-5 text-muted-foreground mt-0.5" />
+                      <div className="flex-1">
+                        <p className="text-sm text-muted-foreground mb-1">Idade Média</p>
+                        <p className="text-sm text-muted-foreground">
+                          Dados insuficientes para cálculo
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Cadastre a idade de pelo menos 3 eleitores
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <Progress 
-                  value={stats.genderDistribution.percentages.Masculino} 
-                  className="h-3"
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  {stats.genderDistribution.counts.Masculino.toLocaleString('pt-BR')} eleitores
-                </p>
+
+                <Separator />
+
+                {/* Legenda do Gráfico */}
+                <div className="space-y-3">
+                  <p className="text-sm font-medium text-muted-foreground">Distribuição por Gênero</p>
+                  <div className="space-y-2">
+                    {stats.genderDistribution.counts.Masculino > 0 && (
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="w-3 h-3 rounded-full bg-blue-500" />
+                          <span className="text-sm">Masculino</span>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-semibold">{stats.genderDistribution.percentages.Masculino.toFixed(1)}%</p>
+                          <p className="text-xs text-muted-foreground">{stats.genderDistribution.counts.Masculino} {stats.genderDistribution.counts.Masculino === 1 ? 'eleitor' : 'eleitores'}</p>
+                        </div>
+                      </div>
+                    )}
+                    {stats.genderDistribution.counts.Feminino > 0 && (
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="w-3 h-3 rounded-full bg-pink-500" />
+                          <span className="text-sm">Feminino</span>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-semibold">{stats.genderDistribution.percentages.Feminino.toFixed(1)}%</p>
+                          <p className="text-xs text-muted-foreground">{stats.genderDistribution.counts.Feminino} {stats.genderDistribution.counts.Feminino === 1 ? 'eleitor' : 'eleitores'}</p>
+                        </div>
+                      </div>
+                    )}
+                    {stats.genderDistribution.counts['Não-binário'] > 0 && (
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="w-3 h-3 rounded-full bg-purple-500" />
+                          <span className="text-sm">Não-binário</span>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-semibold">{stats.genderDistribution.percentages['Não-binário'].toFixed(1)}%</p>
+                          <p className="text-xs text-muted-foreground">{stats.genderDistribution.counts['Não-binário']} {stats.genderDistribution.counts['Não-binário'] === 1 ? 'eleitor' : 'eleitores'}</p>
+                        </div>
+                      </div>
+                    )}
+                    {stats.genderDistribution.counts.Outro > 0 && (
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="w-3 h-3 rounded-full bg-orange-500" />
+                          <span className="text-sm">Outro</span>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-semibold">{stats.genderDistribution.percentages.Outro.toFixed(1)}%</p>
+                          <p className="text-xs text-muted-foreground">{stats.genderDistribution.counts.Outro} {stats.genderDistribution.counts.Outro === 1 ? 'eleitor' : 'eleitores'}</p>
+                        </div>
+                      </div>
+                    )}
+                    {stats.genderDistribution.counts['Prefiro não responder'] > 0 && (
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="w-3 h-3 rounded-full bg-gray-400" />
+                          <span className="text-sm">Prefiro não responder</span>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-semibold">{stats.genderDistribution.percentages['Prefiro não responder'].toFixed(1)}%</p>
+                          <p className="text-xs text-muted-foreground">{stats.genderDistribution.counts['Prefiro não responder']} {stats.genderDistribution.counts['Prefiro não responder'] === 1 ? 'eleitor' : 'eleitores'}</p>
+                        </div>
+                      </div>
+                    )}
+                    {stats.genderDistribution.counts.Indefinido > 0 && (
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="w-3 h-3 rounded-full bg-slate-300" />
+                          <span className="text-sm">Não identificado</span>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-semibold">{stats.genderDistribution.percentages.Indefinido.toFixed(1)}%</p>
+                          <p className="text-xs text-muted-foreground">{stats.genderDistribution.counts.Indefinido} {stats.genderDistribution.counts.Indefinido === 1 ? 'eleitor' : 'eleitores'}</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground italic mt-3">
+                    Detecção automática quando gênero não informado
+                  </p>
+                </div>
               </div>
 
-              {/* Feminino */}
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium">Feminino</span>
-                  <span className="text-2xl font-bold text-pink-600 dark:text-pink-400">
-                    {stats.genderDistribution.percentages.Feminino.toFixed(1)}%
-                  </span>
+              {/* Coluna Direita: Gráfico Donut */}
+              <div className="flex items-center justify-center">
+                <div className="w-full max-w-sm">
+                  <ResponsiveContainer width="100%" height={360}>
+                    <PieChart>
+                      <defs>
+                        <linearGradient id="gradientMasculino" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#60a5fa" stopOpacity={0.9} />
+                          <stop offset="100%" stopColor="#3b82f6" stopOpacity={0.8} />
+                        </linearGradient>
+                        <linearGradient id="gradientFeminino" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#f472b6" stopOpacity={0.9} />
+                          <stop offset="100%" stopColor="#ec4899" stopOpacity={0.8} />
+                        </linearGradient>
+                        <linearGradient id="gradientNaoBinario" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#c084fc" stopOpacity={0.9} />
+                          <stop offset="100%" stopColor="#a855f7" stopOpacity={0.8} />
+                        </linearGradient>
+                        <linearGradient id="gradientOutro" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#fb923c" stopOpacity={0.9} />
+                          <stop offset="100%" stopColor="#f97316" stopOpacity={0.8} />
+                        </linearGradient>
+                        <linearGradient id="gradientPreferirNaoResponder" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#9ca3af" stopOpacity={0.9} />
+                          <stop offset="100%" stopColor="#6b7280" stopOpacity={0.8} />
+                        </linearGradient>
+                        <linearGradient id="gradientIndefinido" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#cbd5e1" stopOpacity={0.9} />
+                          <stop offset="100%" stopColor="#94a3b8" stopOpacity={0.8} />
+                        </linearGradient>
+                      </defs>
+                      <Pie
+                        data={[
+                          ...(stats.genderDistribution.counts.Masculino > 0 ? [{
+                            name: 'Masculino',
+                            value: stats.genderDistribution.counts.Masculino,
+                            fill: 'url(#gradientMasculino)'
+                          }] : []),
+                          ...(stats.genderDistribution.counts.Feminino > 0 ? [{
+                            name: 'Feminino',
+                            value: stats.genderDistribution.counts.Feminino,
+                            fill: 'url(#gradientFeminino)'
+                          }] : []),
+                          ...(stats.genderDistribution.counts['Não-binário'] > 0 ? [{
+                            name: 'Não-binário',
+                            value: stats.genderDistribution.counts['Não-binário'],
+                            fill: 'url(#gradientNaoBinario)'
+                          }] : []),
+                          ...(stats.genderDistribution.counts.Outro > 0 ? [{
+                            name: 'Outro',
+                            value: stats.genderDistribution.counts.Outro,
+                            fill: 'url(#gradientOutro)'
+                          }] : []),
+                          ...(stats.genderDistribution.counts['Prefiro não responder'] > 0 ? [{
+                            name: 'Prefiro não responder',
+                            value: stats.genderDistribution.counts['Prefiro não responder'],
+                            fill: 'url(#gradientPreferirNaoResponder)'
+                          }] : []),
+                          ...(stats.genderDistribution.counts.Indefinido > 0 ? [{
+                            name: 'Não identificado',
+                            value: stats.genderDistribution.counts.Indefinido,
+                            fill: 'url(#gradientIndefinido)'
+                          }] : []),
+                        ]}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={80}
+                        outerRadius={120}
+                        paddingAngle={2}
+                        dataKey="value"
+                        animationBegin={0}
+                        animationDuration={800}
+                        animationEasing="ease-out"
+                      >
+                      </Pie>
+                      <Tooltip
+                        content={({ active, payload }) => {
+                          if (active && payload && payload.length && stats?.genderDistribution) {
+                            const data = payload[0];
+                            const percentage = ((data.value as number) / stats.genderDistribution.total * 100).toFixed(1);
+                            return (
+                              <div className="bg-background border rounded-lg shadow-lg p-3">
+                                <p className="font-semibold text-sm">{data.name}</p>
+                                <p className="text-sm text-muted-foreground">{data.value} {data.value === 1 ? 'eleitor' : 'eleitores'} ({percentage}%)</p>
+                              </div>
+                            );
+                          }
+                          return null;
+                        }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="text-center -mt-8">
+                    <p className="text-xs text-muted-foreground">Total</p>
+                    <p className="text-2xl font-bold">{stats.genderDistribution.total}</p>
+                  </div>
                 </div>
-                <Progress 
-                  value={stats.genderDistribution.percentages.Feminino} 
-                  className="h-3"
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  {stats.genderDistribution.counts.Feminino.toLocaleString('pt-BR')} eleitores
-                </p>
               </div>
-
-              {/* Não-binário */}
-              {stats.genderDistribution.counts['Não-binário'] > 0 && (
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium">Não-binário</span>
-                    <span className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-                      {stats.genderDistribution.percentages['Não-binário'].toFixed(1)}%
-                    </span>
-                  </div>
-                  <Progress 
-                    value={stats.genderDistribution.percentages['Não-binário']} 
-                    className="h-3"
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {stats.genderDistribution.counts['Não-binário'].toLocaleString('pt-BR')} eleitores
-                  </p>
-                </div>
-              )}
-
-              {/* Outro */}
-              {stats.genderDistribution.counts.Outro > 0 && (
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium">Outro</span>
-                    <span className="text-2xl font-bold text-orange-600 dark:text-orange-400">
-                      {stats.genderDistribution.percentages.Outro.toFixed(1)}%
-                    </span>
-                  </div>
-                  <Progress 
-                    value={stats.genderDistribution.percentages.Outro} 
-                    className="h-3"
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {stats.genderDistribution.counts.Outro.toLocaleString('pt-BR')} eleitores
-                  </p>
-                </div>
-              )}
-
-              {/* Prefiro não responder */}
-              {stats.genderDistribution.counts['Prefiro não responder'] > 0 && (
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium">Prefiro não responder</span>
-                    <span className="text-2xl font-bold text-gray-600 dark:text-gray-400">
-                      {stats.genderDistribution.percentages['Prefiro não responder'].toFixed(1)}%
-                    </span>
-                  </div>
-                  <Progress 
-                    value={stats.genderDistribution.percentages['Prefiro não responder']} 
-                    className="h-3"
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {stats.genderDistribution.counts['Prefiro não responder'].toLocaleString('pt-BR')} eleitores
-                  </p>
-                </div>
-              )}
-
-              {/* Indefinido (se houver) */}
-              {stats.genderDistribution.counts.Indefinido > 0 && (
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium">Não identificado</span>
-                    <span className="text-2xl font-bold text-muted-foreground">
-                      {stats.genderDistribution.percentages.Indefinido.toFixed(1)}%
-                    </span>
-                  </div>
-                  <Progress 
-                    value={stats.genderDistribution.percentages.Indefinido} 
-                    className="h-3"
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {stats.genderDistribution.counts.Indefinido.toLocaleString('pt-BR')} eleitores
-                  </p>
-                </div>
-              )}
             </div>
           </CardContent>
         </Card>
