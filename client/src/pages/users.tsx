@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useCurrentUser } from "@/hooks/use-current-user";
@@ -344,9 +345,18 @@ export default function UsersManagement() {
                   <CardHeader>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2 flex-1 min-w-0">
-                        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                          <UserIcon className="h-5 w-5 text-primary" />
-                        </div>
+                        {user.role === 'admin' && user.avatar ? (
+                          <Avatar className="h-10 w-10 shrink-0">
+                            <AvatarImage src={user.avatar} alt={user.name} />
+                            <AvatarFallback>
+                              <UserIcon className="h-5 w-5 text-primary" />
+                            </AvatarFallback>
+                          </Avatar>
+                        ) : (
+                          <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                            <UserIcon className="h-5 w-5 text-primary" />
+                          </div>
+                        )}
                         <div className={`min-w-0 flex-1 flex items-center gap-1 text-sm font-medium ${roleConfig.color}`}>
                           <RoleIcon className="w-4 h-4" />
                           <span className="hidden sm:inline">{roleConfig.label}</span>
