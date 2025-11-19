@@ -166,6 +166,59 @@ export default function AiAttendance() {
     }
   }, [config?.openaiApiKey]);
 
+  // Reset platform form when config is loaded
+  useEffect(() => {
+    if (config) {
+      platformForm.reset({
+        mode: config.mode || "compliance",
+        // Facebook
+        facebookAppId: config.facebookAppId || "",
+        facebookAppSecret: config.facebookAppSecret || "",
+        facebookPageAccessToken: config.facebookPageAccessToken || "",
+        facebookPageId: config.facebookPageId || "",
+        facebookWebhookVerifyToken: config.facebookWebhookVerifyToken || "",
+        facebookPageName: config.facebookPageName || "",
+        // Instagram
+        instagramAppId: config.instagramAppId || "",
+        instagramAppSecret: config.instagramAppSecret || "",
+        instagramAccessToken: config.instagramAccessToken || "",
+        instagramBusinessAccountId: config.instagramBusinessAccountId || "",
+        instagramFacebookPageId: config.instagramFacebookPageId || "",
+        instagramUsername: config.instagramUsername || "",
+        // Twitter/X
+        twitterApiKey: config.twitterApiKey || "",
+        twitterApiSecretKey: config.twitterApiSecretKey || "",
+        twitterBearerToken: config.twitterBearerToken || "",
+        twitterAccessToken: config.twitterAccessToken || "",
+        twitterAccessTokenSecret: config.twitterAccessTokenSecret || "",
+        twitterClientId: config.twitterClientId || "",
+        twitterClientSecret: config.twitterClientSecret || "",
+        twitterUsername: config.twitterUsername || "",
+        // WhatsApp
+        whatsappPhoneNumberId: config.whatsappPhoneNumberId || "",
+        whatsappBusinessAccountId: config.whatsappBusinessAccountId || "",
+        whatsappAccessToken: config.whatsappAccessToken || "",
+        whatsappAppId: config.whatsappAppId || "",
+        whatsappAppSecret: config.whatsappAppSecret || "",
+        whatsappWebhookVerifyToken: config.whatsappWebhookVerifyToken || "",
+        whatsappPhoneNumber: config.whatsappPhoneNumber || "",
+        whatsappBusinessName: config.whatsappBusinessName || "",
+      });
+    }
+  }, [config]);
+
+  // Reset personalization form when config is loaded
+  useEffect(() => {
+    if (config) {
+      personalizationForm.reset({
+        systemPrompt: config.systemPrompt || "",
+        personalityTraits: config.personalityTraits || "",
+        politicalInfo: config.politicalInfo || "",
+        responseGuidelines: config.responseGuidelines || "",
+      });
+    }
+  }, [config]);
+
   // Mutations
   const updateConfigMutation = useMutation({
     mutationFn: (data: any) => apiRequest("POST", "/api/ai-config", data),
