@@ -43,8 +43,19 @@ export function AppSidebar() {
   const { toast } = useToast();
   const { user } = useCurrentUser();
   
-  // Get permissions from backend user or use default assessor permissions
-  const permissions: UserPermissions = user?.permissions || DEFAULT_PERMISSIONS.assessor;
+  // Get permissions from backend user - NO fallback to default permissions
+  // Non-admin users see ONLY modules they have explicit permission for
+  const permissions: UserPermissions = user?.permissions || {
+    dashboard: false,
+    contacts: false,
+    alliances: false,
+    demands: false,
+    agenda: false,
+    ai: false,
+    marketing: false,
+    petitions: false,
+    users: false,
+  };
 
   // Define menu items with permission mappings
   const menuItems: MenuItem[] = [
@@ -100,25 +111,34 @@ export function AppSidebar() {
       title: "Configurações",
       url: "/settings",
       icon: Settings,
-      alwaysVisible: true,
+      adminOnly: true,
     },
   ];
   
   // Filter menu items based on permissions
   const visibleItems = menuItems.filter(item => {
-    // Itens sempre visíveis (Dashboard, Configurações)
+    // ADMIN BYPASS: Admins see EVERYTHING
+    if (user?.role === "admin") {
+      return true;
+    }
+
+    // Itens sempre visíveis para todos (apenas Dashboard)
     if (item.alwaysVisible) {
       return true;
     }
-    // Itens exclusivos para admin (Usuários)
+
+    // Itens exclusivos para admin (Usuários, Configurações)
+    // Se chegou aqui, não é admin, então bloqueia
     if (item.adminOnly) {
-      return user?.role === "admin";
+      return false;
     }
-    // Verifica se o usuário tem permissão para este menu
+
+    // Verifica se o usuário tem permissão explícita para este menu
     if (item.permissionKey) {
       return permissions[item.permissionKey] === true;
     }
-    // Se não tem permissionKey nem alwaysVisible, não mostra
+
+    // Se não tem permissionKey, alwaysVisible ou adminOnly, não mostra
     return false;
   });
 
