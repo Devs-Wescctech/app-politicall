@@ -201,6 +201,19 @@ export const CONTACT_INTERESTS = [
   "Feiras e Exposições",
 ] as const;
 
+// Contact sources - How the contact was registered
+export const CONTACT_SOURCES = [
+  "Evento Político",
+  "Palestra",
+  "Indicação",
+  "Facebook",
+  "Instagram",
+  "Rede Social X",
+  "LinkedIn",
+  "YouTube",
+  "Outros"
+] as const;
+
 // Contacts table
 export const contacts = pgTable("contacts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -212,6 +225,7 @@ export const contacts = pgTable("contacts", {
   state: text("state"),
   city: text("city"),
   interests: text("interests").array(),
+  source: text("source"),
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

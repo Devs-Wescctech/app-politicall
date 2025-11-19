@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { type Contact, type InsertContact, insertContactSchema, CONTACT_INTERESTS } from "@shared/schema";
+import { type Contact, type InsertContact, insertContactSchema, CONTACT_INTERESTS, CONTACT_SOURCES } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -252,6 +252,7 @@ export default function Contacts() {
       state: "",
       city: "",
       interests: [],
+      source: "",
       notes: "",
     },
   });
@@ -914,6 +915,30 @@ export default function Contacts() {
                             ))}
                           </div>
                         )}
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="source"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Fonte</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value || undefined}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-contact-source">
+                              <SelectValue placeholder="Como foi feito o cadastro?" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {CONTACT_SOURCES.map((source) => (
+                              <SelectItem key={source} value={source}>
+                                {source}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                         <FormMessage />
                       </FormItem>
                     )}
