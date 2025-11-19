@@ -94,7 +94,7 @@ export function AppSidebar() {
       title: "Usuários",
       url: "/users",
       icon: Shield,
-      alwaysVisible: true,
+      adminOnly: true,
     },
     {
       title: "Configurações",
@@ -106,9 +106,13 @@ export function AppSidebar() {
   
   // Filter menu items based on permissions
   const visibleItems = menuItems.filter(item => {
-    // Itens sempre visíveis (Dashboard, Usuários, Configurações)
+    // Itens sempre visíveis (Dashboard, Configurações)
     if (item.alwaysVisible) {
       return true;
+    }
+    // Itens exclusivos para admin (Usuários)
+    if (item.adminOnly) {
+      return user?.role === "admin";
     }
     // Verifica se o usuário tem permissão para este menu
     if (item.permissionKey) {
