@@ -317,6 +317,11 @@ export default function Settings() {
               </div>
               <Separator />
               <div>
+                <label className="text-sm font-medium text-muted-foreground">Número de Eleição</label>
+                <p className="text-base mt-1" data-testid="text-user-election-number">{currentUser?.electionNumber || "-"}</p>
+              </div>
+              <Separator />
+              <div>
                 <label className="text-sm font-medium text-muted-foreground">Ideologia</label>
                 <p className="text-base mt-1" data-testid="text-user-ideology">
                   {parties && currentUser?.partyId 
