@@ -626,8 +626,11 @@ export default function Contacts() {
   return (
     <div className="p-4 sm:p-6 md:p-8 space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
+        <div className="flex items-center gap-3">
           <h1 className="text-3xl font-bold">Eleitores</h1>
+          <span className="text-xs text-muted-foreground" data-testid="text-contact-count">
+            {contacts?.length || 0} {(contacts?.length || 0) === 1 ? 'eleitor' : 'eleitores'}
+          </span>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button 
@@ -1050,13 +1053,6 @@ export default function Contacts() {
                 ))}
               </SelectContent>
             </Select>
-            <div className="text-sm text-muted-foreground" data-testid="text-contact-count">
-              {(searchQuery || selectedCity || selectedState || selectedInterest) && filteredContacts ? (
-                <span>{filteredContacts.length} de {contacts?.length || 0} contatos</span>
-              ) : (
-                <span>{contacts?.length || 0} contatos</span>
-              )}
-            </div>
           </div>
         </CardHeader>
         <CardContent>
