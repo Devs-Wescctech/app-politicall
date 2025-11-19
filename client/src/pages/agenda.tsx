@@ -357,7 +357,7 @@ export default function Agenda() {
       {/* Google Calendar Integration Status */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-4">
-          <SiGooglecalendar className="h-6 w-6 text-blue-500" />
+          <SiGooglecalendar className="h-6 w-6 text-primary" />
           {!googleCalendarStatus?.configured ? (
             <span className="text-sm text-muted-foreground">
               Google Calendar não configurado
