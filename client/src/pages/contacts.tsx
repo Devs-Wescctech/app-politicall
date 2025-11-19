@@ -25,7 +25,7 @@ import {
   Building2, Wrench, Bus, Shield, Siren, Landmark, Vote,
   Flag, Home, Droplet, Construction, Hospital, Building,
   School, University, Baby as BabyIcon, Smile, Drum, Cake,
-  Calendar as CalendarIcon, Star, Mic2, ShoppingCart, Download
+  Calendar as CalendarIcon, Star, Mic2, ShoppingCart, Download, FileText
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -36,6 +36,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Check } from "lucide-react";
 import pdfMake from "pdfmake/build/pdfmake";
 import * as pdfFonts from "pdfmake/build/vfs_fonts";
+import * as XLSX from 'xlsx';
 import logoUrl from "@assets/logo pol_1763308638963_1763559095972.png";
 
 (pdfMake as any).vfs = pdfFonts;
@@ -226,6 +227,7 @@ export default function Contacts() {
   const [selectedState, setSelectedState] = useState<string>("");
   const [selectedInterest, setSelectedInterest] = useState<string>("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [isStateFocused, setIsStateFocused] = useState(false);
@@ -554,6 +556,69 @@ export default function Contacts() {
 
     pdfMake.createPdf(docDefinition).download(`eleitores-${new Date().toISOString().split('T')[0]}.pdf`);
     toast({ title: `PDF gerado com ${filteredContacts.length} eleitores!` });
+    setIsExportDialogOpen(false);
+  };
+
+  const handleExportExcel = async () => {
+    if (!filteredContacts || filteredContacts.length === 0) {
+      toast({ title: "Nenhum contato para exportar", variant: "destructive" });
+      return;
+    }
+
+    // Informações do admin
+    const adminName = adminData?.name || 'Administrador';
+    const adminParty = adminData?.party ? `${adminData.party.acronym} - ${adminData.party.name}` : 'Sem partido';
+    const adminPhone = adminData?.phone || 'Não informado';
+    const adminEmail = adminData?.email || 'Não informado';
+
+    // Criar dados da planilha
+    const worksheetData = [
+      ['RELATÓRIO DE ELEITORES'],
+      [],
+      ['Responsável:', adminName],
+      ['Partido:', adminParty],
+      ['Telefone:', adminPhone],
+      ['Email:', adminEmail],
+      [],
+      [`Total de eleitores: ${filteredContacts.length}`],
+      [],
+      ['Nome', 'Email', 'Telefone', 'Cidade/Estado', 'Interesses', 'Observações'],
+      ...filteredContacts.map(contact => [
+        formatName(contact.name),
+        contact.email || '-',
+        contact.phone || '-',
+        `${contact.city || '-'}/${contact.state || '-'}`,
+        contact.interests && contact.interests.length > 0 ? contact.interests.join(', ') : '-',
+        contact.notes || '-'
+      ])
+    ];
+
+    // Criar workbook e worksheet
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(worksheetData);
+
+    // Definir larguras das colunas
+    ws['!cols'] = [
+      { wch: 30 }, // Nome
+      { wch: 30 }, // Email
+      { wch: 18 }, // Telefone
+      { wch: 20 }, // Cidade/Estado
+      { wch: 40 }, // Interesses
+      { wch: 40 }  // Observações
+    ];
+
+    // Mesclar células para o título
+    ws['!merges'] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 5 } }, // Título principal
+    ];
+
+    // Adicionar worksheet ao workbook
+    XLSX.utils.book_append_sheet(wb, ws, 'Eleitores');
+
+    // Baixar arquivo
+    XLSX.writeFile(wb, `eleitores-${new Date().toISOString().split('T')[0]}.xlsx`);
+    toast({ title: `Excel gerado com ${filteredContacts.length} eleitores!` });
+    setIsExportDialogOpen(false);
   };
 
   return (
@@ -584,12 +649,58 @@ export default function Contacts() {
           <Button 
             variant="outline"
             size="icon"
-            onClick={handleExportPDF}
-            data-testid="button-export-pdf"
-            title="Exportar PDF com eleitores filtrados"
+            onClick={() => setIsExportDialogOpen(true)}
+            data-testid="button-export"
+            title="Exportar eleitores"
           >
             <Download className="w-4 h-4" />
           </Button>
+          <Dialog open={isExportDialogOpen} onOpenChange={setIsExportDialogOpen}>
+            <DialogContent className="max-w-md" aria-describedby="export-dialog-description">
+              <DialogHeader>
+                <DialogTitle>Exportar Eleitores</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-3 py-4">
+                <p id="export-dialog-description" className="text-sm text-muted-foreground">
+                  Escolha o formato para exportar {filteredContacts?.length || 0} eleitor(es):
+                </p>
+                <div className="grid gap-3">
+                  <Button 
+                    variant="outline" 
+                    className="justify-start h-auto py-4"
+                    onClick={handleExportPDF}
+                    data-testid="button-export-pdf"
+                  >
+                    <div className="flex items-start gap-3">
+                      <FileText className="h-5 w-5 mt-0.5 text-red-500" />
+                      <div className="text-left">
+                        <div className="font-semibold">Exportar como PDF</div>
+                        <div className="text-xs text-muted-foreground">
+                          Arquivo PDF profissional com logo e informações do responsável
+                        </div>
+                      </div>
+                    </div>
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="justify-start h-auto py-4"
+                    onClick={handleExportExcel}
+                    data-testid="button-export-excel"
+                  >
+                    <div className="flex items-start gap-3">
+                      <FileText className="h-5 w-5 mt-0.5 text-green-600" />
+                      <div className="text-left">
+                        <div className="font-semibold">Exportar como Excel</div>
+                        <div className="text-xs text-muted-foreground">
+                          Planilha Excel editável com todos os dados dos eleitores
+                        </div>
+                      </div>
+                    </div>
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
           <Dialog open={isDialogOpen} onOpenChange={(open) => {
             setIsDialogOpen(open);
             if (!open) {
