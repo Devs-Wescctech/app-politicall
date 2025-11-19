@@ -28,14 +28,17 @@ const FEMALE_NAMES = new Set([
   'LIVIA', 'MARIA EDUARDA', 'EDUARDA', 'SARAH', 'LUIZA', 'MARIA CLARA', 'CLARA',
   'VITORIA', 'LARA', 'NICOLE', 'MARIA LUIZA', 'CECILIA', 'EMANUELLY', 'AGATHA',
   'ESTHER', 'MARINA', 'ANTONELLA', 'ELISA', 'HELOISA', 'MILENA', 'MARINA',
-  'TEREZA', 'ISIS', 'ALICIA', 'JOANA', 'PIETRA', 'MARIA VITORIA', 'EMILLY'
+  'TEREZA', 'ISIS', 'ALICIA', 'JOANA', 'PIETRA', 'MARIA VITORIA', 'EMILLY',
+  'RAQUEL', 'ISABEL', 'MURIEL', 'GISELE', 'MICHELLE', 'RACHEL', 'MARIBEL',
+  'ARIEL', 'MIRELA', 'QUEL', 'MIRABEL', 'MIKAELA', 'GRAZIELA', 'MARIELA',
+  'EMANUELA', 'RAFAELA', 'GRAZIELLE', 'MICAELA', 'MARIZABEL'
 ]);
 
 // Sufixos tipicamente femininos
 const FEMALE_SUFFIXES = ['A', 'ANDA', 'ILDA', 'IANA', 'ANA', 'INA', 'ELLE', 'ELLA'];
 
-// Sufixos tipicamente masculinos
-const MALE_SUFFIXES = ['O', 'OS', 'OR', 'SON', 'TON', 'VAN', 'IEL', 'EL'];
+// Sufixos tipicamente masculinos (removido 'EL' para evitar classificação incorreta de nomes femininos)
+const MALE_SUFFIXES = ['O', 'OS', 'OR', 'SON', 'TON', 'VAN', 'IEL'];
 
 // Nomes masculinos que terminam em 'A' (exceções)
 const MALE_EXCEPTIONS_ENDING_A = new Set([
