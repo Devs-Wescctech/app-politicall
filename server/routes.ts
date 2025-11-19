@@ -1470,6 +1470,97 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get voter profile aggregated statistics
+  app.get("/api/contacts/profile", authenticateToken, requirePermission("contacts"), async (req: AuthRequest, res) => {
+    try {
+      const contacts = await storage.getContacts(req.accountId!);
+      
+      if (contacts.length === 0) {
+        return res.json({
+          totalContacts: 0,
+          averageAge: null,
+          topInterests: [],
+          topStates: [],
+          topCities: [],
+          topSources: [],
+          genderDistribution: null,
+        });
+      }
+
+      // Calculate average age
+      const contactsWithAge = contacts.filter(c => c.age != null && c.age > 0 && c.age < 120);
+      const averageAge = contactsWithAge.length >= 3
+        ? Number((contactsWithAge.reduce((sum, c) => sum + (c.age || 0), 0) / contactsWithAge.length).toFixed(1))
+        : null;
+
+      // Top interests (count occurrences)
+      const interestCounts: Record<string, number> = {};
+      contacts.forEach(contact => {
+        if (contact.interests && Array.isArray(contact.interests)) {
+          contact.interests.forEach(interest => {
+            interestCounts[interest] = (interestCounts[interest] || 0) + 1;
+          });
+        }
+      });
+      const topInterests = Object.entries(interestCounts)
+        .map(([interest, count]) => ({ interest, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 10);
+
+      // Top states
+      const stateCounts: Record<string, number> = {};
+      contacts.forEach(contact => {
+        if (contact.state) {
+          stateCounts[contact.state] = (stateCounts[contact.state] || 0) + 1;
+        }
+      });
+      const topStates = Object.entries(stateCounts)
+        .map(([state, count]) => ({ state, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 5);
+
+      // Top cities
+      const cityCounts: Record<string, number> = {};
+      contacts.forEach(contact => {
+        if (contact.city) {
+          cityCounts[contact.city] = (cityCounts[contact.city] || 0) + 1;
+        }
+      });
+      const topCities = Object.entries(cityCounts)
+        .map(([city, count]) => ({ city, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 5);
+
+      // Top sources
+      const sourceCounts: Record<string, number> = {};
+      contacts.forEach(contact => {
+        if (contact.source) {
+          sourceCounts[contact.source] = (sourceCounts[contact.source] || 0) + 1;
+        }
+      });
+      const topSources = Object.entries(sourceCounts)
+        .map(([source, count]) => ({ source, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 5);
+
+      // Gender distribution
+      const genderDistribution = calculateGenderDistribution(contacts);
+
+      res.json({
+        totalContacts: contacts.length,
+        averageAge,
+        ageSampleSize: contactsWithAge.length,
+        topInterests,
+        topStates,
+        topCities,
+        topSources,
+        genderDistribution,
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // ==================== POLITICAL PARTIES & ALLIANCES ====================
   
   app.get("/api/parties", authenticateToken, requirePermission("alliances"), async (req: AuthRequest, res) => {

@@ -25,7 +25,7 @@ import {
   Building2, Wrench, Bus, Shield, Siren, Landmark, Vote,
   Flag, Home, Droplet, Construction, Hospital, Building,
   School, University, Baby as BabyIcon, Smile, Drum, Cake,
-  Calendar as CalendarIcon, Star, Mic2, ShoppingCart, Download, FileText, Sheet, MoreVertical, QrCode, Share2
+  Calendar as CalendarIcon, Star, Mic2, ShoppingCart, Download, FileText, Sheet, MoreVertical, QrCode, Share2, UserCircle2, TrendingUp, MapPin, Info
 } from "lucide-react";
 import { SiWhatsapp, SiFacebook, SiX } from "react-icons/si";
 import { useToast } from "@/hooks/use-toast";
@@ -36,6 +36,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Check } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+import { Progress } from "@/components/ui/progress";
+import { Separator } from "@/components/ui/separator";
 import pdfMake from "pdfmake/build/pdfmake";
 import * as pdfFonts from "pdfmake/build/vfs_fonts";
 import * as XLSX from 'xlsx';
@@ -233,6 +235,7 @@ export default function Contacts() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
   const [isQrCodeDialogOpen, setIsQrCodeDialogOpen] = useState(false);
+  const [isProfileDialogOpen, setIsProfileDialogOpen] = useState(false);
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [isStateFocused, setIsStateFocused] = useState(false);
@@ -259,6 +262,12 @@ export default function Contacts() {
   const qrCodeSlug = currentUser?.role === 'admin' ? currentUser?.slug : adminData?.slug;
   const qrCodeName = currentUser?.role === 'admin' ? currentUser?.name : adminData?.name;
   const qrCodeAvatar = currentUser?.role === 'admin' ? currentUser?.avatar : adminData?.avatar;
+
+  // Buscar perfil agregado dos eleitores
+  const { data: voterProfile } = useQuery<any>({
+    queryKey: ["/api/contacts/profile"],
+    enabled: isProfileDialogOpen, // Só busca quando o modal está aberto
+  });
 
   const form = useForm<InsertContact>({
     resolver: zodResolver(insertContactSchema),
@@ -687,6 +696,15 @@ export default function Contacts() {
           <Button 
             variant="outline"
             size="icon"
+            onClick={() => setIsProfileDialogOpen(true)}
+            data-testid="button-voter-profile"
+            title="Perfil Agregado dos Eleitores"
+          >
+            <UserCircle2 className="w-4 h-4" />
+          </Button>
+          <Button 
+            variant="outline"
+            size="icon"
             onClick={handleBulkEmail}
             data-testid="button-bulk-email"
             title="Enviar email em massa"
@@ -936,6 +954,193 @@ export default function Contacts() {
                     </div>
                     <p className="text-xs text-muted-foreground">
                       Carregando QR Code...
+                    </p>
+                  </div>
+                )}
+              </div>
+            </DialogContent>
+          </Dialog>
+          <Dialog open={isProfileDialogOpen} onOpenChange={setIsProfileDialogOpen}>
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-0" aria-describedby="voter-profile-dialog-description">
+              <DialogHeader className="px-6 pt-6 pb-4 border-b">
+                <DialogTitle className="text-2xl font-bold">Perfil dos Eleitores</DialogTitle>
+                <p id="voter-profile-dialog-description" className="text-sm text-muted-foreground mt-1">
+                  Análise agregada dos dados cadastrados
+                </p>
+              </DialogHeader>
+              <div className="p-6">
+                {voterProfile && voterProfile.totalContacts > 0 ? (
+                  <div className="space-y-6">
+                    <div className="bg-muted/30 rounded-xl p-6 shadow-sm">
+                      <div className="flex items-center gap-2 mb-4">
+                        <TrendingUp className="w-5 h-5 text-primary" />
+                        <h3 className="text-lg font-semibold">Estatísticas Principais</h3>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-sm text-muted-foreground">Total de eleitores</p>
+                          <p className="text-3xl font-bold" data-testid="text-total-contacts">{voterProfile.totalContacts}</p>
+                        </div>
+                        {voterProfile.averageAge && voterProfile.totalContacts >= 3 && (
+                          <div>
+                            <p className="text-sm text-muted-foreground">Idade média</p>
+                            <p className="text-3xl font-bold" data-testid="text-average-age">
+                              {voterProfile.averageAge.toFixed(1)} anos
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <Separator />
+
+                    {voterProfile.topInterests && voterProfile.topInterests.length > 0 && (
+                      <>
+                        <div className="bg-muted/30 rounded-xl p-6 shadow-sm">
+                          <div className="flex items-center gap-2 mb-4">
+                            <Info className="w-5 h-5 text-primary" />
+                            <h3 className="text-lg font-semibold">Top 10 Interesses Mais Comuns</h3>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {voterProfile.topInterests.slice(0, 10).map((item: { interest: string; count: number }) => {
+                              const InterestIcon = INTEREST_ICONS[item.interest];
+                              return (
+                                <Badge 
+                                  key={item.interest} 
+                                  className={`${getInterestColor(item.interest)} text-sm px-3 py-1.5 flex items-center gap-1.5`}
+                                  data-testid={`badge-interest-${item.interest}`}
+                                >
+                                  {InterestIcon && <InterestIcon className="w-3.5 h-3.5" />}
+                                  {item.interest} ({item.count})
+                                </Badge>
+                              );
+                            })}
+                          </div>
+                        </div>
+                        <Separator />
+                      </>
+                    )}
+
+                    <div className="bg-muted/30 rounded-xl p-6 shadow-sm">
+                      <div className="flex items-center gap-2 mb-4">
+                        <MapPin className="w-5 h-5 text-primary" />
+                        <h3 className="text-lg font-semibold">Distribuição Geográfica</h3>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {voterProfile.topStates && voterProfile.topStates.length > 0 && (
+                          <div>
+                            <h4 className="text-sm font-medium mb-3 text-muted-foreground">Estados (Top 5)</h4>
+                            <div className="space-y-2">
+                              {voterProfile.topStates.map((item: { state: string; count: number }) => {
+                                const percentage = (item.count / voterProfile.totalContacts) * 100;
+                                return (
+                                  <div key={item.state} className="space-y-1" data-testid={`state-${item.state}`}>
+                                    <div className="flex justify-between items-center text-sm">
+                                      <span className="font-medium">{item.state}</span>
+                                      <span className="text-muted-foreground">{percentage.toFixed(1)}%</span>
+                                    </div>
+                                    <Progress value={percentage} className="h-2" />
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                        {voterProfile.topCities && voterProfile.topCities.length > 0 && (
+                          <div>
+                            <h4 className="text-sm font-medium mb-3 text-muted-foreground">Cidades (Top 5)</h4>
+                            <div className="space-y-2">
+                              {voterProfile.topCities.map((item: { city: string; count: number }) => {
+                                const percentage = (item.count / voterProfile.totalContacts) * 100;
+                                return (
+                                  <div key={item.city} className="space-y-1" data-testid={`city-${item.city}`}>
+                                    <div className="flex justify-between items-center text-sm">
+                                      <span className="font-medium">{item.city}</span>
+                                      <span className="text-muted-foreground">{percentage.toFixed(1)}%</span>
+                                    </div>
+                                    <Progress value={percentage} className="h-2" />
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {voterProfile.topSources && voterProfile.topSources.length > 0 && (
+                      <>
+                        <Separator />
+                        <div className="bg-muted/30 rounded-xl p-6 shadow-sm">
+                          <div className="flex items-center gap-2 mb-4">
+                            <Users className="w-5 h-5 text-primary" />
+                            <h3 className="text-lg font-semibold">Fontes de Cadastro</h3>
+                          </div>
+                          <div className="space-y-3">
+                            {voterProfile.topSources.map((item: { source: string; count: number }) => {
+                              const percentage = (item.count / voterProfile.totalContacts) * 100;
+                              return (
+                                <div key={item.source} className="space-y-1" data-testid={`source-${item.source}`}>
+                                  <div className="flex justify-between items-center text-sm">
+                                    <span className="font-medium">{item.source}</span>
+                                    <span className="text-muted-foreground">{percentage.toFixed(1)}% ({item.count})</span>
+                                  </div>
+                                  <Progress value={percentage} className="h-2" />
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </>
+                    )}
+
+                    {voterProfile.genderDistribution && voterProfile.genderDistribution.counts && (
+                      <>
+                        <Separator />
+                        <div className="bg-muted/30 rounded-xl p-6 shadow-sm">
+                          <div className="flex items-center gap-2 mb-4">
+                            <Users className="w-5 h-5 text-primary" />
+                            <h3 className="text-lg font-semibold">Distribuição por Gênero</h3>
+                          </div>
+                          <div className="space-y-3">
+                            {Object.entries(voterProfile.genderDistribution.counts)
+                              .filter(([_, count]) => (count as number) > 0)
+                              .map(([gender, count]) => {
+                                const percentage = voterProfile.genderDistribution.percentages[gender as keyof typeof voterProfile.genderDistribution.percentages];
+                                const getGenderColor = (gender: string) => {
+                                  if (gender === 'Masculino') return 'bg-blue-500';
+                                  if (gender === 'Feminino') return 'bg-pink-500';
+                                  if (gender === 'Não-binário') return 'bg-purple-500';
+                                  return 'bg-gray-500';
+                                };
+                                
+                                return (
+                                  <div key={gender} className="space-y-1" data-testid={`gender-${gender}`}>
+                                    <div className="flex justify-between items-center text-sm">
+                                      <span className="font-medium">{gender}</span>
+                                      <span className="text-muted-foreground">{percentage.toFixed(1)}% ({count})</span>
+                                    </div>
+                                    <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
+                                      <div 
+                                        className={`h-full ${getGenderColor(gender)} transition-all duration-300`}
+                                        style={{ width: `${percentage}%` }}
+                                      />
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                ) : (
+                  <div className="py-12 text-center">
+                    <div className="w-16 h-16 mx-auto mb-4 bg-muted rounded-full flex items-center justify-center">
+                      <UserCircle2 className="w-8 h-8 text-muted-foreground" />
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Cadastre mais eleitores para ver estatísticas detalhadas
                     </p>
                   </div>
                 )}
