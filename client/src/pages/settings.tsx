@@ -960,16 +960,23 @@ export default function Settings() {
         <TabsContent value="google-calendar" className="space-y-6 mt-6">
           {/* Setup Instructions Card */}
           <Card>
+            <Collapsible defaultOpen={false}>
               <CardHeader>
-                <CardTitle className="flex items-center text-xs">
-                  <ExternalLink className="w-5 h-5 mr-2" />
-                  Instruções de Configuração
-                </CardTitle>
-                <CardDescription className="text-xs">
-                  Configure a integração com o Google Calendar seguindo estes passos
-                </CardDescription>
+                <CollapsibleTrigger className="w-full">
+                  <div className="flex items-center justify-between w-full">
+                    <CardTitle className="flex items-center text-xs">
+                      <ExternalLink className="w-5 h-5 mr-2" />
+                      Instruções de Configuração
+                    </CardTitle>
+                    <ChevronDown className="h-4 w-4 transition-transform duration-200 data-[state=open]:rotate-180" />
+                  </div>
+                  <CardDescription className="text-xs text-left mt-1.5">
+                    Configure a integração com o Google Calendar seguindo estes passos
+                  </CardDescription>
+                </CollapsibleTrigger>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CollapsibleContent>
+                <CardContent className="space-y-4">
                 <div className="space-y-3">
                   <div className="flex gap-3">
                     <div className="flex-shrink-0 w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center text-xs font-semibold">1</div>
@@ -1041,7 +1048,9 @@ export default function Settings() {
                     <strong>Importante:</strong> Esta é uma configuração única por conta. Cada gabinete deve fornecer suas próprias credenciais do Google.
                   </AlertDescription>
                 </Alert>
-              </CardContent>
+                </CardContent>
+              </CollapsibleContent>
+            </Collapsible>
             </Card>
 
             {/* Configuration Form Card */}
