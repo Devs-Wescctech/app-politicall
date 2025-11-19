@@ -212,9 +212,6 @@ export default function PublicSupport() {
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-primary/10 to-background p-4">
         <Card className="max-w-md w-full">
           <CardContent className="p-8 text-center space-y-6">
-            <div className="w-20 h-20 mx-auto bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
-              <Check className="w-10 h-10 text-green-600 dark:text-green-400" />
-            </div>
             <div className="space-y-2">
               <h2 className="text-2xl font-bold">Cadastro Confirmado!</h2>
               <p className="text-muted-foreground">
