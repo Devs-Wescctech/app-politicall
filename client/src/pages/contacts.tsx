@@ -403,21 +403,21 @@ export default function Contacts() {
         <div className="flex flex-wrap gap-2">
           <Button 
             variant="outline"
+            size="icon"
             onClick={handleBulkEmail}
             data-testid="button-bulk-email"
             title="Enviar email em massa"
           >
-            <Send className="w-4 h-4 mr-2" />
-            Email em Massa
+            <Send className="w-4 h-4" />
           </Button>
           <Button 
             variant="outline"
+            size="icon"
             onClick={handleCopyWhatsAppNumbers}
             data-testid="button-copy-whatsapp"
             title="Copiar números para WhatsApp Business"
           >
-            <Copy className="w-4 h-4 mr-2" />
-            Copiar WhatsApp
+            <Copy className="w-4 h-4" />
           </Button>
           <Dialog open={isDialogOpen} onOpenChange={(open) => {
             setIsDialogOpen(open);
