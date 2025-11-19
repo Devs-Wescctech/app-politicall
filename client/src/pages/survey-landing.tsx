@@ -635,9 +635,7 @@ export default function SurveyLanding() {
           </CardContent>
         </Card>
 
-        <p className="text-center text-sm text-muted-foreground mt-6">
-          Pesquisa em conformidade com as normas da TSE
-        </p>
+        <p className="text-center text-sm text-muted-foreground mt-6">Pesquisa em conformidade com as normas do TSE</p>
       </div>
     </div>
   );
