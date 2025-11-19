@@ -33,6 +33,14 @@ Preferred communication style: Simple, everyday language.
 
 ### Core Features & Implementations
 
+- **External API Integration System (NEW):** Complete REST API for third-party integrations. Implementation details:
+  - **API Keys Management:** Secure API key generation with bcrypt hashing, one-time display, expiration dates. Keys stored as hashed values only.
+  - **Authentication:** Bearer token authentication middleware validates API keys for external access.
+  - **API Endpoints:** REST API v1 with endpoints for contacts, political alliances, demands, events, and parties. Rate-limited at 100 requests/minute per key.
+  - **UI Management:** Settings page includes API keys tab with creation, listing, revocation, and full documentation with curl examples.
+  - **Security:** Keys prefixed with "pk_", bcrypt hashed storage, usage tracking, automatic expiration, rate limiting.
+  - **Known Issue:** POST /api/v1/contacts requires userId field - needs system user creation or schema adjustment for full functionality.
+
 - **Multi-Tenant System (Complete):** Every account (gabinete) has completely isolated data. Implementation details:
   - **Registration Flow:** POST /register creates new account + first user (admin) with partyId: null, avatar: null, and auto-generated slug from admin name. Optional fields (phone, planValue, etc) preserved. Slug generation removes accents, spaces, special characters and converts to lowercase (e.g., "Carlos Nedel" → "carlosnedel").
   - **User Creation:** POST /users/create adds users to existing account (inherits accountId from admin).

@@ -3177,10 +3177,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: validation.error.errors });
       }
       
+      // Get the account owner's userId for API-created contacts
+      const accountUsers = await db.select()
+        .from(users)
+        .where(and(
+          eq(users.accountId, req.apiKey!.accountId),
+          eq(users.role, 'admin')
+        ));
+      
+      const adminUser = accountUsers[0];
+      
+      if (!adminUser) {
+        return res.status(500).json({ error: "No admin user found for this account" });
+      }
+      
       const contact = await storage.createContact({
         ...validation.data,
         accountId: req.apiKey!.accountId,
-        userId: 'system-api-user'  // System user for API calls
+        userId: adminUser.id  // Use the account admin's userId
       });
       
       res.status(201).json(contact);
