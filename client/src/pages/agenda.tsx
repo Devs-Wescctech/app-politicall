@@ -358,66 +358,64 @@ export default function Agenda() {
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-4">
           <SiGooglecalendar className="h-6 w-6 text-blue-500" />
-          <div className="flex items-center gap-3">
-            {!googleCalendarStatus?.configured ? (
-              <>
-                <span className="text-sm text-muted-foreground">
-                  Google Calendar não configurado
+          {!googleCalendarStatus?.configured ? (
+            <span className="text-sm text-muted-foreground">
+              Google Calendar não configurado
+            </span>
+          ) : googleCalendarStatus?.authorized ? (
+            <div className="flex items-center gap-3">
+              <Badge variant="outline" className="gap-1 text-green-600 border-green-600">
+                <CheckCircle2 className="h-3 w-3" />
+                Conectado ao Google Calendar
+              </Badge>
+              {googleCalendarStatus?.email && (
+                <span className="text-xs text-muted-foreground">
+                  {googleCalendarStatus.email}
                 </span>
-                <Link href="/settings?tab=google-calendar">
-                  <Button variant="outline" size="sm" className="rounded-full" data-testid="button-connect-google-calendar">
-                    <Link2 className="h-4 w-4 mr-2" />
-                    Conectar Google Calendar
-                  </Button>
-                </Link>
-              </>
-            ) : googleCalendarStatus?.authorized ? (
-              <>
-                <Badge variant="outline" className="gap-1 text-green-600 border-green-600">
-                  <CheckCircle2 className="h-3 w-3" />
-                  Conectado ao Google Calendar
-                </Badge>
-                {googleCalendarStatus?.email && (
-                  <span className="text-xs text-muted-foreground">
-                    {googleCalendarStatus.email}
-                  </span>
-                )}
-              </>
-            ) : (
-              <>
-                <Badge variant="outline" className="gap-1 text-yellow-600 border-yellow-600">
-                  <AlertCircle className="h-3 w-3" />
-                  Google Calendar não autorizado
-                </Badge>
-                <Link href="/settings?tab=google-calendar">
-                  <Button variant="outline" size="sm" className="rounded-full" data-testid="button-authorize-google-calendar">
-                    Autorizar
-                  </Button>
-                </Link>
-              </>
-            )}
-          </div>
+              )}
+            </div>
+          ) : (
+            <Badge variant="outline" className="gap-1 text-yellow-600 border-yellow-600">
+              <AlertCircle className="h-3 w-3" />
+              Google Calendar não autorizado
+            </Badge>
+          )}
         </div>
-        {googleCalendarStatus?.configured && googleCalendarStatus?.authorized && (
-          <div className="flex items-center gap-3">
-            {googleCalendarStatus?.lastSyncAt && (
-              <span className="text-xs text-muted-foreground">
-                Última sincronização: {format(new Date(googleCalendarStatus.lastSyncAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}
-              </span>
-            )}
-            <Button
-              variant="outline"
-              size="sm"
-              className="rounded-full"
-              onClick={() => syncGoogleCalendarMutation.mutate()}
-              disabled={isSyncing || syncGoogleCalendarMutation.isPending}
-              data-testid="button-sync-google-calendar"
-            >
-              <RefreshCw className={`h-4 w-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
-              {isSyncing ? 'Sincronizando...' : 'Sincronizar Agora'}
-            </Button>
-          </div>
-        )}
+        <div className="flex items-center gap-3">
+          {!googleCalendarStatus?.configured ? (
+            <Link href="/settings?tab=google-calendar">
+              <Button variant="outline" size="sm" className="rounded-full" data-testid="button-connect-google-calendar">
+                <Link2 className="h-4 w-4 mr-2" />
+                Conectar Google Calendar
+              </Button>
+            </Link>
+          ) : !googleCalendarStatus?.authorized ? (
+            <Link href="/settings?tab=google-calendar">
+              <Button variant="outline" size="sm" className="rounded-full" data-testid="button-authorize-google-calendar">
+                Autorizar
+              </Button>
+            </Link>
+          ) : (
+            <>
+              {googleCalendarStatus?.lastSyncAt && (
+                <span className="text-xs text-muted-foreground">
+                  Última sincronização: {format(new Date(googleCalendarStatus.lastSyncAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                </span>
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-full"
+                onClick={() => syncGoogleCalendarMutation.mutate()}
+                disabled={isSyncing || syncGoogleCalendarMutation.isPending}
+                data-testid="button-sync-google-calendar"
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
+                {isSyncing ? 'Sincronizando...' : 'Sincronizar Agora'}
+              </Button>
+            </>
+          )}
+        </div>
       </div>
 
       <div className="flex justify-between items-center mb-6">
