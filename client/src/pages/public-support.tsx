@@ -326,7 +326,7 @@ export default function PublicSupport() {
                   <>
                     {" | "}
                     <span style={{ color: getPartyColor(candidateData.party?.acronym) }}>
-                      {candidateData.party.acronym} - {candidateData.party.name}
+                      {candidateData.party.acronym}
                     </span>
                   </>
                 )}
