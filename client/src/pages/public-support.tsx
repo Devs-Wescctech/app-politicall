@@ -106,6 +106,7 @@ export default function PublicSupport() {
       name: "",
       email: "",
       phone: "",
+      age: undefined,
       state: "",
       city: "",
       interests: [],
@@ -399,6 +400,26 @@ export default function PublicSupport() {
                             const formatted = formatPhoneNumber(e.target.value);
                             field.onChange(formatted);
                           }}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="age"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Idade</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          placeholder="Ex: 35" 
+                          data-testid="input-support-age" 
+                          {...field} 
+                          value={field.value || ""} 
+                          onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
                         />
                       </FormControl>
                       <FormMessage />
