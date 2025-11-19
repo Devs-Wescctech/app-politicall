@@ -118,11 +118,31 @@ export function calculateGenderDistribution(contacts: { name: string; gender?: s
     Indefinido: 0,
   };
 
+  // Normalizar gender para lidar com valores legados em lowercase
+  const normalizeGender = (value: string): keyof typeof distribution | null => {
+    const validOptions: (keyof typeof distribution)[] = [
+      'Masculino', 
+      'Feminino', 
+      'Não-binário', 
+      'Outro', 
+      'Prefiro não responder',
+      'Indefinido'
+    ];
+    
+    // Tentar encontrar correspondência case-insensitive (com trim para espaços em branco)
+    const normalized = validOptions.find(
+      option => option.toLowerCase() === value.trim().toLowerCase()
+    );
+    
+    return normalized || null;
+  };
+
   for (const contact of contacts) {
     // Prioriza o campo manual de gênero se disponível
     if (contact.gender) {
-      if (contact.gender in distribution) {
-        distribution[contact.gender as keyof typeof distribution]++;
+      const normalizedGender = normalizeGender(contact.gender);
+      if (normalizedGender) {
+        distribution[normalizedGender]++;
       } else {
         distribution.Indefinido++;
       }
