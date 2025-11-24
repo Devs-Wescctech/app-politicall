@@ -1069,7 +1069,7 @@ export default function AiAttendance() {
                       <p className="font-medium">Passo 5: Subscreva sua Página ao webhook (via Graph API ou manualmente)</p>
                       <p className="text-xs text-muted-foreground">Permissões necessárias: pages_messaging, pages_read_engagement</p>
                       <p className="text-xs text-muted-foreground">Para produção: Envie seu app para revisão do Meta</p>
-                      {(platformForm.getValues("facebookAppId") && platformForm.getValues("facebookAppSecret") && accountSlug) && (
+                      {accountSlug && (
                         <>
                           <p className="font-medium mt-3">Política de Privacidade:</p>
                           <code className="block bg-background px-3 py-2 rounded border text-xs font-mono">
@@ -1194,7 +1194,7 @@ export default function AiAttendance() {
                       <p className="font-medium">Passo 4: Inscreva-se nos campos: <code className="text-xs">messages</code>, <code className="text-xs">messaging_postbacks</code></p>
                       <p className="text-xs text-muted-foreground">Permissões necessárias: instagram_basic, instagram_manage_messages</p>
                       <p className="text-xs text-muted-foreground">Para produção: Seu app precisa passar por revisão do Meta</p>
-                      {(platformForm.getValues("instagramAppId") && platformForm.getValues("instagramAppSecret") && accountSlug) && (
+                      {accountSlug && (
                         <>
                           <p className="font-medium mt-3">Política de Privacidade:</p>
                           <code className="block bg-background px-3 py-2 rounded border text-xs font-mono">
@@ -1319,7 +1319,7 @@ export default function AiAttendance() {
                       <p className="font-medium">Passo 4: Adicione uma subscription (registro de webhook)</p>
                       <p className="text-xs text-muted-foreground">Permissões necessárias: Read/Write/Direct Messages (OAuth 1.0a)</p>
                       <p className="text-xs text-muted-foreground">ATENÇÃO: Account Activity API requer assinatura paga no Twitter/X (Premium ou Enterprise)</p>
-                      {(platformForm.getValues("twitterApiKey") && platformForm.getValues("twitterApiSecretKey") && accountSlug) && (
+                      {accountSlug && (
                         <>
                           <p className="font-medium mt-3">Política de Privacidade:</p>
                           <code className="block bg-background px-3 py-2 rounded border text-xs font-mono">
