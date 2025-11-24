@@ -3602,6 +3602,226 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Privacy Policy Routes for Social Media Integrations
+  app.get("/privacy/facebook/:accountSlug", (req, res) => {
+    const { accountSlug } = req.params;
+    const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Política de Privacidade - Facebook</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 20px; color: #333; }
+    h1 { color: #1877F2; }
+    h2 { color: #1877F2; margin-top: 30px; }
+    .section { margin: 20px 0; }
+    code { background: #f5f5f5; padding: 2px 6px; border-radius: 3px; }
+  </style>
+</head>
+<body>
+  <h1>Política de Privacidade - Integração Facebook</h1>
+  <p><strong>Conta:</strong> ${accountSlug}</p>
+  <p><strong>Data de Atualização:</strong> ${new Date().toLocaleDateString('pt-BR')}</p>
+
+  <div class="section">
+    <h2>1. Visão Geral</h2>
+    <p>Esta Política de Privacidade descreve como o Politicall coleta, usa, compartilha e protege dados pessoais ao integrar com a plataforma Facebook/Meta para fins de atendimento automatizado e análise de mensagens.</p>
+  </div>
+
+  <div class="section">
+    <h2>2. Dados Coletados</h2>
+    <p>Através da integração com o Facebook, o Politicall pode coletar:</p>
+    <ul>
+      <li>Mensagens enviadas através do Messenger</li>
+      <li>Identificação do usuário (ID de conta Facebook)</li>
+      <li>Nome e foto de perfil (se disponível publicamente)</li>
+      <li>Histórico de conversas e interações</li>
+      <li>Informações de metadados (timestamps, tipo de interação)</li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <h2>3. Uso de Dados</h2>
+    <p>Os dados coletados serão utilizados para:</p>
+    <ul>
+      <li>Fornecer respostas automatizadas através de IA</li>
+      <li>Melhorar a qualidade do atendimento</li>
+      <li>Análise estatística e relatórios</li>
+      <li>Conformidade com requisitos legais</li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <h2>4. Armazenamento e Segurança</h2>
+    <p>Os dados são armazenados de forma segura com criptografia e são mantidos apenas pelo tempo necessário para fornecer o serviço.</p>
+  </div>
+
+  <div class="section">
+    <h2>5. Direitos dos Usuários</h2>
+    <p>Os usuários possuem direitos sobre seus dados pessoais, incluindo acesso, correção, exclusão e portabilidade, conforme garantido pelas leis aplicáveis (LGPD, GDPR, etc).</p>
+  </div>
+
+  <div class="section">
+    <h2>6. Conformidade com Meta</h2>
+    <p>Esta integração cumpre com as políticas, padrões e diretrizes da Meta/Facebook, incluindo suas políticas de privacidade e plataforma.</p>
+  </div>
+
+  <div class="section">
+    <h2>7. Contato</h2>
+    <p>Para dúvidas sobre esta política, entre em contato através da plataforma Politicall.</p>
+  </div>
+</body>
+</html>`;
+    res.type('text/html').send(html);
+  });
+
+  app.get("/privacy/instagram/:accountSlug", (req, res) => {
+    const { accountSlug } = req.params;
+    const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Política de Privacidade - Instagram</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 20px; color: #333; }
+    h1 { color: #E4405F; }
+    h2 { color: #E4405F; margin-top: 30px; }
+    .section { margin: 20px 0; }
+    code { background: #f5f5f5; padding: 2px 6px; border-radius: 3px; }
+  </style>
+</head>
+<body>
+  <h1>Política de Privacidade - Integração Instagram</h1>
+  <p><strong>Conta:</strong> ${accountSlug}</p>
+  <p><strong>Data de Atualização:</strong> ${new Date().toLocaleDateString('pt-BR')}</p>
+
+  <div class="section">
+    <h2>1. Visão Geral</h2>
+    <p>Esta Política de Privacidade descreve como o Politicall coleta, usa, compartilha e protege dados pessoais ao integrar com a plataforma Instagram para fins de atendimento automatizado e gestão de mensagens diretas.</p>
+  </div>
+
+  <div class="section">
+    <h2>2. Dados Coletados</h2>
+    <p>Através da integração com o Instagram, o Politicall pode coletar:</p>
+    <ul>
+      <li>Mensagens diretas (DMs) recebidas</li>
+      <li>Informações do perfil de usuário</li>
+      <li>Nome de usuário e identificação</li>
+      <li>Histórico de conversas</li>
+      <li>Informações de interação (curtidas, comentários)</li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <h2>3. Uso de Dados</h2>
+    <p>Os dados coletados serão utilizados para:</p>
+    <ul>
+      <li>Automatizar respostas a mensagens diretas</li>
+      <li>Fornecer suporte e atendimento ao cliente</li>
+      <li>Análise de engajamento</li>
+      <li>Conformidade regulatória</li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <h2>4. Armazenamento e Segurança</h2>
+    <p>Todos os dados são armazenados com proteção criptográfica de alta segurança e não são compartilhados com terceiros sem consentimento.</p>
+  </div>
+
+  <div class="section">
+    <h2>5. Direitos dos Usuários</h2>
+    <p>Os usuários podem solicitar acesso, correção, exclusão ou portabilidade de seus dados pessoais conforme previsto em lei.</p>
+  </div>
+
+  <div class="section">
+    <h2>6. Conformidade Meta</h2>
+    <p>Esta integração segue rigorosamente as políticas de privacidade, termos de serviço e requisitos de conformidade da Meta/Instagram.</p>
+  </div>
+
+  <div class="section">
+    <h2>7. Contato</h2>
+    <p>Para questões sobre privacidade, entre em contato através da plataforma Politicall.</p>
+  </div>
+</body>
+</html>`;
+    res.type('text/html').send(html);
+  });
+
+  app.get("/privacy/twitter/:accountSlug", (req, res) => {
+    const { accountSlug } = req.params;
+    const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Política de Privacidade - X (Twitter)</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 20px; color: #333; }
+    h1 { color: #000; }
+    h2 { color: #000; margin-top: 30px; }
+    .section { margin: 20px 0; }
+    code { background: #f5f5f5; padding: 2px 6px; border-radius: 3px; }
+  </style>
+</head>
+<body>
+  <h1>Política de Privacidade - Integração X (Twitter)</h1>
+  <p><strong>Conta:</strong> ${accountSlug}</p>
+  <p><strong>Data de Atualização:</strong> ${new Date().toLocaleDateString('pt-BR')}</p>
+
+  <div class="section">
+    <h2>1. Visão Geral</h2>
+    <p>Esta Política de Privacidade descreve como o Politicall coleta, usa, compartilha e protege dados pessoais ao integrar com a plataforma X (Twitter) para fins de atendimento automatizado e análise de interações.</p>
+  </div>
+
+  <div class="section">
+    <h2>2. Dados Coletados</h2>
+    <p>Através da integração com X (Twitter), o Politicall pode coletar:</p>
+    <ul>
+      <li>Mensagens diretas (DMs)</li>
+      <li>Menções e respostas públicas</li>
+      <li>Identificação e dados de perfil do usuário</li>
+      <li>Histórico de conversas</li>
+      <li>Informações de engajamento e interações</li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <h2>3. Uso de Dados</h2>
+    <p>Os dados coletados serão utilizados para:</p>
+    <ul>
+      <li>Fornecer respostas automatizadas através de IA</li>
+      <li>Monitoramento e análise de menções</li>
+      <li>Engajamento com audiência</li>
+      <li>Conformidade com requisitos legais</li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <h2>4. Armazenamento e Segurança</h2>
+    <p>Os dados são armazenados com padrões de segurança de nível empresarial, incluindo criptografia de ponta a ponta quando aplicável.</p>
+  </div>
+
+  <div class="section">
+    <h2>5. Direitos dos Usuários</h2>
+    <p>Conforme legislações aplicáveis (LGPD, GDPR), os usuários possuem direitos relativos aos seus dados pessoais incluindo acesso e exclusão.</p>
+  </div>
+
+  <div class="section">
+    <h2>6. Conformidade X/Twitter</h2>
+    <p>Esta integração está em total conformidade com as políticas de privacidade e termos de serviço da plataforma X (antigo Twitter).</p>
+  </div>
+
+  <div class="section">
+    <h2>7. Contato</h2>
+    <p>Para dúvidas sobre privacidade, entre em contato através da plataforma Politicall.</p>
+  </div>
+</body>
+</html>`;
+    res.type('text/html').send(html);
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

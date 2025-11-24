@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useQuery as useQueryLib } from "@tanstack/react-query";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { 
   type AiConfiguration, 
@@ -55,6 +56,7 @@ export default function AiAttendance() {
   const [editingTraining, setEditingTraining] = useState<AiTrainingExample | null>(null);
   const [apiKey, setApiKey] = useState("");
   const [isTestingKey, setIsTestingKey] = useState(false);
+  const [accountSlug, setAccountSlug] = useState<string>("");
   // New test-related state variables
   const [testMessage, setTestMessage] = useState('');
   const [aiTestResponse, setAiTestResponse] = useState('');
@@ -69,6 +71,19 @@ export default function AiAttendance() {
   const { data: config, isLoading: loadingConfig } = useQuery<AiConfigurationWithCustomKey>({
     queryKey: ["/api/ai-config"],
   });
+
+  // Get account slug for privacy URLs
+  useEffect(() => {
+    const user = localStorage.getItem("user");
+    if (user) {
+      try {
+        const userData = JSON.parse(user);
+        setAccountSlug(userData.accountSlug || "");
+      } catch (e) {
+        // Silent fail
+      }
+    }
+  }, []);
 
   const { data: conversations, isLoading: loadingConversations } = useQuery<AiConversation[]>({
     queryKey: ["/api/ai-conversations"],
@@ -1054,6 +1069,15 @@ export default function AiAttendance() {
                       <p className="font-medium">Passo 5: Subscreva sua Página ao webhook (via Graph API ou manualmente)</p>
                       <p className="text-xs text-muted-foreground">Permissões necessárias: pages_messaging, pages_read_engagement</p>
                       <p className="text-xs text-muted-foreground">Para produção: Envie seu app para revisão do Meta</p>
+                      {(platformForm.getValues("facebookAppId") && platformForm.getValues("facebookAppSecret") && accountSlug) && (
+                        <>
+                          <p className="font-medium mt-3">Política de Privacidade:</p>
+                          <code className="block bg-background px-3 py-2 rounded border text-xs font-mono">
+                            https://www.politicall.com.br/privacy/facebook/{accountSlug}
+                          </code>
+                          <p className="text-xs text-muted-foreground">Use esta URL na configuração da Política de Privacidade do seu app Meta</p>
+                        </>
+                      )}
                     </div>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1170,6 +1194,15 @@ export default function AiAttendance() {
                       <p className="font-medium">Passo 4: Inscreva-se nos campos: <code className="text-xs">messages</code>, <code className="text-xs">messaging_postbacks</code></p>
                       <p className="text-xs text-muted-foreground">Permissões necessárias: instagram_basic, instagram_manage_messages</p>
                       <p className="text-xs text-muted-foreground">Para produção: Seu app precisa passar por revisão do Meta</p>
+                      {(platformForm.getValues("instagramAppId") && platformForm.getValues("instagramAppSecret") && accountSlug) && (
+                        <>
+                          <p className="font-medium mt-3">Política de Privacidade:</p>
+                          <code className="block bg-background px-3 py-2 rounded border text-xs font-mono">
+                            https://www.politicall.com.br/privacy/instagram/{accountSlug}
+                          </code>
+                          <p className="text-xs text-muted-foreground">Use esta URL na configuração da Política de Privacidade do seu app Meta</p>
+                        </>
+                      )}
                     </div>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1286,6 +1319,15 @@ export default function AiAttendance() {
                       <p className="font-medium">Passo 4: Adicione uma subscription (registro de webhook)</p>
                       <p className="text-xs text-muted-foreground">Permissões necessárias: Read/Write/Direct Messages (OAuth 1.0a)</p>
                       <p className="text-xs text-muted-foreground">ATENÇÃO: Account Activity API requer assinatura paga no Twitter/X (Premium ou Enterprise)</p>
+                      {(platformForm.getValues("twitterApiKey") && platformForm.getValues("twitterApiSecretKey") && accountSlug) && (
+                        <>
+                          <p className="font-medium mt-3">Política de Privacidade:</p>
+                          <code className="block bg-background px-3 py-2 rounded border text-xs font-mono">
+                            https://www.politicall.com.br/privacy/twitter/{accountSlug}
+                          </code>
+                          <p className="text-xs text-muted-foreground">Use esta URL na configuração de Privacidade do seu app X/Twitter</p>
+                        </>
+                      )}
                     </div>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
