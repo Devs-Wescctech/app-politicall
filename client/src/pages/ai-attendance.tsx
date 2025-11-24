@@ -74,7 +74,7 @@ export default function AiAttendance() {
 
   // Get account slug for privacy URLs
   useEffect(() => {
-    const user = localStorage.getItem("user");
+    const user = localStorage.getItem("auth_user");
     if (user) {
       try {
         const userData = JSON.parse(user);
