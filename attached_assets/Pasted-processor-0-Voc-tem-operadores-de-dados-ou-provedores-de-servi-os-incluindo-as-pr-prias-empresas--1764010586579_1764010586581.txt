@@ -1,0 +1,54 @@
+processor-0
+Você tem operadores de dados ou provedores de serviços (incluindo as próprias empresas) que terão acesso aos Dados da Plataforma que você obtém da Meta?
+Os operadores de dados são entidades separadas que, em seu nome, tratam os dados da plataforma disponibilizados para você a fim de prestar um serviço. Forneça o nome dos operadores que terão acesso aos Dados da Plataforma disponibilizados para você por meio das permissões e dos recursos solicitados.
+
+“Dados da Plataforma” são quaisquer dados recebidos da Meta (por exemplo, número de identificação do usuário da Meta, endereço de email, foto de perfil, token de acesso do usuário da Meta e chave secreta do app).
+
+Sim
+
+Não
+processor-2
+Liste todos os operadores de dados ou provedores de serviços, incluindo suas próprias empresas, que terão acesso aos Dados da Plataforma que você obtém da Meta.
+Os Dados da Plataforma podem incluir um subconjunto de dados ou informações pessoais que se relacionam a uma pessoa identificada ou que pode ser identificada.
+* Esta é uma pergunta obrigatória.
+responsible-1
+Quem é a pessoa ou a entidade que será responsável por todos os Dados da Plataforma que a Meta compartilha com você?
+Forneça o nome da pessoa jurídica que controlará os dados (ou seja, determine as finalidades e os meios de tratamento dos dados) disponibilizados para você pela Meta por meio dos recursos e/ou permissões solicitadas. Pode ser uma pessoa física ou jurídica, uma autoridade pública, uma agência ou outra entidade. Em algumas regiões, é chamado de controlador dos dados.
+WesccTech
+responsible-2
+Selecione o país em que a pessoa ou a entidade está localizada.
+Select from the dropdown
+Brasil
+​
+requests-3
+Você forneceu dados pessoais ou informações pessoais de usuários a autoridades públicas em resposta a solicitações de segurança nacional nos últimos 12 meses?
+Isso não inclui solicitações relacionadas a mandados de busca ou ordens judiciais associados a investigações criminais.
+
+Dados ou informações pessoais são qualquer dado que você recebe da Meta que se relaciona a uma pessoa identificada ou que pode ser identificada.
+
+Não
+
+Sim, compartilhamos os dados ou informações pessoais de aproximadamente dez usuários ou menos.
+
+Sim, compartilhamos os dados ou informações pessoais de aproximadamente 11 a 100 usuários.
+
+Sim, compartilhamos os dados ou informações pessoais de aproximadamente 101 a 1.000 usuários.
+
+Sim, compartilhamos os dados ou informações pessoais de mais de 1.000 usuários.
+
+Somos proibidos por lei ou pela política da empresa de responder a esta pergunta.
+requests-4
+Quais dos seguintes processos ou políticas você aplica a solicitações de autoridades públicas relacionadas aos dados ou informações pessoais dos usuários? Marque todas as opções que se aplicam.
+* Esta é uma pergunta obrigatória.
+
+Análise obrigatória sobre a legitimidade das solicitações.
+
+Disposições para contestar os pedidos considerados ilegais.
+
+Política de minimização de dados: a capacidade de divulgar o mínimo de informações conforme a necessidade.
+
+Registro dessas solicitações, incluindo as respostas, o raciocínio legal e as pessoas envolvidas.
+
+Nenhuma das opções acima.
+
+Somos proibidos por lei ou pela política da empresa de responder a esta pergunta.
