@@ -72,18 +72,16 @@ export default function AiAttendance() {
     queryKey: ["/api/ai-config"],
   });
 
-  // Get account slug for privacy URLs
+  // Fetch admin data to get account slug for privacy URLs
+  const { data: adminData } = useQuery<any>({
+    queryKey: ["/api/account/admin"],
+  });
+
   useEffect(() => {
-    const user = localStorage.getItem("auth_user");
-    if (user) {
-      try {
-        const userData = JSON.parse(user);
-        setAccountSlug(userData.accountSlug || "");
-      } catch (e) {
-        // Silent fail
-      }
+    if (adminData?.slug) {
+      setAccountSlug(adminData.slug);
     }
-  }, []);
+  }, [adminData]);
 
   const { data: conversations, isLoading: loadingConversations } = useQuery<AiConversation[]>({
     queryKey: ["/api/ai-conversations"],
