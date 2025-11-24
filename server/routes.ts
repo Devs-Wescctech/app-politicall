@@ -5,7 +5,7 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { insertUserSchema, loginSchema, insertContactSchema, insertPoliticalAllianceSchema, insertDemandSchema, insertDemandCommentSchema, insertEventSchema, insertAiConfigurationSchema, insertAiTrainingExampleSchema, insertAiResponseTemplateSchema, insertMarketingCampaignSchema, insertNotificationSchema, insertIntegrationSchema, insertSurveyCampaignSchema, insertSurveyLandingPageSchema, insertSurveyResponseSchema, insertLeadSchema, DEFAULT_PERMISSIONS } from "@shared/schema";
 import { db } from "./db";
-import { politicalParties, politicalAlliances, surveyTemplates, surveyCampaigns, surveyLandingPages, surveyResponses, users, events, demands, demandComments, contacts, type SurveyTemplate, type SurveyCampaign, type InsertSurveyCampaign, type SurveyLandingPage, type InsertSurveyLandingPage, type SurveyResponse, type InsertSurveyResponse } from "@shared/schema";
+import { politicalParties, politicalAlliances, surveyTemplates, surveyCampaigns, surveyLandingPages, surveyResponses, users, events, demands, demandComments, contacts, aiConfigurations, type SurveyTemplate, type SurveyCampaign, type InsertSurveyCampaign, type SurveyLandingPage, type InsertSurveyLandingPage, type SurveyResponse, type InsertSurveyResponse } from "@shared/schema";
 import { sql, eq, desc, and } from "drizzle-orm";
 import { generateAiResponse, testOpenAiApiKey } from "./openai";
 import { requireRole } from "./authorization";
@@ -2874,42 +2874,183 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ==================== WEBHOOKS (Meta, WhatsApp, Twitter) ====================
   
   // Facebook/Instagram Webhook - Verification (GET)
-  app.get("/api/webhook/facebook", (req, res) => {
+  app.get("/api/webhook/facebook", async (req, res) => {
     const mode = req.query['hub.mode'];
     const token = req.query['hub.verify_token'];
     const challenge = req.query['hub.challenge'];
     
-    // Você deve configurar o mesmo token no Meta Developer Console
-    const VERIFY_TOKEN = process.env.FACEBOOK_WEBHOOK_VERIFY_TOKEN || 'politicall_fb_verify_token_2024';
-    
-    if (mode === 'subscribe' && token === VERIFY_TOKEN) {
-      console.log('✓ Facebook webhook verified');
-      res.status(200).send(challenge);
-    } else {
-      console.log('✗ Facebook webhook verification failed');
-      res.sendStatus(403);
+    try {
+      if (mode !== 'subscribe') {
+        console.log('✗ Facebook webhook verification failed - invalid mode');
+        return res.sendStatus(403);
+      }
+      
+      if (!token || typeof token !== 'string') {
+        console.log('✗ Facebook webhook verification failed - no token provided');
+        return res.sendStatus(403);
+      }
+      
+      // Use filtered database query instead of in-memory filter
+      const [matchingConfig] = await db
+        .select()
+        .from(aiConfigurations)
+        .where(eq(aiConfigurations.facebookWebhookVerifyToken, token as string))
+        .limit(1);
+      
+      if (matchingConfig) {
+        console.log('✓ Facebook webhook verified for account:', matchingConfig.accountId);
+        res.status(200).send(challenge);
+      } else {
+        console.log('✗ Facebook webhook verification failed - token not found');
+        res.sendStatus(403);
+      }
+    } catch (error) {
+      console.error('Error verifying Facebook webhook:', error);
+      res.sendStatus(500);
     }
   });
 
   // Facebook/Instagram Webhook - Receive Events (POST)
-  app.post("/api/webhook/facebook", (req, res) => {
+  app.post("/api/webhook/facebook", async (req, res) => {
     const body = req.body;
     
     console.log('Facebook webhook event received:', JSON.stringify(body, null, 2));
     
-    if (body.object === 'page') {
-      body.entry?.forEach((entry: any) => {
-        const webhookEvent = entry.messaging?.[0];
-        if (webhookEvent) {
-          console.log('Facebook message:', webhookEvent);
-          // TODO: Process Facebook/Instagram message
-          // Implement AI response logic here
-        }
-      });
-      res.status(200).send('EVENT_RECEIVED');
-    } else {
-      res.sendStatus(404);
+    // Guard 1: Validate body.object is 'page'
+    if (body.object !== 'page') {
+      return res.sendStatus(404);
     }
+    
+    // Respond immediately to Facebook (required within 20 seconds)
+    res.status(200).send('EVENT_RECEIVED');
+    
+    // Process messages asynchronously in IIFE with error handling
+    (async () => {
+      try {
+        if (body.object === 'page') {
+          // Collect all message processing promises
+          const messagePromises: Promise<void>[] = [];
+          
+          for (const entry of body.entry || []) {
+            // Iterate over ALL messages in the messaging array
+            for (const webhookEvent of entry.messaging || []) {
+              // Guard: Check if this is a text message event (not delivery, read, etc.)
+              if (!webhookEvent.message || !webhookEvent.message.text) {
+                console.log('Skipping non-text message event (delivery/read receipt)');
+                continue;
+              }
+              
+              // Guard 2: Skip non-message events (postback, standby, policy, delivery, read)
+              if (webhookEvent.postback || webhookEvent.delivery || webhookEvent.read || webhookEvent.standby) {
+                continue;
+              }
+              
+              const senderId = webhookEvent.sender?.id;
+              const recipientId = webhookEvent.recipient?.id; // This is the Page ID
+              const messageText = webhookEvent.message.text;
+              
+              if (!senderId || !recipientId) {
+                console.log('Missing sender or recipient ID in webhook event');
+                continue;
+              }
+              
+              // Create a promise for this message processing
+              const messagePromise = (async () => {
+                try {
+                  // Find config by Page ID
+                  const configs = await db.select().from(aiConfigurations);
+                  const config = configs.find(c => c.facebookPageId === recipientId);
+                  
+                  if (!config) {
+                    console.log('No configuration found for Page ID:', recipientId);
+                    return;
+                  }
+                  
+                  console.log('Processing message from:', senderId, 'Text:', messageText);
+                  
+                  // Get AI training examples
+                  const trainingExamples = await storage.getAiTrainingExamples(config.accountId);
+                  
+                  // Generate AI response
+                  const aiResponse = await generateAiResponse(
+                    messageText,
+                    null, // postContent
+                    config.mode || 'compliance',
+                    config.userId,
+                    {
+                      systemPrompt: config.systemPrompt,
+                      personalityTraits: config.personalityTraits,
+                      politicalInfo: config.politicalInfo,
+                      responseGuidelines: config.responseGuidelines,
+                    }
+                  );
+                  
+                  // Guard: Validate that we have a valid AI response before proceeding
+                  if (!aiResponse || typeof aiResponse !== 'string' || aiResponse.trim().length === 0) {
+                    console.error('Invalid AI response generated:', aiResponse);
+                    return;
+                  }
+                  
+                  // Send response back to Facebook
+                  const pageAccessToken = config.facebookPageAccessToken;
+                  if (!pageAccessToken) {
+                    console.log('No Page Access Token configured');
+                    return;
+                  }
+                  
+                  const response = await fetch(`https://graph.facebook.com/v21.0/me/messages?access_token=${pageAccessToken}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      recipient: { id: senderId },
+                      message: { text: aiResponse }
+                    })
+                  });
+                  
+                  // Only save to database AFTER confirming successful send to Facebook
+                  if (response.ok) {
+                    console.log('✓ Response sent to Facebook user:', senderId);
+                    
+                    // Save conversation to database only after successful send
+                    await storage.createAiConversation({
+                      accountId: config.accountId,
+                      userId: config.userId,
+                      platform: 'facebook',
+                      postContent: null,
+                      userMessage: messageText,
+                      aiResponse: aiResponse,
+                      mode: config.mode || 'compliance',
+                    });
+                  } else {
+                    const error = await response.text();
+                    console.error('Error sending Facebook message:', error);
+                    // Do NOT save to database if send failed
+                  }
+                } catch (error) {
+                  console.error('Error processing individual Facebook message:', error);
+                  // Error is caught and logged, but doesn't crash the server
+                }
+              })();
+              
+              messagePromises.push(messagePromise);
+            }
+          }
+          
+          // Wait for all messages to be processed, capturing all errors
+          const results = await Promise.allSettled(messagePromises);
+          
+          // Log any rejections (though our try/catch should prevent them)
+          results.forEach((result, index) => {
+            if (result.status === 'rejected') {
+              console.error(`Message ${index} processing failed:`, result.reason);
+            }
+          });
+        }
+      } catch (error) {
+        console.error('Fatal error in Facebook webhook processing:', error);
+        // Error is caught and logged, server continues running
+      }
+    })();
   });
 
   // WhatsApp Webhook - Verification (GET)
