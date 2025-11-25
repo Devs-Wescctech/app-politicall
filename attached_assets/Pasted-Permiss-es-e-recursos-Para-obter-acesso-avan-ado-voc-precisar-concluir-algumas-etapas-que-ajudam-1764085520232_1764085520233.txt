@@ -1,0 +1,619 @@
+Permissões e recursos
+Para obter acesso avançado, você precisará concluir algumas etapas que ajudam a Meta a proteger a privacidade das pessoas. Saiba mais sobre os requisitos para obter acesso avançado.
+​
+Pesquisar permissões e recursos
+Permissões e recursos
+Nível de acesso
+​
+Chamadas de API
+​
+Status
+Ação
+​
+instagram_manage_comments
+Com a permissão instagram_manage_comments , seu aplicativo pode criar, excluir e ocultar comentários em nome da conta do Instagram vinculada a uma página. Seu aplicativo também pode ler e responder a mídias públicas e comentários em que uma empresa tenha sido mencionada ou marcada em uma foto.
+…
+
+Descrição completa
+Requisitos
+Standard access
+Acesso padrão
+Ativo (194)
+Nenhuma análise do app solicitada
+pages_manage_metadata
+Com a permissão pages_manage_metadata , seu aplicativo pode inscrever e receber webhooks sobre atividade na Página, bem como atualizar configurações nela.
+…
+
+Descrição completa
+Requisitos
+Standard access
+Acesso padrão
+Ativo (163)
+Nenhuma análise do app solicitada
+instagram_manage_messages
+Com a permissão instagram_manage_messages , os usuários comerciais podem ler e responder mensagens do Instagram Direct.
+…
+
+Descrição completa
+Requisitos
+Standard access
+Acesso padrão
+Ativo (134)
+Nenhuma análise do app solicitada
+pages_messaging
+Com a permissão pages_messaging , seu aplicativo pode gerenciar e acessar conversas da Página no Messenger.
+…
+
+Descrição completa
+Requisitos
+Standard access
+Acesso padrão
+Ativo (93)
+Nenhuma análise do app solicitada
+instagram_manage_events
+The instagram_manage_events permission allows an app permission to log events (e.g., purchase, add-to-cart, leads) on behalf of Instagram accounts administered by the app’s users.
+…
+
+Descrição completa
+Requisitos
+Standard access
+Acesso padrão
+Ativo (61)
+Nenhuma análise do app solicitada
+Page Public Metadata Access
+O acesso a metadados públicos da Página permite que o aplicativo acesse a API de Pesquisa de Páginas e leia dados públicos de Páginas para as quais você não tem as permissões pages_read_engagement e pages_read_user_content . O uso permitido desse recurso é analisar o engajamento com Páginas públicas por meio da visualização de contagens de seguidores e curtidas ou agregar informações públicas da Página Sobre de diversas páginas diferentes. Você também pode usar essa permissão para solicitar informações de análise com o objetivo de aprimorar seu app e para fins de marketing ou publicidade, por meio do uso de informações agregadas e anônimas ou sem identificação (desde que esses dados não possam ser identificados novamente).
+…
+
+Descrição completa
+Requisitos
+Standard access
+Acesso padrão
+Ativo (29)
+Nenhuma análise do app solicitada
+Business Asset User Profile Access
+O recurso Acesso ao perfil do usuário de ativo comercial permite que o aplicativo leia os Campos do usuário de usuários que interagem com seus ativos comerciais como ID, ids_for_business, nome e foto.
+…
+
+Descrição completa
+Requisitos
+Standard access
+Acesso padrão
+Ativo (9)
+Nenhuma análise do app solicitada
+Meta oEmbed Read
+O recurso Meta oEmbed Read permite que seu app receba metadados básicos e HTML incorporado de vídeos, Páginas e posts do Facebook e do Instagram.
+…
+
+Descrição completa
+Requisitos
+Standard access
+Acesso padrão
+Pronto para usar (0)
+Nenhuma análise do app solicitada
+instagram_manage_upcoming_events
+The instagram_manage_upcoming_events permission allows an app to read, create, and update upcoming events on behalf of Instagram accounts administered by people using the app.
+…
+
+Descrição completa
+Requisitos
+Standard access
+Acesso padrão
+Pronto para usar (0)
+Nenhuma análise do app solicitada
+instagram_business_manage_messages
+A permissão instagram_business_manage_messages possibilita que um app acesse as mensagens em uma conta profissional do Instagram.
+…
+
+Descrição completa
+Requisitos
+Standard access
+Acesso padrão
+Pronto para usar (0)
+Nenhuma análise do app solicitada
+instagram_business_manage_comments
+Com a permissão instagram_business_manage_comments , o app pode acessar comentários em uma conta profissional do Instagram, bem como publicações abertas e Instagram Stories em que a conta está marcada ou mencionada em comentários.
+…
+
+Descrição completa
+Requisitos
+Standard access
+Acesso padrão
+Pronto para usar (0)
+Nenhuma análise do app solicitada
+instagram_branded_content_ads_brand
+A permissão instagram_branded_content_ads_brand possibilita que um app leia as publicações do Instagram em que a conta do Instagram do usuário do app foi marcada como parceiro pago e possibilita que um usuário do app leia, solicite e revogue permissões para veicular anúncios em parceria.
+…
+
+Descrição completa
+Requisitos
+Standard access
+Acesso padrão
+Pronto para usar (0)
+Nenhuma análise do app solicitada
+instagram_branded_content_brand
+Com a permissão instagram_branded_content_brand , seu aplicativo pode adicionar, remover e visualizar nomes da lista de criadores de conteúdo aprovados de uma marca específica.
+…
+
+Descrição completa
+Requisitos
+Standard access
+Acesso padrão
+Pronto para usar (0)
+Nenhuma análise do app solicitada
+instagram_branded_content_creator
+A permissão instagram_branded_content_creator possibilita que seu aplicativo leia e altere o status do turbinamento de determinado conteúdo.
+…
+
+Descrição completa
+Requisitos
+Standard access
+Acesso padrão
+Pronto para usar (0)
+Nenhuma análise do app solicitada
+email
+A permissão email possibilita que o aplicativo leia o endereço de email principal de uma pessoa.
+…
+
+Descrição completa
+Requisitos
+Standard access
+Acesso padrão
+Pronto para usar (0)
+Verificação necessária
+commerce_account_read_settings
+Com a permissão commerce_account_read_settings , seu aplicativo pode ler as configurações da conta de comércio.
+…
+
+Descrição completa
+Requisitos
+Standard access
+Acesso padrão
+Pronto para usar (0)
+public_profile
+A permissão public_profile possibilita que um app leia os Campos de Perfil Público Padrão no nó do Usuário . Essa permissão é concedida automaticamente a todos os apps.
+…
+
+Descrição completa
+Requisitos
+Standard access
+Acesso padrão
+Pronto para usar (0)
+Verificação necessária
+pages_user_locale
+Com a permissão pages_user_locale , seu app acessa o idioma de um usuário por meio da Página à qual o app está conectado.
+…
+
+Descrição completa
+Requisitos
+Standard access
+Acesso padrão
+Pronto para usar (0)
+Nenhuma análise do app solicitada
+pages_user_timezone
+Com a permissão pages_user_timezone , seu aplicativo pode acessar o fuso horário de um usuário por meio da Página à qual o aplicativo está conectado.
+…
+
+Descrição completa
+Requisitos
+Standard access
+Acesso padrão
+Pronto para usar (0)
+Nenhuma análise do app solicitada
+Page Mentions
+O recurso Menção de Página permite que o aplicativo mencione qualquer Página do Facebook ao fazer publicações nas Páginas gerenciadas por ele.
+…
+
+Descrição completa
+Requisitos
+Standard access
+Acesso padrão
+Pronto para usar (0)
+Nenhuma análise do app solicitada
+commerce_account_read_reports
+Com a permissão commerce_account_read_reports , seu aplicativo pode ler os dados de relatórios financeiros para gerar relatórios personalizados de impostos, de reembolso e de reconciliação para sua conta de comércio.
+…
+
+Descrição completa
+Requisitos
+Standard access
+Acesso padrão
+Pronto para usar (0)
+Live Video API
+O recurso API de Vídeo ao Vivo permite que um aplicativo gerencie vídeos ao vivo em Páginas, Grupos e linhas do tempo dos usuários quando combinado com a permissão correspondente certa.
+…
+
+Descrição completa
+Requisitos
+Standard access
+Acesso padrão
+Pronto para usar (0)
+Nenhuma análise do app solicitada
+Page Public Content Access
+O recurso Acesso ao Conteúdo Público da Página permite que seu app acesse os dados públicos da API de Pesquisa de Páginas e os dados somente para leitura das Páginas para as quais você não tem a permissão pages_read_engagement e a permissão pages_read_user_content . Dados legíveis incluem metadados comerciais, comentários públicos e publicações.
+…
+
+Descrição completa
+Requisitos
+Standard access
+Acesso padrão
+Pronto para usar (0)
+Nenhuma análise do app solicitada
+commerce_account_manage_orders
+Com a permissão commerce_account manage_orders , seu aplicativo pode ler e atualizar os pedidos da conta de comércio.
+…
+
+Descrição completa
+Requisitos
+Standard access
+Acesso padrão
+Pronto para usar (0)
+manage_fundraisers
+The manage_fundraisers permission allows an app to create, update, and read a fundraiser and its donations on behalf of a user.
+…
+
+Descrição completa
+Requisitos
+Standard access
+Acesso padrão
+Pronto para usar (0)
+Nenhuma análise do app solicitada
+instagram_shopping_tag_products
+Com a permissão instagram_shopping_tag_products , um aplicativo pode marcar mídias do Instagram com etiquetas de produto e fazer uma apelação contra rejeições de produtos.
+…
+
+Descrição completa
+Requisitos
+Standard access
+Acesso padrão
+Pronto para usar (0)
+Nenhuma análise do app solicitada
+Human Agent
+O recurso Human Agent permite que seu aplicativo use um agente humano para responder às mensagens de usuários com a tag human_agent até sete dias após o envio da mensagem por um usuário.
+…
+
+Descrição completa
+Requisitos
+Standard access
+Acesso padrão
+Pronto para usar (0)
+Nenhuma análise do app solicitada
+user_messenger_contact
+The user_messenger_contact permission allows a business to contact a person via Messenger upon their approval or initiation of a chat thread with the business's Page.
+…
+
+Descrição completa
+Requisitos
+Standard access
+Acesso padrão
+Pronto para usar (0)
+Nenhuma análise do app solicitada
+commerce_account_read_orders
+Com a permissão commerce_account_read_orders , seu aplicativo pode ler os pedidos da conta de comércio.
+…
+
+Descrição completa
+Requisitos
+Standard access
+Acesso padrão
+Pronto para usar (0)
+Instagram Public Content Access
+O recurso Acesso ao Conteúdo Público do Instagram permite que seu aplicativo acesse os pontos de extremidade da Pesquisa de Hashtag da Graph API do Instagram.
+…
+
+Descrição completa
+Requisitos
+Standard access
+Acesso padrão
+Pronto para usar (0)
+Nenhuma análise do app solicitada
+Ads Management Standard Access
+O recurso Acesso padrão ao gerenciamento de anúncios permite que seu aplicativo acesse a API de Marketing.
+…
+
+Descrição completa
+Requisitos
+Standard access
+Acesso padrão
+Pronto para usar (0)
+Nenhuma análise do app solicitada
+pages_user_gender
+Com a permissão pages_user_gender , seu aplicativo acessa o gênero de um usuário por meio da Página à qual o aplicativo está conectado.
+…
+
+Descrição completa
+Requisitos
+Standard access
+Acesso padrão
+Pronto para usar (0)
+Nenhuma análise do app solicitada
+Seu app só precisa de acesso avançado às permissões e recursos a seguir se sua empresa fornecer serviços como um Provedor de Tecnologia. É necessário fazer a verificação da empresa e de acesso. Saiba mais sobre verificação de acesso | Saiba mais sobre Provedores de Tecnologia
+​
+Pesquisar permissões e recursos
+Permissões e recursos
+Nível de acesso
+​
+Chamadas de API
+​
+Status
+Ação
+​
+pages_read_engagement
+Com a permissão pages_read_engagement , seu aplicativo pode ler conteúdo (publicações, fotos, vídeos e eventos) publicados pela Página, ler dados de seguidores (incluindo nome e PSID) e foto do perfil, bem como ler metadados e outras informações sobre a Página.
+…
+
+Descrição completa
+Requisitos
+Standard access
+Acesso padrão
+Ativo (251)
+Nenhuma análise do app solicitada
+instagram_basic
+Com a permissão instagram_basic , seu aplicativo pode ler conteúdo de mídia e informações do perfil de uma conta do Instagram.
+…
+
+Descrição completa
+Requisitos
+Standard access
+Acesso padrão
+Ativo (195)
+Nenhuma análise do app solicitada
+pages_show_list
+Com a permissão pages_show_list , o aplicativo pode acessar a lista de Páginas que uma pessoa gerencia.
+…
+
+Descrição completa
+Requisitos
+Standard access
+Acesso padrão
+Ativo (120)
+Nenhuma análise do app solicitada
+ads_read
+Com a permissão ads_read , seu aplicativo pode acessar a API de Informações de Anúncios a fim de extrair informações de relatórios de anúncios de contas de anúncios que você possui ou para as quais tenha recebido acesso pelo proprietário ou proprietários de outras contas de anúncios por meio dessa permissão. Essas permissões também concedem ao seu aplicativo acesso à API do lado do servidor para que os anunciantes possam enviar eventos da web dos seus respectivos servidores diretamente para o Facebook.
+…
+
+Descrição completa
+Requisitos
+Standard access
+Acesso padrão
+Ativo (5)
+Nenhuma análise do app solicitada
+ads_management
+Com a permissão ads_management , seu aplicativo pode ler e gerenciar a conta de anúncios que possui ou à qual teve ou que tenha recebido acesso pelo proprietário da conta de anúncios.
+…
+
+Descrição completa
+Requisitos
+Standard access
+Acesso padrão
+Ativo (5)
+Nenhuma análise do app solicitada
+instagram_business_basic
+Com a permissão instagram_business_basic , seu app pode ler conteúdo de mídia e informações do perfil de uma conta do Instagram para Empresas.
+…
+
+Descrição completa
+Requisitos
+Standard access
+Acesso padrão
+Ativo (1)
+Nenhuma análise do app solicitada
+facebook_creator_marketplace_discovery
+Com a permissão facebook_creator_marketplace_discovery , um app pode descobrir criadores de conteúdo na plataforma Descoberta de Criadores do Facebook.
+…
+
+Descrição completa
+Requisitos
+Standard access
+Acesso padrão
+Pronto para usar (0)
+Nenhuma análise do app solicitada
+instagram_creator_marketplace_discovery
+Com a permissão instagram_creator_marketplace_discovery , seu app pode descobrir criadores de conteúdo no marketplace de criadores de conteúdo do Instagram e acessar informações como bio do criador, contagem de seguidores e alcance da conta de empresas no Instagram integradas à plataforma.
+…
+
+Descrição completa
+Requisitos
+Standard access
+Acesso padrão
+Pronto para usar (0)
+Nenhuma análise do app solicitada
+paid_marketing_messages
+The paid_marketing_messages permission allows an app to create, manage, and send paid marketing messages on Messenger and to view the performance of these marketing messages campaigns on behalf of the app user.
+…
+
+Descrição completa
+Requisitos
+Standard access
+Acesso padrão
+Pronto para usar (0)
+Nenhuma análise do app solicitada
+threads_business_basic
+The threads_business_basic permission allows a business app to fetch the Threads account ID that is connected to an Instagram account.
+…
+
+Descrição completa
+Requisitos
+Standard access
+Acesso padrão
+Pronto para usar (0)
+Nenhuma análise do app solicitada
+instagram_business_manage_insights
+A permissão instagram_business_manage_insights possibilita que um app obtenha insights sobre metadados, publicações, fotos e vídeos da conta profissional dos seus usuários no Instagram; além disso, ele pode obter insights sobre metadados e mídia do perfil público de uma conta profissional no Instagram.
+…
+
+Descrição completa
+Requisitos
+Standard access
+Acesso padrão
+Pronto para usar (0)
+Nenhuma análise do app solicitada
+pages_utility_messaging
+A permissão pages_utility_messages possibilita que um app acesse os modelos de mensagens utilitárias de uma Página.
+…
+
+Descrição completa
+Requisitos
+Standard access
+Acesso padrão
+Pronto para usar (0)
+Nenhuma análise do app solicitada
+manage_app_solution
+The manage_app_solution permission allows an app to get a list of apps that a user can manage, and make API calls on behalf of those apps.
+…
+
+Descrição completa
+Requisitos
+Standard access
+Acesso padrão
+Pronto para usar (0)
+Nenhuma análise do app solicitada
+instagram_business_content_publish
+The instagram_business_content_publish permission allows an app to create organic feed photo and video posts on behalf of a business user.
+…
+
+Descrição completa
+Requisitos
+Standard access
+Acesso padrão
+Pronto para usar (0)
+Nenhuma análise do app solicitada
+read_insights
+Com a permissão read_insights , seu aplicativo poder ler os dados sobre informações de Páginas, aplicativos e domínios da web que pertencem à pessoa.
+…
+
+Descrição completa
+Requisitos
+Standard access
+Acesso padrão
+Pronto para usar (0)
+Nenhuma análise do app solicitada
+pages_manage_ads
+Com a permissão pages_manage_ads , seu aplicativo pode gerenciar anúncios associados à Página.
+…
+
+Descrição completa
+Requisitos
+Standard access
+Acesso padrão
+Pronto para usar (0)
+Nenhuma análise do app solicitada
+pages_read_user_content
+Com a permissão pages_read_user_content , seu aplicativo pode ler o conteúdo gerado pelo usuário na Página, como publicações, comentários e classificações dos usuários ou de outras Páginas, bem como exclui comentários do usuário nas publicações da Página.
+…
+
+Descrição completa
+Requisitos
+Standard access
+Acesso padrão
+Pronto para usar (0)
+Nenhuma análise do app solicitada
+pages_manage_cta
+Com a permissão pages_manage_cta , seu aplicativo pode executar as funções POST e DELETE nos pontos de extremidade usados para gerenciar botões de chamada para ação (CTA) em uma Página do Facebook.
+…
+
+Descrição completa
+Requisitos
+Standard access
+Acesso padrão
+Pronto para usar (0)
+Nenhuma análise do app solicitada
+instagram_manage_insights
+Com a permissão instagram_manage_insights , seu aplicativo pode obter acesso a informações da conta do Instagram vinculada a uma Página do Facebook. Seu aplicativo também pode descobrir e ler as informações de perfil e a mídia de outros perfis comerciais.
+…
+
+Descrição completa
+Requisitos
+Standard access
+Acesso padrão
+Pronto para usar (0)
+Nenhuma análise do app solicitada
+pages_manage_instant_articles
+Com a permissão pages_manage_instant_articles , seu aplicativo pode gerenciar Instant Articles em nome de Páginas do Facebook administradas por pessoas que usam o seu aplicativo.
+…
+
+Descrição completa
+Requisitos
+Standard access
+Acesso padrão
+Pronto para usar (0)
+Nenhuma análise do app solicitada
+instagram_content_publish
+Com a permissão instagram_content_publish , seu aplicativo pode criar publicações de foto e vídeo de feed orgânico em nome de um usuário comercial.
+…
+
+Descrição completa
+Requisitos
+Standard access
+Acesso padrão
+Pronto para usar (0)
+Nenhuma análise do app solicitada
+pages_manage_posts
+Com a permissão pages_manage_posts , seu aplicativo pode criar, editar e excluir publicações na sua Página.
+…
+
+Descrição completa
+Requisitos
+Standard access
+Acesso padrão
+Pronto para usar (0)
+Nenhuma análise do app solicitada
+pages_manage_engagement
+Com a permissão pages_manage_engagement , seu aplicativo pode criar, editar e excluir comentários publicados na Página.
+…
+
+Descrição completa
+Requisitos
+Standard access
+Acesso padrão
+Pronto para usar (0)
+Nenhuma análise do app solicitada
+leads_retrieval
+Com a permissão leads_retrieval , seu aplicativo pode recuperar e ler todas as informações capturadas por um formulário de anúncio de cadastro associado a um anúncio criado no Gerenciador de Anúncios ou na API de Marketing.
+…
+
+Descrição completa
+Requisitos
+Standard access
+Acesso padrão
+Pronto para usar (0)
+Nenhuma análise do app solicitada
+page_events
+Com a permissão page_events , seu aplicativo registra eventos em nome de Páginas do Facebook administradas por pessoas que usam o seu aplicativo e envia esses eventos ao Facebook para direcionamento de anúncios, otimização e relatórios.
+…
+
+Descrição completa
+Requisitos
+Standard access
+Acesso padrão
+Pronto para usar (0)
+Nenhuma análise do app solicitada
+publish_video
+Com a permissão publish_video , seu aplicativo pode publicar vídeos ao vivo na linha do tempo, no grupo, no evento ou na Página de um usuário dele.
+…
+
+Descrição completa
+Requisitos
+Standard access
+Acesso padrão
+Pronto para usar (0)
+Nenhuma análise do app solicitada
+business_management
+Com a permissão business_management , seu aplicativo pode ler e escrever com a API do Gerenciador de Negócios.
+…
+
+Descrição completa
+Requisitos
+Standard access
+Acesso padrão
+Pronto para usar (0)
+Nenhuma análise do app solicitada
+attribution_read
+Com a permissão attribution_read , seu aplicativo pode acessar a API de Atribuição para extrair dados do relatório de atribuição das linhas de negócios que você possui ou às quais tenha recebido acesso pelo proprietário ou proprietários de outras linhas de negócios.
+…
+
+Descrição completa
+Requisitos
+Standard access
+Acesso padrão
+Pronto para usar (0)
+Nenhuma análise do app solicitada
