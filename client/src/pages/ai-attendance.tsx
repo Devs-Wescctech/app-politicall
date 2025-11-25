@@ -1288,7 +1288,7 @@ export default function AiAttendance() {
                     control={platformForm.control}
                     name="instagramWebhookVerifyToken"
                     render={({ field }) => (
-                      <FormItem className="md:col-span-2">
+                      <FormItem>
                         <FormLabel>Webhook Verify Token</FormLabel>
                         <FormControl>
                           <Input {...field} data-testid="input-ig-webhook-token" />
