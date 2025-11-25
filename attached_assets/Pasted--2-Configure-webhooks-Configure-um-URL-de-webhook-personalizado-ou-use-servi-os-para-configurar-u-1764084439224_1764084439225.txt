@@ -1,0 +1,94 @@
+
+2. Configure webhooks
+Configure um URL de webhook personalizado ou use serviços para configurar um ponto de extremidade. Saiba mais
+Para receber webhooks, o modo do app precisa estar definido como "Publicado".
+URL de callback
+https://www.politicall.com.br/api/webhook/facebook
+Verificar token
+●●●●●●●●●●●●●●●●
+
+Anexe um certificado de cliente às solicitações de webhook. Saiba mais.
+Campos do webhook
+​
+Campo
+Versão
+Testar
+Assinar
+comments
+Seletor da versão de assinatura para o campo de webhook comments. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+live_comments
+Seletor da versão de assinatura para o campo de webhook live_comments. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+message_edit
+Seletor da versão de assinatura para o campo de webhook message_edit. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+message_reactions
+Seletor da versão de assinatura para o campo de webhook message_reactions. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+messages
+Seletor da versão de assinatura para o campo de webhook messages. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+messaging_handover
+Seletor da versão de assinatura para o campo de webhook messaging_handover. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+messaging_optins
+Seletor da versão de assinatura para o campo de webhook messaging_optins. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+messaging_postbacks
+Seletor da versão de assinatura para o campo de webhook messaging_postbacks. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+messaging_referral
+Seletor da versão de assinatura para o campo de webhook messaging_referral. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+messaging_seen
+Seletor da versão de assinatura para o campo de webhook messaging_seen. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+standby
+Seletor da versão de assinatura para o campo de webhook standby. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+3. Configure o login da empresa no Instagram
