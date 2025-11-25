@@ -1184,14 +1184,14 @@ export default function AiAttendance() {
                       Configuração de Webhook do Instagram (Meta)
                     </h4>
                     <div className="space-y-1 text-sm">
-                      <p className="font-medium">Passo 1: Instagram usa o MESMO webhook do Facebook</p>
+                      <p className="font-medium">Passo 1: Configure a URL de callback do Instagram:</p>
                       <code className="block bg-background px-3 py-2 rounded border text-xs font-mono">
-                        https://www.politicall.com.br/api/webhook/facebook
+                        https://www.politicall.com.br/api/webhook/instagram
                       </code>
                       <p className="text-xs text-muted-foreground">IMPORTANTE: A URL DEVE ser HTTPS (SSL válido obrigatório)</p>
-                      <p className="font-medium">Passo 2: Configure o webhook igual ao Facebook (veja modal anterior)</p>
+                      <p className="font-medium">Passo 2: Configure o Verify Token (mesmo que você definir abaixo)</p>
                       <p className="font-medium">Passo 3: Conecte sua conta Instagram Business à Página do Facebook</p>
-                      <p className="font-medium">Passo 4: Inscreva-se nos campos: <code className="text-xs">messages</code>, <code className="text-xs">messaging_postbacks</code></p>
+                      <p className="font-medium">Passo 4: Inscreva-se nos campos: <code className="text-xs">messages</code></p>
                       <p className="text-xs text-muted-foreground">Permissões necessárias: instagram_basic, instagram_manage_messages</p>
                       <p className="text-xs text-muted-foreground">Para produção: Seu app precisa passar por revisão do Meta</p>
                       {accountSlug && (

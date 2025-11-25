@@ -2910,7 +2910,172 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Facebook/Instagram Webhook - Receive Events (POST)
+  // Instagram Webhook - Verification (GET) - Endpoint separado para Instagram
+  app.get("/api/webhook/instagram", async (req, res) => {
+    const mode = req.query['hub.mode'];
+    const token = req.query['hub.verify_token'];
+    const challenge = req.query['hub.challenge'];
+    
+    try {
+      if (mode !== 'subscribe') {
+        console.log('✗ Instagram webhook verification failed - invalid mode');
+        return res.sendStatus(403);
+      }
+      
+      if (!token || typeof token !== 'string') {
+        console.log('✗ Instagram webhook verification failed - no token provided');
+        return res.sendStatus(403);
+      }
+      
+      // Use filtered database query for Instagram-specific token
+      const [matchingConfig] = await db
+        .select()
+        .from(aiConfigurations)
+        .where(eq(aiConfigurations.instagramWebhookVerifyToken, token as string))
+        .limit(1);
+      
+      if (matchingConfig) {
+        console.log('✓ Instagram webhook verified for account:', matchingConfig.accountId);
+        res.status(200).send(challenge);
+      } else {
+        console.log('✗ Instagram webhook verification failed - token not found');
+        res.sendStatus(403);
+      }
+    } catch (error) {
+      console.error('Error verifying Instagram webhook:', error);
+      res.sendStatus(500);
+    }
+  });
+
+  // Instagram Webhook - Receive Events (POST) - Endpoint separado para Instagram
+  app.post("/api/webhook/instagram", async (req, res) => {
+    const body = req.body;
+    
+    console.log('🔔 ========== INSTAGRAM WEBHOOK POST CHAMADO ==========');
+    console.log('📦 Body completo:', JSON.stringify(body, null, 2));
+    console.log('🔍 Headers:', JSON.stringify(req.headers, null, 2));
+    console.log('⏰ Timestamp:', new Date().toISOString());
+    console.log('======================================================');
+    
+    // Guard 1: Validate body.object is 'instagram'
+    if (body.object !== 'instagram') {
+      console.log('❌ Objeto não é "instagram", recebido:', body.object);
+      return res.sendStatus(404);
+    }
+    
+    console.log('✅ Objeto validado como "instagram"');
+    
+    // Respond immediately to Meta (required within 20 seconds)
+    res.status(200).send('EVENT_RECEIVED');
+    console.log('✅ Resposta "EVENT_RECEIVED" enviada ao Meta');
+    
+    // Process messages asynchronously
+    (async () => {
+      try {
+        console.log('🚀 Iniciando processamento assíncrono de mensagens Instagram...');
+        
+        for (const entry of body.entry || []) {
+          console.log('📥 Processando entry com', entry.messaging?.length || 0, 'mensagens');
+          
+          for (const webhookEvent of entry.messaging || []) {
+            console.log('📨 Webhook event:', JSON.stringify(webhookEvent, null, 2));
+            
+            if (!webhookEvent.message || !webhookEvent.message.text) {
+              console.log('⏭️ Pulando evento não-texto');
+              continue;
+            }
+            
+            if (webhookEvent.postback || webhookEvent.delivery || webhookEvent.read || webhookEvent.standby) {
+              console.log('⏭️ Pulando evento especial');
+              continue;
+            }
+            
+            const senderId = webhookEvent.sender?.id;
+            const recipientId = webhookEvent.recipient?.id;
+            const messageText = webhookEvent.message?.text;
+            
+            if (!senderId || !messageText) {
+              console.log('⏭️ Faltando senderId ou messageText');
+              continue;
+            }
+            
+            console.log(`📩 Instagram DM de ${senderId}: "${messageText}"`);
+            
+            // Find config by Instagram Business Account ID or Facebook Page ID
+            const configs = await db.select().from(aiConfigurations);
+            const config = configs.find(c => 
+              c.instagramBusinessAccountId === recipientId || 
+              c.instagramFacebookPageId === recipientId ||
+              c.instagramBusinessAccountId === entry.id ||
+              c.instagramFacebookPageId === entry.id
+            );
+            
+            if (!config) {
+              console.log('❌ Configuração não encontrada para recipientId:', recipientId);
+              continue;
+            }
+            
+            console.log('✅ Configuração encontrada para account:', config.accountId);
+            
+            // Generate AI response
+            const aiResponse = await generateAiResponse(
+              messageText,
+              null, // postContent
+              config.mode || 'compliance',
+              config.userId,
+              {
+                systemPrompt: config.systemPrompt,
+                personalityTraits: config.personalityTraits,
+                politicalInfo: config.politicalInfo,
+                responseGuidelines: config.responseGuidelines
+              }
+            );
+            
+            console.log('🤖 Resposta IA:', aiResponse);
+            
+            // Send response via Instagram Graph API
+            const accessToken = config.instagramAccessToken;
+            if (!accessToken) {
+              console.log('❌ Instagram Access Token não configurado');
+              continue;
+            }
+            
+            const sendResponse = await fetch(
+              `https://graph.instagram.com/v21.0/me/messages?access_token=${accessToken}`,
+              {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  recipient: { id: senderId },
+                  message: { text: aiResponse }
+                })
+              }
+            );
+            
+            const sendResult = await sendResponse.json();
+            console.log('📤 Instagram API response:', JSON.stringify(sendResult, null, 2));
+            
+            // Save conversation
+            await storage.createAiConversation({
+              userId: config.userId,
+              accountId: config.accountId,
+              platform: 'instagram',
+              postContent: null,
+              userMessage: messageText,
+              aiResponse: aiResponse,
+              mode: config.mode || 'compliance'
+            });
+            
+            console.log('💾 Conversa Instagram salva no banco');
+          }
+        }
+      } catch (error) {
+        console.error('❌ Erro no processamento Instagram:', error);
+      }
+    })();
+  });
+
+  // Facebook Webhook - Receive Events (POST) - Apenas Facebook
   app.post("/api/webhook/facebook", async (req, res) => {
     const body = req.body;
     
