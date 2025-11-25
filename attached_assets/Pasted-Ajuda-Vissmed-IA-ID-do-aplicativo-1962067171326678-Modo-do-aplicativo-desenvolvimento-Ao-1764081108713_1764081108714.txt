@@ -1,0 +1,99 @@
+Ajuda
+
+
+Vissmed IA
+ID do aplicativo: 1962067171326678
+Modo do aplicativo: desenvolvimento
+
+Ao vivo
+Tipo de aplicativo: Empresa
+Salvo
+Autenticação do aplicativo
+
+Aplicativo nativo ou para computador?
+Ative se seu app for nativo ou um app para computador
+Baixar identificadores de usuário
+Baixar arquivos
+​
+Para garantir o cumprimento das leis de privacidade aplicáveis e da Seção 3(d)(i) dos Termos da Plataforma, verifique a lista de IDs no escopo do app ou de jogo instantâneo e exclua todos os registros deles do seu banco de dados. Se preferir não seguir esse requisito no futuro, implemente uma URL válida de callback para exclusão de dados. Saiba mais
+Atualizar a versão da API
+Use essas configurações para controlar qual API seu aplicativo chama para diferentes funções.
+all calls version
+v24.0
+​
+Atualizar todas as chamadas
+Altere a versão da API que seu aplicativo chama para todos os usuários
+​
+app roles calls version
+v24.0
+​
+Atualizar chamadas para funções do aplicativo
+Altere a versão da API que seu aplicativo chama para desenvolvedores
+​
+Restrições do aplicativo
+
+Faz referência a álcool
+Restringe a idade em alguns locais
+​
+
+Descoberta social
+Histórias de uso do app podem aparecer no ticker ou no Feed
+
+Restrição de idade
+age restriction
+Qualquer pessoa (acima de 13 anos)
+​
+
+
+Restrito pelo RGPD
+Restrinja ainda mais a idade nos países do RGPD
+​
+
+
+
+Restrição de país
+Restrinja o aplicativo a usuários em países selecionados
+​
+Segurança
+Lista de permissão de IP do servidor
+​
+As solicitações do aplicativo que usarem a chave secreta do aplicativo deverão ser provenientes desses endereços IP.
+Atualizar lista de permissão de IP das configurações
+​
+As configurações do aplicativo só podem ser atualizadas a partir destes endereços IP.
+Atualizar email de notificação
+Um email de notificação será enviado para esse endereço quando atualizações forem feitas nas configurações do aplicativo.
+Token de cliente
+2a3a56ad796e51725a969fcdeb5cc664
+
+Exigir chave secreta do aplicativo
+Exigir chave secreta do aplicativo ou prova da chave secreta do aplicativo para chamadas de API com tokens de acesso usados fora de contextos de confiança.
+
+Exigir reautorização de 2 fatores
+Exigir 2 fatores para alterar as configurações do aplicativo
+
+Permitir acesso da API às configurações do aplicativo
+Defina como Não para impedir alterações nas configurações do aplicativo por meio de chamadas de API
+Gerenciador de Domínios
+Nenhum domínio foi definido para este aplicativo
+Página do app
+O nome da Página deve conter o nome do app.
+Seletor de Página do Facebook
+Selecione uma Página existente
+​
+Contas de anúncios
+Identificações de contas de anúncios autorizadas (0/100)
+Compartilhar esse aplicativo com um parceiro? Começar
+Para atribuir um aplicativo a um parceiro de negócios no Gerenciador de Negócios, selecione a empresa, clique em Atribuir parceiros na página Aplicativos de contas e insira a identificação da empresa parceira.
+Compartilhar lista de permissão de redirecionamentos
+
+Permitir redirecionamentos de compartilhamento entre domínios
+Permitir compartilhamentos que redirecionem para suas URLs a partir de URLs entre domínios. Se desativado, você pode adicionar uma lista de permissão de domínios dos quais você permite redirecionamentos.
+Lista de permissão de domínios para redirecionamento de compartilhamentos
+​
+Somente os domínios adicionados opcionalmente a uma lista de permissão podem redirecionar para as suas URLs quando compartilhados.
+Remover aplicativo
+A remoção do Vissmed IA da plataforma fará o seguinte:
+Impedirá que o aplicativo seja acessado por todos os desenvolvedores, independentemente da função.
+Ocultará o app da visualização pública e dos resultados de pesquisa na Central de Apps.
+Invalidará os tokens de acesso do usuário para as pessoas que entraram com a conta do Facebook delas
