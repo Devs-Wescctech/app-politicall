@@ -1273,12 +1273,12 @@ export default function AiAttendance() {
                   />
                   <FormField
                     control={platformForm.control}
-                    name="instagramAccessToken"
+                    name="instagramWebhookVerifyToken"
                     render={({ field }) => (
-                      <FormItem className="md:col-span-2">
-                        <FormLabel>Access Token</FormLabel>
+                      <FormItem>
+                        <FormLabel>Webhook Verify Token</FormLabel>
                         <FormControl>
-                          <Textarea {...field} className="min-h-[80px]" data-testid="textarea-ig-token" />
+                          <Input {...field} data-testid="input-ig-webhook-token" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -1286,12 +1286,12 @@ export default function AiAttendance() {
                   />
                   <FormField
                     control={platformForm.control}
-                    name="instagramWebhookVerifyToken"
+                    name="instagramAccessToken"
                     render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Webhook Verify Token</FormLabel>
+                      <FormItem className="md:col-span-2">
+                        <FormLabel>Access Token</FormLabel>
                         <FormControl>
-                          <Input {...field} data-testid="input-ig-webhook-token" />
+                          <Textarea {...field} className="min-h-[80px]" data-testid="textarea-ig-token" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
