@@ -121,6 +121,7 @@ export default function AiAttendance() {
       instagramBusinessAccountId: "",
       instagramFacebookPageId: "",
       instagramUsername: "",
+      instagramWebhookVerifyToken: "",
       // Twitter/X
       twitterApiKey: "",
       twitterApiSecretKey: "",
@@ -197,6 +198,7 @@ export default function AiAttendance() {
         instagramBusinessAccountId: config.instagramBusinessAccountId || "",
         instagramFacebookPageId: config.instagramFacebookPageId || "",
         instagramUsername: config.instagramUsername || "",
+        instagramWebhookVerifyToken: config.instagramWebhookVerifyToken || "",
         // Twitter/X
         twitterApiKey: config.twitterApiKey || "",
         twitterApiSecretKey: config.twitterApiSecretKey || "",
@@ -1277,6 +1279,19 @@ export default function AiAttendance() {
                         <FormLabel>Access Token</FormLabel>
                         <FormControl>
                           <Textarea {...field} className="min-h-[80px]" data-testid="textarea-ig-token" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={platformForm.control}
+                    name="instagramWebhookVerifyToken"
+                    render={({ field }) => (
+                      <FormItem className="md:col-span-2">
+                        <FormLabel>Webhook Verify Token</FormLabel>
+                        <FormControl>
+                          <Input {...field} data-testid="input-ig-webhook-token" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>

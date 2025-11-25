@@ -343,6 +343,7 @@ export const aiConfigurations = pgTable("ai_configurations", {
   instagramBusinessAccountId: text("instagram_business_account_id"),
   instagramFacebookPageId: text("instagram_facebook_page_id"),
   instagramUsername: text("instagram_username"),
+  instagramWebhookVerifyToken: text("instagram_webhook_verify_token"),
   // Twitter/X complete integration
   twitterApiKey: text("twitter_api_key"),
   twitterApiSecretKey: text("twitter_api_secret_key"),
