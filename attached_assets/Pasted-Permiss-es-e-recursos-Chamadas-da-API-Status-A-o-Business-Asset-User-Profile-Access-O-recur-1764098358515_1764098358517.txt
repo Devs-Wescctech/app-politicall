@@ -1,0 +1,115 @@
+Permissões e recursos
+Chamadas da API
+​
+Status
+Ação
+Business Asset User Profile Access
+O recurso Acesso ao perfil do usuário de ativo comercial permite que o aplicativo leia os Campos do usuário de usuários que interagem com seus ativos comerciais como ID, ids_for_business, nome e foto.
+…
+Descrição completa
+Human Agent
+O recurso Human Agent permite que seu aplicativo use um agente humano para responder às mensagens de usuários com a tag human_agent até sete dias após o envio da mensagem por um usuário.
+…
+Descrição completa
+Instagram Public Content Access
+O recurso Acesso ao Conteúdo Público do Instagram permite que seu aplicativo acesse os pontos de extremidade da Pesquisa de Hashtag da Graph API do Instagram.
+…
+Descrição completa
+ads_management
+Com a permissão ads_management , seu aplicativo pode ler e gerenciar a conta de anúncios que possui ou à qual teve ou que tenha recebido acesso pelo proprietário da conta de anúncios.
+…
+Descrição completa
+ads_read
+Com a permissão ads_read , seu aplicativo pode acessar a API de Informações de Anúncios a fim de extrair informações de relatórios de anúncios de contas de anúncios que você possui ou para as quais tenha recebido acesso pelo proprietário ou proprietários de outras contas de anúncios por meio dessa permissão. Essas permissões também concedem ao seu aplicativo acesso à API do lado do servidor para que os anunciantes possam enviar eventos da web dos seus respectivos servidores diretamente para o Facebook.
+…
+Descrição completa
+business_management
+Com a permissão business_management , seu aplicativo pode ler e escrever com a API do Gerenciador de Negócios.
+…
+Descrição completa
+catalog_management
+Com a permissão catalog_management , seu aplicativo pode criar, ler, atualizar e excluir catálogos de produtos da empresa dos quais o usuário é administrador.
+…
+Descrição completa
+email
+A permissão email possibilita que o aplicativo leia o endereço de email principal de uma pessoa.
+…
+Descrição completa
+instagram_basic
+Com a permissão instagram_basic , seu aplicativo pode ler conteúdo de mídia e informações do perfil de uma conta do Instagram.
+…
+Descrição completa
+instagram_branded_content_ads_brand
+A permissão instagram_branded_content_ads_brand possibilita que um app leia as publicações do Instagram em que a conta do Instagram do usuário do app foi marcada como parceiro pago e possibilita que um usuário do app leia, solicite e revogue permissões para veicular anúncios em parceria.
+…
+Descrição completa
+instagram_branded_content_brand
+Com a permissão instagram_branded_content_brand , seu aplicativo pode adicionar, remover e visualizar nomes da lista de criadores de conteúdo aprovados de uma marca específica.
+…
+Descrição completa
+instagram_branded_content_creator
+A permissão instagram_branded_content_creator possibilita que seu aplicativo leia e altere o status do turbinamento de determinado conteúdo.
+…
+Descrição completa
+instagram_business_basic
+Com a permissão instagram_business_basic , seu app pode ler conteúdo de mídia e informações do perfil de uma conta do Instagram para Empresas.
+…
+Descrição completa
+instagram_business_content_publish
+The instagram_business_content_publish permission allows an app to create organic feed photo and video posts on behalf of a business user.
+…
+Descrição completa
+instagram_business_manage_comments
+Com a permissão instagram_business_manage_comments , o app pode acessar comentários em uma conta profissional do Instagram, bem como publicações abertas e Instagram Stories em que a conta está marcada ou mencionada em comentários.
+…
+Descrição completa
+instagram_business_manage_insights
+A permissão instagram_business_manage_insights possibilita que um app obtenha insights sobre metadados, publicações, fotos e vídeos da conta profissional dos seus usuários no Instagram; além disso, ele pode obter insights sobre metadados e mídia do perfil público de uma conta profissional no Instagram.
+…
+Descrição completa
+instagram_business_manage_messages
+A permissão instagram_business_manage_messages possibilita que um app acesse as mensagens em uma conta profissional do Instagram.
+…
+Descrição completa
+instagram_content_publish
+Com a permissão instagram_content_publish , seu aplicativo pode criar publicações de foto e vídeo de feed orgânico em nome de um usuário comercial.
+…
+Descrição completa
+instagram_creator_marketplace_discovery
+Com a permissão instagram_creator_marketplace_discovery , seu app pode descobrir criadores de conteúdo no marketplace de criadores de conteúdo do Instagram e acessar informações como bio do criador, contagem de seguidores e alcance da conta de empresas no Instagram integradas à plataforma.
+…
+Descrição completa
+instagram_manage_comments
+Com a permissão instagram_manage_comments , seu aplicativo pode criar, excluir e ocultar comentários em nome da conta do Instagram vinculada a uma página. Seu aplicativo também pode ler e responder a mídias públicas e comentários em que uma empresa tenha sido mencionada ou marcada em uma foto.
+…
+Descrição completa
+instagram_manage_insights
+Com a permissão instagram_manage_insights , seu aplicativo pode obter acesso a informações da conta do Instagram vinculada a uma Página do Facebook. Seu aplicativo também pode descobrir e ler as informações de perfil e a mídia de outros perfis comerciais.
+…
+Descrição completa
+instagram_manage_messages
+Com a permissão instagram_manage_messages , os usuários comerciais podem ler e responder mensagens do Instagram Direct.
+…
+Descrição completa
+instagram_manage_upcoming_events
+The instagram_manage_upcoming_events permission allows an app to read, create, and update upcoming events on behalf of Instagram accounts administered by people using the app.
+…
+Descrição completa
+instagram_shopping_tag_products
+Com a permissão instagram_shopping_tag_products , um aplicativo pode marcar mídias do Instagram com etiquetas de produto e fazer uma apelação contra rejeições de produtos.
+…
+Descrição completa
+pages_read_engagement
+Com a permissão pages_read_engagement , seu aplicativo pode ler conteúdo (publicações, fotos, vídeos e eventos) publicados pela Página, ler dados de seguidores (incluindo nome e PSID) e foto do perfil, bem como ler metadados e outras informações sobre a Página.
+…
+Descrição completa
+pages_show_list
+Com a permissão pages_show_list , o aplicativo pode acessar a lista de Páginas que uma pessoa gerencia.
+…
+Descrição completa
+public_profile
+A permissão public_profile possibilita que um app leia os Campos de Perfil Público Padrão no nó do Usuário . Essa permissão é concedida automaticamente a todos os apps.
+…
+Descrição completa
+0
+Pronto para teste
