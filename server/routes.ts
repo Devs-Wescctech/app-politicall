@@ -2914,34 +2914,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/webhook/facebook", async (req, res) => {
     const body = req.body;
     
-    console.log('Facebook webhook event received:', JSON.stringify(body, null, 2));
+    console.log('🔔 ========== FACEBOOK WEBHOOK POST CHAMADO ==========');
+    console.log('📦 Body completo:', JSON.stringify(body, null, 2));
+    console.log('🔍 Headers:', JSON.stringify(req.headers, null, 2));
+    console.log('⏰ Timestamp:', new Date().toISOString());
+    console.log('======================================================');
     
     // Guard 1: Validate body.object is 'page'
     if (body.object !== 'page') {
+      console.log('❌ Objeto não é "page", recebido:', body.object);
       return res.sendStatus(404);
     }
     
+    console.log('✅ Objeto validado como "page"');
+    
     // Respond immediately to Facebook (required within 20 seconds)
     res.status(200).send('EVENT_RECEIVED');
+    console.log('✅ Resposta "EVENT_RECEIVED" enviada ao Facebook');
     
     // Process messages asynchronously in IIFE with error handling
     (async () => {
       try {
+        console.log('🚀 Iniciando processamento assíncrono de mensagens...');
+        
         if (body.object === 'page') {
+          console.log('✅ Objeto confirmado como "page", processando entries...');
+          console.log('📊 Total de entries:', body.entry?.length || 0);
+          
           // Collect all message processing promises
           const messagePromises: Promise<void>[] = [];
           
           for (const entry of body.entry || []) {
+            console.log('📥 Processando entry com', entry.messaging?.length || 0, 'mensagens');
+            
             // Iterate over ALL messages in the messaging array
             for (const webhookEvent of entry.messaging || []) {
+              console.log('📨 Webhook event:', JSON.stringify(webhookEvent, null, 2));
+              
               // Guard: Check if this is a text message event (not delivery, read, etc.)
               if (!webhookEvent.message || !webhookEvent.message.text) {
-                console.log('Skipping non-text message event (delivery/read receipt)');
+                console.log('⏭️ Pulando evento não-texto (delivery/read)');
                 continue;
               }
               
               // Guard 2: Skip non-message events (postback, standby, policy, delivery, read)
               if (webhookEvent.postback || webhookEvent.delivery || webhookEvent.read || webhookEvent.standby) {
+                console.log('⏭️ Pulando evento especial (postback/delivery/read)');
                 continue;
               }
               
@@ -2949,8 +2967,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
               const recipientId = webhookEvent.recipient?.id; // This is the Page ID
               const messageText = webhookEvent.message.text;
               
+              console.log('👤 Sender ID:', senderId);
+              console.log('📄 Page ID (recipient):', recipientId);
+              console.log('💬 Texto da mensagem:', messageText);
+              
               if (!senderId || !recipientId) {
-                console.log('Missing sender or recipient ID in webhook event');
+                console.log('❌ Faltando sender ou recipient ID');
                 continue;
               }
               
@@ -3127,6 +3149,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
     
     res.status(200).send('EVENT_RECEIVED');
+  });
+
+  // ==================== WEBHOOK TEST (TESTE MANUAL) ====================
+  
+  // Endpoint de teste para simular chamada do Facebook
+  app.post("/api/webhook/facebook/test", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const { message, senderId } = req.body;
+      
+      if (!message) {
+        return res.status(400).json({ error: "Campo 'message' é obrigatório" });
+      }
+      
+      // Get user's config
+      const config = await storage.getAiConfig(req.userId!, req.accountId!);
+      
+      if (!config || !config.facebookPageId) {
+        return res.status(400).json({ error: "Configuração do Facebook não encontrada. Configure a integração primeiro." });
+      }
+      
+      // Simula evento do Facebook
+      const fakeEvent = {
+        object: 'page',
+        entry: [{
+          id: config.facebookPageId,
+          time: Date.now(),
+          messaging: [{
+            sender: { id: senderId || '123456789' },
+            recipient: { id: config.facebookPageId },
+            timestamp: Date.now(),
+            message: {
+              mid: 'test_' + Date.now(),
+              text: message
+            }
+          }]
+        }]
+      };
+      
+      console.log('🧪 ========== TESTE MANUAL DO WEBHOOK ==========');
+      console.log('📤 Simulando evento do Facebook:', JSON.stringify(fakeEvent, null, 2));
+      console.log('===============================================');
+      
+      // Faz request interno para o próprio webhook
+      const response = await fetch(`http://localhost:5000/api/webhook/facebook`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(fakeEvent)
+      });
+      
+      const responseText = await response.text();
+      
+      res.json({ 
+        success: true, 
+        message: 'Evento de teste enviado ao webhook',
+        webhookResponse: responseText,
+        simulatedEvent: fakeEvent
+      });
+    } catch (error: any) {
+      console.error('Erro no teste do webhook:', error);
+      res.status(500).json({ error: error.message });
+    }
   });
 
   // ==================== LEADS (PUBLIC) ====================
