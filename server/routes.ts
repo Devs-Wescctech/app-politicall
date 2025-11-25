@@ -2914,31 +2914,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/webhook/facebook", async (req, res) => {
     const body = req.body;
     
-    console.log('🔔 ========== FACEBOOK WEBHOOK POST CHAMADO ==========');
+    console.log('🔔 ========== FACEBOOK/INSTAGRAM WEBHOOK POST CHAMADO ==========');
     console.log('📦 Body completo:', JSON.stringify(body, null, 2));
     console.log('🔍 Headers:', JSON.stringify(req.headers, null, 2));
     console.log('⏰ Timestamp:', new Date().toISOString());
     console.log('======================================================');
     
-    // Guard 1: Validate body.object is 'page'
-    if (body.object !== 'page') {
-      console.log('❌ Objeto não é "page", recebido:', body.object);
+    // Guard 1: Validate body.object is 'page' (Facebook) or 'instagram' (Instagram)
+    if (body.object !== 'page' && body.object !== 'instagram') {
+      console.log('❌ Objeto não é "page" ou "instagram", recebido:', body.object);
       return res.sendStatus(404);
     }
     
-    console.log('✅ Objeto validado como "page"');
+    const platform = body.object === 'instagram' ? 'instagram' : 'facebook';
+    console.log(`✅ Objeto validado como "${body.object}" (plataforma: ${platform})`);
     
-    // Respond immediately to Facebook (required within 20 seconds)
+    // Respond immediately to Meta (required within 20 seconds)
     res.status(200).send('EVENT_RECEIVED');
-    console.log('✅ Resposta "EVENT_RECEIVED" enviada ao Facebook');
+    console.log('✅ Resposta "EVENT_RECEIVED" enviada ao Meta');
     
     // Process messages asynchronously in IIFE with error handling
     (async () => {
       try {
         console.log('🚀 Iniciando processamento assíncrono de mensagens...');
         
-        if (body.object === 'page') {
-          console.log('✅ Objeto confirmado como "page", processando entries...');
+        if (body.object === 'page' || body.object === 'instagram') {
+          console.log(`✅ Objeto confirmado como "${body.object}", processando entries...`);
           console.log('📊 Total de entries:', body.entry?.length || 0);
           
           // Collect all message processing promises
@@ -2979,16 +2980,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
               // Create a promise for this message processing
               const messagePromise = (async () => {
                 try {
-                  // Find config by Page ID
+                  // Find config by Page ID (for both Facebook and Instagram)
                   const configs = await db.select().from(aiConfigurations);
-                  const config = configs.find(c => c.facebookPageId === recipientId);
+                  const config = platform === 'instagram'
+                    ? configs.find(c => c.instagramBusinessAccountId === recipientId || c.instagramFacebookPageId === recipientId)
+                    : configs.find(c => c.facebookPageId === recipientId);
                   
                   if (!config) {
-                    console.log('No configuration found for Page ID:', recipientId);
+                    console.log(`No configuration found for ${platform} Page/Account ID:`, recipientId);
                     return;
                   }
                   
-                  console.log('Processing message from:', senderId, 'Text:', messageText);
+                  console.log(`Processing ${platform} message from:`, senderId, 'Text:', messageText);
                   
                   // Get AI training examples
                   const trainingExamples = await storage.getAiTrainingExamples(config.accountId);
@@ -3013,14 +3016,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     return;
                   }
                   
-                  // Send response back to Facebook
-                  const pageAccessToken = config.facebookPageAccessToken;
-                  if (!pageAccessToken) {
-                    console.log('No Page Access Token configured');
+                  // Get correct access token for platform
+                  const accessToken = platform === 'instagram' 
+                    ? config.instagramAccessToken 
+                    : config.facebookPageAccessToken;
+                  
+                  if (!accessToken) {
+                    console.log(`No ${platform} Access Token configured`);
                     return;
                   }
                   
-                  const response = await fetch(`https://graph.facebook.com/v21.0/me/messages?access_token=${pageAccessToken}`, {
+                  // Send response back to Meta (Facebook or Instagram)
+                  const response = await fetch(`https://graph.facebook.com/v21.0/me/messages?access_token=${accessToken}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -3029,15 +3036,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     })
                   });
                   
-                  // Only save to database AFTER confirming successful send to Facebook
+                  // Only save to database AFTER confirming successful send to Meta
                   if (response.ok) {
-                    console.log('✓ Response sent to Facebook user:', senderId);
+                    console.log(`✓ Response sent to ${platform} user:`, senderId);
                     
                     // Save conversation to database only after successful send
                     await storage.createAiConversation({
                       accountId: config.accountId,
                       userId: config.userId,
-                      platform: 'facebook',
+                      platform: platform, // Save correct platform ('instagram' or 'facebook')
                       postContent: null,
                       userMessage: messageText,
                       aiResponse: aiResponse,
@@ -3045,11 +3052,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     });
                   } else {
                     const error = await response.text();
-                    console.error('Error sending Facebook message:', error);
+                    console.error(`Error sending ${platform} message:`, error);
                     // Do NOT save to database if send failed
                   }
                 } catch (error) {
-                  console.error('Error processing individual Facebook message:', error);
+                  console.error(`Error processing individual ${platform} message:`, error);
                   // Error is caught and logged, but doesn't crash the server
                 }
               })();
