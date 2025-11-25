@@ -66,6 +66,15 @@ Preferred communication style: Simple, everyday language.
   - **Public Landing Page:** /apoio/:slug displays admin's photo and professional registration form with party-colored gradient background. Submitted data automatically creates contact with source "Politicall" and isSupporter: true flag.
   - **User Experience:** No manual slug configuration needed - system generates unique slugs automatically during registration. QR Code is immediately available after account creation.
 
+- **AI Social Media Attendance (Facebook & Instagram):** Complete webhook integration for automated AI responses on Facebook Messenger and Instagram Direct. Implementation details:
+  - **Unified Webhook:** Single webhook endpoint (https://www.politicall.com.br/api/webhook/facebook) handles both Facebook Messenger (`body.object === 'page'`) and Instagram Direct (`body.object === 'instagram'`) messages.
+  - **Platform Detection:** Webhook automatically detects source platform and uses correct access token (facebookPageAccessToken for Messenger, instagramAccessToken for Instagram Direct).
+  - **Configuration:** Frontend modal collects all required credentials per platform: Facebook (App ID, App Secret, Page ID, Page Name, Page Access Token, Webhook Verify Token), Instagram (App ID, App Secret, Business Account ID, Username, Facebook Page ID, Access Token).
+  - **Database Schema:** aiConfigurations table includes separate columns for Facebook and Instagram credentials, allowing independent configuration of both platforms.
+  - **Conversation Storage:** AI conversations saved with correct platform identifier ('facebook' or 'instagram') for analytics and history tracking.
+  - **Privacy Policies:** Public privacy policy pages at /privacy/facebook/:accountSlug and /privacy/instagram/:accountSlug for Meta compliance.
+  - **Known Limitation:** Webhooks only work when Meta app is in Live mode or for users with Test/Developer roles in Development mode. Production requires Meta App Review for pages_messaging/pages_manage_metadata (Facebook) and instagram_manage_messages/pages_manage_metadata (Instagram) permissions.
+
 ## External Dependencies
 
 - **AI Integration:** OpenAI GPT-5 model for AI-powered social media attendance (requires `AI_INTEGRATIONS_OPENAI_BASE_URL`, `AI_INTEGRATIONS_OPENAI_API_KEY`).
