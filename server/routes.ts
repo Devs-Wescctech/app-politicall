@@ -4310,6 +4310,225 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Generic Privacy Policy Page
+  app.get("/privacy", (req, res) => {
+    const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Política de Privacidade - Politicall</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 20px; color: #333; background: #f9f9f9; }
+    .container { background: white; padding: 40px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+    h1 { color: #40E0D0; border-bottom: 2px solid #40E0D0; padding-bottom: 10px; }
+    h2 { color: #333; margin-top: 30px; }
+    .section { margin: 20px 0; }
+    ul { padding-left: 20px; }
+    li { margin: 8px 0; }
+    .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; font-size: 14px; color: #666; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Política de Privacidade</h1>
+    <p><strong>Plataforma:</strong> Politicall</p>
+    <p><strong>Última Atualização:</strong> ${new Date().toLocaleDateString('pt-BR')}</p>
+
+    <div class="section">
+      <h2>1. Introdução</h2>
+      <p>A Politicall ("nós", "nosso" ou "plataforma") está comprometida em proteger a privacidade dos usuários. Esta Política de Privacidade descreve como coletamos, usamos, armazenamos e protegemos suas informações pessoais.</p>
+    </div>
+
+    <div class="section">
+      <h2>2. Dados Coletados</h2>
+      <p>Podemos coletar os seguintes tipos de dados:</p>
+      <ul>
+        <li><strong>Dados de Cadastro:</strong> Nome, e-mail, telefone, cargo</li>
+        <li><strong>Dados de Redes Sociais:</strong> Mensagens, comentários e interações via Facebook, Instagram e Twitter/X</li>
+        <li><strong>Dados de Uso:</strong> Informações sobre como você utiliza a plataforma</li>
+        <li><strong>Dados de Contatos:</strong> Informações de eleitores e apoiadores cadastrados</li>
+      </ul>
+    </div>
+
+    <div class="section">
+      <h2>3. Uso dos Dados</h2>
+      <p>Utilizamos seus dados para:</p>
+      <ul>
+        <li>Fornecer e melhorar nossos serviços</li>
+        <li>Processar atendimento automatizado via IA</li>
+        <li>Gerenciar relacionamento com eleitores</li>
+        <li>Enviar comunicações relevantes</li>
+        <li>Cumprir obrigações legais</li>
+      </ul>
+    </div>
+
+    <div class="section">
+      <h2>4. Compartilhamento de Dados</h2>
+      <p>Seus dados podem ser compartilhados com:</p>
+      <ul>
+        <li>Plataformas de redes sociais (Meta, Twitter) para integrações</li>
+        <li>Provedores de serviços de IA (OpenAI) para processamento de mensagens</li>
+        <li>Autoridades legais quando exigido por lei</li>
+      </ul>
+      <p>Não vendemos seus dados pessoais a terceiros.</p>
+    </div>
+
+    <div class="section">
+      <h2>5. Segurança</h2>
+      <p>Implementamos medidas de segurança técnicas e organizacionais para proteger seus dados, incluindo:</p>
+      <ul>
+        <li>Criptografia de dados em trânsito e em repouso</li>
+        <li>Controle de acesso baseado em funções</li>
+        <li>Monitoramento contínuo de segurança</li>
+        <li>Backups regulares</li>
+      </ul>
+    </div>
+
+    <div class="section">
+      <h2>6. Seus Direitos</h2>
+      <p>Você tem direito a:</p>
+      <ul>
+        <li>Acessar seus dados pessoais</li>
+        <li>Corrigir dados incorretos</li>
+        <li>Solicitar exclusão de dados</li>
+        <li>Revogar consentimento</li>
+        <li>Portabilidade de dados</li>
+      </ul>
+    </div>
+
+    <div class="section">
+      <h2>7. Retenção de Dados</h2>
+      <p>Mantemos seus dados pelo tempo necessário para fornecer nossos serviços ou conforme exigido por lei. Dados de mensagens são retidos por até 2 anos.</p>
+    </div>
+
+    <div class="section">
+      <h2>8. Contato</h2>
+      <p>Para questões sobre privacidade, entre em contato:</p>
+      <p>E-mail: <a href="mailto:privacidade@politicall.com.br">privacidade@politicall.com.br</a></p>
+    </div>
+
+    <div class="footer">
+      <p>&copy; ${new Date().getFullYear()} Politicall. Todos os direitos reservados.</p>
+    </div>
+  </div>
+</body>
+</html>`;
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(html);
+  });
+
+  // Generic Terms of Service Page
+  app.get("/terms", (req, res) => {
+    const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Termos de Serviço - Politicall</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 20px; color: #333; background: #f9f9f9; }
+    .container { background: white; padding: 40px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+    h1 { color: #40E0D0; border-bottom: 2px solid #40E0D0; padding-bottom: 10px; }
+    h2 { color: #333; margin-top: 30px; }
+    .section { margin: 20px 0; }
+    ul { padding-left: 20px; }
+    li { margin: 8px 0; }
+    .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; font-size: 14px; color: #666; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Termos de Serviço</h1>
+    <p><strong>Plataforma:</strong> Politicall</p>
+    <p><strong>Última Atualização:</strong> ${new Date().toLocaleDateString('pt-BR')}</p>
+
+    <div class="section">
+      <h2>1. Aceitação dos Termos</h2>
+      <p>Ao acessar e usar a plataforma Politicall, você concorda com estes Termos de Serviço. Se não concordar, não utilize nossos serviços.</p>
+    </div>
+
+    <div class="section">
+      <h2>2. Descrição do Serviço</h2>
+      <p>A Politicall é uma plataforma de gestão política que oferece:</p>
+      <ul>
+        <li>Gerenciamento de contatos e eleitores (CRM)</li>
+        <li>Atendimento automatizado via IA em redes sociais</li>
+        <li>Gestão de demandas e eventos</li>
+        <li>Campanhas de pesquisa</li>
+        <li>Alianças políticas</li>
+      </ul>
+    </div>
+
+    <div class="section">
+      <h2>3. Elegibilidade</h2>
+      <p>Para usar a Politicall, você deve:</p>
+      <ul>
+        <li>Ter pelo menos 18 anos de idade</li>
+        <li>Ter capacidade legal para celebrar contratos</li>
+        <li>Fornecer informações verdadeiras e atualizadas</li>
+      </ul>
+    </div>
+
+    <div class="section">
+      <h2>4. Uso Aceitável</h2>
+      <p>Você concorda em não:</p>
+      <ul>
+        <li>Violar leis ou regulamentos aplicáveis</li>
+        <li>Disseminar conteúdo ilegal, ofensivo ou difamatório</li>
+        <li>Interferir no funcionamento da plataforma</li>
+        <li>Tentar acessar dados de outros usuários sem autorização</li>
+        <li>Usar a plataforma para spam ou assédio</li>
+      </ul>
+    </div>
+
+    <div class="section">
+      <h2>5. Propriedade Intelectual</h2>
+      <p>Todo o conteúdo da plataforma, incluindo código, design, textos e marcas, é propriedade da Politicall ou de seus licenciadores. É proibida a reprodução sem autorização.</p>
+    </div>
+
+    <div class="section">
+      <h2>6. Limitação de Responsabilidade</h2>
+      <p>A Politicall não se responsabiliza por:</p>
+      <ul>
+        <li>Danos indiretos ou consequenciais</li>
+        <li>Interrupções de serviço fora de nosso controle</li>
+        <li>Conteúdo gerado por IA que possa ser impreciso</li>
+        <li>Ações de terceiros nas redes sociais</li>
+      </ul>
+    </div>
+
+    <div class="section">
+      <h2>7. Rescisão</h2>
+      <p>Podemos suspender ou encerrar sua conta a qualquer momento por violação destes termos. Você pode encerrar sua conta a qualquer momento entrando em contato conosco.</p>
+    </div>
+
+    <div class="section">
+      <h2>8. Alterações</h2>
+      <p>Reservamo-nos o direito de modificar estes termos a qualquer momento. Alterações significativas serão comunicadas por e-mail ou através da plataforma.</p>
+    </div>
+
+    <div class="section">
+      <h2>9. Lei Aplicável</h2>
+      <p>Estes termos são regidos pelas leis da República Federativa do Brasil. Qualquer disputa será resolvida nos tribunais de São Paulo, SP.</p>
+    </div>
+
+    <div class="section">
+      <h2>10. Contato</h2>
+      <p>Para questões sobre estes termos:</p>
+      <p>E-mail: <a href="mailto:contato@politicall.com.br">contato@politicall.com.br</a></p>
+    </div>
+
+    <div class="footer">
+      <p>&copy; ${new Date().getFullYear()} Politicall. Todos os direitos reservados.</p>
+    </div>
+  </div>
+</body>
+</html>`;
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(html);
+  });
+
   // Privacy Policy Routes for Social Media Integrations
   app.get("/privacy/facebook/:accountSlug", (req, res) => {
     const { accountSlug } = req.params;
