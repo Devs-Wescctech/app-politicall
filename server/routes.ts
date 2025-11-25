@@ -2969,104 +2969,212 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(200).send('EVENT_RECEIVED');
     console.log('✅ Resposta "EVENT_RECEIVED" enviada ao Meta');
     
-    // Process messages asynchronously
+    // Process messages and comments asynchronously
     (async () => {
       try {
-        console.log('🚀 Iniciando processamento assíncrono de mensagens Instagram...');
+        console.log('🚀 Iniciando processamento assíncrono Instagram...');
         
         for (const entry of body.entry || []) {
-          console.log('📥 Processando entry com', entry.messaging?.length || 0, 'mensagens');
+          // PROCESS DIRECT MESSAGES
+          if (entry.messaging && entry.messaging.length > 0) {
+            console.log('📥 Processando', entry.messaging.length, 'mensagens DM');
+            
+            for (const webhookEvent of entry.messaging) {
+              console.log('📨 DM event:', JSON.stringify(webhookEvent, null, 2));
+              
+              if (!webhookEvent.message || !webhookEvent.message.text) {
+                console.log('⏭️ Pulando evento não-texto');
+                continue;
+              }
+              
+              if (webhookEvent.postback || webhookEvent.delivery || webhookEvent.read || webhookEvent.standby) {
+                console.log('⏭️ Pulando evento especial');
+                continue;
+              }
+              
+              const senderId = webhookEvent.sender?.id;
+              const recipientId = webhookEvent.recipient?.id;
+              const messageText = webhookEvent.message?.text;
+              
+              if (!senderId || !messageText) {
+                console.log('⏭️ Faltando senderId ou messageText');
+                continue;
+              }
+              
+              console.log(`📩 Instagram DM de ${senderId}: "${messageText}"`);
+              
+              // Find config by Instagram Business Account ID or Facebook Page ID
+              const configs = await db.select().from(aiConfigurations);
+              const config = configs.find(c => 
+                c.instagramBusinessAccountId === recipientId || 
+                c.instagramFacebookPageId === recipientId ||
+                c.instagramBusinessAccountId === entry.id ||
+                c.instagramFacebookPageId === entry.id
+              );
+              
+              if (!config) {
+                console.log('❌ Configuração não encontrada para recipientId:', recipientId);
+                continue;
+              }
+              
+              console.log('✅ Configuração encontrada para account:', config.accountId);
+              
+              // Generate AI response
+              const aiResponse = await generateAiResponse(
+                messageText,
+                null,
+                config.mode || 'compliance',
+                config.userId,
+                {
+                  systemPrompt: config.systemPrompt,
+                  personalityTraits: config.personalityTraits,
+                  politicalInfo: config.politicalInfo,
+                  responseGuidelines: config.responseGuidelines
+                }
+              );
+              
+              console.log('🤖 Resposta IA:', aiResponse);
+              
+              // Send response via Instagram Graph API
+              const accessToken = config.instagramAccessToken;
+              if (!accessToken) {
+                console.log('❌ Instagram Access Token não configurado');
+                continue;
+              }
+              
+              const sendResponse = await fetch(
+                `https://graph.instagram.com/v21.0/me/messages?access_token=${accessToken}`,
+                {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    recipient: { id: senderId },
+                    message: { text: aiResponse }
+                  })
+                }
+              );
+              
+              const sendResult = await sendResponse.json();
+              console.log('📤 Instagram DM API response:', JSON.stringify(sendResult, null, 2));
+              
+              // Save conversation
+              await storage.createAiConversation({
+                userId: config.userId,
+                accountId: config.accountId,
+                platform: 'instagram',
+                postContent: null,
+                userMessage: messageText,
+                aiResponse: aiResponse,
+                mode: config.mode || 'compliance'
+              });
+              
+              console.log('💾 Conversa Instagram DM salva no banco');
+            }
+          }
           
-          for (const webhookEvent of entry.messaging || []) {
-            console.log('📨 Webhook event:', JSON.stringify(webhookEvent, null, 2));
+          // PROCESS COMMENTS
+          if (entry.changes && entry.changes.length > 0) {
+            console.log('📥 Processando', entry.changes.length, 'changes (comentários)');
             
-            if (!webhookEvent.message || !webhookEvent.message.text) {
-              console.log('⏭️ Pulando evento não-texto');
-              continue;
-            }
-            
-            if (webhookEvent.postback || webhookEvent.delivery || webhookEvent.read || webhookEvent.standby) {
-              console.log('⏭️ Pulando evento especial');
-              continue;
-            }
-            
-            const senderId = webhookEvent.sender?.id;
-            const recipientId = webhookEvent.recipient?.id;
-            const messageText = webhookEvent.message?.text;
-            
-            if (!senderId || !messageText) {
-              console.log('⏭️ Faltando senderId ou messageText');
-              continue;
-            }
-            
-            console.log(`📩 Instagram DM de ${senderId}: "${messageText}"`);
-            
-            // Find config by Instagram Business Account ID or Facebook Page ID
-            const configs = await db.select().from(aiConfigurations);
-            const config = configs.find(c => 
-              c.instagramBusinessAccountId === recipientId || 
-              c.instagramFacebookPageId === recipientId ||
-              c.instagramBusinessAccountId === entry.id ||
-              c.instagramFacebookPageId === entry.id
-            );
-            
-            if (!config) {
-              console.log('❌ Configuração não encontrada para recipientId:', recipientId);
-              continue;
-            }
-            
-            console.log('✅ Configuração encontrada para account:', config.accountId);
-            
-            // Generate AI response
-            const aiResponse = await generateAiResponse(
-              messageText,
-              null, // postContent
-              config.mode || 'compliance',
-              config.userId,
-              {
-                systemPrompt: config.systemPrompt,
-                personalityTraits: config.personalityTraits,
-                politicalInfo: config.politicalInfo,
-                responseGuidelines: config.responseGuidelines
+            for (const change of entry.changes) {
+              console.log('💬 Change event:', JSON.stringify(change, null, 2));
+              
+              // Only process comments
+              if (change.field !== 'comments') {
+                console.log('⏭️ Pulando change não-comentário:', change.field);
+                continue;
               }
-            );
-            
-            console.log('🤖 Resposta IA:', aiResponse);
-            
-            // Send response via Instagram Graph API
-            const accessToken = config.instagramAccessToken;
-            if (!accessToken) {
-              console.log('❌ Instagram Access Token não configurado');
-              continue;
-            }
-            
-            const sendResponse = await fetch(
-              `https://graph.instagram.com/v21.0/me/messages?access_token=${accessToken}`,
-              {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  recipient: { id: senderId },
-                  message: { text: aiResponse }
-                })
+              
+              const commentData = change.value;
+              if (!commentData) {
+                console.log('⏭️ Sem dados no comentário');
+                continue;
               }
-            );
-            
-            const sendResult = await sendResponse.json();
-            console.log('📤 Instagram API response:', JSON.stringify(sendResult, null, 2));
-            
-            // Save conversation
-            await storage.createAiConversation({
-              userId: config.userId,
-              accountId: config.accountId,
-              platform: 'instagram',
-              postContent: null,
-              userMessage: messageText,
-              aiResponse: aiResponse,
-              mode: config.mode || 'compliance'
-            });
-            
-            console.log('💾 Conversa Instagram salva no banco');
+              
+              // Skip if it's our own comment (to avoid loops)
+              const fromId = commentData.from?.id;
+              const commentId = commentData.id;
+              const commentText = commentData.text;
+              const mediaId = commentData.media?.id || commentData.media_id;
+              
+              if (!commentId || !commentText || !fromId) {
+                console.log('⏭️ Faltando dados do comentário');
+                continue;
+              }
+              
+              console.log(`💬 Instagram Comentário de ${fromId}: "${commentText}"`);
+              
+              // Find config by Instagram Business Account ID
+              const configs = await db.select().from(aiConfigurations);
+              const config = configs.find(c => 
+                c.instagramBusinessAccountId === entry.id ||
+                c.instagramFacebookPageId === entry.id
+              );
+              
+              if (!config) {
+                console.log('❌ Configuração não encontrada para entry.id:', entry.id);
+                continue;
+              }
+              
+              // Skip if comment is from the page itself
+              if (fromId === config.instagramBusinessAccountId || fromId === entry.id) {
+                console.log('⏭️ Pulando comentário do próprio perfil');
+                continue;
+              }
+              
+              console.log('✅ Configuração encontrada para account:', config.accountId);
+              
+              // Generate AI response for the comment
+              const aiResponse = await generateAiResponse(
+                commentText,
+                `Comentário em post do Instagram`,
+                config.mode || 'compliance',
+                config.userId,
+                {
+                  systemPrompt: config.systemPrompt,
+                  personalityTraits: config.personalityTraits,
+                  politicalInfo: config.politicalInfo,
+                  responseGuidelines: config.responseGuidelines
+                }
+              );
+              
+              console.log('🤖 Resposta IA para comentário:', aiResponse);
+              
+              // Reply to comment via Instagram Graph API
+              const accessToken = config.instagramAccessToken;
+              if (!accessToken) {
+                console.log('❌ Instagram Access Token não configurado');
+                continue;
+              }
+              
+              // Reply to comment endpoint
+              const replyResponse = await fetch(
+                `https://graph.instagram.com/v21.0/${commentId}/replies?access_token=${accessToken}`,
+                {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    message: aiResponse
+                  })
+                }
+              );
+              
+              const replyResult = await replyResponse.json();
+              console.log('📤 Instagram Comment Reply API response:', JSON.stringify(replyResult, null, 2));
+              
+              // Save conversation
+              await storage.createAiConversation({
+                userId: config.userId,
+                accountId: config.accountId,
+                platform: 'instagram_comment',
+                postContent: `Comentário ID: ${commentId}`,
+                userMessage: commentText,
+                aiResponse: aiResponse,
+                mode: config.mode || 'compliance'
+              });
+              
+              console.log('💾 Resposta a comentário Instagram salva no banco');
+            }
           }
         }
       } catch (error) {
@@ -3079,170 +3187,232 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/webhook/facebook", async (req, res) => {
     const body = req.body;
     
-    console.log('🔔 ========== FACEBOOK/INSTAGRAM WEBHOOK POST CHAMADO ==========');
+    console.log('🔔 ========== FACEBOOK WEBHOOK POST CHAMADO ==========');
     console.log('📦 Body completo:', JSON.stringify(body, null, 2));
     console.log('🔍 Headers:', JSON.stringify(req.headers, null, 2));
     console.log('⏰ Timestamp:', new Date().toISOString());
     console.log('======================================================');
     
-    // Guard 1: Validate body.object is 'page' (Facebook) or 'instagram' (Instagram)
-    if (body.object !== 'page' && body.object !== 'instagram') {
-      console.log('❌ Objeto não é "page" ou "instagram", recebido:', body.object);
+    // Guard 1: Validate body.object is 'page' (Facebook)
+    if (body.object !== 'page') {
+      console.log('❌ Objeto não é "page", recebido:', body.object);
       return res.sendStatus(404);
     }
     
-    const platform = body.object === 'instagram' ? 'instagram' : 'facebook';
-    console.log(`✅ Objeto validado como "${body.object}" (plataforma: ${platform})`);
+    console.log('✅ Objeto validado como "page" (Facebook)');
     
     // Respond immediately to Meta (required within 20 seconds)
     res.status(200).send('EVENT_RECEIVED');
     console.log('✅ Resposta "EVENT_RECEIVED" enviada ao Meta');
     
-    // Process messages asynchronously in IIFE with error handling
+    // Process messages and comments asynchronously
     (async () => {
       try {
-        console.log('🚀 Iniciando processamento assíncrono de mensagens...');
+        console.log('🚀 Iniciando processamento assíncrono Facebook...');
         
-        if (body.object === 'page' || body.object === 'instagram') {
-          console.log(`✅ Objeto confirmado como "${body.object}", processando entries...`);
-          console.log('📊 Total de entries:', body.entry?.length || 0);
+        for (const entry of body.entry || []) {
+          const pageId = entry.id;
           
-          // Collect all message processing promises
-          const messagePromises: Promise<void>[] = [];
-          
-          for (const entry of body.entry || []) {
-            console.log('📥 Processando entry com', entry.messaging?.length || 0, 'mensagens');
+          // PROCESS DIRECT MESSAGES (Messenger)
+          if (entry.messaging && entry.messaging.length > 0) {
+            console.log('📥 Processando', entry.messaging.length, 'mensagens Messenger');
             
-            // Iterate over ALL messages in the messaging array
-            for (const webhookEvent of entry.messaging || []) {
-              console.log('📨 Webhook event:', JSON.stringify(webhookEvent, null, 2));
+            for (const webhookEvent of entry.messaging) {
+              console.log('📨 Messenger event:', JSON.stringify(webhookEvent, null, 2));
               
-              // Guard: Check if this is a text message event (not delivery, read, etc.)
               if (!webhookEvent.message || !webhookEvent.message.text) {
-                console.log('⏭️ Pulando evento não-texto (delivery/read)');
+                console.log('⏭️ Pulando evento não-texto');
                 continue;
               }
               
-              // Guard 2: Skip non-message events (postback, standby, policy, delivery, read)
               if (webhookEvent.postback || webhookEvent.delivery || webhookEvent.read || webhookEvent.standby) {
-                console.log('⏭️ Pulando evento especial (postback/delivery/read)');
+                console.log('⏭️ Pulando evento especial');
                 continue;
               }
               
               const senderId = webhookEvent.sender?.id;
-              const recipientId = webhookEvent.recipient?.id; // This is the Page ID
+              const recipientId = webhookEvent.recipient?.id;
               const messageText = webhookEvent.message.text;
               
-              console.log('👤 Sender ID:', senderId);
-              console.log('📄 Page ID (recipient):', recipientId);
-              console.log('💬 Texto da mensagem:', messageText);
-              
-              if (!senderId || !recipientId) {
-                console.log('❌ Faltando sender ou recipient ID');
+              if (!senderId || !messageText) {
+                console.log('⏭️ Faltando senderId ou messageText');
                 continue;
               }
               
-              // Create a promise for this message processing
-              const messagePromise = (async () => {
-                try {
-                  // Find config by Page ID (for both Facebook and Instagram)
-                  const configs = await db.select().from(aiConfigurations);
-                  const config = platform === 'instagram'
-                    ? configs.find(c => c.instagramBusinessAccountId === recipientId || c.instagramFacebookPageId === recipientId)
-                    : configs.find(c => c.facebookPageId === recipientId);
-                  
-                  if (!config) {
-                    console.log(`No configuration found for ${platform} Page/Account ID:`, recipientId);
-                    return;
-                  }
-                  
-                  console.log(`Processing ${platform} message from:`, senderId, 'Text:', messageText);
-                  
-                  // Get AI training examples
-                  const trainingExamples = await storage.getAiTrainingExamples(config.accountId);
-                  
-                  // Generate AI response
-                  const aiResponse = await generateAiResponse(
-                    messageText,
-                    null, // postContent
-                    config.mode || 'compliance',
-                    config.userId,
-                    {
-                      systemPrompt: config.systemPrompt,
-                      personalityTraits: config.personalityTraits,
-                      politicalInfo: config.politicalInfo,
-                      responseGuidelines: config.responseGuidelines,
-                    }
-                  );
-                  
-                  // Guard: Validate that we have a valid AI response before proceeding
-                  if (!aiResponse || typeof aiResponse !== 'string' || aiResponse.trim().length === 0) {
-                    console.error('Invalid AI response generated:', aiResponse);
-                    return;
-                  }
-                  
-                  // Get correct access token for platform
-                  const accessToken = platform === 'instagram' 
-                    ? config.instagramAccessToken 
-                    : config.facebookPageAccessToken;
-                  
-                  if (!accessToken) {
-                    console.log(`No ${platform} Access Token configured`);
-                    return;
-                  }
-                  
-                  // Send response back to Meta (Facebook or Instagram)
-                  const response = await fetch(`https://graph.facebook.com/v21.0/me/messages?access_token=${accessToken}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      recipient: { id: senderId },
-                      message: { text: aiResponse }
-                    })
-                  });
-                  
-                  // Only save to database AFTER confirming successful send to Meta
-                  if (response.ok) {
-                    console.log(`✓ Response sent to ${platform} user:`, senderId);
-                    
-                    // Save conversation to database only after successful send
-                    await storage.createAiConversation({
-                      accountId: config.accountId,
-                      userId: config.userId,
-                      platform: platform, // Save correct platform ('instagram' or 'facebook')
-                      postContent: null,
-                      userMessage: messageText,
-                      aiResponse: aiResponse,
-                      mode: config.mode || 'compliance',
-                    });
-                  } else {
-                    const error = await response.text();
-                    console.error(`Error sending ${platform} message:`, error);
-                    // Do NOT save to database if send failed
-                  }
-                } catch (error) {
-                  console.error(`Error processing individual ${platform} message:`, error);
-                  // Error is caught and logged, but doesn't crash the server
-                }
-              })();
+              console.log(`📩 Facebook Messenger de ${senderId}: "${messageText}"`);
               
-              messagePromises.push(messagePromise);
+              // Find config by Facebook Page ID
+              const configs = await db.select().from(aiConfigurations);
+              const config = configs.find(c => c.facebookPageId === recipientId || c.facebookPageId === pageId);
+              
+              if (!config) {
+                console.log('❌ Configuração não encontrada para pageId:', recipientId);
+                continue;
+              }
+              
+              console.log('✅ Configuração encontrada para account:', config.accountId);
+              
+              // Generate AI response
+              const aiResponse = await generateAiResponse(
+                messageText,
+                null,
+                config.mode || 'compliance',
+                config.userId,
+                {
+                  systemPrompt: config.systemPrompt,
+                  personalityTraits: config.personalityTraits,
+                  politicalInfo: config.politicalInfo,
+                  responseGuidelines: config.responseGuidelines
+                }
+              );
+              
+              console.log('🤖 Resposta IA:', aiResponse);
+              
+              const accessToken = config.facebookPageAccessToken;
+              if (!accessToken) {
+                console.log('❌ Facebook Page Access Token não configurado');
+                continue;
+              }
+              
+              const sendResponse = await fetch(
+                `https://graph.facebook.com/v21.0/me/messages?access_token=${accessToken}`,
+                {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    recipient: { id: senderId },
+                    message: { text: aiResponse }
+                  })
+                }
+              );
+              
+              const sendResult = await sendResponse.json();
+              console.log('📤 Facebook Messenger API response:', JSON.stringify(sendResult, null, 2));
+              
+              // Save conversation
+              await storage.createAiConversation({
+                userId: config.userId,
+                accountId: config.accountId,
+                platform: 'facebook',
+                postContent: null,
+                userMessage: messageText,
+                aiResponse: aiResponse,
+                mode: config.mode || 'compliance'
+              });
+              
+              console.log('💾 Conversa Facebook Messenger salva no banco');
             }
           }
           
-          // Wait for all messages to be processed, capturing all errors
-          const results = await Promise.allSettled(messagePromises);
-          
-          // Log any rejections (though our try/catch should prevent them)
-          results.forEach((result, index) => {
-            if (result.status === 'rejected') {
-              console.error(`Message ${index} processing failed:`, result.reason);
+          // PROCESS COMMENTS (Facebook Page Comments)
+          if (entry.changes && entry.changes.length > 0) {
+            console.log('📥 Processando', entry.changes.length, 'changes (comentários)');
+            
+            for (const change of entry.changes) {
+              console.log('💬 Change event:', JSON.stringify(change, null, 2));
+              
+              // Process feed changes (comments on posts)
+              if (change.field !== 'feed') {
+                console.log('⏭️ Pulando change não-feed:', change.field);
+                continue;
+              }
+              
+              const changeValue = change.value;
+              if (!changeValue || changeValue.item !== 'comment') {
+                console.log('⏭️ Pulando item não-comentário');
+                continue;
+              }
+              
+              // Skip if it's a reply removal or edit
+              if (changeValue.verb !== 'add') {
+                console.log('⏭️ Pulando verb não-add:', changeValue.verb);
+                continue;
+              }
+              
+              const commentId = changeValue.comment_id;
+              const commentText = changeValue.message;
+              const fromId = changeValue.from?.id;
+              const fromName = changeValue.from?.name;
+              const postId = changeValue.post_id;
+              
+              if (!commentId || !commentText || !fromId) {
+                console.log('⏭️ Faltando dados do comentário');
+                continue;
+              }
+              
+              console.log(`💬 Facebook Comentário de ${fromName} (${fromId}): "${commentText}"`);
+              
+              // Find config by Facebook Page ID
+              const configs = await db.select().from(aiConfigurations);
+              const config = configs.find(c => c.facebookPageId === pageId);
+              
+              if (!config) {
+                console.log('❌ Configuração não encontrada para pageId:', pageId);
+                continue;
+              }
+              
+              // Skip if comment is from the page itself
+              if (fromId === pageId || fromId === config.facebookPageId) {
+                console.log('⏭️ Pulando comentário da própria página');
+                continue;
+              }
+              
+              console.log('✅ Configuração encontrada para account:', config.accountId);
+              
+              // Generate AI response for the comment
+              const aiResponse = await generateAiResponse(
+                commentText,
+                `Comentário em post do Facebook`,
+                config.mode || 'compliance',
+                config.userId,
+                {
+                  systemPrompt: config.systemPrompt,
+                  personalityTraits: config.personalityTraits,
+                  politicalInfo: config.politicalInfo,
+                  responseGuidelines: config.responseGuidelines
+                }
+              );
+              
+              console.log('🤖 Resposta IA para comentário:', aiResponse);
+              
+              const accessToken = config.facebookPageAccessToken;
+              if (!accessToken) {
+                console.log('❌ Facebook Page Access Token não configurado');
+                continue;
+              }
+              
+              // Reply to comment via Facebook Graph API
+              const replyResponse = await fetch(
+                `https://graph.facebook.com/v21.0/${commentId}/comments?access_token=${accessToken}`,
+                {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    message: aiResponse
+                  })
+                }
+              );
+              
+              const replyResult = await replyResponse.json();
+              console.log('📤 Facebook Comment Reply API response:', JSON.stringify(replyResult, null, 2));
+              
+              // Save conversation
+              await storage.createAiConversation({
+                userId: config.userId,
+                accountId: config.accountId,
+                platform: 'facebook_comment',
+                postContent: `Post ID: ${postId}, Comentário ID: ${commentId}`,
+                userMessage: commentText,
+                aiResponse: aiResponse,
+                mode: config.mode || 'compliance'
+              });
+              
+              console.log('💾 Resposta a comentário Facebook salva no banco');
             }
-          });
+          }
         }
       } catch (error) {
-        console.error('Fatal error in Facebook webhook processing:', error);
-        // Error is caught and logged, server continues running
+        console.error('❌ Erro no processamento Facebook:', error);
       }
     })();
   });
