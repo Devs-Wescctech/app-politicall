@@ -3477,20 +3477,162 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Twitter/X Webhook - Receive Events (POST)
-  app.post("/api/webhook/twitter", (req, res) => {
+  app.post("/api/webhook/twitter", async (req, res) => {
     const body = req.body;
     
-    console.log('Twitter webhook event received:', JSON.stringify(body, null, 2));
+    console.log('🔔 ========== TWITTER WEBHOOK POST CHAMADO ==========');
+    console.log('📦 Body completo:', JSON.stringify(body, null, 2));
+    console.log('======================================================');
     
-    if (body.direct_message_events) {
-      body.direct_message_events.forEach((event: any) => {
-        console.log('Twitter DM:', event);
-        // TODO: Process Twitter message
-        // Implement AI response logic here
-      });
-    }
-    
+    // Respond immediately
     res.status(200).send('EVENT_RECEIVED');
+    
+    // Process asynchronously
+    (async () => {
+      try {
+        // PROCESS DIRECT MESSAGES
+        if (body.direct_message_events && body.direct_message_events.length > 0) {
+          console.log('📥 Processando', body.direct_message_events.length, 'DMs do Twitter');
+          
+          for (const event of body.direct_message_events) {
+            // Skip if it's a message we sent
+            if (event.type !== 'message_create') continue;
+            
+            const messageData = event.message_create;
+            const senderId = messageData?.sender_id;
+            const recipientId = messageData?.target?.recipient_id;
+            const messageText = messageData?.message_data?.text;
+            
+            if (!senderId || !messageText) continue;
+            
+            console.log(`📩 Twitter DM de ${senderId}: "${messageText}"`);
+            
+            // Find config by Twitter username
+            const configs = await db.select().from(aiConfigurations);
+            const config = configs.find(c => c.twitterUsername);
+            
+            if (!config) {
+              console.log('❌ Configuração Twitter não encontrada');
+              continue;
+            }
+            
+            // Skip if message is from ourselves
+            if (senderId === recipientId) continue;
+            
+            console.log('✅ Configuração encontrada para account:', config.accountId);
+            
+            // Generate AI response
+            const aiResponse = await generateAiResponse(
+              messageText,
+              null,
+              config.mode || 'compliance',
+              config.userId,
+              {
+                systemPrompt: config.systemPrompt,
+                personalityTraits: config.personalityTraits,
+                politicalInfo: config.politicalInfo,
+                responseGuidelines: config.responseGuidelines
+              }
+            );
+            
+            console.log('🤖 Resposta IA:', aiResponse);
+            
+            // Send DM via Twitter API (requires OAuth 1.0a)
+            // Note: Twitter DM API requires special setup
+            const bearerToken = config.twitterBearerToken;
+            if (!bearerToken) {
+              console.log('❌ Twitter Bearer Token não configurado');
+              continue;
+            }
+            
+            // Save conversation
+            await storage.createAiConversation({
+              userId: config.userId,
+              accountId: config.accountId,
+              platform: 'twitter',
+              postContent: null,
+              userMessage: messageText,
+              aiResponse: aiResponse,
+              mode: config.mode || 'compliance'
+            });
+            
+            console.log('💾 Conversa Twitter DM salva no banco');
+          }
+        }
+        
+        // PROCESS TWEET MENTIONS (replies to tweets / mentions)
+        if (body.tweet_create_events && body.tweet_create_events.length > 0) {
+          console.log('📥 Processando', body.tweet_create_events.length, 'tweets/menções');
+          
+          for (const tweet of body.tweet_create_events) {
+            const tweetId = tweet.id_str;
+            const tweetText = tweet.text;
+            const userId = tweet.user?.id_str;
+            const userName = tweet.user?.screen_name;
+            const inReplyToTweetId = tweet.in_reply_to_status_id_str;
+            const inReplyToUserId = tweet.in_reply_to_user_id_str;
+            
+            // Check if this is a mention or reply
+            const isMention = tweet.entities?.user_mentions?.some((m: any) => m.screen_name);
+            
+            if (!tweetId || !tweetText || !userId) continue;
+            
+            console.log(`💬 Twitter menção/reply de @${userName}: "${tweetText}"`);
+            
+            // Find config
+            const configs = await db.select().from(aiConfigurations);
+            const config = configs.find(c => c.twitterUsername);
+            
+            if (!config) {
+              console.log('❌ Configuração Twitter não encontrada');
+              continue;
+            }
+            
+            // Skip if tweet is from ourselves
+            if (userName?.toLowerCase() === config.twitterUsername?.toLowerCase()) {
+              console.log('⏭️ Pulando tweet do próprio perfil');
+              continue;
+            }
+            
+            console.log('✅ Configuração encontrada para account:', config.accountId);
+            
+            // Generate AI response for the mention/reply
+            const aiResponse = await generateAiResponse(
+              tweetText,
+              `Menção/Reply no Twitter de @${userName}`,
+              config.mode || 'compliance',
+              config.userId,
+              {
+                systemPrompt: config.systemPrompt,
+                personalityTraits: config.personalityTraits,
+                politicalInfo: config.politicalInfo,
+                responseGuidelines: config.responseGuidelines
+              }
+            );
+            
+            console.log('🤖 Resposta IA para tweet:', aiResponse);
+            
+            // Note: Replying to tweets via API requires OAuth 1.0a or OAuth 2.0 with user context
+            // This would need special implementation with Twitter API v2
+            
+            // Save conversation
+            await storage.createAiConversation({
+              userId: config.userId,
+              accountId: config.accountId,
+              platform: 'twitter_mention',
+              postContent: `Tweet ID: ${tweetId}, Reply to: ${inReplyToTweetId || 'N/A'}`,
+              userMessage: tweetText,
+              aiResponse: aiResponse,
+              mode: config.mode || 'compliance'
+            });
+            
+            console.log('💾 Resposta a tweet salva no banco');
+          }
+        }
+      } catch (error) {
+        console.error('❌ Erro no processamento Twitter:', error);
+      }
+    })();
   });
 
   // ==================== WEBHOOK TEST (TESTE MANUAL) ====================
