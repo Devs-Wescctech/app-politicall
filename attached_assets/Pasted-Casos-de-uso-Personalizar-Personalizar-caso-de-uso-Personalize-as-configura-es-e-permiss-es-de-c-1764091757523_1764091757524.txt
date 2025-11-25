@@ -1,0 +1,132 @@
+Casos de uso
+Personalizar
+Personalizar caso de uso
+Personalize as configurações e permissões de casos de uso para que seu app funcione do jeito que você quer.
+Alterar caso de uso
+​
+API do Instagram
+​
+Conheça a API do Instagram
+Comece a usar a API do Instagram para criar, publicar e gerenciar conteúdo. Para interagir com os usuários, você também pode enviar e receber mensagens, além de moderar comentários. Saiba mais
+Se quiser rastrear hashtags e insights, mude para o API setup with Facebook login.
+Nome do app do Instagram
+AppPoliticall-IG
+ID do app do Instagram
+867555782500454
+Chave secreta do app do Instagram
+Chave secreta do app do Instagram
+•••••••••
+1. Adicionar permissões obrigatórias de mensagens
+Adicione as permissões listadas para criar, publicar e gerenciar conteúdo, além de responder diretamente a mensagens e enviar respostas privadas com sua conta do Instagram. As permissões e os recursos obrigatórios e opcionais podem ser configurados na página Permissões e recursos.
+instagram_business_basic
+instagram_manage_comments
+instagram_business_manage_messages
+2. Gerar tokens de acesso
+Adicione uma conta do Instagram para gerar tokens de acesso e configurar assinaturas de webhook. Antes de prosseguir, atribua a função de Testador do Instagram à conta na aba Funções.
+3. Configurar webhooks
+Configure um URL de webhook personalizado ou use serviços para configurar um ponto de extremidade. Saiba mais
+Seu app deve estar com o status de publicado para receber webhooks.
+URL de callback
+https://www.politicall.com.br/api/webhook/instagram
+Verificar token
+●●●●●●●●●●●●●●●●
+
+Anexe um certificado de cliente às solicitações de webhook. Saiba mais.
+Campos do webhook
+​
+Campo
+Versão
+Testar
+Assinar
+comments
+Seletor da versão de assinatura para o campo de webhook comments. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+live_comments
+Seletor da versão de assinatura para o campo de webhook live_comments. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+message_edit
+Seletor da versão de assinatura para o campo de webhook message_edit. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+message_reactions
+Seletor da versão de assinatura para o campo de webhook message_reactions. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+messages
+Seletor da versão de assinatura para o campo de webhook messages. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+messaging_handover
+Seletor da versão de assinatura para o campo de webhook messaging_handover. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Cancelou a assinatura
+messaging_optins
+Seletor da versão de assinatura para o campo de webhook messaging_optins. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Cancelou a assinatura
+messaging_postbacks
+Seletor da versão de assinatura para o campo de webhook messaging_postbacks. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+messaging_referral
+Seletor da versão de assinatura para o campo de webhook messaging_referral. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+messaging_seen
+Seletor da versão de assinatura para o campo de webhook messaging_seen. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+standby
+Seletor da versão de assinatura para o campo de webhook standby. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Cancelou a assinatura
+4. Configurar o login da empresa no Instagram
+Forneça uma forma segura para as empresas concederem permissões ao seu app para acessar dados com o login da empresa.
+5. Concluir a análise do app
+Para que seu app acesse dados ao vivo, o Instagram exige que o processo de análise do app seja realizado. Passe por esse processo para ter acesso avançado às permissões do Instagram. Envie sua solicitação de análise do app quando tudo estiver pronto.
+Sobre
+Com a API do Instagram, você pode criar apps para publicar e interagir com conteúdo, além de gerenciar mensagens no Instagram...Ver mais
+Recursos
+Reunimos alguns recursos para ajudar você a começar a construir.
+Documentação para desenvolvedores
+Introdução
+Comunidade de desenvolvedores
+Políticas
+Ao acessar e usar a plataforma, você concorda com os Termos da Plataforma da Meta e as Políticas do Desenvolvedor, bem como com todos os outros termos e políticas aplicáveis.
+Política da plataforma
+Política do desenvolvedor
