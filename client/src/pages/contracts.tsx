@@ -557,10 +557,18 @@ export default function ContractsPage() {
                     onClick={() => handleCardClick(user)}
                   >
                     <CardHeader className="pb-3">
-                      <div className="flex items-start justify-between gap-2">
-                        <CardTitle className="text-base font-semibold" data-testid={`user-name-${user.id}`}>
-                          {user.name}
-                        </CardTitle>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <Avatar className="h-10 w-10">
+                            <AvatarImage src={user.avatar || ''} alt={user.name} />
+                            <AvatarFallback className="text-sm bg-primary/10 text-primary">
+                              {user.name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <CardTitle className="text-base font-semibold" data-testid={`user-name-${user.id}`}>
+                            {user.name}
+                          </CardTitle>
+                        </div>
                         {status && (
                           <Badge 
                             variant="default" 
