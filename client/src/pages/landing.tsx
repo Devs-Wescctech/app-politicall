@@ -102,7 +102,7 @@ export default function LandingPage() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [fullscreenImage, setFullscreenImage] = useState<{ src: string; alt: string } | null>(null);
   const { scrollY } = useScroll();
-  const headerBg = useTransform(scrollY, [0, 100], ["rgba(255, 255, 255, 0)", "rgba(255, 255, 255, 0.95)"]);
+  const headerOpacity = useTransform(scrollY, [0, 100], [0, 0.95]);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -190,8 +190,7 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-background">
       <motion.header 
-        className="fixed top-0 left-0 right-0 z-50 border-b"
-        style={{ backgroundColor: headerBg }}
+        className={`fixed top-0 left-0 right-0 z-50 ${isScrolled ? 'border-b bg-background/95 backdrop-blur-sm' : ''}`}
       >
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between h-16">
@@ -200,28 +199,28 @@ export default function LandingPage() {
             </div>
 
             <nav className="hidden md:flex items-center gap-6">
-              <button onClick={() => scrollToSection('recursos')} className={`text-sm hover:text-primary transition-colors ${!isScrolled ? 'text-white' : ''}`} data-testid="button-nav-recursos">
+              <button onClick={() => scrollToSection('recursos')} className={`text-sm hover:text-primary transition-colors ${!isScrolled ? 'text-white' : 'text-foreground'}`} data-testid="button-nav-recursos">
                 Recursos
               </button>
-              <button onClick={() => scrollToSection('ia')} className={`text-sm hover:text-primary transition-colors ${!isScrolled ? 'text-white' : ''}`} data-testid="button-nav-ia">
+              <button onClick={() => scrollToSection('ia')} className={`text-sm hover:text-primary transition-colors ${!isScrolled ? 'text-white' : 'text-foreground'}`} data-testid="button-nav-ia">
                 IA para Redes Sociais
               </button>
-              <button onClick={() => scrollToSection('modulos')} className={`text-sm hover:text-primary transition-colors ${!isScrolled ? 'text-white' : ''}`} data-testid="button-nav-modulos">
+              <button onClick={() => scrollToSection('modulos')} className={`text-sm hover:text-primary transition-colors ${!isScrolled ? 'text-white' : 'text-foreground'}`} data-testid="button-nav-modulos">
                 Módulos
               </button>
-              <button onClick={() => scrollToSection('contato')} className={`text-sm hover:text-primary transition-colors ${!isScrolled ? 'text-white' : ''}`} data-testid="button-nav-contato">
+              <button onClick={() => scrollToSection('contato')} className={`text-sm hover:text-primary transition-colors ${!isScrolled ? 'text-white' : 'text-foreground'}`} data-testid="button-nav-contato">
                 Contato
               </button>
               <Button size="sm" className="rounded-full w-32" onClick={() => setLocation("/login")} data-testid="button-header-login">
                 Login
               </Button>
-              <Button variant="outline" size="sm" className={`rounded-full w-32 ${!isScrolled ? 'text-white !border-white hover:bg-white/10' : 'border-primary text-primary'}`} onClick={() => scrollToSection('contato')} data-testid="button-header-cta">
+              <Button variant="outline" size="sm" className={`rounded-full w-32 ${!isScrolled ? 'text-white !border-white hover:bg-white/10' : ''}`} onClick={() => scrollToSection('contato')} data-testid="button-header-cta">
                 Começar Agora
               </Button>
             </nav>
 
             <button 
-              className={`md:hidden p-2 ${!isScrolled ? 'text-white' : ''}`}
+              className={`md:hidden p-2 ${!isScrolled ? 'text-white' : 'text-foreground'}`}
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               data-testid="button-mobile-menu"
             >
