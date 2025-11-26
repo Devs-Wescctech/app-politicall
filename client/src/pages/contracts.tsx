@@ -571,7 +571,7 @@ export default function ContractsPage() {
             <div>
               <h2 className="text-xl font-semibold mb-2 flex items-center gap-2" data-testid="text-page-title">
                 Gerenciamento de Contratos
-                <Badge variant="secondary" className="text-sm font-normal" data-testid="text-total-contracts">
+                <Badge variant="secondary" className="text-sm font-normal rounded-full" data-testid="text-total-contracts">
                   {adminUsers.length} {adminUsers.length === 1 ? 'contrato' : 'contratos'}
                 </Badge>
               </h2>
