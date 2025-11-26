@@ -111,6 +111,7 @@ export default function ContractsPage() {
   const [leadToDelete, setLeadToDelete] = useState<string | null>(null);
   const [deleteUserConfirmOpen, setDeleteUserConfirmOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
+  const [statusFilter, setStatusFilter] = useState<"all" | "pago" | "atrasado">("all");
 
   // Verify admin token on mount
   useEffect(() => {
@@ -491,24 +492,57 @@ export default function ContractsPage() {
 
       {/* Main Content */}
       <main className="container mx-auto p-6">
-        <div className="mb-6 flex items-start justify-between gap-4">
-          <div>
-            <h2 className="text-xl font-semibold mb-2" data-testid="text-page-title">
-              Gerenciamento de Contratos
-            </h2>
-            <p className="text-sm text-muted-foreground" data-testid="text-page-subtitle">
-              Lista de usuários administradores da plataforma
-            </p>
+        <div className="mb-6 flex flex-col gap-4">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-semibold mb-2" data-testid="text-page-title">
+                Gerenciamento de Contratos
+              </h2>
+              <p className="text-sm text-muted-foreground" data-testid="text-page-subtitle">
+                Lista de usuários administradores da plataforma
+              </p>
+            </div>
+            <Button
+              onClick={() => setLocation("/register")}
+              variant="default"
+              className="rounded-full"
+              data-testid="button-create-account"
+            >
+              <UserPlus className="w-4 h-4 mr-2" />
+              Criar Conta
+            </Button>
           </div>
-          <Button
-            onClick={() => setLocation("/register")}
-            variant="default"
-            className="rounded-full"
-            data-testid="button-create-account"
-          >
-            <UserPlus className="w-4 h-4 mr-2" />
-            Criar Conta
-          </Button>
+          
+          {/* Status Filter */}
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground mr-2">Filtrar por status:</span>
+            <Button
+              variant={statusFilter === "all" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setStatusFilter("all")}
+              data-testid="filter-all"
+            >
+              Todos
+            </Button>
+            <Button
+              variant={statusFilter === "pago" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setStatusFilter("pago")}
+              className={statusFilter === "pago" ? "bg-green-500 hover:bg-green-600" : ""}
+              data-testid="filter-paid"
+            >
+              Pagos
+            </Button>
+            <Button
+              variant={statusFilter === "atrasado" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setStatusFilter("atrasado")}
+              className={statusFilter === "atrasado" ? "bg-red-500 hover:bg-red-600" : ""}
+              data-testid="filter-overdue"
+            >
+              Atrasados
+            </Button>
+          </div>
         </div>
 
         {isLoading && (
@@ -544,7 +578,24 @@ export default function ContractsPage() {
                 </p>
               </Card>
             ) : (
-              adminUsers.map((user) => {
+              (() => {
+                const filteredUsers = adminUsers.filter((user) => {
+                  if (statusFilter === "all") return true;
+                  const status = calculatePaymentStatus(user);
+                  return status === statusFilter;
+                });
+                
+                if (filteredUsers.length === 0) {
+                  return (
+                    <Card className="p-6 col-span-full" data-testid="empty-filter-state">
+                      <p className="text-center text-muted-foreground">
+                        Nenhum usuário {statusFilter === "pago" ? "pago" : "atrasado"} encontrado
+                      </p>
+                    </Card>
+                  );
+                }
+                
+                return filteredUsers.map((user) => {
                 const status = calculatePaymentStatus(user);
                 const isPaid = status === "pago";
                 const isOverdue = status === "atrasado";
@@ -611,7 +662,8 @@ export default function ContractsPage() {
                   </CardContent>
                 </Card>
                 );
-              })
+                });
+              })()
             )}
           </div>
         )}
