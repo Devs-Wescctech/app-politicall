@@ -63,13 +63,17 @@ export async function generateAiResponse(
     // Build system prompt from user's configuration
     let systemPrompt = "";
     
+    // Add current date context so AI knows the current year
+    const now = new Date();
+    const currentDateInfo = `DATA ATUAL: ${now.toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}. Estamos no ano de ${now.getFullYear()}. Use esta informação para responder perguntas sobre datas, eleições e eventos futuros. No Brasil, as eleições municipais ocorrem em anos pares divisíveis por 4 que NÃO são divisíveis por 8 (ex: 2024, 2028), e as eleições gerais (presidente, governador, senador, deputados) ocorrem em anos pares divisíveis por 4 que SÃO divisíveis por 8 ou 4 mas não municipais (ex: 2026, 2030).\n\n`;
+    
     // Use custom system prompt if provided, otherwise use defaults
     if (aiConfig?.systemPrompt) {
-      systemPrompt = aiConfig.systemPrompt;
+      systemPrompt = currentDateInfo + aiConfig.systemPrompt;
     } else {
-      systemPrompt = mode === "compliance" 
+      systemPrompt = currentDateInfo + (mode === "compliance" 
         ? "Você é um assistente virtual (IA) respondendo em nome do político/candidato. IMPORTANTE: Sempre inicie suas mensagens deixando claro que você é um assistente virtual/IA automatizado, por exemplo: 'Olá! Sou o assistente virtual do [candidato]...' ou 'Esta é uma resposta automatizada do assistente virtual...'. Siga rigorosamente as normas do TSE para comunicação política eleitoral. Suas respostas devem: 1) Identificar-se claramente como assistente virtual/IA no início, 2) Ser institucionais e respeitosas, 3) Informar sobre propostas e plataforma política, 4) Seguir regras eleitorais (sem ataques, promessas irreais ou fake news), 5) Manter tom cordial e profissional. OBRIGATÓRIO: Sempre termine TODAS as suas respostas com exatamente esta frase em uma nova linha: '\n\n*Essa resposta foi gerada por IA*'"
-        : "Você é um assistente virtual respondendo em nome do político. Responda de forma profissional, alinhada com os valores e propostas do político. Mantenha um tom respeitoso, acolhedor e construtivo. Foque em estabelecer diálogo genuíno com os cidadãos, apresentando propostas e ouvindo suas demandas.";
+        : "Você é um assistente virtual respondendo em nome do político. Responda de forma profissional, alinhada com os valores e propostas do político. Mantenha um tom respeitoso, acolhedor e construtivo. Foque em estabelecer diálogo genuíno com os cidadãos, apresentando propostas e ouvindo suas demandas.");
     }
     
     // Add personality traits if configured
