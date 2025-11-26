@@ -23,6 +23,30 @@ if (!process.env.SESSION_SECRET) {
 }
 const JWT_SECRET = process.env.SESSION_SECRET;
 
+// Cache para evitar processamento duplicado de mensagens (Facebook/Instagram)
+const processedMessagesCache = new Set<string>();
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutos
+
+function isMessageProcessed(messageId: string): boolean {
+  return processedMessagesCache.has(messageId);
+}
+
+function markMessageAsProcessed(messageId: string): void {
+  processedMessagesCache.add(messageId);
+  // Limpar após TTL
+  setTimeout(() => {
+    processedMessagesCache.delete(messageId);
+  }, CACHE_TTL_MS);
+}
+
+// Limpar cache periodicamente (evitar memory leak)
+setInterval(() => {
+  if (processedMessagesCache.size > 1000) {
+    processedMessagesCache.clear();
+    console.log('🧹 Cache de mensagens limpo');
+  }
+}, 10 * 60 * 1000); // A cada 10 minutos
+
 // Helper function to generate slug from name
 function generateSlugFromName(name: string): string {
   return name
@@ -3242,6 +3266,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
             for (const webhookEvent of entry.messaging) {
               console.log('📨 Messenger event:', JSON.stringify(webhookEvent, null, 2));
               
+              // Verificar se é uma mensagem echo (enviada pela própria página)
+              if (webhookEvent.message?.is_echo) {
+                console.log('⏭️ Pulando echo message (mensagem da própria página)');
+                continue;
+              }
+              
               if (!webhookEvent.message || !webhookEvent.message.text) {
                 console.log('⏭️ Pulando evento não-texto');
                 continue;
@@ -3252,6 +3282,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 continue;
               }
               
+              const messageId = webhookEvent.message.mid;
               const senderId = webhookEvent.sender?.id;
               const recipientId = webhookEvent.recipient?.id;
               const messageText = webhookEvent.message.text;
@@ -3259,6 +3290,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
               if (!senderId || !messageText) {
                 console.log('⏭️ Faltando senderId ou messageText');
                 continue;
+              }
+              
+              // Verificar se a mensagem já foi processada (evitar duplicatas)
+              if (messageId && isMessageProcessed(messageId)) {
+                console.log(`⏭️ Mensagem ${messageId} já processada, pulando...`);
+                continue;
+              }
+              
+              // Marcar mensagem como processada
+              if (messageId) {
+                markMessageAsProcessed(messageId);
               }
               
               console.log(`📩 Facebook Messenger de ${senderId}: "${messageText}"`);
