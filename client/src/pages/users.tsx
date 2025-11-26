@@ -460,7 +460,7 @@ export default function UsersManagement() {
                               setUserToDelete(user);
                             }}
                             data-testid={`button-delete-user-${user.id}`}
-                            className="rounded-full text-destructive hover:text-destructive"
+                            className="rounded-full flex-1 text-destructive hover:text-destructive"
                           >
                             <Trash2 className="w-4 h-4 mr-2" />
                             Excluir
