@@ -125,23 +125,19 @@ export function AppSidebar() {
   
   // Filter menu items based on permissions
   const visibleItems = menuItems.filter(item => {
-    // ADMIN BYPASS: Admins see EVERYTHING
-    if (user?.role === "admin") {
-      return true;
-    }
-
     // Itens sempre visíveis para todos (apenas Dashboard)
     if (item.alwaysVisible) {
       return true;
     }
 
     // Itens exclusivos para admin (Usuários, Configurações)
-    // Se chegou aqui, não é admin, então bloqueia
+    // Admins sempre veem estes itens
     if (item.adminOnly) {
-      return false;
+      return user?.role === "admin";
     }
 
     // Verifica se o usuário tem permissão explícita para este menu
+    // Isso vale para TODOS os usuários, incluindo admins
     if (item.permissionKey) {
       return permissions[item.permissionKey] === true;
     }
