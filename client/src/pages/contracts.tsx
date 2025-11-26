@@ -33,7 +33,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { UserPlus, ArrowLeft, Mail, Lock, User as UserIcon, MoreVertical, Phone, Pencil, Trash2, Inbox, LogIn } from "lucide-react";
+import { UserPlus, ArrowLeft, Mail, Lock, User as UserIcon, MoreVertical, Phone, Pencil, Trash2, Inbox, LogIn, Search } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { setAuthToken, setAuthUser } from "@/lib/auth";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -112,6 +112,7 @@ export default function ContractsPage() {
   const [deleteUserConfirmOpen, setDeleteUserConfirmOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const [statusFilter, setStatusFilter] = useState<"all" | "pago" | "atrasado">("all");
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Verify admin token on mount
   useEffect(() => {
@@ -513,35 +514,50 @@ export default function ContractsPage() {
             </Button>
           </div>
           
-          {/* Status Filter */}
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground mr-2">Filtrar por status:</span>
-            <Button
-              variant={statusFilter === "all" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setStatusFilter("all")}
-              data-testid="filter-all"
-            >
-              Todos
-            </Button>
-            <Button
-              variant={statusFilter === "pago" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setStatusFilter("pago")}
-              className={statusFilter === "pago" ? "bg-green-500 hover:bg-green-600" : ""}
-              data-testid="filter-paid"
-            >
-              Pagos
-            </Button>
-            <Button
-              variant={statusFilter === "atrasado" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setStatusFilter("atrasado")}
-              className={statusFilter === "atrasado" ? "bg-red-500 hover:bg-red-600" : ""}
-              data-testid="filter-overdue"
-            >
-              Atrasados
-            </Button>
+          {/* Search and Status Filter */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+            {/* Search Input */}
+            <div className="relative w-full sm:w-64">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Pesquisar por nome..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9"
+                data-testid="input-search"
+              />
+            </div>
+            
+            {/* Status Filter */}
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground mr-2">Status:</span>
+              <Button
+                variant={statusFilter === "all" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setStatusFilter("all")}
+                data-testid="filter-all"
+              >
+                Todos
+              </Button>
+              <Button
+                variant={statusFilter === "pago" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setStatusFilter("pago")}
+                className={statusFilter === "pago" ? "bg-green-500 hover:bg-green-600" : ""}
+                data-testid="filter-paid"
+              >
+                Pagos
+              </Button>
+              <Button
+                variant={statusFilter === "atrasado" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setStatusFilter("atrasado")}
+                className={statusFilter === "atrasado" ? "bg-red-500 hover:bg-red-600" : ""}
+                data-testid="filter-overdue"
+              >
+                Atrasados
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -580,6 +596,15 @@ export default function ContractsPage() {
             ) : (
               (() => {
                 const filteredUsers = adminUsers.filter((user) => {
+                  // Filter by search query
+                  if (searchQuery.trim()) {
+                    const query = searchQuery.toLowerCase().trim();
+                    if (!user.name.toLowerCase().includes(query)) {
+                      return false;
+                    }
+                  }
+                  
+                  // Filter by status
                   if (statusFilter === "all") return true;
                   const status = calculatePaymentStatus(user);
                   return status === statusFilter;
@@ -589,7 +614,10 @@ export default function ContractsPage() {
                   return (
                     <Card className="p-6 col-span-full" data-testid="empty-filter-state">
                       <p className="text-center text-muted-foreground">
-                        Nenhum usuário {statusFilter === "pago" ? "pago" : "atrasado"} encontrado
+                        {searchQuery.trim() 
+                          ? `Nenhum usuário encontrado para "${searchQuery}"`
+                          : `Nenhum usuário ${statusFilter === "pago" ? "pago" : "atrasado"} encontrado`
+                        }
                       </p>
                     </Card>
                   );
