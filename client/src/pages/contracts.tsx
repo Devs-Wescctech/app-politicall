@@ -33,7 +33,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { UserPlus, ArrowLeft, Mail, Lock, User as UserIcon, MoreVertical, Phone, Pencil, Trash2, Inbox, LogIn, Search } from "lucide-react";
+import { UserPlus, ArrowLeft, Mail, Lock, User as UserIcon, MoreVertical, Phone, Pencil, Trash2, Inbox, LogIn, Search, Key, Eye, EyeOff } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { setAuthToken, setAuthUser } from "@/lib/auth";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -114,6 +114,11 @@ export default function ContractsPage() {
   const [statusFilter, setStatusFilter] = useState<"all" | "pago" | "atrasado">("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [visibleCount, setVisibleCount] = useState(12);
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
+  const [newAdminPassword, setNewAdminPassword] = useState("");
+  const [confirmAdminPassword, setConfirmAdminPassword] = useState("");
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // Reset visible count when filters change
   useEffect(() => {
@@ -416,6 +421,68 @@ export default function ContractsPage() {
     }
   };
 
+  // Change admin master password mutation
+  const changeAdminPasswordMutation = useMutation({
+    mutationFn: async (data: { newPassword: string }) => {
+      const token = localStorage.getItem('admin_token');
+      const response = await fetch('/api/admin/change-password', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Erro ao alterar senha');
+      }
+      
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Senha alterada!",
+        description: "A senha do admin master foi alterada com sucesso.",
+      });
+      setChangePasswordOpen(false);
+      setNewAdminPassword("");
+      setConfirmAdminPassword("");
+      setShowNewPassword(false);
+      setShowConfirmPassword(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro ao alterar senha",
+        description: error.message || "Não foi possível alterar a senha.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleChangeAdminPassword = () => {
+    if (newAdminPassword.length < 6) {
+      toast({
+        title: "Senha muito curta",
+        description: "A senha deve ter pelo menos 6 caracteres.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (newAdminPassword !== confirmAdminPassword) {
+      toast({
+        title: "Senhas não conferem",
+        description: "A nova senha e a confirmação devem ser iguais.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    changeAdminPasswordMutation.mutate({ newPassword: newAdminPassword });
+  };
+
   const handleImpersonate = async (userId: string) => {
     try {
       const adminToken = localStorage.getItem("admin_token");
@@ -512,15 +579,26 @@ export default function ContractsPage() {
                 Lista de usuários administradores da plataforma
               </p>
             </div>
-            <Button
-              onClick={() => setLocation("/register")}
-              variant="default"
-              className="rounded-full"
-              data-testid="button-create-account"
-            >
-              <UserPlus className="w-4 h-4 mr-2" />
-              Criar Conta
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                onClick={() => setChangePasswordOpen(true)}
+                variant="outline"
+                className="rounded-full"
+                data-testid="button-change-password"
+              >
+                <Key className="w-4 h-4 mr-2" />
+                Alterar Senha
+              </Button>
+              <Button
+                onClick={() => setLocation("/register")}
+                variant="default"
+                className="rounded-full"
+                data-testid="button-create-account"
+              >
+                <UserPlus className="w-4 h-4 mr-2" />
+                Criar Conta
+              </Button>
+            </div>
           </div>
           
           {/* Search and Status Filter */}
@@ -1059,7 +1137,7 @@ export default function ContractsPage() {
           <div className="space-y-4 py-4">
             <div className="bg-destructive/10 p-4 rounded-lg border border-destructive/30">
               <p className="text-sm font-semibold text-destructive mb-2">
-                ⚠️ Esta ação é irreversível!
+                Esta ação é irreversível!
               </p>
               <ul className="text-sm text-muted-foreground space-y-1 ml-4 list-disc">
                 <li>Todos os dados do usuário serão excluídos permanentemente</li>
@@ -1092,6 +1170,101 @@ export default function ContractsPage() {
               data-testid="button-confirm-delete-user"
             >
               {deleteUserMutation.isPending ? "Excluindo..." : "Sim, Excluir Permanentemente"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Change Admin Password Dialog */}
+      <Dialog open={changePasswordOpen} onOpenChange={(open) => {
+        setChangePasswordOpen(open);
+        if (!open) {
+          setNewAdminPassword("");
+          setConfirmAdminPassword("");
+          setShowNewPassword(false);
+          setShowConfirmPassword(false);
+        }
+      }}>
+        <DialogContent className="max-w-md" data-testid="dialog-change-admin-password">
+          <DialogHeader>
+            <DialogTitle data-testid="text-dialog-change-password-title">Alterar Senha do Admin Master</DialogTitle>
+            <DialogDescription data-testid="text-dialog-change-password-description">
+              Digite a nova senha para acessar o painel administrativo.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Nova Senha</label>
+              <div className="relative">
+                <Input
+                  type={showNewPassword ? "text" : "password"}
+                  placeholder="Mínimo 6 caracteres"
+                  value={newAdminPassword}
+                  onChange={(e) => setNewAdminPassword(e.target.value)}
+                  data-testid="input-new-admin-password"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                  onClick={() => setShowNewPassword(!showNewPassword)}
+                  data-testid="button-toggle-new-password"
+                >
+                  {showNewPassword ? (
+                    <EyeOff className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <Eye className="h-4 w-4 text-muted-foreground" />
+                  )}
+                </Button>
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Confirmar Nova Senha</label>
+              <div className="relative">
+                <Input
+                  type={showConfirmPassword ? "text" : "password"}
+                  placeholder="Digite a senha novamente"
+                  value={confirmAdminPassword}
+                  onChange={(e) => setConfirmAdminPassword(e.target.value)}
+                  data-testid="input-confirm-admin-password"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  data-testid="button-toggle-confirm-password"
+                >
+                  {showConfirmPassword ? (
+                    <EyeOff className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <Eye className="h-4 w-4 text-muted-foreground" />
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setChangePasswordOpen(false)}
+              className="flex-1"
+              data-testid="button-cancel-change-password"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleChangeAdminPassword}
+              disabled={changeAdminPasswordMutation.isPending || !newAdminPassword || !confirmAdminPassword}
+              className="flex-1"
+              data-testid="button-confirm-change-password"
+            >
+              {changeAdminPasswordMutation.isPending ? "Salvando..." : "Alterar Senha"}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -18,6 +18,35 @@ import { calculateGenderDistribution } from "./utils/gender-detector";
 import fs from "fs";
 import path from "path";
 
+// Admin master password management
+const ADMIN_CONFIG_FILE = path.join(process.cwd(), '.admin-config.json');
+const DEFAULT_ADMIN_PASSWORD = "politicall123";
+
+// Get admin password hash (creates default if not exists)
+async function getAdminPasswordHash(): Promise<string> {
+  try {
+    if (fs.existsSync(ADMIN_CONFIG_FILE)) {
+      const config = JSON.parse(fs.readFileSync(ADMIN_CONFIG_FILE, 'utf-8'));
+      if (config.passwordHash) {
+        return config.passwordHash;
+      }
+    }
+    // Create default config with hashed password
+    const hash = await bcrypt.hash(DEFAULT_ADMIN_PASSWORD, 10);
+    fs.writeFileSync(ADMIN_CONFIG_FILE, JSON.stringify({ passwordHash: hash }));
+    return hash;
+  } catch {
+    // Fallback to hashing default password on each request
+    return bcrypt.hash(DEFAULT_ADMIN_PASSWORD, 10);
+  }
+}
+
+// Update admin password hash
+async function updateAdminPasswordHash(newPassword: string): Promise<void> {
+  const hash = await bcrypt.hash(newPassword, 10);
+  fs.writeFileSync(ADMIN_CONFIG_FILE, JSON.stringify({ passwordHash: hash }));
+}
+
 if (!process.env.SESSION_SECRET) {
   throw new Error("SESSION_SECRET must be set in environment variables");
 }
@@ -707,8 +736,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const validatedData = adminLoginSchema.parse(req.body);
       
-      // Validate hardcoded admin password
-      if (validatedData.password !== "politicall123") {
+      // Get stored password hash and verify
+      const passwordHash = await getAdminPasswordHash();
+      const isValid = await bcrypt.compare(validatedData.password, passwordHash);
+      
+      if (!isValid) {
         return res.status(401).json({ error: "Senha incorreta" });
       }
 
@@ -718,6 +750,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ token });
     } catch (error: any) {
       res.status(400).json({ error: error.message || "Erro ao fazer login admin" });
+    }
+  });
+
+  // Admin change password endpoint (PROTECTED)
+  app.post("/api/admin/change-password", authenticateAdminToken, async (req: AuthRequest, res) => {
+    try {
+      const changePasswordSchema = z.object({
+        newPassword: z.string().min(6, "Senha deve ter pelo menos 6 caracteres"),
+      });
+      
+      const validatedData = changePasswordSchema.parse(req.body);
+      
+      // Update admin password
+      await updateAdminPasswordHash(validatedData.newPassword);
+      
+      res.json({ success: true, message: "Senha alterada com sucesso" });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message || "Erro ao alterar senha" });
     }
   });
 
