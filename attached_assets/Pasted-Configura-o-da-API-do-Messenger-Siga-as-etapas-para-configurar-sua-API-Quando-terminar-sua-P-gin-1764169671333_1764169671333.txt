@@ -1,0 +1,488 @@
+Configuração da API do Messenger
+Siga as etapas para configurar sua API. Quando terminar, sua Página Empresarial do Facebook poderá enviar e receber mensagens.
+​
+Plataforma do Messenger
+Bem-vindo à plataforma do Messenger.
+A plataforma do Messenger oferece um conjunto rico de APIs, plugins da web e uma visão geral completa que proporciona a você tudo o que você precisa para criar experiências incríveis. Alcance pessoas em todos os dispositivos e plataformas usadas, use vários canais de comunicação, crie experiências híbridas que incorporam conversa automatizada e ao vivo, e muito mais, tudo no Messenger.
+Para garantir a qualidade e prevenir o abuso da plataforma, todos os aplicativos do Messenger devem ser submetidos a uma avaliação antes de poderem interagir com todas as pessoas no Messenger. Durante o desenvolvimento, você poderá enviar mensagens a qualquer pessoa que tenha recebido a função de administrador, desenvolvedor ou testador do seu aplicativo.
+Para começar, leia documentação do desenvolvedor para saber todos os detalhes. Seu uso e acesso da plataforma estão sujeitos às Políticas da Plataforma e às Políticas do Desenvolvedor, assim como a todos os termos e políticas aplicáveis.
+​
+Aumente o tráfego para o Messenger
+Crie anúncios para ajudar mais pessoas a descobrir sua experiência no Messenger.
+1. Configure webhooks
+Configure um URL de webhook personalizado ou use serviços para configurar um ponto de extremidade. Saiba mais.
+URL de callback
+https://www.politicall.com.br/api/webhook/facebook
+Verificar token
+●●●●●●●●●●●●●●●●
+
+Anexe um certificado de cliente às solicitações de webhook. Saiba mais.
+Campos do webhook
+​
+Campo
+Versão
+Testar
+Assinar
+affiliation
+Seletor da versão de assinatura para o campo de webhook affiliation. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+attire
+Seletor da versão de assinatura para o campo de webhook attire. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+awards
+Seletor da versão de assinatura para o campo de webhook awards. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+birthday
+Seletor da versão de assinatura para o campo de webhook birthday. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+category
+Seletor da versão de assinatura para o campo de webhook category. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+company_overview
+Seletor da versão de assinatura para o campo de webhook company_overview. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+culinary_team
+Seletor da versão de assinatura para o campo de webhook culinary_team. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+current_location
+Seletor da versão de assinatura para o campo de webhook current_location. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+description
+Seletor da versão de assinatura para o campo de webhook description. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+email
+Seletor da versão de assinatura para o campo de webhook email. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+feed
+Seletor da versão de assinatura para o campo de webhook feed. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+founded
+Seletor da versão de assinatura para o campo de webhook founded. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+general_info
+Seletor da versão de assinatura para o campo de webhook general_info. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+general_manager
+Seletor da versão de assinatura para o campo de webhook general_manager. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+group_feed
+Seletor da versão de assinatura para o campo de webhook group_feed. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+hometown
+Seletor da versão de assinatura para o campo de webhook hometown. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+hours
+Seletor da versão de assinatura para o campo de webhook hours. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+inbox_labels
+Seletor da versão de assinatura para o campo de webhook inbox_labels. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+invoice_access_invoice_draft_change
+Seletor da versão de assinatura para o campo de webhook invoice_access_invoice_draft_change. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+leadgen
+Seletor da versão de assinatura para o campo de webhook leadgen. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+live_videos
+Seletor da versão de assinatura para o campo de webhook live_videos. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+location
+Seletor da versão de assinatura para o campo de webhook location. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+marketing_message_clicks
+Seletor da versão de assinatura para o campo de webhook marketing_message_clicks. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+marketing_message_deliveries
+Seletor da versão de assinatura para o campo de webhook marketing_message_deliveries. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+marketing_message_delivery_failed
+Seletor da versão de assinatura para o campo de webhook marketing_message_delivery_failed. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+marketing_message_echoes
+Seletor da versão de assinatura para o campo de webhook marketing_message_echoes. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+marketing_messages_subscriber_upload_status
+Seletor da versão de assinatura para o campo de webhook marketing_messages_subscriber_upload_status. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+members
+Seletor da versão de assinatura para o campo de webhook members. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+mention
+Seletor da versão de assinatura para o campo de webhook mention. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+message_context
+Seletor da versão de assinatura para o campo de webhook message_context. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Cancelou a assinatura
+message_deliveries
+Seletor da versão de assinatura para o campo de webhook message_deliveries. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+message_echoes
+Seletor da versão de assinatura para o campo de webhook message_echoes. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+message_edits
+Seletor da versão de assinatura para o campo de webhook message_edits. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+message_reactions
+Seletor da versão de assinatura para o campo de webhook message_reactions. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+message_reads
+Seletor da versão de assinatura para o campo de webhook message_reads. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+message_template_status_update
+Seletor da versão de assinatura para o campo de webhook message_template_status_update. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+messages
+Seletor da versão de assinatura para o campo de webhook messages. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+messaging_account_linking
+Seletor da versão de assinatura para o campo de webhook messaging_account_linking. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+messaging_customer_information
+Seletor da versão de assinatura para o campo de webhook messaging_customer_information. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+messaging_handovers
+Seletor da versão de assinatura para o campo de webhook messaging_handovers. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+messaging_in_thread_lead_form_submit
+Seletor da versão de assinatura para o campo de webhook messaging_in_thread_lead_form_submit. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Cancelou a assinatura
+messaging_integrity
+Seletor da versão de assinatura para o campo de webhook messaging_integrity. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+messaging_optins
+Seletor da versão de assinatura para o campo de webhook messaging_optins. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+messaging_policy_enforcement
+Seletor da versão de assinatura para o campo de webhook messaging_policy_enforcement. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+messaging_postbacks
+Seletor da versão de assinatura para o campo de webhook messaging_postbacks. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+messaging_referrals
+Seletor da versão de assinatura para o campo de webhook messaging_referrals. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+mission
+Seletor da versão de assinatura para o campo de webhook mission. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+name
+Seletor da versão de assinatura para o campo de webhook name. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+page_change_proposal
+Seletor da versão de assinatura para o campo de webhook page_change_proposal. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+page_upcoming_change
+Seletor da versão de assinatura para o campo de webhook page_upcoming_change. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+parking
+Seletor da versão de assinatura para o campo de webhook parking. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+payment_options
+Seletor da versão de assinatura para o campo de webhook payment_options. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+personal_info
+Seletor da versão de assinatura para o campo de webhook personal_info. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+personal_interests
+Seletor da versão de assinatura para o campo de webhook personal_interests. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+phone
+Seletor da versão de assinatura para o campo de webhook phone. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+picture
+Seletor da versão de assinatura para o campo de webhook picture. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+price_range
+Seletor da versão de assinatura para o campo de webhook price_range. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+product_review
+Seletor da versão de assinatura para o campo de webhook product_review. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+products
+Seletor da versão de assinatura para o campo de webhook products. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+public_transit
+Seletor da versão de assinatura para o campo de webhook public_transit. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+ratings
+Seletor da versão de assinatura para o campo de webhook ratings. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+response_feedback
+Seletor da versão de assinatura para o campo de webhook response_feedback. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+send_cart
+Seletor da versão de assinatura para o campo de webhook send_cart. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+videos
+Seletor da versão de assinatura para o campo de webhook videos. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+website
+Seletor da versão de assinatura para o campo de webhook website. Definido na versão v24.0.
+v24.0
+​
+Teste
+
+Assinado
+2. Gere tokens de acesso
+Conecte Páginas do Facebook para gerar tokens de acesso e configurar assinaturas de webhooks.
+3. Faça a análise do app
+Para acessar dados em tempo real com o app usando essa permissão ou recurso, é necessário fazer a análise do app.
+Você deve criar um protótipo e enviar para análise do app. Isso nos ajuda a verificar sua experiência do app geral.
+Para enviar e receber mensagens, solicite a permissão de pages_messaging. Para acessar mais recursos de mensagem, consulte nossa documentação. Saiba mais
+Avançado∙Opcional
+Configurações avançadas opcionais
