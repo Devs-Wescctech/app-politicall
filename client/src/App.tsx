@@ -28,6 +28,7 @@ import AiAttendance from "@/pages/ai-attendance";
 import Marketing from "@/pages/marketing";
 import Settings from "@/pages/settings";
 import UsersManagement from "@/pages/users";
+import Petitions from "@/pages/petitions";
 import SurveyLanding from "@/pages/survey-landing";
 import PublicSupport from "@/pages/public-support";
 import LandingPage from "@/pages/landing";
@@ -87,6 +88,11 @@ function AuthenticatedLayout() {
               <Route path="/marketing">
                 <ProtectedRoute>
                   <Marketing />
+                </ProtectedRoute>
+              </Route>
+              <Route path="/petitions">
+                <ProtectedRoute>
+                  <Petitions />
                 </ProtectedRoute>
               </Route>
               <Route path="/settings">
