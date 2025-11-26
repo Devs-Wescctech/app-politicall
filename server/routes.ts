@@ -3353,6 +3353,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
               const sendResult = await sendResponse.json();
               console.log('📤 Facebook Messenger API response:', JSON.stringify(sendResult, null, 2));
               
+              // Check if Facebook API returned an error
+              if (!sendResponse.ok || sendResult.error) {
+                const errorMsg = sendResult.error?.message || sendResult.error?.error_user_msg || 'Erro desconhecido';
+                const errorCode = sendResult.error?.code || 'N/A';
+                const errorType = sendResult.error?.type || 'N/A';
+                
+                console.error('❌ ERRO ao enviar mensagem no Facebook Messenger!');
+                console.error(`   Código: ${errorCode}`);
+                console.error(`   Tipo: ${errorType}`);
+                console.error(`   Mensagem: ${errorMsg}`);
+                console.error('   Verifique se o token tem as permissões: pages_messaging');
+                
+                // Create error notification so user knows there's a problem
+                await storage.createNotification({
+                  userId: config.userId,
+                  accountId: config.accountId,
+                  type: 'ai_response',
+                  title: 'Erro ao enviar mensagem no Messenger',
+                  message: `Erro: ${errorMsg.substring(0, 100)}. Verifique as permissões do token.`,
+                  priority: 'high',
+                  link: '/ai-attendance'
+                });
+                
+                continue;
+              }
+              
+              // SUCCESS - Message was sent
+              console.log('✅ Mensagem enviada no Messenger com sucesso! ID:', sendResult.message_id);
+              
               // Save conversation
               await storage.createAiConversation({
                 userId: config.userId,
@@ -3364,7 +3393,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 mode: config.mode || 'compliance'
               });
               
-              // Create notification for AI response
+              // Create success notification for AI response
               await storage.createNotification({
                 userId: config.userId,
                 accountId: config.accountId,
@@ -3471,6 +3500,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
               const replyResult = await replyResponse.json();
               console.log('📤 Facebook Comment Reply API response:', JSON.stringify(replyResult, null, 2));
               
+              // Check if Facebook API returned an error
+              if (!replyResponse.ok || replyResult.error) {
+                const errorMsg = replyResult.error?.message || replyResult.error?.error_user_msg || 'Erro desconhecido';
+                const errorCode = replyResult.error?.code || 'N/A';
+                const errorType = replyResult.error?.type || 'N/A';
+                
+                console.error('❌ ERRO ao responder comentário no Facebook!');
+                console.error(`   Código: ${errorCode}`);
+                console.error(`   Tipo: ${errorType}`);
+                console.error(`   Mensagem: ${errorMsg}`);
+                console.error('   Verifique se o token tem as permissões: pages_manage_engagement, pages_read_engagement, pages_manage_posts');
+                
+                // Create error notification so user knows there's a problem
+                await storage.createNotification({
+                  userId: config.userId,
+                  accountId: config.accountId,
+                  type: 'ai_response',
+                  title: 'Erro ao responder comentário no Facebook',
+                  message: `Erro: ${errorMsg.substring(0, 100)}. Verifique as permissões do token.`,
+                  priority: 'high',
+                  link: '/ai-attendance'
+                });
+                
+                continue;
+              }
+              
+              // SUCCESS - Reply was posted to Facebook
+              console.log('✅ Resposta postada no Facebook com sucesso! ID:', replyResult.id);
+              
               // Save conversation
               await storage.createAiConversation({
                 userId: config.userId,
@@ -3482,7 +3540,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 mode: config.mode || 'compliance'
               });
               
-              // Create notification for AI response
+              // Create success notification for AI response
               await storage.createNotification({
                 userId: config.userId,
                 accountId: config.accountId,
