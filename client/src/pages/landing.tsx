@@ -458,7 +458,7 @@ export default function LandingPage() {
               <img 
                 src={aiImage} 
                 alt="IA Politicall respondendo mensagens automaticamente" 
-                className="w-full h-auto max-w-sm mx-auto cursor-pointer hover:opacity-90 transition-opacity dark:invert"
+                className="w-full h-auto max-w-sm mx-auto cursor-pointer hover:opacity-90 transition-opacity dark:invert dark:hue-rotate-180 dark:saturate-50"
                 onClick={() => setFullscreenImage({ src: aiImage, alt: "IA Politicall respondendo mensagens automaticamente" })}
                 data-testid="img-ai-screenshot"
               />
