@@ -58,7 +58,7 @@ type CreateUserForm = z.infer<typeof createUserSchema>;
 
 export default function UsersManagement() {
   const { toast } = useToast();
-  const { isAdmin } = useCurrentUser();
+  const { user: currentUser, isAdmin } = useCurrentUser();
   const [selectedUser, setSelectedUser] = useState<Omit<User, "password"> | null>(null);
   const [userToDelete, setUserToDelete] = useState<Omit<User, "password"> | null>(null);
   const [newRole, setNewRole] = useState<string>("");
@@ -104,12 +104,35 @@ export default function UsersManagement() {
   // Watch role changes in create form
   const selectedRoleInForm = form.watch("role");
   
+  // Get admin's available permissions (modules they have access to)
+  const adminPermissions = currentUser?.permissions || DEFAULT_PERMISSIONS.admin;
+  
+  // Filter permissions to only show modules the admin has access to
+  const availablePermissionKeys = Object.entries(adminPermissions)
+    .filter(([_, hasAccess]) => hasAccess)
+    .map(([key]) => key as keyof UserPermissions);
+  
   // Update permissions when role changes in create dialog
+  // Only enable permissions that the admin has access to
   useEffect(() => {
-    if (selectedRoleInForm) {
-      setCustomPermissions(DEFAULT_PERMISSIONS[selectedRoleInForm as keyof typeof DEFAULT_PERMISSIONS]);
+    if (selectedRoleInForm && adminPermissions) {
+      const roleDefaults = DEFAULT_PERMISSIONS[selectedRoleInForm as keyof typeof DEFAULT_PERMISSIONS];
+      // Limit to only permissions the admin has
+      const limitedPermissions: UserPermissions = {
+        dashboard: roleDefaults.dashboard && adminPermissions.dashboard,
+        contacts: roleDefaults.contacts && adminPermissions.contacts,
+        alliances: roleDefaults.alliances && adminPermissions.alliances,
+        demands: roleDefaults.demands && adminPermissions.demands,
+        agenda: roleDefaults.agenda && adminPermissions.agenda,
+        ai: roleDefaults.ai && adminPermissions.ai,
+        marketing: roleDefaults.marketing && adminPermissions.marketing,
+        users: roleDefaults.users && adminPermissions.users,
+        petitions: roleDefaults.petitions && adminPermissions.petitions,
+        settings: roleDefaults.settings && adminPermissions.settings,
+      };
+      setCustomPermissions(limitedPermissions);
     }
-  }, [selectedRoleInForm]);
+  }, [selectedRoleInForm, adminPermissions]);
   
   // Load saved permissions when opening edit dialog
   useEffect(() => {
@@ -121,12 +144,26 @@ export default function UsersManagement() {
   }, [selectedUser]);
   
   // Only update permissions when ROLE changes (not when modal opens)
+  // Limit to permissions the admin has access to
   useEffect(() => {
-    if (newRole && selectedUser && newRole !== selectedUser.role) {
-      // User changed role, so reset to defaults of new role
-      setEditPermissions(DEFAULT_PERMISSIONS[newRole as keyof typeof DEFAULT_PERMISSIONS]);
+    if (newRole && selectedUser && newRole !== selectedUser.role && adminPermissions) {
+      const roleDefaults = DEFAULT_PERMISSIONS[newRole as keyof typeof DEFAULT_PERMISSIONS];
+      // Limit to only permissions the admin has
+      const limitedPermissions: UserPermissions = {
+        dashboard: roleDefaults.dashboard && adminPermissions.dashboard,
+        contacts: roleDefaults.contacts && adminPermissions.contacts,
+        alliances: roleDefaults.alliances && adminPermissions.alliances,
+        demands: roleDefaults.demands && adminPermissions.demands,
+        agenda: roleDefaults.agenda && adminPermissions.agenda,
+        ai: roleDefaults.ai && adminPermissions.ai,
+        marketing: roleDefaults.marketing && adminPermissions.marketing,
+        users: roleDefaults.users && adminPermissions.users,
+        petitions: roleDefaults.petitions && adminPermissions.petitions,
+        settings: roleDefaults.settings && adminPermissions.settings,
+      };
+      setEditPermissions(limitedPermissions);
     }
-  }, [newRole, selectedUser?.role]);
+  }, [newRole, selectedUser?.role, adminPermissions]);
 
   const { data: users, isLoading } = useQuery<Omit<User, "password">[]>({
     queryKey: ["/api/users"],
@@ -570,6 +607,7 @@ export default function UsersManagement() {
                 
                 <div className="space-y-3">
                   <p className="text-sm font-medium">Permissões de Acesso aos Menus</p>
+                  <p className="text-xs text-muted-foreground">Apenas módulos disponíveis na sua conta</p>
                   <div className="grid grid-cols-2 gap-3">
                     {Object.entries({
                       dashboard: 'Dashboard',
@@ -579,8 +617,11 @@ export default function UsersManagement() {
                       agenda: 'Agenda',
                       ai: 'Atendimento IA',
                       marketing: 'Pesquisas',
+                      petitions: 'Petições',
                       users: 'Usuários'
-                    }).map(([key, label]) => (
+                    })
+                    .filter(([key]) => adminPermissions[key as keyof UserPermissions])
+                    .map(([key, label]) => (
                       <div key={key} className="flex items-center space-x-2">
                         <Checkbox
                           id={`edit-perm-${key}`}
@@ -788,6 +829,7 @@ export default function UsersManagement() {
                 
                 <div className="space-y-3">
                   <p className="text-sm font-medium">Permissões de Acesso aos Menus</p>
+                  <p className="text-xs text-muted-foreground">Apenas módulos disponíveis na sua conta</p>
                   <div className="grid grid-cols-2 gap-3">
                     {Object.entries({
                       dashboard: 'Dashboard',
@@ -797,8 +839,11 @@ export default function UsersManagement() {
                       agenda: 'Agenda',
                       ai: 'Atendimento IA',
                       marketing: 'Pesquisas',
+                      petitions: 'Petições',
                       users: 'Usuários'
-                    }).map(([key, label]) => (
+                    })
+                    .filter(([key]) => adminPermissions[key as keyof UserPermissions])
+                    .map(([key, label]) => (
                       <div key={key} className="flex items-center space-x-2">
                         <Checkbox
                           id={`perm-${key}`}
