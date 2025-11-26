@@ -610,7 +610,7 @@ export default function ContractsPage() {
                 placeholder="Pesquisar por nome..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
+                className="pl-9 rounded-full"
                 data-testid="input-search"
               />
             </div>
