@@ -1104,7 +1104,7 @@ export default function LandingPage() {
                 <img 
                   src={wesccLogo} 
                   alt="Wescc Tech" 
-                  className="h-6 md:h-8 inline-block dark:invert"
+                  className="h-6 md:h-8 inline-block invert dark:invert-0"
                   data-testid="img-footer-wescc-logo"
                 />
                 <span>Todos os direitos reservados.</span>
