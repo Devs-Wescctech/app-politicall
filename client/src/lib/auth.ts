@@ -15,6 +15,7 @@ export function getAuthToken(): string | null {
 export function removeAuthToken() {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
+  localStorage.removeItem("isImpersonating");
 }
 
 export function setAuthUser(user: User) {

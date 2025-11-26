@@ -501,6 +501,9 @@ export default function ContractsPage() {
       
       const result = await response.json();
       
+      // Save impersonate flag so settings page knows admin master is logged in
+      localStorage.setItem("isImpersonating", "true");
+      
       setAuthToken(result.token);
       setAuthUser(result.user);
       

@@ -683,13 +683,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         city: z.string().optional(),
         currentPassword: z.string().optional(),
         newPassword: z.string().min(6, "Nova senha deve ter no mínimo 6 caracteres").optional(),
+        skipPasswordCheck: z.boolean().optional(),
       });
 
       const validatedData = profileUpdateSchema.parse(req.body);
       
-      // If changing password, validate current password
+      // Check if admin master is impersonating (verify admin token in header)
+      let isAdminImpersonating = false;
+      const adminToken = req.headers['x-admin-token'] as string;
+      if (adminToken && validatedData.skipPasswordCheck) {
+        try {
+          const decoded = jwt.verify(adminToken, JWT_SECRET) as { isAdmin?: boolean };
+          if (decoded.isAdmin) {
+            isAdminImpersonating = true;
+          }
+        } catch (e) {
+          // Invalid admin token, ignore
+        }
+      }
+      
+      // If changing password, validate current password (unless admin master is impersonating)
       if (validatedData.newPassword) {
-        if (!validatedData.currentPassword) {
+        if (!isAdminImpersonating && !validatedData.currentPassword) {
           return res.status(400).json({ error: "Senha atual é obrigatória para alterar a senha" });
         }
 
@@ -698,14 +713,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(404).json({ error: "Usuário não encontrado" });
         }
 
-        const isPasswordValid = await bcrypt.compare(validatedData.currentPassword, user.password);
-        if (!isPasswordValid) {
-          return res.status(400).json({ error: "Senha atual incorreta" });
+        // Only validate current password if not admin impersonating
+        if (!isAdminImpersonating) {
+          const isPasswordValid = await bcrypt.compare(validatedData.currentPassword!, user.password);
+          if (!isPasswordValid) {
+            return res.status(400).json({ error: "Senha atual incorreta" });
+          }
         }
 
         // Hash new password
         const hashedPassword = await bcrypt.hash(validatedData.newPassword, 10);
-        const { currentPassword, newPassword, ...profileData } = validatedData;
+        const { currentPassword, newPassword, skipPasswordCheck, ...profileData } = validatedData;
         await db.update(users).set({ ...profileData, password: hashedPassword }).where(eq(users.id, req.userId!));
         const updated = await storage.getUser(req.userId!);
         if (!updated) {
@@ -716,7 +734,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Update without password change
-      const { currentPassword, newPassword, ...profileData } = validatedData;
+      const { currentPassword, newPassword, skipPasswordCheck, ...profileData } = validatedData;
       const updated = await storage.updateUser(req.userId!, req.accountId!, profileData);
       const { password, ...sanitizedUser } = updated;
       res.json(sanitizedUser);

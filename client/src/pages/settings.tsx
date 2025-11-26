@@ -29,6 +29,9 @@ import { useEffect } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
+// Check if admin master is impersonating
+const isImpersonating = localStorage.getItem("isImpersonating") === "true";
+
 const profileSchema = z.object({
   name: z.string().min(2, "Nome deve ter no mínimo 2 caracteres"),
   phone: z.string().optional(),
@@ -42,6 +45,8 @@ const profileSchema = z.object({
   newPassword: z.string().optional(),
   confirmPassword: z.string().optional(),
 }).refine((data) => {
+  // Skip current password check if admin master is impersonating
+  if (isImpersonating) return true;
   if (data.newPassword && !data.currentPassword) {
     return false;
   }
@@ -215,9 +220,41 @@ export default function Settings() {
         city: data.city || undefined,
       };
 
-      if (data.newPassword && data.currentPassword) {
-        payload.currentPassword = data.currentPassword;
-        payload.newPassword = data.newPassword;
+      // Check if admin master is impersonating
+      const isImpersonatingNow = localStorage.getItem("isImpersonating") === "true";
+      const adminToken = localStorage.getItem("admin_token");
+      
+      if (data.newPassword) {
+        if (isImpersonatingNow && adminToken) {
+          // Admin master can change password without current password
+          payload.newPassword = data.newPassword;
+          payload.skipPasswordCheck = true;
+        } else if (data.currentPassword) {
+          // Normal user needs current password
+          payload.currentPassword = data.currentPassword;
+          payload.newPassword = data.newPassword;
+        }
+      }
+
+      // If impersonating, use custom fetch with admin token header
+      if (isImpersonatingNow && adminToken && payload.skipPasswordCheck) {
+        const token = localStorage.getItem("auth_token");
+        const response = await fetch("/api/auth/profile", {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`,
+            "X-Admin-Token": adminToken,
+          },
+          body: JSON.stringify(payload),
+        });
+        
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || "Erro ao atualizar perfil");
+        }
+        
+        return await response.json();
       }
 
       return await apiRequest("PATCH", "/api/auth/profile", payload);
@@ -1589,21 +1626,27 @@ export default function Settings() {
                 <Separator />
                 <div className="space-y-2">
                   <p className="text-sm font-medium">Alterar Senha</p>
-                  <p className="text-xs text-muted-foreground">Deixe em branco para manter a senha atual</p>
-                </div>
-                <FormField
-                  control={form.control}
-                  name="currentPassword"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Senha Atual</FormLabel>
-                      <FormControl>
-                        <Input type="password" placeholder="Digite sua senha atual" {...field} data-testid="input-current-password" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
+                  {isImpersonating ? (
+                    <p className="text-xs text-muted-foreground">Como admin master, você pode alterar a senha sem precisar da senha atual</p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">Deixe em branco para manter a senha atual</p>
                   )}
-                />
+                </div>
+                {!isImpersonating && (
+                  <FormField
+                    control={form.control}
+                    name="currentPassword"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Senha Atual</FormLabel>
+                        <FormControl>
+                          <Input type="password" placeholder="Digite sua senha atual" {...field} data-testid="input-current-password" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
                 <FormField
                   control={form.control}
                   name="newPassword"
