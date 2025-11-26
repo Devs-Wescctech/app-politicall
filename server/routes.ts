@@ -3444,6 +3444,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 continue;
               }
               
+              // Verificar se o comentário já foi processado (evitar duplicatas)
+              if (isMessageProcessed(commentId)) {
+                console.log(`⏭️ Comentário ${commentId} já processado, pulando...`);
+                continue;
+              }
+              
+              // Marcar comentário como processado
+              markMessageAsProcessed(commentId);
+              
               console.log(`💬 Facebook Comentário de ${fromName} (${fromId}): "${commentText}"`);
               
               // Find config by Facebook Page ID
