@@ -3494,15 +3494,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 continue;
               }
               
-              // Reply to comment via Facebook Graph API (usando /replies com form-urlencoded)
+              // Reply to comment via Facebook Graph API
+              // O comment_id pode vir como postId_commentId, precisamos extrair o commentId
+              const actualCommentId = commentId.includes('_') ? commentId.split('_')[1] : commentId;
+              console.log(`📝 Comment ID original: ${commentId}, usando: ${actualCommentId}`);
+              
               const replyResponse = await fetch(
-                `https://graph.facebook.com/v21.0/${commentId}/replies?access_token=${accessToken}`,
+                `https://graph.facebook.com/v21.0/${actualCommentId}/comments`,
                 {
                   method: 'POST',
-                  headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                  body: new URLSearchParams({
-                    message: aiResponse
-                  }).toString()
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    message: aiResponse,
+                    access_token: accessToken
+                  })
                 }
               );
               
