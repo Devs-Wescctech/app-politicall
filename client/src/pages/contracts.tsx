@@ -502,8 +502,11 @@ export default function ContractsPage() {
         <div className="mb-6 flex flex-col gap-4">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <h2 className="text-xl font-semibold mb-2" data-testid="text-page-title">
+              <h2 className="text-xl font-semibold mb-2 flex items-center gap-2" data-testid="text-page-title">
                 Gerenciamento de Contratos
+                <Badge variant="secondary" className="text-sm font-normal" data-testid="text-total-contracts">
+                  {adminUsers.length} {adminUsers.length === 1 ? 'contrato' : 'contratos'}
+                </Badge>
               </h2>
               <p className="text-sm text-muted-foreground" data-testid="text-page-subtitle">
                 Lista de usuários administradores da plataforma
