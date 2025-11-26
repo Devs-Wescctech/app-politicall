@@ -264,6 +264,34 @@ export default function Register() {
                         </FormItem>
                       )}
                     />
+
+                    <FormItem className="flex items-center space-x-2 space-y-0 col-span-2 pt-2 border-t mt-2">
+                      <Checkbox
+                        checked={
+                          form.watch("permissions.contacts") &&
+                          form.watch("permissions.alliances") &&
+                          form.watch("permissions.demands") &&
+                          form.watch("permissions.agenda") &&
+                          form.watch("permissions.ai") &&
+                          form.watch("permissions.marketing") &&
+                          form.watch("permissions.petitions")
+                        }
+                        onCheckedChange={(checked) => {
+                          const value = Boolean(checked);
+                          form.setValue("permissions.contacts", value);
+                          form.setValue("permissions.alliances", value);
+                          form.setValue("permissions.demands", value);
+                          form.setValue("permissions.agenda", value);
+                          form.setValue("permissions.ai", value);
+                          form.setValue("permissions.marketing", value);
+                          form.setValue("permissions.petitions", value);
+                        }}
+                        data-testid="checkbox-select-all"
+                      />
+                      <FormLabel className="text-sm font-medium cursor-pointer">
+                        Selecionar Todas
+                      </FormLabel>
+                    </FormItem>
                   </div>
                 </div>
               </div>
