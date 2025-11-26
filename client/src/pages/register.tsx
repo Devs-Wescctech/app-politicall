@@ -34,6 +34,7 @@ export default function Register() {
         marketing: false,
         petitions: false,
         users: false,
+        settings: false,
       },
     },
   });
