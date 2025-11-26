@@ -237,23 +237,23 @@ export default function LandingPage() {
               data-testid="mobile-menu"
             >
               <nav className="flex flex-col gap-4">
-                <button onClick={() => scrollToSection('recursos')} className="text-left px-4 py-2 hover:bg-muted rounded-md" data-testid="button-mobile-recursos">
+                <button onClick={() => { scrollToSection('recursos'); setMobileMenuOpen(false); }} className="text-left px-4 py-2 hover:bg-muted rounded-md" data-testid="button-mobile-recursos">
                   Recursos
                 </button>
-                <button onClick={() => scrollToSection('ia')} className="text-left px-4 py-2 hover:bg-muted rounded-md" data-testid="button-mobile-ia">
+                <button onClick={() => { scrollToSection('ia'); setMobileMenuOpen(false); }} className="text-left px-4 py-2 hover:bg-muted rounded-md" data-testid="button-mobile-ia">
                   IA para Redes Sociais
                 </button>
-                <button onClick={() => scrollToSection('modulos')} className="text-left px-4 py-2 hover:bg-muted rounded-md" data-testid="button-mobile-modulos">
+                <button onClick={() => { scrollToSection('modulos'); setMobileMenuOpen(false); }} className="text-left px-4 py-2 hover:bg-muted rounded-md" data-testid="button-mobile-modulos">
                   Módulos
                 </button>
-                <button onClick={() => scrollToSection('contato')} className="text-left px-4 py-2 hover:bg-muted rounded-md" data-testid="button-mobile-contato">
+                <button onClick={() => { scrollToSection('contato'); setMobileMenuOpen(false); }} className="text-left px-4 py-2 hover:bg-muted rounded-md" data-testid="button-mobile-contato">
                   Contato
                 </button>
                 <div className="px-4 flex flex-col gap-2">
-                  <Button variant="outline" className="rounded-full w-full" onClick={() => setLocation("/login")} data-testid="button-mobile-login">
+                  <Button variant="outline" className="rounded-full w-full" onClick={() => { setLocation("/login"); setMobileMenuOpen(false); }} data-testid="button-mobile-login">
                     Login
                   </Button>
-                  <Button className="rounded-full w-full" onClick={() => scrollToSection('contato')} data-testid="button-mobile-cta">
+                  <Button className="rounded-full w-full" onClick={() => { scrollToSection('contato'); setMobileMenuOpen(false); }} data-testid="button-mobile-cta">
                     Começar Agora
                   </Button>
                 </div>
