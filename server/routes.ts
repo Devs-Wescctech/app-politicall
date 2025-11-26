@@ -3068,6 +3068,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 mode: config.mode || 'compliance'
               });
               
+              // Create notification for AI response
+              await storage.createNotification({
+                userId: config.userId,
+                accountId: config.accountId,
+                type: 'ai_response',
+                title: 'IA respondeu no Instagram DM',
+                message: `Pergunta: "${messageText.substring(0, 50)}${messageText.length > 50 ? '...' : ''}" - Resposta enviada automaticamente.`,
+                priority: 'low',
+                link: '/ai-attendance'
+              });
+              
               console.log('💾 Conversa Instagram DM salva no banco');
             }
           }
@@ -3171,6 +3182,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 userMessage: commentText,
                 aiResponse: aiResponse,
                 mode: config.mode || 'compliance'
+              });
+              
+              // Create notification for AI response
+              await storage.createNotification({
+                userId: config.userId,
+                accountId: config.accountId,
+                type: 'ai_response',
+                title: 'IA respondeu comentário no Instagram',
+                message: `Comentário: "${commentText.substring(0, 50)}${commentText.length > 50 ? '...' : ''}" - Resposta enviada automaticamente.`,
+                priority: 'low',
+                link: '/ai-attendance'
               });
               
               console.log('💾 Resposta a comentário Instagram salva no banco');
@@ -3300,6 +3322,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 mode: config.mode || 'compliance'
               });
               
+              // Create notification for AI response
+              await storage.createNotification({
+                userId: config.userId,
+                accountId: config.accountId,
+                type: 'ai_response',
+                title: 'IA respondeu no Facebook Messenger',
+                message: `Pergunta: "${messageText.substring(0, 50)}${messageText.length > 50 ? '...' : ''}" - Resposta enviada automaticamente.`,
+                priority: 'low',
+                link: '/ai-attendance'
+              });
+              
               console.log('💾 Conversa Facebook Messenger salva no banco');
             }
           }
@@ -3405,6 +3438,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 userMessage: commentText,
                 aiResponse: aiResponse,
                 mode: config.mode || 'compliance'
+              });
+              
+              // Create notification for AI response
+              await storage.createNotification({
+                userId: config.userId,
+                accountId: config.accountId,
+                type: 'ai_response',
+                title: 'IA respondeu comentário no Facebook',
+                message: `Comentário: "${commentText.substring(0, 50)}${commentText.length > 50 ? '...' : ''}" - Resposta enviada automaticamente.`,
+                priority: 'low',
+                link: '/ai-attendance'
               });
               
               console.log('💾 Resposta a comentário Facebook salva no banco');

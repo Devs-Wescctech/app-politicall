@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Bell, Check, X, CheckCheck, AlertCircle, Info, CheckCircle, AlertTriangle } from "lucide-react";
+import { Bell, Check, X, CheckCheck, AlertCircle, Info, CheckCircle, AlertTriangle, Bot } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -181,6 +181,8 @@ export function NotificationBell() {
         return <CheckCircle className="h-4 w-4 text-green-600" />;
       case "campaign_rejected":
         return <AlertCircle className="h-4 w-4 text-red-600" />;
+      case "ai_response":
+        return <Bot className="h-4 w-4 text-[#40E0D0]" />;
       case "info":
       default:
         return <Info className="h-4 w-4 text-blue-600" />;
@@ -199,6 +201,7 @@ export function NotificationBell() {
       case "system": return "Sistema";
       case "campaign_approved": return "Pesquisa Aprovada";
       case "campaign_rejected": return "Pesquisa Rejeitada";
+      case "ai_response": return "Resposta IA";
       default: return type;
     }
   };
