@@ -1,0 +1,98 @@
+Salvo
+Casos de uso
+Personalizar
+Personalizar caso de uso
+Personalize as configurações e permissões de casos de uso para que seu app funcione do jeito que você quer.
+Alterar caso de uso
+​
+Messenger from Meta
+​
+Permissões e recursos
+Chamadas da API
+​
+Status
+Ação
+Business Asset User Profile Access
+O recurso Acesso ao perfil do usuário de ativo comercial permite que o aplicativo leia os Campos do usuário de usuários que interagem com seus ativos comerciais como ID, ids_for_business, nome e foto.
+…
+Descrição completa
+Found in 2 use cases
+ads_management
+Com a permissão ads_management , seu aplicativo pode ler e gerenciar a conta de anúncios que possui ou à qual teve ou que tenha recebido acesso pelo proprietário da conta de anúncios.
+…
+Descrição completa
+Found in 2 use cases
+business_management
+Com a permissão business_management , seu aplicativo pode ler e escrever com a API do Gerenciador de Negócios.
+…
+Descrição completa
+Found in 2 use cases
+0
+Pronto para teste
+email
+A permissão email possibilita que o aplicativo leia o endereço de email principal de uma pessoa.
+…
+Descrição completa
+Found in 2 use cases
+instagram_basic
+Com a permissão instagram_basic , seu aplicativo pode ler conteúdo de mídia e informações do perfil de uma conta do Instagram.
+…
+Descrição completa
+Found in 2 use cases
+0
+Pronto para teste
+instagram_manage_messages
+Com a permissão instagram_manage_messages , os usuários comerciais podem ler e responder mensagens do Instagram Direct.
+…
+Descrição completa
+Found in 2 use cases
+0
+Pronto para teste
+pages_manage_metadata
+Com a permissão pages_manage_metadata , seu aplicativo pode inscrever e receber webhooks sobre atividade na Página, bem como atualizar configurações nela.
+…
+Descrição completa
+0
+Pronto para teste
+pages_messaging
+Com a permissão pages_messaging , seu aplicativo pode gerenciar e acessar conversas da Página no Messenger.
+…
+Descrição completa
+0
+Pronto para teste
+pages_read_engagement
+Com a permissão pages_read_engagement , seu aplicativo pode ler conteúdo (publicações, fotos, vídeos e eventos) publicados pela Página, ler dados de seguidores (incluindo nome e PSID) e foto do perfil, bem como ler metadados e outras informações sobre a Página.
+…
+Descrição completa
+Found in 2 use cases
+0
+Pronto para teste
+pages_show_list
+Com a permissão pages_show_list , o aplicativo pode acessar a lista de Páginas que uma pessoa gerencia.
+…
+Descrição completa
+Found in 2 use cases
+0
+Pronto para teste
+pages_user_gender
+Com a permissão pages_user_gender , seu aplicativo acessa o gênero de um usuário por meio da Página à qual o aplicativo está conectado.
+…
+Descrição completa
+pages_user_locale
+Com a permissão pages_user_locale , seu app acessa o idioma de um usuário por meio da Página à qual o app está conectado.
+…
+Descrição completa
+pages_user_timezone
+Com a permissão pages_user_timezone , seu aplicativo pode acessar o fuso horário de um usuário por meio da Página à qual o aplicativo está conectado.
+…
+Descrição completa
+pages_utility_messaging
+A permissão pages_utility_messages possibilita que um app acesse os modelos de mensagens utilitárias de uma Página.
+…
+Descrição completa
+paid_marketing_messages
+The paid_marketing_messages permission allows an app to create, manage, and send paid marketing messages on Messenger and to view the performance of these marketing messages campaigns on behalf of the app user.
+…
+Descrição completa
+public_profile
+A permissão public_profile possibilita que um app leia os Campos de Perfil Público Padrão no nó do Usuário . Essa 
