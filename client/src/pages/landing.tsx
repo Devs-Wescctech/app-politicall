@@ -30,7 +30,7 @@ import demandsImage from "@assets/Técnico- Luis Flores (6)_1763413913827.png";
 import eventsImage from "@assets/Técnico- Luis Flores (7)_1763414009496.png";
 import aiImage from "@assets/dsfsdfdsfdsfdsf_1763412976580.png";
 import surveysImage from "@assets/Técnico- Luis Flores (8)_1763415574038.png";
-import ctaBackgroundVideo from "@assets/grok-video-6d926f7e-74be-453e-93b2-58c35cc06668_1763589440485.mp4";
+import ctaBackgroundVideo from "@assets/grok-video-4ea016c0-3169-465d-8e73-3a569083dbfe-2 (1)_1764181672658.mp4";
 
 const BRAZILIAN_STATES = [
   "Acre", "Alagoas", "Amapá", "Amazonas", "Bahia", "Ceará", "Distrito Federal",
