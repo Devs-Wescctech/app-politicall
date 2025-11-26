@@ -34,6 +34,7 @@ import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { UserPlus, ArrowLeft, Mail, Lock, User as UserIcon, MoreVertical, Phone, Pencil, Trash2, Inbox, LogIn } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { setAuthToken, setAuthUser } from "@/lib/auth";
 import { Checkbox } from "@/components/ui/checkbox";
 import { FaWhatsapp } from "react-icons/fa";
@@ -55,6 +56,7 @@ type User = {
   paymentStatus?: string;
   lastPaymentDate?: string;
   politicalPosition?: string;
+  avatar?: string;
   party?: {
     id: string;
     name: string;
@@ -611,12 +613,22 @@ export default function ContractsPage() {
       <Dialog open={detailsDialogOpen} onOpenChange={setDetailsDialogOpen}>
         <DialogContent className="max-w-md" data-testid="dialog-user-details">
           <DialogHeader>
-            <DialogTitle data-testid="text-dialog-details-title">
-              {selectedUser?.name}
-            </DialogTitle>
-            <DialogDescription data-testid="text-dialog-details-description">
-              {selectedUser?.party?.abbreviation || 'Sem partido'} | {selectedUser?.party?.ideology || 'Não informado'} | {selectedUser?.politicalPosition || selectedUser?.role}
-            </DialogDescription>
+            <div className="flex items-center gap-4">
+              <Avatar className="h-16 w-16">
+                <AvatarImage src={selectedUser?.avatar || ''} alt={selectedUser?.name} />
+                <AvatarFallback className="text-lg bg-primary/10 text-primary">
+                  {selectedUser?.name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <div>
+                <DialogTitle data-testid="text-dialog-details-title">
+                  {selectedUser?.name}
+                </DialogTitle>
+                <DialogDescription data-testid="text-dialog-details-description">
+                  {selectedUser?.party?.abbreviation || 'Sem partido'} | {selectedUser?.party?.ideology || 'Não informado'} | {selectedUser?.politicalPosition || selectedUser?.role}
+                </DialogDescription>
+              </div>
+            </div>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
