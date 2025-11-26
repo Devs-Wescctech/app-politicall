@@ -1168,6 +1168,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Impersonate user (admin master enters as another admin without password)
+  app.post("/api/admin/users/:id/impersonate", authenticateAdminToken, async (req: AuthRequest, res) => {
+    try {
+      const { id } = req.params;
+      
+      // Get target user
+      const user = await storage.getUser(id);
+      if (!user) {
+        return res.status(404).json({ error: "Usuário não encontrado" });
+      }
+      
+      // Only allow impersonating admin users (gabinete admins)
+      if (user.role !== "admin") {
+        return res.status(400).json({ error: "Só é possível entrar em contas de administradores de gabinete" });
+      }
+      
+      // Generate JWT token for the target user
+      const token = jwt.sign({ 
+        userId: user.id, 
+        accountId: user.accountId,
+        role: user.role 
+      }, JWT_SECRET, { expiresIn: "30d" });
+      
+      const { password, ...sanitizedUser } = user;
+      
+      res.json({
+        token,
+        user: sanitizedUser,
+      });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
   // ==================== USER MANAGEMENT (Admin Only) ====================
   
   // Get user activity ranking with period filter

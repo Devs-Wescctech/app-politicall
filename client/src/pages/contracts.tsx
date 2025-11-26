@@ -33,7 +33,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { UserPlus, ArrowLeft, Mail, Lock, User as UserIcon, MoreVertical, Phone, Pencil, Trash2, Inbox } from "lucide-react";
+import { UserPlus, ArrowLeft, Mail, Lock, User as UserIcon, MoreVertical, Phone, Pencil, Trash2, Inbox, LogIn } from "lucide-react";
+import { setAuthToken, setAuthUser } from "@/lib/auth";
 import { Checkbox } from "@/components/ui/checkbox";
 import { FaWhatsapp } from "react-icons/fa";
 import logoUrl from "@assets/logo pol_1763308638963.png";
@@ -405,6 +406,37 @@ export default function ContractsPage() {
     }
   };
 
+  const handleImpersonate = async (userId: string) => {
+    try {
+      const adminToken = localStorage.getItem("admin_token");
+      const response = await fetch(`/api/admin/users/${userId}/impersonate`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${adminToken}`,
+          "Content-Type": "application/json",
+        },
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Erro ao entrar na conta");
+      }
+      
+      const result = await response.json();
+      
+      setAuthToken(result.token);
+      setAuthUser(result.user);
+      
+      window.location.href = "/dashboard";
+    } catch (error: any) {
+      toast({
+        title: "Erro ao entrar na conta",
+        description: error.message || "Não foi possível acessar a conta.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleLogout = () => {
     localStorage.removeItem("admin_token");
     setLocation("/admin-login");
@@ -679,6 +711,15 @@ export default function ContractsPage() {
               </>
             ) : (
               <>
+                <Button
+                  variant="default"
+                  onClick={() => selectedUser && handleImpersonate(selectedUser.id)}
+                  className="flex-1"
+                  data-testid="button-impersonate-user"
+                >
+                  <LogIn className="w-4 h-4 mr-2" />
+                  Entrar
+                </Button>
                 <Button
                   variant="outline"
                   onClick={handleEditUser}
