@@ -3494,15 +3494,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 continue;
               }
               
-              // Reply to comment via Facebook Graph API
+              // Reply to comment via Facebook Graph API (usando /replies com form-urlencoded)
               const replyResponse = await fetch(
-                `https://graph.facebook.com/v21.0/${commentId}/comments?access_token=${accessToken}`,
+                `https://graph.facebook.com/v21.0/${commentId}/replies?access_token=${accessToken}`,
                 {
                   method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
+                  headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                  body: new URLSearchParams({
                     message: aiResponse
-                  })
+                  }).toString()
                 }
               );
               
