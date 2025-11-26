@@ -113,6 +113,12 @@ export default function ContractsPage() {
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const [statusFilter, setStatusFilter] = useState<"all" | "pago" | "atrasado">("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [visibleCount, setVisibleCount] = useState(12);
+
+  // Reset visible count when filters change
+  useEffect(() => {
+    setVisibleCount(12);
+  }, [statusFilter, searchQuery]);
 
   // Verify admin token on mount
   useEffect(() => {
@@ -623,7 +629,12 @@ export default function ContractsPage() {
                   );
                 }
                 
-                return filteredUsers.map((user) => {
+                const visibleUsers = filteredUsers.slice(0, visibleCount);
+                const remainingCount = filteredUsers.length - visibleCount;
+                
+                return (
+                  <>
+                    {visibleUsers.map((user) => {
                 const status = calculatePaymentStatus(user);
                 const isPaid = status === "pago";
                 const isOverdue = status === "atrasado";
@@ -690,7 +701,21 @@ export default function ContractsPage() {
                   </CardContent>
                 </Card>
                 );
-                });
+                })}
+                    
+                    {remainingCount > 0 && (
+                      <div className="col-span-full flex justify-center pt-4">
+                        <Button
+                          variant="outline"
+                          onClick={() => setVisibleCount(prev => prev + 12)}
+                          data-testid="button-show-more"
+                        >
+                          Mostrar mais ({remainingCount} restantes)
+                        </Button>
+                      </div>
+                    )}
+                  </>
+                );
               })()
             )}
           </div>
