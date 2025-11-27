@@ -633,7 +633,7 @@ export default function Admin() {
   const getStageBadge = (campaignStage: string) => {
     switch (campaignStage) {
       case "aguardando":
-        return <Badge variant="secondary" className="bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100">Aguardando</Badge>;
+        return <span className="text-xs font-medium text-muted-foreground">Aguardando</span>;
       case "aprovado":
         return <Badge className="bg-[#40E0D0] text-white">Aprovado</Badge>;
       case "em_producao":
