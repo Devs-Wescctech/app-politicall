@@ -4232,6 +4232,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Don't expose sensitive data (tokens, clientSecret)
+      const isConfigured = !!integration.clientId && !!integration.clientSecret;
+      const isAuthorized = !!integration.accessToken;
+      
       const safeIntegration = {
         id: integration.id,
         accountId: integration.accountId,
@@ -4244,8 +4247,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         syncDirection: integration.syncDirection,
         autoCreateMeet: integration.autoCreateMeet,
         syncReminders: integration.syncReminders,
-        configured: !!integration.clientId && !!integration.clientSecret,
-        authorized: !!integration.accessToken,
+        configured: isConfigured,
+        authorized: isAuthorized,
+        isConfigured: isConfigured,
+        isAuthorized: isAuthorized,
         createdAt: integration.createdAt,
         updatedAt: integration.updatedAt
       };
