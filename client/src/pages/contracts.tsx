@@ -1054,7 +1054,7 @@ export default function ContractsPage() {
                     disabled={!isEditingUser}
                     data-testid="checkbox-module-marketing"
                   />
-                  <label htmlFor="module-marketing" className={`text-sm ${!isEditingUser ? 'text-muted-foreground' : ''}`}>Pesquisa</label>
+                  <label htmlFor="module-marketing" className={`text-sm ${!isEditingUser ? 'text-muted-foreground' : ''}`}>Pesquisas</label>
                 </div>
                 <div className="flex items-center space-x-2">
                   <Checkbox
