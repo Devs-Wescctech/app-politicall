@@ -1032,6 +1032,18 @@ export default function ContractsPage() {
                     Marketing
                   </label>
                 </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="module-petitions"
+                    checked={editPermissions.petitions}
+                    onCheckedChange={(checked) => setEditPermissions(prev => ({ ...prev, petitions: checked === true }))}
+                    disabled={!isEditingUser}
+                    data-testid="checkbox-module-petitions"
+                  />
+                  <label htmlFor="module-petitions" className={`text-sm ${!isEditingUser ? 'text-muted-foreground' : ''}`}>
+                    Petições
+                  </label>
+                </div>
               </div>
             </div>
           </div>
