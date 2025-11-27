@@ -2158,6 +2158,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Toggle automation for platforms
+  app.patch("/api/ai-config/automation", authenticateToken, requirePermission("ai"), async (req: AuthRequest, res) => {
+    try {
+      const { platform, enabled } = req.body;
+      
+      if (!platform || !['facebook', 'instagram'].includes(platform)) {
+        return res.status(400).json({ error: "Plataforma inválida" });
+      }
+
+      const updateData: any = {
+        userId: req.userId!,
+        accountId: req.accountId!,
+      };
+
+      if (platform === 'facebook') {
+        updateData.facebookAutomationEnabled = enabled;
+      } else if (platform === 'instagram') {
+        updateData.instagramAutomationEnabled = enabled;
+      }
+
+      const config = await storage.upsertAiConfig(updateData);
+      res.json(config);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
   // OpenAI API Key Management
   app.post("/api/ai-config/openai-key", authenticateToken, requirePermission("ai"), async (req: AuthRequest, res) => {
     try {
@@ -3267,6 +3294,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
               
               console.log('✅ Configuração encontrada para account:', config.accountId);
               
+              // Check if Instagram automation is enabled
+              if (!config.instagramAutomationEnabled) {
+                console.log('⏸️ Automação Instagram desativada para account:', config.accountId);
+                continue;
+              }
+              
+              console.log('✅ Automação Instagram ativada');
+              
               // Generate AI response
               const aiResponse = await generateAiResponse(
                 messageText,
@@ -3382,6 +3417,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
               
               console.log('✅ Configuração encontrada para account:', config.accountId);
+              
+              // Check if Instagram automation is enabled
+              if (!config.instagramAutomationEnabled) {
+                console.log('⏸️ Automação Instagram desativada para account:', config.accountId);
+                continue;
+              }
+              
+              console.log('✅ Automação Instagram ativada para comentários');
               
               // Generate AI response for the comment
               const aiResponse = await generateAiResponse(
@@ -3540,6 +3583,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
               
               console.log('✅ Configuração encontrada para account:', config.accountId);
               
+              // Check if Facebook automation is enabled
+              if (!config.facebookAutomationEnabled) {
+                console.log('⏸️ Automação Facebook desativada para account:', config.accountId);
+                continue;
+              }
+              
+              console.log('✅ Automação Facebook ativada');
+              
               // Generate AI response
               const aiResponse = await generateAiResponse(
                 messageText,
@@ -3695,6 +3746,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
               
               console.log('✅ Configuração encontrada para account:', config.accountId);
+              
+              // Check if Facebook automation is enabled
+              if (!config.facebookAutomationEnabled) {
+                console.log('⏸️ Automação Facebook desativada para account:', config.accountId);
+                continue;
+              }
+              
+              console.log('✅ Automação Facebook ativada para comentários');
               
               // Generate AI response for the comment
               const aiResponse = await generateAiResponse(

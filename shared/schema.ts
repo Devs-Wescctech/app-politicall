@@ -340,6 +340,7 @@ export const aiConfigurations = pgTable("ai_configurations", {
   facebookPageId: text("facebook_page_id"),
   facebookWebhookVerifyToken: text("facebook_webhook_verify_token"),
   facebookPageName: text("facebook_page_name"),
+  facebookAutomationEnabled: boolean("facebook_automation_enabled").default(false),
   // Instagram complete integration  
   instagramAppId: text("instagram_app_id"),
   instagramAppSecret: text("instagram_app_secret"),
@@ -348,6 +349,7 @@ export const aiConfigurations = pgTable("ai_configurations", {
   instagramFacebookPageId: text("instagram_facebook_page_id"),
   instagramUsername: text("instagram_username"),
   instagramWebhookVerifyToken: text("instagram_webhook_verify_token"),
+  instagramAutomationEnabled: boolean("instagram_automation_enabled").default(false),
   // Twitter/X complete integration
   twitterApiKey: text("twitter_api_key"),
   twitterApiSecretKey: text("twitter_api_secret_key"),

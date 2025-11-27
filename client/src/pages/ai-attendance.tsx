@@ -254,6 +254,26 @@ export default function AiAttendance() {
     },
   });
 
+  // Toggle automation mutation
+  const toggleAutomationMutation = useMutation({
+    mutationFn: (data: { platform: string; enabled: boolean }) => 
+      apiRequest("PATCH", "/api/ai-config/automation", data),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/ai-config"] });
+      toast({ 
+        title: variables.enabled 
+          ? `Automação ${variables.platform === 'facebook' ? 'Facebook' : 'Instagram'} ativada` 
+          : `Automação ${variables.platform === 'facebook' ? 'Facebook' : 'Instagram'} desativada`
+      });
+    },
+    onError: () => {
+      toast({ 
+        title: "Erro ao alterar automação", 
+        variant: "destructive" 
+      });
+    },
+  });
+
   // Test API Status Mutation
   const testApiStatusMutation = useMutation({
     mutationFn: async () => {
@@ -463,6 +483,9 @@ export default function AiAttendance() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               {PLATFORMS.map((platform) => {
                 const connected = isConnected(platform.id);
+                const automationEnabled = platform.id === 'facebook' 
+                  ? config?.facebookAutomationEnabled 
+                  : config?.instagramAutomationEnabled;
                 return (
                   <Card key={platform.id} data-testid={`platform-${platform.id}`}>
                     <CardHeader className="pb-3">
@@ -475,8 +498,26 @@ export default function AiAttendance() {
                         )}
                       </div>
                     </CardHeader>
-                    <CardContent>
-                      <h3 className="text-sm font-semibold mb-2 text-center">{platform.name}</h3>
+                    <CardContent className="space-y-3">
+                      <h3 className="text-sm font-semibold text-center">{platform.name}</h3>
+                      
+                      {connected && (
+                        <div className="flex items-center justify-between p-2 bg-muted/50 rounded-lg">
+                          <span className="text-xs text-muted-foreground">Automação</span>
+                          <Switch
+                            checked={automationEnabled ?? false}
+                            onCheckedChange={(checked) => {
+                              toggleAutomationMutation.mutate({
+                                platform: platform.id,
+                                enabled: checked
+                              });
+                            }}
+                            disabled={toggleAutomationMutation.isPending}
+                            data-testid={`switch-automation-${platform.id}`}
+                          />
+                        </div>
+                      )}
+                      
                       <Button
                         onClick={() => setSelectedPlatform(platform.id)}
                         size="sm"
