@@ -1164,6 +1164,17 @@ export default function Settings() {
                         data-testid="switch-sync-reminders"
                       />
                     </div>
+
+                    <Button 
+                      type="button"
+                      variant="outline"
+                      className="w-full rounded-full mt-4"
+                      disabled={saveGoogleCalendarMutation.isPending}
+                      onClick={() => saveGoogleCalendarMutation.mutate(googleCalendarForm.getValues())}
+                      data-testid="button-save-google-preferences"
+                    >
+                      {saveGoogleCalendarMutation.isPending ? "Salvando..." : "Salvar Preferências"}
+                    </Button>
                   </Form>
                 </CardContent>
               </Card>
