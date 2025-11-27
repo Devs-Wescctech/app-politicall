@@ -25,7 +25,7 @@ import {
   Building2, Wrench, Bus, Shield, Siren, Landmark, Vote,
   Flag, Home, Droplet, Construction, Hospital, Building,
   School, University, Baby as BabyIcon, Smile, Drum, Cake,
-  Calendar as CalendarIcon, Star, Mic2, ShoppingCart, Download, FileText, Sheet, MoreVertical, QrCode, Share2, UserCircle2, TrendingUp, MapPin, Info, Lock
+  Calendar as CalendarIcon, Star, Mic2, ShoppingCart, Download, FileText, Sheet, MoreVertical, QrCode, Share2, UserCircle2, TrendingUp, MapPin, Info, Lock, Upload, FileSpreadsheet, AlertCircle, CheckCircle2
 } from "lucide-react";
 import { SiWhatsapp, SiFacebook, SiX } from "react-icons/si";
 import { useToast } from "@/hooks/use-toast";
@@ -273,6 +273,15 @@ export default function Contacts() {
   const [isValidatingPassword, setIsValidatingPassword] = useState(false);
   const [pendingExportType, setPendingExportType] = useState<"pdf" | "excel" | "profile-pdf" | "profile-excel" | "copy-whatsapp" | "bulk-email" | null>(null);
   
+  // Import contacts
+  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importPreview, setImportPreview] = useState<any[]>([]);
+  const [importErrors, setImportErrors] = useState<string[]>([]);
+  const [isImporting, setIsImporting] = useState(false);
+  const [importProgress, setImportProgress] = useState(0);
+  const [importResult, setImportResult] = useState<{ success: number; errors: number } | null>(null);
+  
   const { toast } = useToast();
 
   const { data: contacts, isLoading } = useQuery<Contact[]>({
@@ -502,6 +511,210 @@ export default function Contacts() {
     setPendingExportType(type);
     setExportPassword("");
     setIsPasswordDialogOpen(true);
+  };
+
+  // Import contacts functions
+  const handleFileUpload = async (file: File) => {
+    setImportFile(file);
+    setImportErrors([]);
+    setImportPreview([]);
+    setImportResult(null);
+    
+    try {
+      const fileExtension = file.name.split('.').pop()?.toLowerCase();
+      let data: any[] = [];
+      
+      if (fileExtension === 'xlsx' || fileExtension === 'xls') {
+        const buffer = await file.arrayBuffer();
+        const workbook = XLSX.read(buffer, { type: 'buffer' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        data = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+      } else if (fileExtension === 'csv') {
+        const text = await file.text();
+        const lines = text.split('\n').filter(line => line.trim());
+        data = lines.map(line => {
+          const values: string[] = [];
+          let current = '';
+          let inQuotes = false;
+          for (let i = 0; i < line.length; i++) {
+            const char = line[i];
+            if (char === '"') {
+              inQuotes = !inQuotes;
+            } else if ((char === ',' || char === ';') && !inQuotes) {
+              values.push(current.trim());
+              current = '';
+            } else {
+              current += char;
+            }
+          }
+          values.push(current.trim());
+          return values;
+        });
+      } else {
+        setImportErrors(['Formato de arquivo não suportado. Use .xlsx, .xls ou .csv']);
+        return;
+      }
+      
+      if (data.length < 2) {
+        setImportErrors(['O arquivo precisa ter pelo menos um cabeçalho e uma linha de dados']);
+        return;
+      }
+      
+      const headers = (data[0] as string[]).map(h => String(h || '').toLowerCase().trim());
+      const rows = data.slice(1);
+      
+      // Mapeamento flexível de colunas
+      const columnMapping: Record<string, string[]> = {
+        name: ['nome', 'name', 'nome completo', 'full name', 'contato', 'contact'],
+        email: ['email', 'e-mail', 'correio', 'mail'],
+        phone: ['telefone', 'phone', 'celular', 'mobile', 'whatsapp', 'tel', 'fone'],
+        age: ['idade', 'age', 'anos'],
+        gender: ['genero', 'gênero', 'gender', 'sexo', 'sex'],
+        state: ['estado', 'state', 'uf'],
+        city: ['cidade', 'city', 'municipio', 'município'],
+        interests: ['interesses', 'interests', 'interesse', 'interest'],
+        source: ['fonte', 'source', 'origem', 'origin'],
+        notes: ['notas', 'notes', 'observações', 'observacoes', 'obs', 'observations'],
+      };
+      
+      const findColumnIndex = (fieldAliases: string[]): number => {
+        for (const alias of fieldAliases) {
+          const idx = headers.findIndex(h => h.includes(alias));
+          if (idx !== -1) return idx;
+        }
+        return -1;
+      };
+      
+      const columnIndices: Record<string, number> = {};
+      for (const [field, aliases] of Object.entries(columnMapping)) {
+        columnIndices[field] = findColumnIndex(aliases);
+      }
+      
+      if (columnIndices.name === -1) {
+        setImportErrors(['Coluna "Nome" não encontrada. O arquivo deve ter uma coluna com o nome dos contatos.']);
+        return;
+      }
+      
+      const parsedContacts: any[] = [];
+      const errors: string[] = [];
+      
+      rows.forEach((row: any, index: number) => {
+        const rowArray = Array.isArray(row) ? row : Object.values(row);
+        const getValue = (colIndex: number): string => {
+          if (colIndex === -1) return '';
+          const val = rowArray[colIndex];
+          return val !== undefined && val !== null ? String(val).trim() : '';
+        };
+        
+        const name = getValue(columnIndices.name);
+        if (!name) {
+          errors.push(`Linha ${index + 2}: Nome vazio, ignorado`);
+          return;
+        }
+        
+        const contact: any = {
+          name: formatName(name),
+          email: getValue(columnIndices.email) || null,
+          phone: getValue(columnIndices.phone) || null,
+          state: getValue(columnIndices.state) || null,
+          city: getValue(columnIndices.city) ? capitalizeWords(getValue(columnIndices.city)) : null,
+          notes: getValue(columnIndices.notes) || null,
+          source: getValue(columnIndices.source) || 'Importação',
+        };
+        
+        // Parse age
+        const ageStr = getValue(columnIndices.age);
+        if (ageStr) {
+          const age = parseInt(ageStr, 10);
+          if (!isNaN(age) && age > 0 && age < 150) {
+            contact.age = age;
+          }
+        }
+        
+        // Parse gender
+        const genderStr = getValue(columnIndices.gender).toLowerCase();
+        if (genderStr) {
+          if (genderStr.includes('masc') || genderStr === 'm' || genderStr === 'male') {
+            contact.gender = 'Masculino';
+          } else if (genderStr.includes('fem') || genderStr === 'f' || genderStr === 'female') {
+            contact.gender = 'Feminino';
+          } else if (genderStr.includes('não') || genderStr.includes('nao') || genderStr.includes('nb') || genderStr.includes('non')) {
+            contact.gender = 'Não-binário';
+          } else if (genderStr.includes('outro') || genderStr.includes('other')) {
+            contact.gender = 'Outro';
+          } else if (genderStr.includes('prefer')) {
+            contact.gender = 'Prefiro não responder';
+          }
+        }
+        
+        // Parse interests
+        const interestsStr = getValue(columnIndices.interests);
+        if (interestsStr) {
+          const interestsList = interestsStr.split(/[,;|]/).map(i => i.trim()).filter(i => i);
+          const validInterests = interestsList.filter(i => 
+            CONTACT_INTERESTS.some(ci => ci.toLowerCase() === i.toLowerCase())
+          );
+          if (validInterests.length > 0) {
+            contact.interests = validInterests.map(i => 
+              CONTACT_INTERESTS.find(ci => ci.toLowerCase() === i.toLowerCase()) || i
+            );
+          }
+        }
+        
+        parsedContacts.push(contact);
+      });
+      
+      setImportPreview(parsedContacts);
+      setImportErrors(errors);
+      
+      if (parsedContacts.length === 0) {
+        setImportErrors(['Nenhum contato válido encontrado no arquivo']);
+      }
+    } catch (error) {
+      console.error('Erro ao processar arquivo:', error);
+      setImportErrors(['Erro ao processar o arquivo. Verifique se o formato está correto.']);
+    }
+  };
+
+  const executeImport = async () => {
+    if (importPreview.length === 0) return;
+    
+    setIsImporting(true);
+    setImportProgress(0);
+    let successCount = 0;
+    let errorCount = 0;
+    
+    for (let i = 0; i < importPreview.length; i++) {
+      try {
+        await apiRequest("POST", "/api/contacts", importPreview[i]);
+        successCount++;
+      } catch (error) {
+        errorCount++;
+      }
+      setImportProgress(Math.round(((i + 1) / importPreview.length) * 100));
+    }
+    
+    setIsImporting(false);
+    setImportResult({ success: successCount, errors: errorCount });
+    queryClient.invalidateQueries({ queryKey: ["/api/contacts"] });
+    
+    if (successCount > 0) {
+      toast({ 
+        title: "Importação concluída!", 
+        description: `${successCount} contato(s) importado(s) com sucesso${errorCount > 0 ? `, ${errorCount} erro(s)` : ''}`
+      });
+    } else {
+      toast({ title: "Erro na importação", variant: "destructive" });
+    }
+  };
+
+  const resetImport = () => {
+    setImportFile(null);
+    setImportPreview([]);
+    setImportErrors([]);
+    setImportResult(null);
+    setImportProgress(0);
   };
 
   const validatePasswordAndExport = async () => {
@@ -1566,6 +1779,221 @@ export default function Contacts() {
                   </Card>
                 </div>
               </div>
+            </DialogContent>
+          </Dialog>
+          <Button 
+            variant="outline"
+            size="icon"
+            onClick={() => {
+              resetImport();
+              setIsImportDialogOpen(true);
+            }}
+            data-testid="button-import"
+            title="Importar lista de contatos"
+          >
+            <Upload className="w-4 h-4" />
+          </Button>
+          <Dialog open={isImportDialogOpen} onOpenChange={(open) => {
+            setIsImportDialogOpen(open);
+            if (!open) resetImport();
+          }}>
+            <DialogContent className="max-w-lg max-h-[90vh] flex flex-col p-0" aria-describedby="import-dialog-description">
+              <DialogHeader className="px-5 pt-5 pb-3 border-b">
+                <DialogTitle className="text-xl font-bold">Importar Contatos</DialogTitle>
+                <p id="import-dialog-description" className="text-xs text-muted-foreground mt-1">
+                  Importe uma lista de contatos de qualquer formato (.xlsx, .xls, .csv)
+                </p>
+              </DialogHeader>
+              <div className="flex-1 overflow-y-auto p-4">
+                {!importFile && !importResult && (
+                  <div className="space-y-4">
+                    <div 
+                      className="border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-all hover:border-primary hover:bg-muted/30"
+                      onClick={() => document.getElementById('import-file-input')?.click()}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        e.currentTarget.classList.add('border-primary', 'bg-muted/30');
+                      }}
+                      onDragLeave={(e) => {
+                        e.currentTarget.classList.remove('border-primary', 'bg-muted/30');
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        e.currentTarget.classList.remove('border-primary', 'bg-muted/30');
+                        const file = e.dataTransfer.files[0];
+                        if (file) handleFileUpload(file);
+                      }}
+                    >
+                      <FileSpreadsheet className="w-12 h-12 mx-auto mb-3 text-muted-foreground" />
+                      <p className="text-sm font-medium mb-1">Arraste e solte ou clique para selecionar</p>
+                      <p className="text-xs text-muted-foreground">Formatos aceitos: .xlsx, .xls, .csv</p>
+                    </div>
+                    <input
+                      id="import-file-input"
+                      type="file"
+                      accept=".xlsx,.xls,.csv"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleFileUpload(file);
+                      }}
+                      data-testid="input-import-file"
+                    />
+                    <div className="bg-muted/30 rounded-lg p-3 space-y-2">
+                      <h4 className="text-sm font-medium flex items-center gap-2">
+                        <Info className="w-4 h-4 text-primary" />
+                        Dicas para importação
+                      </h4>
+                      <ul className="text-xs text-muted-foreground space-y-1 ml-6 list-disc">
+                        <li>O arquivo deve ter uma coluna "Nome" ou similar</li>
+                        <li>Colunas reconhecidas: Nome, Email, Telefone, Idade, Gênero, Estado, Cidade, Interesses, Fonte, Notas</li>
+                        <li>Colunas não reconhecidas serão ignoradas</li>
+                        <li>Formatos de telefone e gênero são normalizados automaticamente</li>
+                      </ul>
+                    </div>
+                  </div>
+                )}
+
+                {importFile && !importResult && (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
+                      <FileSpreadsheet className="w-8 h-8 text-green-600 dark:text-green-400" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{importFile.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {(importFile.size / 1024).toFixed(1)} KB
+                        </p>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={resetImport}
+                        data-testid="button-remove-import-file"
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+
+                    {importErrors.length > 0 && (
+                      <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg p-3">
+                        <div className="flex items-center gap-2 mb-2">
+                          <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-400" />
+                          <span className="text-sm font-medium text-red-800 dark:text-red-200">
+                            {importPreview.length === 0 ? 'Erro' : 'Avisos'}
+                          </span>
+                        </div>
+                        <ul className="text-xs text-red-700 dark:text-red-300 space-y-0.5 max-h-24 overflow-y-auto">
+                          {importErrors.slice(0, 10).map((err, i) => (
+                            <li key={i}>{err}</li>
+                          ))}
+                          {importErrors.length > 10 && (
+                            <li>... e mais {importErrors.length - 10} avisos</li>
+                          )}
+                        </ul>
+                      </div>
+                    )}
+
+                    {importPreview.length > 0 && (
+                      <>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium flex items-center gap-2">
+                            <CheckCircle2 className="w-4 h-4 text-green-600" />
+                            {importPreview.length} contato(s) prontos para importar
+                          </span>
+                        </div>
+                        
+                        <div className="border rounded-lg overflow-hidden">
+                          <div className="max-h-48 overflow-y-auto">
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead className="text-xs">Nome</TableHead>
+                                  <TableHead className="text-xs">Email</TableHead>
+                                  <TableHead className="text-xs">Telefone</TableHead>
+                                  <TableHead className="text-xs">Cidade</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {importPreview.slice(0, 10).map((contact, i) => (
+                                  <TableRow key={i}>
+                                    <TableCell className="text-xs py-2">{contact.name}</TableCell>
+                                    <TableCell className="text-xs py-2">{contact.email || '-'}</TableCell>
+                                    <TableCell className="text-xs py-2">{contact.phone || '-'}</TableCell>
+                                    <TableCell className="text-xs py-2">{contact.city || '-'}</TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </div>
+                          {importPreview.length > 10 && (
+                            <div className="text-center py-2 text-xs text-muted-foreground bg-muted/30 border-t">
+                              ... e mais {importPreview.length - 10} contatos
+                            </div>
+                          )}
+                        </div>
+
+                        {isImporting && (
+                          <div className="space-y-2">
+                            <Progress value={importProgress} />
+                            <p className="text-xs text-center text-muted-foreground">
+                              Importando... {importProgress}%
+                            </p>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {importResult && (
+                  <div className="space-y-4 text-center py-6">
+                    <div className={`w-16 h-16 mx-auto rounded-full flex items-center justify-center ${
+                      importResult.errors === 0 ? 'bg-green-100 dark:bg-green-900/30' : 'bg-yellow-100 dark:bg-yellow-900/30'
+                    }`}>
+                      <CheckCircle2 className={`w-8 h-8 ${
+                        importResult.errors === 0 ? 'text-green-600 dark:text-green-400' : 'text-yellow-600 dark:text-yellow-400'
+                      }`} />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold">Importação Concluída!</h3>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {importResult.success} contato(s) importado(s) com sucesso
+                        {importResult.errors > 0 && `, ${importResult.errors} erro(s)`}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+              <DialogFooter className="px-4 py-3 border-t flex gap-2">
+                {importResult ? (
+                  <Button
+                    onClick={() => setIsImportDialogOpen(false)}
+                    className="flex-1"
+                    data-testid="button-close-import"
+                  >
+                    Fechar
+                  </Button>
+                ) : (
+                  <>
+                    <Button
+                      variant="outline"
+                      onClick={() => setIsImportDialogOpen(false)}
+                      className="flex-1"
+                      data-testid="button-cancel-import"
+                    >
+                      Cancelar
+                    </Button>
+                    <Button
+                      onClick={executeImport}
+                      disabled={importPreview.length === 0 || isImporting}
+                      className="flex-1"
+                      data-testid="button-confirm-import"
+                    >
+                      {isImporting ? 'Importando...' : `Importar ${importPreview.length} contato(s)`}
+                    </Button>
+                  </>
+                )}
+              </DialogFooter>
             </DialogContent>
           </Dialog>
           <Dialog open={isDialogOpen} onOpenChange={(open) => {
