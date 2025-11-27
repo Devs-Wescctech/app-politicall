@@ -4244,8 +4244,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         syncDirection: integration.syncDirection,
         autoCreateMeet: integration.autoCreateMeet,
         syncReminders: integration.syncReminders,
-        isConfigured: !!integration.clientId && !!integration.clientSecret,
-        isAuthorized: !!integration.accessToken,
+        configured: !!integration.clientId && !!integration.clientSecret,
+        authorized: !!integration.accessToken,
         createdAt: integration.createdAt,
         updatedAt: integration.updatedAt
       };
@@ -4453,14 +4453,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Sync logic based on direction
       const syncDirection = integration.syncDirection || 'both';
-      let syncedEvents = 0;
+      let importedEvents = 0;
+      let exportedEvents = 0;
+      
+      // Get existing local events for mapping
+      const existingEvents = await storage.getEvents(req.accountId!);
+      const googleEventIds = new Set(existingEvents.filter(e => e.googleEventId).map(e => e.googleEventId));
       
       if (syncDirection === 'from_google' || syncDirection === 'both') {
-        // Fetch events from Google Calendar
+        // Fetch events from Google Calendar (next 3 months)
+        const threeMonthsFromNow = new Date();
+        threeMonthsFromNow.setMonth(threeMonthsFromNow.getMonth() + 3);
+        
         const response = await calendar.events.list({
           calendarId: integration.calendarId || 'primary',
           timeMin: new Date().toISOString(),
-          maxResults: 100,
+          timeMax: threeMonthsFromNow.toISOString(),
+          maxResults: 250,
           singleEvents: true,
           orderBy: 'startTime'
         });
@@ -4469,37 +4478,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         // Import Google events to our system
         for (const googleEvent of googleEvents) {
-          if (googleEvent.start?.dateTime && googleEvent.summary) {
-            // Check if event already exists (you might want to implement a mapping table)
-            // For now, we'll just count them
-            syncedEvents++;
-            
-            // TODO: Actually create/update events in our database
-            // await storage.createEvent({...})
-          }
+          if (!googleEvent.id || !googleEvent.summary) continue;
+          
+          // Skip if already imported
+          if (googleEventIds.has(googleEvent.id)) continue;
+          
+          // Parse start and end dates
+          const startDate = googleEvent.start?.dateTime 
+            ? new Date(googleEvent.start.dateTime) 
+            : googleEvent.start?.date 
+              ? new Date(googleEvent.start.date) 
+              : null;
+          
+          const endDate = googleEvent.end?.dateTime 
+            ? new Date(googleEvent.end.dateTime) 
+            : googleEvent.end?.date 
+              ? new Date(googleEvent.end.date) 
+              : null;
+          
+          if (!startDate || !endDate) continue;
+          
+          // Create event in our system
+          await storage.createEvent({
+            accountId: req.accountId!,
+            userId: req.userId!,
+            title: googleEvent.summary,
+            description: googleEvent.description || null,
+            startDate,
+            endDate,
+            location: googleEvent.location || null,
+            category: 'event',
+            googleEventId: googleEvent.id,
+            reminder: false,
+          });
+          
+          importedEvents++;
         }
       }
       
       if (syncDirection === 'to_google' || syncDirection === 'both') {
-        // Get local events to sync to Google
-        const localEvents = await storage.getEvents(req.accountId!);
+        // Get local events that don't have googleEventId (not yet synced to Google)
+        const localEventsToSync = existingEvents.filter(e => !e.googleEventId);
         
-        for (const localEvent of localEvents) {
-          // TODO: Check if event already exists in Google
-          // For now, we'll just count them
-          syncedEvents++;
-          
-          // Create event in Google Calendar
-          // const event = {
-          //   summary: localEvent.title,
-          //   description: localEvent.description,
-          //   start: { dateTime: localEvent.startDate },
-          //   end: { dateTime: localEvent.endDate },
-          // };
-          // await calendar.events.insert({
-          //   calendarId: integration.calendarId || 'primary',
-          //   resource: event
-          // });
+        for (const localEvent of localEventsToSync) {
+          try {
+            // Create event in Google Calendar
+            const googleEvent = await calendar.events.insert({
+              calendarId: integration.calendarId || 'primary',
+              requestBody: {
+                summary: localEvent.title,
+                description: localEvent.description || undefined,
+                location: localEvent.location || undefined,
+                start: { 
+                  dateTime: new Date(localEvent.startDate).toISOString(),
+                  timeZone: 'America/Sao_Paulo'
+                },
+                end: { 
+                  dateTime: new Date(localEvent.endDate).toISOString(),
+                  timeZone: 'America/Sao_Paulo'
+                },
+              }
+            });
+            
+            // Update local event with Google Event ID
+            if (googleEvent.data.id) {
+              await storage.updateEvent(localEvent.id, req.accountId!, {
+                googleEventId: googleEvent.data.id
+              });
+              exportedEvents++;
+            }
+          } catch (insertError) {
+            console.error('Error syncing event to Google:', insertError);
+          }
         }
       }
       
@@ -4511,10 +4561,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         accountId: req.accountId!
       });
       
+      const totalSynced = importedEvents + exportedEvents;
+      let message = 'Sincronização concluída. ';
+      if (importedEvents > 0) message += `${importedEvents} eventos importados do Google. `;
+      if (exportedEvents > 0) message += `${exportedEvents} eventos exportados para o Google. `;
+      if (totalSynced === 0) message += 'Nenhum evento novo para sincronizar.';
+      
       res.json({ 
         success: true, 
-        message: `Sincronização concluída. ${syncedEvents} eventos processados.`,
-        syncedEvents,
+        message: message.trim(),
+        importedEvents,
+        exportedEvents,
+        synced: totalSynced,
         lastSyncAt: new Date()
       });
     } catch (error: any) {
