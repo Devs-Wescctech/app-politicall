@@ -119,6 +119,20 @@ export default function ContractsPage() {
   const [confirmAdminPassword, setConfirmAdminPassword] = useState("");
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  
+  // Module permissions state
+  const [editPermissions, setEditPermissions] = useState({
+    dashboard: true,
+    contacts: true,
+    alliances: true,
+    demands: true,
+    agenda: true,
+    ai: true,
+    marketing: true,
+    petitions: true,
+    users: true,
+    settings: true,
+  });
 
   // Reset visible count when filters change
   useEffect(() => {
@@ -259,6 +273,19 @@ export default function ContractsPage() {
     setEditPlanValue(user.planValue || "");
     setEditExpiryDate(user.expiryDate || "");
     setEditWhatsapp(user.whatsapp || "");
+    // Initialize permissions from user data
+    setEditPermissions({
+      dashboard: user.permissions?.dashboard ?? true,
+      contacts: user.permissions?.contacts ?? true,
+      alliances: user.permissions?.alliances ?? true,
+      demands: user.permissions?.demands ?? true,
+      agenda: user.permissions?.agenda ?? true,
+      ai: user.permissions?.ai ?? true,
+      marketing: user.permissions?.marketing ?? true,
+      petitions: user.permissions?.petitions ?? true,
+      users: user.permissions?.users ?? true,
+      settings: user.permissions?.settings ?? true,
+    });
   };
 
   const handleEditUser = () => {
@@ -272,11 +299,41 @@ export default function ContractsPage() {
       setEditPlanValue(selectedUser.planValue || "");
       setEditExpiryDate(selectedUser.expiryDate || "");
       setEditWhatsapp(selectedUser.whatsapp || "");
+      // Reset permissions to original values
+      setEditPermissions({
+        dashboard: selectedUser.permissions?.dashboard ?? true,
+        contacts: selectedUser.permissions?.contacts ?? true,
+        alliances: selectedUser.permissions?.alliances ?? true,
+        demands: selectedUser.permissions?.demands ?? true,
+        agenda: selectedUser.permissions?.agenda ?? true,
+        ai: selectedUser.permissions?.ai ?? true,
+        marketing: selectedUser.permissions?.marketing ?? true,
+        petitions: selectedUser.permissions?.petitions ?? true,
+        users: selectedUser.permissions?.users ?? true,
+        settings: selectedUser.permissions?.settings ?? true,
+      });
     }
   };
 
   const updateContractMutation = useMutation({
-    mutationFn: async (data: { userId: string; whatsapp: string; planValue: string; expiryDate: string }) => {
+    mutationFn: async (data: { 
+      userId: string; 
+      whatsapp: string; 
+      planValue: string; 
+      expiryDate: string;
+      permissions: {
+        dashboard: boolean;
+        contacts: boolean;
+        alliances: boolean;
+        demands: boolean;
+        agenda: boolean;
+        ai: boolean;
+        marketing: boolean;
+        petitions: boolean;
+        users: boolean;
+        settings: boolean;
+      };
+    }) => {
       const token = localStorage.getItem('admin_token');
       const response = await fetch(`/api/admin/users/${data.userId}/contract`, {
         method: 'PATCH',
@@ -288,6 +345,7 @@ export default function ContractsPage() {
           whatsapp: data.whatsapp,
           planValue: data.planValue,
           expiryDate: data.expiryDate,
+          permissions: data.permissions,
         }),
       });
       
@@ -323,6 +381,7 @@ export default function ContractsPage() {
       whatsapp: editWhatsapp,
       planValue: editPlanValue,
       expiryDate: editExpiryDate,
+      permissions: editPermissions,
     });
   };
 
@@ -894,6 +953,85 @@ export default function ContractsPage() {
                     </span>
                   </div>
                 )}
+              </div>
+            </div>
+
+            {/* Modules Section */}
+            <div className="space-y-3 pt-4 border-t">
+              <label className="text-sm font-medium">Módulos da conta</label>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="module-contacts"
+                    checked={editPermissions.contacts}
+                    onCheckedChange={(checked) => setEditPermissions(prev => ({ ...prev, contacts: checked === true }))}
+                    disabled={!isEditingUser}
+                    data-testid="checkbox-module-contacts"
+                  />
+                  <label htmlFor="module-contacts" className={`text-sm ${!isEditingUser ? 'text-muted-foreground' : ''}`}>
+                    Contatos
+                  </label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="module-alliances"
+                    checked={editPermissions.alliances}
+                    onCheckedChange={(checked) => setEditPermissions(prev => ({ ...prev, alliances: checked === true }))}
+                    disabled={!isEditingUser}
+                    data-testid="checkbox-module-alliances"
+                  />
+                  <label htmlFor="module-alliances" className={`text-sm ${!isEditingUser ? 'text-muted-foreground' : ''}`}>
+                    Alianças
+                  </label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="module-demands"
+                    checked={editPermissions.demands}
+                    onCheckedChange={(checked) => setEditPermissions(prev => ({ ...prev, demands: checked === true }))}
+                    disabled={!isEditingUser}
+                    data-testid="checkbox-module-demands"
+                  />
+                  <label htmlFor="module-demands" className={`text-sm ${!isEditingUser ? 'text-muted-foreground' : ''}`}>
+                    Demandas
+                  </label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="module-agenda"
+                    checked={editPermissions.agenda}
+                    onCheckedChange={(checked) => setEditPermissions(prev => ({ ...prev, agenda: checked === true }))}
+                    disabled={!isEditingUser}
+                    data-testid="checkbox-module-agenda"
+                  />
+                  <label htmlFor="module-agenda" className={`text-sm ${!isEditingUser ? 'text-muted-foreground' : ''}`}>
+                    Agenda
+                  </label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="module-ai"
+                    checked={editPermissions.ai}
+                    onCheckedChange={(checked) => setEditPermissions(prev => ({ ...prev, ai: checked === true }))}
+                    disabled={!isEditingUser}
+                    data-testid="checkbox-module-ai"
+                  />
+                  <label htmlFor="module-ai" className={`text-sm ${!isEditingUser ? 'text-muted-foreground' : ''}`}>
+                    IA
+                  </label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="module-marketing"
+                    checked={editPermissions.marketing}
+                    onCheckedChange={(checked) => setEditPermissions(prev => ({ ...prev, marketing: checked === true }))}
+                    disabled={!isEditingUser}
+                    data-testid="checkbox-module-marketing"
+                  />
+                  <label htmlFor="module-marketing" className={`text-sm ${!isEditingUser ? 'text-muted-foreground' : ''}`}>
+                    Marketing
+                  </label>
+                </div>
               </div>
             </div>
           </div>

@@ -1145,13 +1145,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Update user contract details (whatsapp, planValue, expiryDate)
+  // Update user contract details (whatsapp, planValue, expiryDate, permissions)
   app.patch("/api/admin/users/:id/contract", authenticateAdminToken, async (req: AuthRequest, res) => {
     try {
       const schema = z.object({
         whatsapp: z.string().optional(),
         planValue: z.string().optional(),
         expiryDate: z.string().optional(),
+        permissions: z.object({
+          dashboard: z.boolean(),
+          contacts: z.boolean(),
+          alliances: z.boolean(),
+          demands: z.boolean(),
+          agenda: z.boolean(),
+          ai: z.boolean(),
+          marketing: z.boolean(),
+          petitions: z.boolean(),
+          users: z.boolean(),
+          settings: z.boolean(),
+        }).optional(),
       });
 
       const validatedData = schema.parse(req.body);
