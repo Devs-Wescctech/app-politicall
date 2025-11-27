@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -282,6 +283,12 @@ export default function Contacts() {
   const [importProgress, setImportProgress] = useState(0);
   const [importResult, setImportResult] = useState<{ success: number; errors: number } | null>(null);
   
+  // Bulk selection
+  const [selectedContacts, setSelectedContacts] = useState<Set<string>>(new Set());
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const [isBulkDeleteDialogOpen, setIsBulkDeleteDialogOpen] = useState(false);
+  const [bulkDeletePassword, setBulkDeletePassword] = useState("");
+  
   const { toast } = useToast();
 
   const { data: contacts, isLoading } = useQuery<Contact[]>({
@@ -442,6 +449,83 @@ export default function Contacts() {
   const handleDelete = (id: string) => {
     if (confirm("Tem certeza que deseja excluir este contato?")) {
       deleteMutation.mutate(id);
+    }
+  };
+
+  // Bulk selection functions
+  const toggleSelectContact = (id: string) => {
+    setSelectedContacts(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) {
+        newSet.delete(id);
+      } else {
+        newSet.add(id);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (!filteredContacts) return;
+    
+    if (selectedContacts.size === filteredContacts.length) {
+      setSelectedContacts(new Set());
+    } else {
+      setSelectedContacts(new Set(filteredContacts.map(c => c.id)));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedContacts.size === 0) return;
+    
+    setIsBulkDeleting(true);
+    let successCount = 0;
+    let errorCount = 0;
+    
+    const contactIds = Array.from(selectedContacts);
+    for (const id of contactIds) {
+      try {
+        await apiRequest("DELETE", `/api/contacts/${id}`);
+        successCount++;
+      } catch (error) {
+        errorCount++;
+      }
+    }
+    
+    setIsBulkDeleting(false);
+    setSelectedContacts(new Set());
+    setIsBulkDeleteDialogOpen(false);
+    setBulkDeletePassword("");
+    queryClient.invalidateQueries({ queryKey: ["/api/contacts"] });
+    
+    if (successCount > 0) {
+      toast({ 
+        title: `${successCount} contato(s) excluído(s)`,
+        description: errorCount > 0 ? `${errorCount} erro(s) ocorreram` : undefined,
+      });
+    } else {
+      toast({ title: "Erro ao excluir contatos", variant: "destructive" });
+    }
+  };
+
+  const validateBulkDeletePassword = async () => {
+    if (!bulkDeletePassword.trim()) return;
+    
+    setIsBulkDeleting(true);
+    try {
+      const response = await apiRequest("POST", "/api/auth/validate-password", {
+        password: bulkDeletePassword
+      });
+      
+      if (response.ok) {
+        await handleBulkDelete();
+      } else {
+        toast({ title: "Senha incorreta", variant: "destructive" });
+        setIsBulkDeleting(false);
+      }
+    } catch (error) {
+      toast({ title: "Erro ao validar senha", variant: "destructive" });
+      setIsBulkDeleting(false);
     }
   };
 
@@ -2507,9 +2591,46 @@ export default function Contacts() {
               ))}
             </div>
           ) : (
+            <>
+            {/* Bulk action bar */}
+            {selectedContacts.size > 0 && (
+              <div className="flex items-center justify-between p-3 mb-3 bg-primary/10 rounded-lg border border-primary/20">
+                <span className="text-sm font-medium">
+                  {selectedContacts.size} contato(s) selecionado(s)
+                </span>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSelectedContacts(new Set())}
+                    data-testid="button-clear-selection"
+                  >
+                    <X className="h-4 w-4 mr-1" />
+                    Limpar
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => setIsBulkDeleteDialogOpen(true)}
+                    data-testid="button-bulk-delete"
+                  >
+                    <Trash2 className="h-4 w-4 mr-1" />
+                    Excluir selecionados
+                  </Button>
+                </div>
+              </div>
+            )}
+            
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-12">
+                    <Checkbox
+                      checked={filteredContacts && filteredContacts.length > 0 && selectedContacts.size === filteredContacts.length}
+                      onCheckedChange={toggleSelectAll}
+                      data-testid="checkbox-select-all"
+                    />
+                  </TableHead>
                   <TableHead>Nome</TableHead>
                   <TableHead>Interesses</TableHead>
                   <TableHead>Fonte</TableHead>
@@ -2520,6 +2641,13 @@ export default function Contacts() {
                 {filteredContacts && filteredContacts.length > 0 ? (
                   filteredContacts.map((contact) => (
                     <TableRow key={contact.id} data-testid={`row-contact-${contact.id}`}>
+                      <TableCell>
+                        <Checkbox
+                          checked={selectedContacts.has(contact.id)}
+                          onCheckedChange={() => toggleSelectContact(contact.id)}
+                          data-testid={`checkbox-contact-${contact.id}`}
+                        />
+                      </TableCell>
                       <TableCell className="font-medium">{formatName(contact.name)}</TableCell>
                       <TableCell>
                         <div className="flex gap-1 flex-wrap">
@@ -2605,13 +2733,14 @@ export default function Contacts() {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
                       {searchQuery ? "Nenhum contato encontrado" : "Nenhum contato cadastrado"}
                     </TableCell>
                   </TableRow>
                 )}
               </TableBody>
             </Table>
+            </>
           )}
         </CardContent>
       </Card>
@@ -2674,6 +2803,70 @@ export default function Contacts() {
               data-testid="button-confirm-export"
             >
               {isValidatingPassword ? "Validando..." : "Exportar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Delete Confirmation Dialog */}
+      <Dialog open={isBulkDeleteDialogOpen} onOpenChange={(open) => {
+        setIsBulkDeleteDialogOpen(open);
+        if (!open) {
+          setBulkDeletePassword("");
+        }
+      }}>
+        <DialogContent className="max-w-sm p-0" aria-describedby="bulk-delete-dialog-description">
+          <DialogHeader className="px-5 pt-5 pb-3 border-b">
+            <DialogTitle className="text-lg font-bold flex items-center gap-2 text-destructive">
+              <Trash2 className="w-5 h-5" />
+              Excluir {selectedContacts.size} Contato(s)
+            </DialogTitle>
+            <p id="bulk-delete-dialog-description" className="text-xs text-muted-foreground mt-1">
+              Esta ação é irreversível. Digite a senha do administrador para confirmar.
+            </p>
+          </DialogHeader>
+          <div className="p-4 space-y-4">
+            <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3">
+              <p className="text-sm text-destructive font-medium">
+                Você está prestes a excluir {selectedContacts.size} contato(s) permanentemente.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Senha do Administrador</label>
+              <Input
+                type="password"
+                placeholder="Digite a senha"
+                value={bulkDeletePassword}
+                onChange={(e) => setBulkDeletePassword(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    validateBulkDeletePassword();
+                  }
+                }}
+                data-testid="input-bulk-delete-password"
+              />
+            </div>
+          </div>
+          <DialogFooter className="px-5 py-4 border-t gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsBulkDeleteDialogOpen(false);
+                setBulkDeletePassword("");
+              }}
+              className="flex-1"
+              data-testid="button-cancel-bulk-delete"
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={validateBulkDeletePassword}
+              disabled={isBulkDeleting || !bulkDeletePassword.trim()}
+              className="flex-1"
+              data-testid="button-confirm-bulk-delete"
+            >
+              {isBulkDeleting ? "Excluindo..." : "Excluir"}
             </Button>
           </DialogFooter>
         </DialogContent>
