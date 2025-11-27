@@ -293,10 +293,6 @@ export default function PublicSupport() {
                 style={{ backgroundImage: `url(${candidateData.avatar})` }}
               ></div>
             )}
-            <div 
-              className="absolute top-0 right-0 w-64 h-64 rounded-full blur-3xl"
-              style={{ backgroundColor: getPartyColor(candidateData.party?.acronym) }}
-            ></div>
           </div>
           
           <div className="relative z-10 flex flex-col items-center gap-3">
