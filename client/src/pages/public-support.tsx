@@ -281,6 +281,16 @@ export default function PublicSupport() {
         <div className="container mx-auto px-4 py-8 max-w-2xl">
         {/* Candidate Profile */}
         <div className="text-center space-y-3 mb-6 bg-white/90 backdrop-blur-md rounded-lg p-6 md:p-8 shadow-xl relative overflow-hidden">
+          {/* Background with profile image */}
+          <div className="absolute inset-0 opacity-25">
+            {candidateData.avatar && (
+              <div 
+                className="absolute inset-0 bg-cover bg-center blur-sm grayscale"
+                style={{ backgroundImage: `url(${candidateData.avatar})` }}
+              ></div>
+            )}
+          </div>
+          
           <div className="relative z-10 flex flex-col items-center gap-3">
             {/* Avatar at the top */}
             <Avatar 
