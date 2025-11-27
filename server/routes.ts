@@ -743,6 +743,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Validate account admin password (for export authorization)
+  app.post("/api/auth/validate-admin-password", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const validateSchema = z.object({
+        password: z.string().min(1, "Senha é obrigatória"),
+      });
+      
+      const validatedData = validateSchema.parse(req.body);
+      
+      // Find the admin of this account
+      const adminUser = await storage.getAccountAdmin(req.accountId!);
+      
+      if (!adminUser) {
+        return res.status(404).json({ error: "Admin da conta não encontrado" });
+      }
+      
+      // Validate password against admin's password
+      const isValid = await bcrypt.compare(validatedData.password, adminUser.password);
+      
+      if (!isValid) {
+        return res.status(401).json({ error: "Senha incorreta" });
+      }
+      
+      res.json({ valid: true });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message || "Erro ao validar senha" });
+    }
+  });
+
   // ==================== ADMIN AUTHENTICATION ====================
   
   // Admin login endpoint (PUBLIC)

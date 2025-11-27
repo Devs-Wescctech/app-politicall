@@ -25,7 +25,7 @@ import {
   Building2, Wrench, Bus, Shield, Siren, Landmark, Vote,
   Flag, Home, Droplet, Construction, Hospital, Building,
   School, University, Baby as BabyIcon, Smile, Drum, Cake,
-  Calendar as CalendarIcon, Star, Mic2, ShoppingCart, Download, FileText, Sheet, MoreVertical, QrCode, Share2, UserCircle2, TrendingUp, MapPin, Info
+  Calendar as CalendarIcon, Star, Mic2, ShoppingCart, Download, FileText, Sheet, MoreVertical, QrCode, Share2, UserCircle2, TrendingUp, MapPin, Info, Lock, Eye, EyeOff
 } from "lucide-react";
 import { SiWhatsapp, SiFacebook, SiX } from "react-icons/si";
 import { useToast } from "@/hooks/use-toast";
@@ -266,6 +266,14 @@ export default function Contacts() {
   const [isCityFocused, setIsCityFocused] = useState(false);
   const [isInterestFocused, setIsInterestFocused] = useState(false);
   const [isSourceFocused, setIsSourceFocused] = useState(false);
+  
+  // Export password protection
+  const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
+  const [exportPassword, setExportPassword] = useState("");
+  const [showExportPassword, setShowExportPassword] = useState(false);
+  const [isValidatingPassword, setIsValidatingPassword] = useState(false);
+  const [pendingExportType, setPendingExportType] = useState<"pdf" | "excel" | "profile-pdf" | "profile-excel" | null>(null);
+  
   const { toast } = useToast();
 
   const { data: contacts, isLoading } = useQuery<Contact[]>({
@@ -482,7 +490,67 @@ export default function Contacts() {
     });
   };
 
-  const handleExportPDF = async () => {
+  // Password validation for exports
+  const requestExport = (type: "pdf" | "excel" | "profile-pdf" | "profile-excel") => {
+    setPendingExportType(type);
+    setExportPassword("");
+    setShowExportPassword(false);
+    setIsPasswordDialogOpen(true);
+  };
+
+  const validatePasswordAndExport = async () => {
+    if (!exportPassword.trim()) {
+      toast({ title: "Digite a senha do administrador", variant: "destructive" });
+      return;
+    }
+
+    setIsValidatingPassword(true);
+    try {
+      const response = await apiRequest("POST", "/api/auth/validate-admin-password", { password: exportPassword });
+      const result = await response.json();
+      
+      if (!response.ok) {
+        toast({ 
+          title: "Senha incorreta", 
+          description: result.error || "A senha do administrador está incorreta.",
+          variant: "destructive" 
+        });
+        return;
+      }
+      
+      if (result.valid) {
+        setIsPasswordDialogOpen(false);
+        setExportPassword("");
+        
+        // Execute the pending export
+        switch (pendingExportType) {
+          case "pdf":
+            await executeExportPDF();
+            break;
+          case "excel":
+            await executeExportExcel();
+            break;
+          case "profile-pdf":
+            await executeExportProfilePDF();
+            break;
+          case "profile-excel":
+            await executeExportProfileExcel();
+            break;
+        }
+        setPendingExportType(null);
+      }
+    } catch (error: any) {
+      toast({ 
+        title: "Erro de conexão", 
+        description: "Não foi possível validar a senha. Tente novamente.",
+        variant: "destructive" 
+      });
+    } finally {
+      setIsValidatingPassword(false);
+    }
+  };
+
+  const executeExportPDF = async () => {
     if (!filteredContacts || filteredContacts.length === 0) {
       toast({ title: "Nenhum contato para exportar", variant: "destructive" });
       return;
@@ -636,7 +704,7 @@ export default function Contacts() {
     setIsExportDialogOpen(false);
   };
 
-  const handleExportExcel = async () => {
+  const executeExportExcel = async () => {
     if (!filteredContacts || filteredContacts.length === 0) {
       toast({ title: "Nenhum contato para exportar", variant: "destructive" });
       return;
@@ -698,7 +766,7 @@ export default function Contacts() {
     setIsExportDialogOpen(false);
   };
 
-  const handleExportProfilePDF = async () => {
+  const executeExportProfilePDF = async () => {
     if (!voterProfile || voterProfile.totalContacts === 0) {
       toast({ title: "Nenhum dado de perfil para exportar", variant: "destructive" });
       return;
@@ -841,7 +909,7 @@ export default function Contacts() {
     setIsProfileExportDialogOpen(false);
   };
 
-  const handleExportProfileExcel = async () => {
+  const executeExportProfileExcel = async () => {
     if (!voterProfile || voterProfile.totalContacts === 0) {
       toast({ title: "Nenhum dado de perfil para exportar", variant: "destructive" });
       return;
@@ -988,7 +1056,7 @@ export default function Contacts() {
                 <div className="grid gap-3">
                   <Card 
                     className="cursor-pointer transition-all hover-elevate active-elevate-2 border-2 hover:border-primary/20"
-                    onClick={handleExportPDF}
+                    onClick={() => requestExport("pdf")}
                     data-testid="button-export-pdf"
                   >
                     <CardContent className="p-4">
@@ -1017,7 +1085,7 @@ export default function Contacts() {
 
                   <Card 
                     className="cursor-pointer transition-all hover-elevate active-elevate-2 border-2 hover:border-primary/20"
-                    onClick={handleExportExcel}
+                    onClick={() => requestExport("excel")}
                     data-testid="button-export-excel"
                   >
                     <CardContent className="p-4">
@@ -1447,7 +1515,7 @@ export default function Contacts() {
                 <div className="grid gap-3">
                   <Card 
                     className="cursor-pointer transition-all hover-elevate active-elevate-2 border-2 hover:border-primary/20"
-                    onClick={handleExportProfilePDF}
+                    onClick={() => requestExport("profile-pdf")}
                     data-testid="button-export-profile-pdf"
                   >
                     <CardContent className="p-4">
@@ -1467,7 +1535,7 @@ export default function Contacts() {
 
                   <Card 
                     className="cursor-pointer transition-all hover-elevate active-elevate-2 border-2 hover:border-primary/20"
-                    onClick={handleExportProfileExcel}
+                    onClick={() => requestExport("profile-excel")}
                     data-testid="button-export-profile-excel"
                   >
                     <CardContent className="p-4">
@@ -1992,6 +2060,86 @@ export default function Contacts() {
           )}
         </CardContent>
       </Card>
+
+      {/* Password Confirmation Dialog for Exports */}
+      <Dialog open={isPasswordDialogOpen} onOpenChange={(open) => {
+        setIsPasswordDialogOpen(open);
+        if (!open) {
+          setExportPassword("");
+          setPendingExportType(null);
+        }
+      }}>
+        <DialogContent className="max-w-sm p-0" aria-describedby="password-dialog-description">
+          <DialogHeader className="px-5 pt-5 pb-3 border-b">
+            <DialogTitle className="text-lg font-bold flex items-center gap-2">
+              <Lock className="w-5 h-5 text-primary" />
+              Confirmação de Segurança
+            </DialogTitle>
+            <p id="password-dialog-description" className="text-xs text-muted-foreground mt-1">
+              Digite a senha do administrador da conta para autorizar a exportação
+            </p>
+          </DialogHeader>
+          <div className="p-4 space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Senha do Administrador</label>
+              <div className="relative">
+                <Input
+                  type={showExportPassword ? "text" : "password"}
+                  placeholder="Digite a senha"
+                  value={exportPassword}
+                  onChange={(e) => setExportPassword(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      validatePasswordAndExport();
+                    }
+                  }}
+                  className="pr-10"
+                  data-testid="input-export-password"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-0 top-0 h-full px-3"
+                  onClick={() => setShowExportPassword(!showExportPassword)}
+                  data-testid="button-toggle-password-visibility"
+                >
+                  {showExportPassword ? (
+                    <EyeOff className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <Eye className="h-4 w-4 text-muted-foreground" />
+                  )}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Somente o administrador ou usuários autorizados podem exportar dados
+              </p>
+            </div>
+          </div>
+          <DialogFooter className="px-5 py-4 border-t gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsPasswordDialogOpen(false);
+                setExportPassword("");
+                setPendingExportType(null);
+              }}
+              className="flex-1"
+              data-testid="button-cancel-export"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={validatePasswordAndExport}
+              disabled={isValidatingPassword || !exportPassword.trim()}
+              className="flex-1"
+              data-testid="button-confirm-export"
+            >
+              {isValidatingPassword ? "Validando..." : "Exportar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
