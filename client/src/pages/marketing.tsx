@@ -770,6 +770,8 @@ export default function Marketing() {
   // Custom questions states
   const [isEditingMainQuestion, setIsEditingMainQuestion] = useState(false);
   const [customMainQuestion, setCustomMainQuestion] = useState<string>("");
+  const [customMainQuestionType, setCustomMainQuestionType] = useState<"open_text" | "single_choice" | "multiple_choice">("open_text");
+  const [customMainQuestionOptions, setCustomMainQuestionOptions] = useState<string[]>([""]);
   const [customQuestions, setCustomQuestions] = useState<CustomQuestion[]>([]);
   const [showAddQuestionDialog, setShowAddQuestionDialog] = useState(false);
   const [newQuestionText, setNewQuestionText] = useState("");
@@ -857,6 +859,8 @@ export default function Marketing() {
       
       // Reset custom questions state
       setCustomMainQuestion(template.questionText);
+      setCustomMainQuestionType(template.questionType || "open_text");
+      setCustomMainQuestionOptions([""]);
       setCustomQuestions([]);
       setIsEditingMainQuestion(false);
     }
@@ -923,11 +927,26 @@ export default function Marketing() {
     setNewQuestionOptions(prev => prev.map((opt, i) => i === index ? value : opt));
   };
 
+  // Main question options management
+  const addMainQuestionOption = () => {
+    setCustomMainQuestionOptions(prev => [...prev, ""]);
+  };
+
+  const removeMainQuestionOption = (index: number) => {
+    setCustomMainQuestionOptions(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const updateMainQuestionOption = (index: number, value: string) => {
+    setCustomMainQuestionOptions(prev => prev.map((opt, i) => i === index ? value : opt));
+  };
+
   const handleCreateClick = () => {
     setEditingCampaign(null);
     setSelectedTemplate(null);
     setWizardStep(1);
     setCustomMainQuestion("");
+    setCustomMainQuestionType("open_text");
+    setCustomMainQuestionOptions([""]);
     setCustomQuestions([]);
     setIsEditingMainQuestion(false);
     form.reset({
@@ -953,6 +972,10 @@ export default function Marketing() {
     // Load custom questions if they exist
     const mainQuestion = campaign.customMainQuestion || campaign.template?.questionText || "";
     setCustomMainQuestion(mainQuestion);
+    // Load main question type and options from campaign or template
+    const mainQuestionType = (campaign as any).customMainQuestionType || campaign.template?.questionType || "open_text";
+    setCustomMainQuestionType(mainQuestionType);
+    setCustomMainQuestionOptions((campaign as any).customMainQuestionOptions || [""]);
     setCustomQuestions((campaign.customQuestions as CustomQuestion[]) || []);
     setIsEditingMainQuestion(false);
     
@@ -985,10 +1008,21 @@ export default function Marketing() {
   };
 
   const handleSubmit = async (data: InsertSurveyCampaign) => {
+    // Validate main question options if type requires them
+    if (customMainQuestionType !== "open_text") {
+      const validOptions = customMainQuestionOptions.filter(o => o.trim());
+      if (validOptions.length < 2) {
+        toast({ title: "A pergunta principal precisa de pelo menos 2 opções de resposta", variant: "destructive" });
+        return;
+      }
+    }
+    
     // Add custom questions data
     const submitData = {
       ...data,
       customMainQuestion: customMainQuestion !== selectedTemplate?.questionText ? customMainQuestion : null,
+      customMainQuestionType: customMainQuestionType !== (selectedTemplate?.questionType || "open_text") ? customMainQuestionType : null,
+      customMainQuestionOptions: customMainQuestionType !== "open_text" ? customMainQuestionOptions.filter(o => o.trim()) : null,
       customQuestions: customQuestions.length > 0 ? customQuestions : null,
     };
     
@@ -1518,15 +1552,82 @@ export default function Marketing() {
                             </Button>
                           </div>
                           {isEditingMainQuestion ? (
-                            <div className="space-y-2">
-                              <Textarea
-                                value={customMainQuestion}
-                                onChange={(e) => setCustomMainQuestion(e.target.value)}
-                                placeholder="Digite a pergunta principal..."
-                                className="min-h-20"
-                                data-testid="textarea-custom-main-question"
-                              />
-                              <div className="flex gap-2">
+                            <div className="space-y-4">
+                              <div className="space-y-2">
+                                <Label className="text-xs">Texto da Pergunta</Label>
+                                <Textarea
+                                  value={customMainQuestion}
+                                  onChange={(e) => setCustomMainQuestion(e.target.value)}
+                                  placeholder="Digite a pergunta principal..."
+                                  className="min-h-20"
+                                  data-testid="textarea-custom-main-question"
+                                />
+                              </div>
+                              
+                              <div className="space-y-2">
+                                <Label className="text-xs">Tipo de Resposta</Label>
+                                <Select 
+                                  value={customMainQuestionType} 
+                                  onValueChange={(value: 'open_text' | 'single_choice' | 'multiple_choice') => setCustomMainQuestionType(value)}
+                                >
+                                  <SelectTrigger data-testid="select-main-question-type">
+                                    <SelectValue placeholder="Selecione o tipo" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="open_text">Resposta Aberta (texto livre)</SelectItem>
+                                    <SelectItem value="single_choice">Escolha Única (uma opção)</SelectItem>
+                                    <SelectItem value="multiple_choice">Múltipla Escolha (várias opções)</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+
+                              {(customMainQuestionType === "single_choice" || customMainQuestionType === "multiple_choice") && (
+                                <div className="space-y-2">
+                                  <div className="flex items-center justify-between">
+                                    <Label className="text-xs">Opções de Resposta</Label>
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={addMainQuestionOption}
+                                      className="h-7 text-xs"
+                                      data-testid="button-add-main-option"
+                                    >
+                                      <Plus className="w-3 h-3 mr-1" />
+                                      Adicionar Opção
+                                    </Button>
+                                  </div>
+                                  <div className="space-y-2">
+                                    {customMainQuestionOptions.map((option, index) => (
+                                      <div key={index} className="flex items-center gap-2">
+                                        <Input
+                                          value={option}
+                                          onChange={(e) => updateMainQuestionOption(index, e.target.value)}
+                                          placeholder={`Opção ${index + 1}`}
+                                          data-testid={`input-main-option-${index}`}
+                                        />
+                                        {customMainQuestionOptions.length > 2 && (
+                                          <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-8 w-8 text-red-500"
+                                            onClick={() => removeMainQuestionOption(index)}
+                                            data-testid={`button-remove-main-option-${index}`}
+                                          >
+                                            <Trash2 className="w-4 h-4" />
+                                          </Button>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                  <p className="text-xs text-muted-foreground">
+                                    Mínimo de 2 opções para perguntas de escolha
+                                  </p>
+                                </div>
+                              )}
+
+                              <div className="flex gap-2 pt-2">
                                 <Button
                                   type="button"
                                   size="sm"
@@ -1543,6 +1644,8 @@ export default function Marketing() {
                                   className="rounded-full"
                                   onClick={() => {
                                     setCustomMainQuestion(selectedTemplate.questionText);
+                                    setCustomMainQuestionType(selectedTemplate.questionType || "open_text");
+                                    setCustomMainQuestionOptions([""]);
                                     setIsEditingMainQuestion(false);
                                   }}
                                   data-testid="button-reset-main-question"
@@ -1552,9 +1655,22 @@ export default function Marketing() {
                               </div>
                             </div>
                           ) : (
-                            <p className="text-sm font-medium bg-white dark:bg-background p-3 rounded-md border">
-                              {customMainQuestion || selectedTemplate.questionText}
-                            </p>
+                            <div className="bg-white dark:bg-background p-3 rounded-md border">
+                              <p className="text-sm font-medium">
+                                {customMainQuestion || selectedTemplate.questionText}
+                              </p>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                Tipo: {customMainQuestionType === "open_text" ? "Resposta Aberta" : 
+                                       customMainQuestionType === "single_choice" ? "Escolha Única" : "Múltipla Escolha"}
+                              </p>
+                              {customMainQuestionType !== "open_text" && customMainQuestionOptions.filter(o => o.trim()).length > 0 && (
+                                <ul className="text-xs text-muted-foreground mt-1 ml-4 list-disc">
+                                  {customMainQuestionOptions.filter(o => o.trim()).map((opt, i) => (
+                                    <li key={i}>{opt}</li>
+                                  ))}
+                                </ul>
+                              )}
+                            </div>
                           )}
                         </div>
 

@@ -535,6 +535,8 @@ export const surveyCampaigns = pgTable("survey_campaigns", {
   region: text("region"), // Region where the survey will be conducted (city, state, etc)
   targetAudience: text("target_audience"), // Optional description of target
   customMainQuestion: text("custom_main_question"), // Custom main question (overrides template if set)
+  customMainQuestionType: text("custom_main_question_type"), // Custom main question type (open_text, single_choice, multiple_choice)
+  customMainQuestionOptions: jsonb("custom_main_question_options").$type<string[]>(), // Custom main question options
   customQuestions: jsonb("custom_questions").$type<CustomQuestion[]>(), // Additional custom questions
   viewCount: integer("view_count").default(0).notNull(), // Track landing page views
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -832,6 +834,8 @@ export const insertSurveyCampaignSchema = createInsertSchema(surveyCampaigns).om
   startDate: z.string().nullable().optional(),
   endDate: z.string().nullable().optional(),
   customMainQuestion: z.string().nullable().optional(),
+  customMainQuestionType: z.string().nullable().optional(),
+  customMainQuestionOptions: z.array(z.string()).nullable().optional(),
   customQuestions: z.array(customQuestionSchema).nullable().optional(),
 });
 
