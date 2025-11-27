@@ -18,8 +18,9 @@ import {
   Users, TrendingUp, ListTodo, Calendar, Bot, BarChart3, 
   CheckCircle2, Zap, Shield, Clock, Target, Award,
   ArrowRight, Menu, X, ChevronRight, Sparkles, MessageSquare,
-  BarChart2, FileText, Network, Brain
+  BarChart2, FileText, Network, Brain, Sun, Moon
 } from "lucide-react";
+import { FaWhatsapp } from "react-icons/fa";
 import { motion, useScroll, useTransform } from "framer-motion";
 import logoUrl from "@assets/logo pol_1763308638963.png";
 import wesccLogo from "@assets/logo wesccTECH_1763415124546.png";
@@ -101,9 +102,31 @@ export default function LandingPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [fullscreenImage, setFullscreenImage] = useState<{ src: string; alt: string } | null>(null);
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return document.documentElement.classList.contains('dark');
+    }
+    return true;
+  });
   const { scrollY } = useScroll();
   const headerOpacity = useTransform(scrollY, [0, 100], [0, 0.95]);
   const videoRef = useRef<HTMLVideoElement>(null);
+
+  const toggleDarkMode = () => {
+    const newMode = !isDarkMode;
+    setIsDarkMode(newMode);
+    if (newMode) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
+  };
+
+  const openWhatsApp = () => {
+    window.open('https://wa.me/5551999999999?text=Olá! Gostaria de saber mais sobre o Politicall.', '_blank');
+  };
 
   useEffect(() => {
     if (isAuthenticated()) {
@@ -211,6 +234,24 @@ export default function LandingPage() {
               <button onClick={() => scrollToSection('contato')} className={`text-sm hover:text-primary transition-colors ${!isScrolled ? 'text-white' : 'text-foreground'}`} data-testid="button-nav-contato">
                 Contato
               </button>
+              <Button 
+                size="icon" 
+                variant="ghost" 
+                onClick={toggleDarkMode}
+                className={`rounded-full ${!isScrolled ? 'text-white hover:bg-white/10' : ''}`}
+                data-testid="button-toggle-dark-mode"
+              >
+                {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+              </Button>
+              <Button 
+                size="icon" 
+                variant="ghost" 
+                onClick={openWhatsApp}
+                className={`rounded-full ${!isScrolled ? 'text-white hover:bg-white/10' : ''}`}
+                data-testid="button-whatsapp"
+              >
+                <FaWhatsapp className="w-5 h-5 text-green-500" />
+              </Button>
               <Button size="sm" className="rounded-full w-32" onClick={() => setLocation("/login")} data-testid="button-header-login">
                 Login
               </Button>
@@ -249,6 +290,26 @@ export default function LandingPage() {
                   Contato
                 </button>
                 <div className="px-4 flex flex-col gap-2">
+                  <div className="flex gap-2 justify-center mb-2">
+                    <Button 
+                      size="icon" 
+                      variant="outline" 
+                      onClick={toggleDarkMode}
+                      className="rounded-full"
+                      data-testid="button-mobile-toggle-dark-mode"
+                    >
+                      {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+                    </Button>
+                    <Button 
+                      size="icon" 
+                      variant="outline" 
+                      onClick={openWhatsApp}
+                      className="rounded-full"
+                      data-testid="button-mobile-whatsapp"
+                    >
+                      <FaWhatsapp className="w-5 h-5 text-green-500" />
+                    </Button>
+                  </div>
                   <Button variant="outline" className="rounded-full w-full" onClick={() => { setLocation("/login"); setMobileMenuOpen(false); }} data-testid="button-mobile-login">
                     Login
                   </Button>
