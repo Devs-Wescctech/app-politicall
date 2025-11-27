@@ -3,7 +3,8 @@ import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { CheckCircle2, XCircle, ChevronLeft, ChevronRight, User, Copy, Check, DollarSign, Inbox, Mail, Phone, Trash2, Search, Sun, Moon, Eye, Calendar, MapPin, Users, FileText, MessageSquare, BarChart3, X } from "lucide-react";
+import { CheckCircle2, XCircle, ChevronLeft, ChevronRight, ChevronDown, User, Copy, Check, DollarSign, Inbox, Mail, Phone, Trash2, Search, Sun, Moon, Eye, Calendar, MapPin, Users, FileText, MessageSquare, BarChart3, X } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { AdminBottomNav } from "@/components/admin-bottom-nav";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -1321,12 +1322,20 @@ export default function Admin() {
                         )}
                       </div>
                       {lead.message && (
-                        <div className="mt-3 p-3 bg-muted rounded-lg">
-                          <p className="text-sm text-muted-foreground mb-1 font-medium">Mensagem:</p>
-                          <p className="text-sm" data-testid={`lead-message-${lead.id}`}>
-                            {lead.message}
-                          </p>
-                        </div>
+                        <Collapsible>
+                          <CollapsibleTrigger className="w-full mt-3 p-3 bg-muted rounded-lg flex items-center justify-between hover-elevate cursor-pointer">
+                            <span className="text-sm text-muted-foreground font-medium flex items-center gap-2">
+                              <MessageSquare className="w-4 h-4" />
+                              Mensagem
+                            </span>
+                            <ChevronDown className="w-4 h-4 text-muted-foreground transition-transform duration-200 [[data-state=open]_&]:rotate-180" />
+                          </CollapsibleTrigger>
+                          <CollapsibleContent className="mt-2 px-3 pb-3">
+                            <p className="text-sm" data-testid={`lead-message-${lead.id}`}>
+                              {lead.message}
+                            </p>
+                          </CollapsibleContent>
+                        </Collapsible>
                       )}
                     </CardContent>
                   </Card>
