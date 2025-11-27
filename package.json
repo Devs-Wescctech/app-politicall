@@ -69,6 +69,7 @@
     "openai": "^6.9.0",
     "passport": "^0.7.0",
     "passport-local": "^1.0.0",
+    "pdfjs-dist": "^5.4.394",
     "pdfmake": "^0.2.20",
     "qrcode.react": "^4.2.0",
     "react": "^18.3.1",

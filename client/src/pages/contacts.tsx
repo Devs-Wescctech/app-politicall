@@ -1,6 +1,11 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { type Contact, type InsertContact, insertContactSchema, CONTACT_INTERESTS, CONTACT_SOURCES, GENDER_OPTIONS } from "@shared/schema";
+import * as pdfjsLib from 'pdfjs-dist';
+import type { TextItem } from 'pdfjs-dist/types/src/display/api';
+
+// Configure PDF.js worker - use legacy build for better compatibility
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -551,8 +556,70 @@ export default function Contacts() {
           values.push(current.trim());
           return values;
         });
+      } else if (fileExtension === 'pdf') {
+        // Extract text from PDF
+        try {
+          const buffer = await file.arrayBuffer();
+          const loadingTask = pdfjsLib.getDocument({ data: buffer });
+          const pdf = await loadingTask.promise;
+          
+          const allLines: string[] = [];
+          
+          for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+            const page = await pdf.getPage(pageNum);
+            const textContent = await page.getTextContent();
+            
+            // Group items by their Y position to reconstruct lines
+            const itemsByY: Map<number, string[]> = new Map();
+            
+            for (const item of textContent.items) {
+              if ('str' in item && item.str.trim()) {
+                const textItem = item as TextItem;
+                // Round Y to group items on same line
+                const y = Math.round(textItem.transform[5]);
+                if (!itemsByY.has(y)) {
+                  itemsByY.set(y, []);
+                }
+                itemsByY.get(y)!.push(textItem.str);
+              }
+            }
+            
+            // Sort by Y (descending - top to bottom) and join items
+            const sortedYs = Array.from(itemsByY.keys()).sort((a, b) => b - a);
+            for (const y of sortedYs) {
+              const lineText = itemsByY.get(y)!.join('\t');
+              if (lineText.trim()) {
+                allLines.push(lineText);
+              }
+            }
+          }
+          
+          if (allLines.length < 2) {
+            setImportErrors(['O PDF não contém dados tabulares suficientes para importação']);
+            return;
+          }
+          
+          // Parse lines into data array
+          data = allLines.map(line => {
+            // Split by tabs first (added during line reconstruction)
+            if (line.includes('\t')) {
+              return line.split('\t').map(v => v.trim()).filter(v => v);
+            }
+            // Fallback: split by multiple spaces
+            return line.split(/\s{2,}/).map(v => v.trim()).filter(v => v);
+          }).filter(row => row.length > 0);
+          
+          if (data.length < 2) {
+            setImportErrors(['Não foi possível extrair dados tabulares do PDF. Tente converter para Excel ou CSV.']);
+            return;
+          }
+        } catch (pdfError) {
+          console.error('Erro ao processar PDF:', pdfError);
+          setImportErrors(['Erro ao processar o PDF. Verifique se o arquivo não está corrompido ou protegido.']);
+          return;
+        }
       } else {
-        setImportErrors(['Formato de arquivo não suportado. Use .xlsx, .xls ou .csv']);
+        setImportErrors(['Formato de arquivo não suportado. Use .xlsx, .xls, .csv ou .pdf']);
         return;
       }
       
@@ -1801,7 +1868,7 @@ export default function Contacts() {
               <DialogHeader className="px-5 pt-5 pb-3 border-b">
                 <DialogTitle className="text-xl font-bold">Importar Contatos</DialogTitle>
                 <p id="import-dialog-description" className="text-xs text-muted-foreground mt-1">
-                  Importe uma lista de contatos de qualquer formato (.xlsx, .xls, .csv)
+                  Importe uma lista de contatos de qualquer formato (.xlsx, .xls, .csv, .pdf)
                 </p>
               </DialogHeader>
               <div className="flex-1 overflow-y-auto p-4">
@@ -1826,12 +1893,12 @@ export default function Contacts() {
                     >
                       <FileSpreadsheet className="w-12 h-12 mx-auto mb-3 text-muted-foreground" />
                       <p className="text-sm font-medium mb-1">Arraste e solte ou clique para selecionar</p>
-                      <p className="text-xs text-muted-foreground">Formatos aceitos: .xlsx, .xls, .csv</p>
+                      <p className="text-xs text-muted-foreground">Formatos aceitos: .xlsx, .xls, .csv, .pdf</p>
                     </div>
                     <input
                       id="import-file-input"
                       type="file"
-                      accept=".xlsx,.xls,.csv"
+                      accept=".xlsx,.xls,.csv,.pdf"
                       className="hidden"
                       onChange={(e) => {
                         const file = e.target.files?.[0];
