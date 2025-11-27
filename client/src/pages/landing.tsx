@@ -20,7 +20,6 @@ import {
   ArrowRight, Menu, X, ChevronRight, Sparkles, MessageSquare,
   BarChart2, FileText, Network, Brain, Sun, Moon
 } from "lucide-react";
-import { FaWhatsapp } from "react-icons/fa";
 import { motion, useScroll, useTransform } from "framer-motion";
 import logoUrl from "@assets/logo pol_1763308638963.png";
 import wesccLogo from "@assets/logo wesccTECH_1763415124546.png";
@@ -124,9 +123,6 @@ export default function LandingPage() {
     }
   };
 
-  const openWhatsApp = () => {
-    window.open('https://wa.me/5551999999999?text=Olá! Gostaria de saber mais sobre o Politicall.', '_blank');
-  };
 
   useEffect(() => {
     if (isAuthenticated()) {
@@ -243,15 +239,6 @@ export default function LandingPage() {
               >
                 {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
               </Button>
-              <Button 
-                size="icon" 
-                variant="ghost" 
-                onClick={openWhatsApp}
-                className={`rounded-full ${!isScrolled ? 'text-white hover:bg-white/10' : ''}`}
-                data-testid="button-whatsapp"
-              >
-                <FaWhatsapp className="w-5 h-5 text-green-500" />
-              </Button>
               <Button size="sm" className="rounded-full w-32" onClick={() => setLocation("/login")} data-testid="button-header-login">
                 Login
               </Button>
@@ -299,15 +286,6 @@ export default function LandingPage() {
                       data-testid="button-mobile-toggle-dark-mode"
                     >
                       {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-                    </Button>
-                    <Button 
-                      size="icon" 
-                      variant="outline" 
-                      onClick={openWhatsApp}
-                      className="rounded-full"
-                      data-testid="button-mobile-whatsapp"
-                    >
-                      <FaWhatsapp className="w-5 h-5 text-green-500" />
                     </Button>
                   </div>
                   <Button variant="outline" className="rounded-full w-full" onClick={() => { setLocation("/login"); setMobileMenuOpen(false); }} data-testid="button-mobile-login">
