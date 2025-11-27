@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { CheckCircle2, XCircle, ChevronLeft, ChevronRight, User, Copy, Check, DollarSign, Inbox, Mail, Phone, Trash2, Search, Sun, Moon } from "lucide-react";
+import { CheckCircle2, XCircle, ChevronLeft, ChevronRight, User, Copy, Check, DollarSign, Inbox, Mail, Phone, Trash2, Search, Sun, Moon, Eye, Calendar, MapPin, Users, FileText, MessageSquare, BarChart3, X } from "lucide-react";
 import { AdminBottomNav } from "@/components/admin-bottom-nav";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -48,6 +48,14 @@ type SurveyTemplate = {
   createdAt: string;
 };
 
+type CustomQuestion = {
+  id: string;
+  questionText: string;
+  questionType: 'open_text' | 'single_choice' | 'multiple_choice';
+  options?: string[];
+  required: boolean;
+};
+
 type CampaignWithTemplate = SurveyCampaign & {
   template?: SurveyTemplate;
   user?: {
@@ -56,6 +64,12 @@ type CampaignWithTemplate = SurveyCampaign & {
     email: string;
     avatar: string | null;
   };
+  region?: string | null;
+  customMainQuestion?: string | null;
+  customMainQuestionType?: string | null;
+  customMainQuestionOptions?: string[] | null;
+  customQuestions?: CustomQuestion[] | null;
+  viewCount?: number;
 };
 
 export default function Admin() {
@@ -65,6 +79,7 @@ export default function Admin() {
   const [paidDialogOpen, setPaidDialogOpen] = useState(false);
   const [deleteCampaignDialogOpen, setDeleteCampaignDialogOpen] = useState(false);
   const [inboxDialogOpen, setInboxDialogOpen] = useState(false);
+  const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
   const [selectedCampaign, setSelectedCampaign] = useState<CampaignWithTemplate | null>(null);
   const [rejectNotes, setRejectNotes] = useState("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -640,8 +655,22 @@ export default function Admin() {
 
     const currentStageInfo = stageMap[campaign.campaignStage as keyof typeof stageMap];
 
+    const handleCardClick = (e: React.MouseEvent) => {
+      // Don't open modal if clicking on buttons
+      const target = e.target as HTMLElement;
+      if (target.closest('button')) return;
+      
+      setSelectedCampaign(campaign);
+      setDetailsDialogOpen(true);
+    };
+
     return (
-      <Card key={campaign.id} className="hover-elevate overflow-hidden" data-testid={`card-campaign-${campaign.id}`}>
+      <Card 
+        key={campaign.id} 
+        className="hover-elevate overflow-hidden cursor-pointer" 
+        data-testid={`card-campaign-${campaign.id}`}
+        onClick={handleCardClick}
+      >
         <CardHeader 
           className="p-4 pb-3 bg-gradient-to-r from-[#40E0D0]/10 to-[#48D1CC]/5 relative"
           style={{
@@ -671,6 +700,7 @@ export default function Admin() {
                 </p>
               )}
             </div>
+            <Eye className="w-4 h-4 text-muted-foreground flex-shrink-0" />
           </div>
         </CardHeader>
         <CardContent className="space-y-2 p-4">
@@ -1352,6 +1382,328 @@ export default function Admin() {
               {(deleteLeadMutation.isPending || deleteMultipleLeadsMutation.isPending) ? "Excluindo..." : "Excluir"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Survey Details Dialog */}
+      <Dialog open={detailsDialogOpen} onOpenChange={setDetailsDialogOpen}>
+        <DialogContent className="max-w-2xl h-[85vh] flex flex-col p-0 [&>button]:hidden" data-testid="dialog-survey-details">
+          {/* Fixed Header */}
+          <div className="flex-shrink-0 p-6 pb-4 border-b bg-gradient-to-r from-[#40E0D0]/10 to-[#48D1CC]/5">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-start gap-4">
+                {selectedCampaign?.user && (
+                  <Avatar className="w-12 h-12 flex-shrink-0 border-2 border-[#40E0D0]/30">
+                    <AvatarImage src={selectedCampaign.user.avatar || undefined} alt={selectedCampaign.user.name} />
+                    <AvatarFallback className="bg-[#40E0D0]/10">
+                      <User className="w-6 h-6 text-[#40E0D0]" />
+                    </AvatarFallback>
+                  </Avatar>
+                )}
+                <div>
+                  <DialogTitle className="text-lg font-semibold" data-testid="text-details-title">
+                    {selectedCampaign?.campaignName}
+                  </DialogTitle>
+                  <DialogDescription className="mt-1" data-testid="text-details-user">
+                    {selectedCampaign?.user?.name} • {selectedCampaign?.user?.email}
+                  </DialogDescription>
+                </div>
+              </div>
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={() => setDetailsDialogOpen(false)}
+                className="flex-shrink-0"
+                data-testid="button-close-details"
+              >
+                <X className="w-5 h-5" />
+              </Button>
+            </div>
+            
+            <div className="flex flex-wrap gap-2 mt-4">
+              {selectedCampaign?.status && (
+                <Badge 
+                  variant={selectedCampaign.status === "approved" ? "default" : selectedCampaign.status === "rejected" ? "destructive" : "secondary"}
+                  className={selectedCampaign.status === "approved" ? "bg-[#40E0D0] text-white" : ""}
+                >
+                  {selectedCampaign.status === "approved" ? "Aprovada" : 
+                   selectedCampaign.status === "rejected" ? "Rejeitada" : "Em Análise"}
+                </Badge>
+              )}
+              {selectedCampaign?.campaignStage && getStageBadge(selectedCampaign.campaignStage)}
+            </div>
+          </div>
+
+          {/* Scrollable Content */}
+          <div className="flex-1 overflow-y-auto p-6 space-y-6">
+            {/* Basic Info */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Calendar className="w-4 h-4" />
+                  <span>Data de Criação</span>
+                </div>
+                <p className="text-sm font-medium" data-testid="text-details-created">
+                  {selectedCampaign?.createdAt && format(new Date(selectedCampaign.createdAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                </p>
+              </div>
+              
+              {selectedCampaign?.viewCount !== undefined && (
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <BarChart3 className="w-4 h-4" />
+                    <span>Visualizações</span>
+                  </div>
+                  <p className="text-sm font-medium" data-testid="text-details-views">
+                    {selectedCampaign.viewCount.toLocaleString('pt-BR')}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Region and Target Audience */}
+            {(selectedCampaign?.region || selectedCampaign?.targetAudience) && (
+              <div className="grid grid-cols-2 gap-4">
+                {selectedCampaign?.region && (
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <MapPin className="w-4 h-4" />
+                      <span>Região</span>
+                    </div>
+                    <p className="text-sm font-medium" data-testid="text-details-region">
+                      {selectedCampaign.region}
+                    </p>
+                  </div>
+                )}
+                
+                {selectedCampaign?.targetAudience && (
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Users className="w-4 h-4" />
+                      <span>Público-Alvo</span>
+                    </div>
+                    <p className="text-sm font-medium" data-testid="text-details-audience">
+                      {selectedCampaign.targetAudience}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Dates */}
+            {(selectedCampaign?.startDate || selectedCampaign?.endDate) && (
+              <div className="grid grid-cols-2 gap-4">
+                {selectedCampaign?.startDate && (
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Calendar className="w-4 h-4" />
+                      <span>Data de Início</span>
+                    </div>
+                    <p className="text-sm font-medium" data-testid="text-details-start-date">
+                      {format(new Date(selectedCampaign.startDate), "dd/MM/yyyy", { locale: ptBR })}
+                    </p>
+                  </div>
+                )}
+                
+                {selectedCampaign?.endDate && (
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Calendar className="w-4 h-4" />
+                      <span>Data de Término</span>
+                    </div>
+                    <p className="text-sm font-medium" data-testid="text-details-end-date">
+                      {format(new Date(selectedCampaign.endDate), "dd/MM/yyyy", { locale: ptBR })}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Template Info */}
+            {selectedCampaign?.template && (
+              <div className="space-y-2 p-4 bg-muted/50 rounded-lg">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <FileText className="w-4 h-4 text-[#40E0D0]" />
+                  <span>Template Base</span>
+                </div>
+                <p className="text-sm text-muted-foreground" data-testid="text-details-template">
+                  {selectedCampaign.template.name}
+                </p>
+                {selectedCampaign.template.description && (
+                  <p className="text-xs text-muted-foreground">
+                    {selectedCampaign.template.description}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Main Question */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <MessageSquare className="w-4 h-4 text-[#40E0D0]" />
+                <span>Pergunta Principal</span>
+              </div>
+              <Card className="p-4">
+                <p className="text-sm font-medium mb-2" data-testid="text-details-main-question">
+                  {selectedCampaign?.customMainQuestion || selectedCampaign?.template?.questionText || "Pergunta não definida"}
+                </p>
+                <Badge variant="secondary" className="text-xs">
+                  {(() => {
+                    const type = selectedCampaign?.customMainQuestionType || selectedCampaign?.template?.questionType;
+                    switch(type) {
+                      case 'open_text': return 'Resposta Aberta';
+                      case 'single_choice': return 'Escolha Única';
+                      case 'multiple_choice': return 'Múltipla Escolha';
+                      default: return type || 'Tipo não definido';
+                    }
+                  })()}
+                </Badge>
+                
+                {/* Show options for choice questions */}
+                {(selectedCampaign?.customMainQuestionOptions?.length || selectedCampaign?.template?.options?.length) && (
+                  <div className="mt-3 space-y-1">
+                    <p className="text-xs text-muted-foreground">Opções de resposta:</p>
+                    <div className="flex flex-wrap gap-1">
+                      {(selectedCampaign?.customMainQuestionOptions || selectedCampaign?.template?.options || []).map((option, idx) => (
+                        <Badge key={idx} variant="outline" className="text-xs">
+                          {option}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </Card>
+            </div>
+
+            {/* Custom Questions */}
+            {selectedCampaign?.customQuestions && selectedCampaign.customQuestions.length > 0 && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <MessageSquare className="w-4 h-4 text-[#40E0D0]" />
+                  <span>Perguntas Adicionais ({selectedCampaign.customQuestions.length})</span>
+                </div>
+                <div className="space-y-2">
+                  {selectedCampaign.customQuestions.map((question, index) => (
+                    <Card key={question.id} className="p-4" data-testid={`card-question-${index}`}>
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <p className="text-sm font-medium">
+                          {index + 1}. {question.questionText}
+                        </p>
+                        {question.required && (
+                          <Badge variant="destructive" className="text-xs flex-shrink-0">
+                            Obrigatória
+                          </Badge>
+                        )}
+                      </div>
+                      <Badge variant="secondary" className="text-xs">
+                        {question.questionType === 'open_text' ? 'Resposta Aberta' :
+                         question.questionType === 'single_choice' ? 'Escolha Única' : 'Múltipla Escolha'}
+                      </Badge>
+                      
+                      {question.options && question.options.length > 0 && (
+                        <div className="mt-2 space-y-1">
+                          <p className="text-xs text-muted-foreground">Opções:</p>
+                          <div className="flex flex-wrap gap-1">
+                            {question.options.map((opt, optIdx) => (
+                              <Badge key={optIdx} variant="outline" className="text-xs">
+                                {opt}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Admin Notes */}
+            {selectedCampaign?.adminNotes && (
+              <div className="space-y-2 p-4 bg-destructive/10 rounded-lg border border-destructive/20">
+                <div className="flex items-center gap-2 text-sm font-medium text-destructive">
+                  <FileText className="w-4 h-4" />
+                  <span>Notas do Administrador</span>
+                </div>
+                <p className="text-sm" data-testid="text-details-admin-notes">
+                  {selectedCampaign.adminNotes}
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Fixed Footer */}
+          <div className="flex-shrink-0 p-4 border-t bg-card flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              {selectedCampaign?.status === "approved" && (
+                <Button
+                  onClick={() => {
+                    if (selectedCampaign) handleCopyLink(selectedCampaign);
+                  }}
+                  size="sm"
+                  variant="outline"
+                  data-testid="button-details-copy-link"
+                >
+                  {copiedId === selectedCampaign?.id ? (
+                    <>
+                      <Check className="w-4 h-4 mr-2 text-[#40E0D0]" />
+                      Copiado!
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-4 h-4 mr-2" />
+                      Copiar Link
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
+            
+            <div className="flex items-center gap-2">
+              {selectedCampaign?.status === "under_review" && (
+                <>
+                  <Button
+                    onClick={() => {
+                      if (selectedCampaign) {
+                        setDetailsDialogOpen(false);
+                        handleApprove(selectedCampaign);
+                      }
+                    }}
+                    disabled={approveMutation.isPending}
+                    size="sm"
+                    className="bg-[#40E0D0] hover:bg-[#40E0D0]/90 text-white"
+                    data-testid="button-details-approve"
+                  >
+                    <CheckCircle2 className="w-4 h-4 mr-2" />
+                    Aprovar
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      if (selectedCampaign) {
+                        setDetailsDialogOpen(false);
+                        handleRejectClick(selectedCampaign);
+                      }
+                    }}
+                    disabled={rejectMutation.isPending}
+                    size="sm"
+                    variant="destructive"
+                    data-testid="button-details-reject"
+                  >
+                    <XCircle className="w-4 h-4 mr-2" />
+                    Rejeitar
+                  </Button>
+                </>
+              )}
+              <Button
+                variant="outline"
+                onClick={() => setDetailsDialogOpen(false)}
+                size="sm"
+                data-testid="button-details-close"
+              >
+                Fechar
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
