@@ -4,9 +4,7 @@ import { storage } from "./storage";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import multer from "multer";
-import { createRequire } from "module";
-const require = createRequire(import.meta.url);
-const { PDFParse } = require("pdf-parse");
+import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
 import { insertUserSchema, loginSchema, insertContactSchema, insertPoliticalAllianceSchema, insertDemandSchema, insertDemandCommentSchema, insertEventSchema, insertAiConfigurationSchema, insertAiTrainingExampleSchema, insertAiResponseTemplateSchema, insertMarketingCampaignSchema, insertNotificationSchema, insertIntegrationSchema, insertSurveyCampaignSchema, insertSurveyLandingPageSchema, insertSurveyResponseSchema, insertLeadSchema, DEFAULT_PERMISSIONS } from "@shared/schema";
 
 // Configure multer for file uploads
@@ -1676,27 +1674,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "O arquivo deve ser um PDF" });
       }
 
-      // Parse PDF
-      const parser = new PDFParse();
-      const pdfData = await parser.parse(req.file.buffer);
-      const text = pdfData.text;
+      // Parse PDF using pdfjs-dist
+      const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(req.file.buffer) });
+      const pdf = await loadingTask.promise;
+      
+      const allLines: string[] = [];
+      
+      for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+        const page = await pdf.getPage(pageNum);
+        const textContent = await page.getTextContent();
+        
+        // Group items by their Y position to reconstruct lines
+        const itemsByY: Map<number, string[]> = new Map();
+        
+        for (const item of textContent.items) {
+          if ('str' in item && (item as any).str.trim()) {
+            const y = Math.round((item as any).transform[5]);
+            if (!itemsByY.has(y)) {
+              itemsByY.set(y, []);
+            }
+            itemsByY.get(y)!.push((item as any).str);
+          }
+        }
+        
+        // Sort by Y (descending - top to bottom) and join items
+        const sortedYs = Array.from(itemsByY.keys()).sort((a, b) => b - a);
+        for (const y of sortedYs) {
+          const lineText = itemsByY.get(y)!.join('\t');
+          if (lineText.trim()) {
+            allLines.push(lineText);
+          }
+        }
+      }
 
-      // Split text into lines
-      const lines = text.split('\n')
-        .map(line => line.trim())
-        .filter(line => line.length > 0);
-
-      if (lines.length < 2) {
+      if (allLines.length < 2) {
         return res.status(400).json({ error: "O PDF não contém dados suficientes para importação" });
       }
 
-      // Parse each line - split by multiple spaces or tabs
-      const data = lines.map(line => {
-        // First try tab separation
+      // Parse each line - split by tabs or multiple spaces
+      const data = allLines.map(line => {
         if (line.includes('\t')) {
           return line.split('\t').map(v => v.trim()).filter(v => v);
         }
-        // Then try multiple spaces (common in PDF tables)
         return line.split(/\s{2,}/).map(v => v.trim()).filter(v => v);
       }).filter(row => row.length > 0);
 

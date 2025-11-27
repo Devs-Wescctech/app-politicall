@@ -594,13 +594,10 @@ export default function Contacts() {
         return;
       }
       
-      if (data.length < 2) {
-        setImportErrors(['O arquivo precisa ter pelo menos um cabeçalho e uma linha de dados']);
+      if (data.length < 1) {
+        setImportErrors(['O arquivo está vazio ou não contém dados válidos']);
         return;
       }
-      
-      const headers = (data[0] as string[]).map(h => String(h || '').toLowerCase().trim());
-      const rows = data.slice(1);
       
       // Mapeamento flexível de colunas
       const columnMapping: Record<string, string[]> = {
@@ -616,6 +613,82 @@ export default function Contacts() {
         notes: ['notas', 'notes', 'observações', 'observacoes', 'obs', 'observations'],
       };
       
+      // Helper functions to detect data types
+      const looksLikeEmail = (val: string): boolean => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val);
+      const looksLikePhone = (val: string): boolean => /^[\d\s\(\)\-\+\.]{8,}$/.test(val.replace(/\D/g, '').length >= 8 ? val : '');
+      const looksLikeName = (val: string): boolean => {
+        if (!val || val.length < 2) return false;
+        if (looksLikeEmail(val) || looksLikePhone(val)) return false;
+        // Names typically have letters and maybe spaces/hyphens
+        return /^[a-zA-ZÀ-ÿ\s\-'\.]+$/.test(val) && val.length >= 2;
+      };
+      const looksLikeHeader = (val: string): boolean => {
+        const headerKeywords = ['nome', 'name', 'email', 'telefone', 'phone', 'cidade', 'city', 'estado', 'state', 'idade', 'age', 'genero', 'gender', 'notas', 'notes', 'fonte', 'source', 'interesses'];
+        return headerKeywords.some(k => val.toLowerCase().includes(k));
+      };
+      
+      // Check if first row looks like a header
+      const firstRow = (data[0] as string[]).map(h => String(h || '').trim());
+      const hasHeaderRow = firstRow.some(cell => looksLikeHeader(cell));
+      
+      let headers: string[];
+      let rows: any[];
+      
+      if (hasHeaderRow) {
+        headers = firstRow.map(h => h.toLowerCase());
+        rows = data.slice(1);
+      } else {
+        // PDF without headers - auto-detect column types
+        // Assume first column with text that looks like a name is the name column
+        headers = [];
+        rows = data;
+        
+        // Analyze all rows to detect column types
+        const columnCount = Math.max(...data.map((row: any) => Array.isArray(row) ? row.length : 0));
+        const columnTypes: string[] = new Array(columnCount).fill('unknown');
+        
+        // Sample first few rows to detect types
+        const sampleRows = data.slice(0, Math.min(5, data.length));
+        for (let col = 0; col < columnCount; col++) {
+          let nameCount = 0, emailCount = 0, phoneCount = 0;
+          for (const row of sampleRows) {
+            const val = String((row as any[])[col] || '').trim();
+            if (looksLikeEmail(val)) emailCount++;
+            else if (looksLikePhone(val)) phoneCount++;
+            else if (looksLikeName(val)) nameCount++;
+          }
+          
+          if (emailCount > sampleRows.length / 2) columnTypes[col] = 'email';
+          else if (phoneCount > sampleRows.length / 2) columnTypes[col] = 'phone';
+          else if (nameCount > sampleRows.length / 2) columnTypes[col] = 'name';
+        }
+        
+        // If no name column detected, assume first text column is name
+        if (!columnTypes.includes('name')) {
+          for (let col = 0; col < columnCount; col++) {
+            if (columnTypes[col] === 'unknown') {
+              columnTypes[col] = 'name';
+              break;
+            }
+          }
+        }
+        
+        // Create synthetic headers based on detected types
+        headers = columnTypes.map((type, idx) => {
+          switch (type) {
+            case 'name': return 'nome';
+            case 'email': return 'email';
+            case 'phone': return 'telefone';
+            default: return `coluna${idx}`;
+          }
+        });
+      }
+      
+      if (rows.length < 1) {
+        setImportErrors(['O arquivo não contém dados para importar']);
+        return;
+      }
+      
       const findColumnIndex = (fieldAliases: string[]): number => {
         for (const alias of fieldAliases) {
           const idx = headers.findIndex(h => h.includes(alias));
@@ -630,7 +703,7 @@ export default function Contacts() {
       }
       
       if (columnIndices.name === -1) {
-        setImportErrors(['Coluna "Nome" não encontrada. O arquivo deve ter uma coluna com o nome dos contatos.']);
+        setImportErrors(['Não foi possível identificar uma coluna de nomes. Verifique se o arquivo contém nomes de contatos.']);
         return;
       }
       
@@ -1895,7 +1968,11 @@ export default function Contacts() {
                 {importFile && !importResult && (
                   <div className="space-y-4">
                     <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
-                      <FileSpreadsheet className="w-8 h-8 text-green-600 dark:text-green-400" />
+                      {importFile.name.toLowerCase().endsWith('.pdf') ? (
+                        <FileText className="w-8 h-8 text-red-600 dark:text-red-400" />
+                      ) : (
+                        <FileSpreadsheet className="w-8 h-8 text-green-600 dark:text-green-400" />
+                      )}
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate">{importFile.name}</p>
                         <p className="text-xs text-muted-foreground">
