@@ -717,7 +717,7 @@ export default function Settings() {
                       { key: 'petitions', label: 'Petições' },
                       { key: 'agenda', label: 'Agenda' },
                       { key: 'ai', label: 'Atendimento IA' },
-                      { key: 'marketing', label: 'Pesquisas' },
+                      { key: 'surveys', label: 'Pesquisas' },
                     ].map(({ key, label }) => {
                       const isActive = adminData?.permissions?.[key] === true;
                       return (
