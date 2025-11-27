@@ -1052,13 +1052,28 @@ export default function Settings() {
                             <FormItem>
                               <FormLabel className="text-xs">Client Secret</FormLabel>
                               <FormControl>
-                                <Input 
-                                  type="password"
-                                  placeholder="Cole o Client Secret aqui" 
-                                  {...field}
-                                  data-testid="input-google-client-secret"
-                                />
+                                <div className="relative">
+                                  <Input 
+                                    type="password"
+                                    placeholder={googleCalendarConfig?.isConfigured ? "••••••••••••••••" : "Cole o Client Secret aqui"}
+                                    {...field}
+                                    data-testid="input-google-client-secret"
+                                  />
+                                  {googleCalendarConfig?.isConfigured && !field.value && (
+                                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                      <Badge variant="secondary" className="text-xs">
+                                        <CheckCircle2 className="w-3 h-3 mr-1" />
+                                        Salvo
+                                      </Badge>
+                                    </div>
+                                  )}
+                                </div>
                               </FormControl>
+                              {googleCalendarConfig?.isConfigured && (
+                                <p className="text-xs text-muted-foreground">
+                                  O Client Secret está salvo com segurança. Deixe em branco para manter o atual ou digite um novo para substituir.
+                                </p>
+                              )}
                               <FormMessage />
                             </FormItem>
                           )}
