@@ -195,14 +195,28 @@ export default function Settings() {
   const googleCalendarForm = useForm<GoogleCalendarForm>({
     resolver: zodResolver(googleCalendarSchema),
     defaultValues: {
-      clientId: googleCalendarConfig?.clientId || "",
+      clientId: "",
       clientSecret: "",
       redirectUri: "https://www.politicall.com.br/api/google-calendar/callback",
-      syncDirection: (googleCalendarConfig?.syncDirection as "to_google" | "from_google" | "both") || "both",
-      autoCreateMeet: googleCalendarConfig?.autoCreateMeet || false,
-      syncReminders: googleCalendarConfig?.syncReminders !== false,
+      syncDirection: "both",
+      autoCreateMeet: false,
+      syncReminders: true,
     },
   });
+
+  // Update form when Google Calendar config loads
+  useEffect(() => {
+    if (googleCalendarConfig) {
+      googleCalendarForm.reset({
+        clientId: googleCalendarConfig.clientId || "",
+        clientSecret: "",
+        redirectUri: "https://www.politicall.com.br/api/google-calendar/callback",
+        syncDirection: (googleCalendarConfig.syncDirection as "to_google" | "from_google" | "both") || "both",
+        autoCreateMeet: googleCalendarConfig.autoCreateMeet === true,
+        syncReminders: googleCalendarConfig.syncReminders !== false,
+      });
+    }
+  }, [googleCalendarConfig]);
 
   const updateProfileMutation = useMutation({
     mutationFn: async (data: ProfileForm) => {
