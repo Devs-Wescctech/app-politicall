@@ -867,8 +867,9 @@ export default function ContractsPage() {
 
       {/* User Details Dialog */}
       <Dialog open={detailsDialogOpen} onOpenChange={setDetailsDialogOpen}>
-        <DialogContent className="max-w-md" data-testid="dialog-user-details">
-          <DialogHeader>
+        <DialogContent className="max-w-md max-h-[85vh] flex flex-col p-0" data-testid="dialog-user-details">
+          {/* Fixed Header */}
+          <DialogHeader className="px-6 pt-6 pb-4 border-b shrink-0">
             <div className="flex items-center gap-4">
               <Avatar className="h-16 w-16">
                 <AvatarImage src={selectedUser?.avatar || ''} alt={selectedUser?.name} />
@@ -887,7 +888,8 @@ export default function ContractsPage() {
             </div>
           </DialogHeader>
 
-          <div className="space-y-4 py-4">
+          {/* Scrollable Content */}
+          <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
             {/* Contact Icons */}
             <div className="flex items-center justify-center gap-4">
               <Button
@@ -1048,7 +1050,8 @@ export default function ContractsPage() {
             </div>
           </div>
 
-          <DialogFooter className="flex gap-2">
+          {/* Fixed Footer */}
+          <DialogFooter className="px-6 py-4 border-t shrink-0 flex gap-2">
             {isEditingUser ? (
               <>
                 <Button
