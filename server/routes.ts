@@ -4255,6 +4255,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         updatedAt: integration.updatedAt
       };
       
+      console.log('[Google Calendar] GET returning:', {
+        autoCreateMeet: safeIntegration.autoCreateMeet,
+        syncReminders: safeIntegration.syncReminders,
+        syncDirection: safeIntegration.syncDirection
+      });
+      
       res.json(safeIntegration);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -4265,6 +4271,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/google-calendar", authenticateToken, requirePermission("settings"), async (req: AuthRequest, res) => {
     try {
       const { clientId, clientSecret, redirectUri, syncDirection, autoCreateMeet, syncReminders } = req.body;
+      
+      console.log('[Google Calendar] POST received:', {
+        clientId: clientId ? '***' : 'empty',
+        clientSecret: clientSecret ? '***' : 'empty',
+        redirectUri,
+        syncDirection,
+        autoCreateMeet,
+        syncReminders,
+        autoCreateMeetType: typeof autoCreateMeet
+      });
       
       // Get existing integration to preserve clientSecret if not provided
       const existingIntegration = await storage.getGoogleCalendarIntegration(req.accountId!);
