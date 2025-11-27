@@ -33,7 +33,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { UserPlus, ArrowLeft, Mail, Lock, User as UserIcon, MoreVertical, Phone, Pencil, Trash2, Inbox, LogIn, Search, Key, Eye, EyeOff, Sun, Moon } from "lucide-react";
+import { UserPlus, ArrowLeft, Mail, Lock, User as UserIcon, MoreVertical, Phone, Pencil, Trash2, Inbox, LogIn, Search, Key, Eye, EyeOff, Sun, Moon, CheckCircle2, AlertCircle } from "lucide-react";
 import { AdminBottomNav } from "@/components/admin-bottom-nav";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { setAuthToken, setAuthUser } from "@/lib/auth";
@@ -813,13 +813,17 @@ export default function ContractsPage() {
                           </CardTitle>
                         </div>
                         {status && (
-                          <Badge 
-                            variant="default" 
-                            className={isPaid ? "bg-green-500 text-white" : "bg-red-500 text-white"} 
+                          <div 
+                            className={`flex items-center gap-1 text-sm font-medium ${isPaid ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
                             data-testid={`user-badge-${user.id}`}
                           >
+                            {isPaid ? (
+                              <CheckCircle2 className="w-4 h-4" />
+                            ) : (
+                              <AlertCircle className="w-4 h-4" />
+                            )}
                             {isPaid ? "Pago" : "Atrasado"}
-                          </Badge>
+                          </div>
                         )}
                       </div>
                     </CardHeader>
