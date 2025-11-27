@@ -635,7 +635,6 @@ export default function ContractsPage() {
           </div>
         </div>
       </header>
-
       {/* Main Content */}
       <main className="flex-1 container mx-auto p-6 pb-24">
         <div className="mb-6 flex flex-col gap-4">
@@ -878,7 +877,6 @@ export default function ContractsPage() {
           </div>
         )}
       </main>
-
       {/* Bottom Navigation */}
       <AdminBottomNav 
         activePage="contracts" 
@@ -891,7 +889,6 @@ export default function ContractsPage() {
           }
         }}
       />
-
       {/* User Details Dialog */}
       <Dialog open={detailsDialogOpen} onOpenChange={setDetailsDialogOpen}>
         <DialogContent className="max-w-md max-h-[85vh] flex flex-col p-0" data-testid="dialog-user-details">
@@ -1057,9 +1054,7 @@ export default function ContractsPage() {
                     disabled={!isEditingUser}
                     data-testid="checkbox-module-marketing"
                   />
-                  <label htmlFor="module-marketing" className={`text-sm ${!isEditingUser ? 'text-muted-foreground' : ''}`}>
-                    Marketing
-                  </label>
+                  <label htmlFor="module-marketing" className={`text-sm ${!isEditingUser ? 'text-muted-foreground' : ''}`}>Pesquisa</label>
                 </div>
                 <div className="flex items-center space-x-2">
                   <Checkbox
@@ -1135,7 +1130,6 @@ export default function ContractsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
       {/* Payment Confirmation Dialog */}
       <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
         <DialogContent data-testid="dialog-payment">
@@ -1183,7 +1177,6 @@ export default function ContractsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
       {/* Inbox Dialog - Leads from Landing Page */}
       <Dialog open={inboxDialogOpen} onOpenChange={setInboxDialogOpen}>
         <DialogContent className="max-w-4xl max-h-[80vh] [&>button]:hidden" data-testid="dialog-inbox">
@@ -1302,7 +1295,6 @@ export default function ContractsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
       {/* Delete User Confirmation Dialog */}
       <Dialog open={deleteUserConfirmOpen} onOpenChange={setDeleteUserConfirmOpen}>
         <DialogContent data-testid="dialog-delete-user-confirm">
@@ -1357,7 +1349,6 @@ export default function ContractsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
       {/* Change Admin Password Dialog */}
       <Dialog open={changePasswordOpen} onOpenChange={(open) => {
         setChangePasswordOpen(open);
