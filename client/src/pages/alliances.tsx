@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, Trash2, Mail, MessageCircle, Edit, UserPlus, Users, TrendingUp, Send, Copy, Download, FileText, Sheet } from "lucide-react";
+import { Plus, Trash2, Mail, MessageCircle, Edit, UserPlus, Users, TrendingUp, Send, Copy, Download, FileText, Sheet, Lock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -64,6 +64,13 @@ export default function Alliances() {
   const [cityFilter, setCityFilter] = useState<string>("");
   const [filterKey, setFilterKey] = useState(0);
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
+  
+  // Password protection states
+  const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
+  const [exportPassword, setExportPassword] = useState("");
+  const [isValidatingPassword, setIsValidatingPassword] = useState(false);
+  const [pendingProtectedAction, setPendingProtectedAction] = useState<"pdf" | "excel" | "copy-whatsapp" | "bulk-email" | null>(null);
+  
   const { toast } = useToast();
 
   const { data: alliances, isLoading: loadingAlliances } = useQuery<AllianceWithParty[]>({
@@ -280,7 +287,69 @@ export default function Alliances() {
       .join(' ');
   };
 
+  // Password protection functions
+  const requestProtectedAction = (type: "pdf" | "excel" | "copy-whatsapp" | "bulk-email") => {
+    setPendingProtectedAction(type);
+    setExportPassword("");
+    setIsPasswordDialogOpen(true);
+  };
+
+  const validatePasswordAndExecute = async () => {
+    if (!exportPassword.trim()) {
+      toast({ title: "Digite a senha do administrador", variant: "destructive" });
+      return;
+    }
+
+    setIsValidatingPassword(true);
+    try {
+      const response = await apiRequest("POST", "/api/auth/validate-admin-password", { password: exportPassword });
+      const result = await response.json();
+      
+      if (!response.ok) {
+        toast({ 
+          title: "Senha incorreta", 
+          description: result.error || "A senha do administrador está incorreta.",
+          variant: "destructive" 
+        });
+        return;
+      }
+      
+      if (result.valid) {
+        setIsPasswordDialogOpen(false);
+        setExportPassword("");
+        
+        switch (pendingProtectedAction) {
+          case "pdf":
+            await executeExportPDF();
+            break;
+          case "excel":
+            await executeExportExcel();
+            break;
+          case "copy-whatsapp":
+            executeCopyWhatsAppNumbers();
+            break;
+          case "bulk-email":
+            executeBulkEmail();
+            break;
+        }
+        setPendingProtectedAction(null);
+      }
+    } catch (error: any) {
+      toast({ 
+        title: "Erro de conexão", 
+        description: "Não foi possível validar a senha. Tente novamente.",
+        variant: "destructive" 
+      });
+    } finally {
+      setIsValidatingPassword(false);
+    }
+  };
+
   const handleBulkEmail = () => {
+    requestProtectedAction("bulk-email");
+  };
+
+  const executeBulkEmail = () => {
     const emailAddresses = getFilteredAlliances()
       .filter(a => a.email)
       .map(a => a.email)
@@ -295,6 +364,10 @@ export default function Alliances() {
   };
 
   const handleCopyWhatsAppNumbers = () => {
+    requestProtectedAction("copy-whatsapp");
+  };
+
+  const executeCopyWhatsAppNumbers = () => {
     const phones = getFilteredAlliances()
       .filter(a => a.phone)
       .map(a => {
@@ -319,7 +392,11 @@ export default function Alliances() {
     });
   };
 
-  const handleExportPDF = async () => {
+  const handleExportPDF = () => {
+    requestProtectedAction("pdf");
+  };
+
+  const executeExportPDF = async () => {
     const filteredAlliances = getFilteredAlliances();
     if (!filteredAlliances || filteredAlliances.length === 0) {
       toast({ title: "Nenhuma aliança para exportar", variant: "destructive" });
@@ -469,7 +546,11 @@ export default function Alliances() {
     setIsExportDialogOpen(false);
   };
 
-  const handleExportExcel = async () => {
+  const handleExportExcel = () => {
+    requestProtectedAction("excel");
+  };
+
+  const executeExportExcel = async () => {
     const filteredAlliances = getFilteredAlliances();
     if (!filteredAlliances || filteredAlliances.length === 0) {
       toast({ title: "Nenhuma aliança para exportar", variant: "destructive" });
@@ -1308,6 +1389,69 @@ export default function Alliances() {
               </DialogFooter>
             </form>
           </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Password Confirmation Dialog */}
+      <Dialog open={isPasswordDialogOpen} onOpenChange={(open) => {
+        setIsPasswordDialogOpen(open);
+        if (!open) {
+          setExportPassword("");
+          setPendingProtectedAction(null);
+        }
+      }}>
+        <DialogContent className="max-w-sm p-0" aria-describedby="password-dialog-description">
+          <DialogHeader className="px-5 pt-5 pb-3 border-b">
+            <DialogTitle className="text-lg font-bold flex items-center gap-2">
+              <Lock className="w-5 h-5 text-primary" />
+              Confirmação de Segurança
+            </DialogTitle>
+            <p id="password-dialog-description" className="text-xs text-muted-foreground mt-1">
+              Digite a senha do administrador da conta para autorizar esta ação
+            </p>
+          </DialogHeader>
+          <div className="p-4 space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Senha do Administrador</label>
+              <Input
+                type="password"
+                placeholder="Digite a senha"
+                value={exportPassword}
+                onChange={(e) => setExportPassword(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    validatePasswordAndExecute();
+                  }
+                }}
+                data-testid="input-export-password"
+              />
+              <p className="text-xs text-muted-foreground">
+                Somente o administrador ou usuários autorizados podem executar esta ação
+              </p>
+            </div>
+          </div>
+          <DialogFooter className="px-5 py-4 border-t gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsPasswordDialogOpen(false);
+                setExportPassword("");
+                setPendingProtectedAction(null);
+              }}
+              className="flex-1"
+              data-testid="button-cancel-export"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={validatePasswordAndExecute}
+              disabled={isValidatingPassword || !exportPassword.trim()}
+              className="flex-1"
+              data-testid="button-confirm-export"
+            >
+              {isValidatingPassword ? "Validando..." : "Confirmar"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
