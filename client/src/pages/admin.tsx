@@ -1170,8 +1170,9 @@ export default function Admin() {
 
       {/* Inbox Dialog - Leads from Landing Page */}
       <Dialog open={inboxDialogOpen} onOpenChange={setInboxDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[80vh] [&>button]:hidden" data-testid="dialog-inbox">
-          <DialogHeader>
+        <DialogContent className="max-w-4xl h-[80vh] flex flex-col p-0 [&>button]:hidden" data-testid="dialog-inbox">
+          {/* Fixed Header */}
+          <div className="flex-shrink-0 px-6 pt-6 pb-4 border-b">
             <div className="flex items-center justify-between">
               <div className="flex-1">
                 <DialogTitle data-testid="text-dialog-inbox-title">
@@ -1215,9 +1216,10 @@ export default function Admin() {
                 </div>
               )}
             </div>
-          </DialogHeader>
+          </div>
 
-          <div className="overflow-auto max-h-[60vh]">
+          {/* Scrollable Content */}
+          <div className="flex-1 overflow-y-auto px-6 py-4">
             {leadsLoading && (
               <div className="space-y-3">
                 {[1, 2, 3].map((i) => (
@@ -1333,7 +1335,8 @@ export default function Admin() {
             )}
           </div>
 
-          <DialogFooter className="flex items-center justify-between">
+          {/* Fixed Footer */}
+          <div className="flex-shrink-0 px-6 py-4 border-t flex items-center justify-between">
             <div className="flex items-center gap-2">
               {selectedLeads.size > 0 && (
                 <Button
@@ -1360,7 +1363,7 @@ export default function Admin() {
             >
               Fechar
             </Button>
-          </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
 
