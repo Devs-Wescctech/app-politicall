@@ -14,7 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, Calendar as CalendarIcon, List, Clock, Trash2, Pencil, MapPin, RefreshCw, CheckCircle2, AlertCircle, Link2, Video, ExternalLink } from "lucide-react";
+import { Plus, Calendar as CalendarIcon, Clock, Trash2, Pencil, MapPin, RefreshCw, CheckCircle2, AlertCircle, Link2, Video, ExternalLink } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -112,7 +112,7 @@ export default function Agenda() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [currentMonth, setCurrentMonth] = useState(new Date());
-  const [view, setView] = useState<"list" | "calendar" | "timeline">("list");
+  const [view, setView] = useState<"calendar" | "timeline">("calendar");
   const [isSyncing, setIsSyncing] = useState(false);
   const { toast } = useToast();
 
@@ -341,12 +341,6 @@ export default function Agenda() {
     return `${numbers.slice(0, 2)}:${numbers.slice(2, 4)}`;
   };
 
-  const groupedEvents = futureEvents?.reduce((acc, event) => {
-    const date = format(new Date(event.startDate), "yyyy-MM-dd");
-    if (!acc[date]) acc[date] = [];
-    acc[date].push(event);
-    return acc;
-  }, {} as Record<string, Event[]>);
 
   const calendarStart = startOfWeek(startOfMonth(currentMonth), { weekStartsOn: 0 });
   const calendarEnd = endOfWeek(endOfMonth(currentMonth), { weekStartsOn: 0 });
@@ -423,7 +417,6 @@ export default function Agenda() {
         <div className="flex gap-4">
           <Tabs value={view} onValueChange={(v) => setView(v as any)}>
             <TabsList className="rounded-full bg-muted/30">
-              <TabsTrigger value="list" className="rounded-full"><List className="h-4 w-4 mr-2" />Lista</TabsTrigger>
               <TabsTrigger value="calendar" className="rounded-full"><CalendarIcon className="h-4 w-4 mr-2" />Calendário</TabsTrigger>
               <TabsTrigger value="timeline" className="rounded-full"><Clock className="h-4 w-4 mr-2" />Timeline</TabsTrigger>
             </TabsList>
@@ -719,102 +712,6 @@ export default function Agenda() {
           </Dialog>
         </div>
       </div>
-
-      {view === "list" && (
-        <div className="space-y-6">
-          {isLoading ? (
-            [...Array(5)].map((_, i) => <Skeleton key={i} className="h-24 w-full" />)
-          ) : groupedEvents && Object.keys(groupedEvents).length > 0 ? (
-            Object.entries(groupedEvents).sort().map(([date, dayEvents]) => (
-              <div key={date}>
-                <h3 className="text-lg font-semibold mb-3">{format(new Date(date), "EEEE, dd 'de' MMMM 'de' yyyy", { locale: ptBR })}</h3>
-                <div className="space-y-3">
-                  {dayEvents.map((event) => (
-                    <Card key={event.id} className="border-l-4" style={{ borderLeftColor: event.borderColor || CATEGORY_CONFIG[event.category as keyof typeof CATEGORY_CONFIG]?.borderColor || "#3b82f6" }} data-testid={`event-${event.id}`}>
-                      <CardContent className="p-4">
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex-1 space-y-2">
-                            <div className="flex items-center gap-3 flex-wrap">
-                              <h4 className="font-semibold">{event.title}</h4>
-                              {(event as any).googleEventId && (
-                                <SiGooglecalendar className="h-4 w-4 text-blue-500" title="Sincronizado com Google Calendar" />
-                              )}
-                              {event.category && (
-                                <Badge 
-                                  variant="secondary"
-                                  style={{ 
-                                    color: event.borderColor || CATEGORY_CONFIG[event.category as keyof typeof CATEGORY_CONFIG]?.borderColor || "#3b82f6"
-                                  }}
-                                >
-                                  {CATEGORY_CONFIG[event.category as keyof typeof CATEGORY_CONFIG]?.label}
-                                </Badge>
-                              )}
-                            </div>
-                            {event.description && <p className="text-sm text-muted-foreground">{event.description}</p>}
-                            <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap">
-                              <span className="flex items-center gap-1">
-                                <CalendarIcon className="h-3 w-3" />
-                                {format(new Date(event.startDate), "dd/MM/yyyy")}
-                              </span>
-                              <span className="flex items-center gap-1">
-                                <Clock className="h-3 w-3" />
-                                {format(new Date(event.startDate), "HH:mm")}hrs - {format(new Date(event.endDate), "HH:mm")}hrs
-                              </span>
-                              {event.location && (
-                                <span className="flex items-center gap-1">
-                                  <MapPin className="h-3 w-3" />
-                                  {event.location}
-                                </span>
-                              )}
-                              {(event as any).googleMeetLink && (
-                                <a 
-                                  href={(event as any).googleMeetLink} 
-                                  target="_blank" 
-                                  rel="noopener noreferrer"
-                                  className="flex items-center gap-1 text-blue-600 hover:text-blue-800"
-                                  data-testid={`link-meet-${event.id}`}
-                                >
-                                  <Video className="h-3 w-3" />
-                                  Google Meet
-                                </a>
-                              )}
-                            </div>
-                          </div>
-                          <div className="flex gap-2">
-                            {(event as any).googleMeetLink && (
-                              <Button 
-                                variant="outline" 
-                                size="icon" 
-                                onClick={() => window.open((event as any).googleMeetLink, '_blank')}
-                                title="Abrir Google Meet"
-                                data-testid={`button-meet-${event.id}`}
-                              >
-                                <Video className="h-4 w-4 text-blue-600" />
-                              </Button>
-                            )}
-                            <Button variant="ghost" size="icon" onClick={() => handleEdit(event)} data-testid={`button-edit-${event.id}`}>
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button variant="ghost" size="icon" onClick={() => handleDelete(event.id)} data-testid={`button-delete-${event.id}`}>
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              </div>
-            ))
-          ) : (
-            <Card>
-              <CardContent className="p-12 text-center text-muted-foreground">
-                Nenhum evento futuro encontrado. Eventos passados são ocultados automaticamente.
-              </CardContent>
-            </Card>
-          )}
-        </div>
-      )}
 
       {view === "calendar" && (
         <Card>
