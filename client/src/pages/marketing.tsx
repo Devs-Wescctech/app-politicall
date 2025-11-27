@@ -4,6 +4,7 @@ import {
   type SurveyTemplate,
   type SurveyCampaign,
   type InsertSurveyCampaign,
+  type CustomQuestion,
   insertSurveyCampaignSchema
 } from "@shared/schema";
 import { Button } from "@/components/ui/button";
@@ -17,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Plus, Trash2, Edit, ExternalLink, Copy, CheckCircle, XCircle, Clock, BarChart3, ChevronDown, ChevronUp, Eye, FileText, Calendar, Lock } from "lucide-react";
@@ -764,6 +766,16 @@ export default function Marketing() {
   const [exportPassword, setExportPassword] = useState("");
   const [isValidatingPassword, setIsValidatingPassword] = useState(false);
   const [pendingPdfCampaign, setPendingPdfCampaign] = useState<CampaignWithTemplate | null>(null);
+  
+  // Custom questions states
+  const [isEditingMainQuestion, setIsEditingMainQuestion] = useState(false);
+  const [customMainQuestion, setCustomMainQuestion] = useState<string>("");
+  const [customQuestions, setCustomQuestions] = useState<CustomQuestion[]>([]);
+  const [showAddQuestionDialog, setShowAddQuestionDialog] = useState(false);
+  const [newQuestionText, setNewQuestionText] = useState("");
+  const [newQuestionType, setNewQuestionType] = useState<"open_text" | "single_choice" | "multiple_choice">("open_text");
+  const [newQuestionOptions, setNewQuestionOptions] = useState<string[]>([""]);
+  const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null);
 
   const form = useForm<InsertSurveyCampaign>({
     resolver: zodResolver(insertSurveyCampaignSchema),
@@ -842,13 +854,82 @@ export default function Marketing() {
       
       form.setValue("campaignName", campaignName);
       form.setValue("slug", generatedSlug);
+      
+      // Reset custom questions state
+      setCustomMainQuestion(template.questionText);
+      setCustomQuestions([]);
+      setIsEditingMainQuestion(false);
     }
+  };
+
+  // Custom questions management functions
+  const resetQuestionDialog = () => {
+    setNewQuestionText("");
+    setNewQuestionType("open_text");
+    setNewQuestionOptions([""]);
+    setEditingQuestionId(null);
+  };
+
+  const handleAddQuestion = () => {
+    if (!newQuestionText.trim()) {
+      toast({ title: "Digite o texto da pergunta", variant: "destructive" });
+      return;
+    }
+
+    const newQuestion: CustomQuestion = {
+      id: crypto.randomUUID(),
+      questionText: newQuestionText.trim(),
+      questionType: newQuestionType,
+      options: newQuestionType !== "open_text" ? newQuestionOptions.filter(o => o.trim()) : undefined,
+      required: true
+    };
+
+    if (newQuestionType !== "open_text" && (!newQuestion.options || newQuestion.options.length < 2)) {
+      toast({ title: "Adicione pelo menos 2 opções de resposta", variant: "destructive" });
+      return;
+    }
+
+    if (editingQuestionId) {
+      setCustomQuestions(prev => prev.map(q => q.id === editingQuestionId ? { ...newQuestion, id: editingQuestionId } : q));
+    } else {
+      setCustomQuestions(prev => [...prev, newQuestion]);
+    }
+
+    setShowAddQuestionDialog(false);
+    resetQuestionDialog();
+  };
+
+  const handleEditQuestion = (question: CustomQuestion) => {
+    setEditingQuestionId(question.id);
+    setNewQuestionText(question.questionText);
+    setNewQuestionType(question.questionType);
+    setNewQuestionOptions(question.options || [""]);
+    setShowAddQuestionDialog(true);
+  };
+
+  const handleDeleteQuestion = (questionId: string) => {
+    setCustomQuestions(prev => prev.filter(q => q.id !== questionId));
+  };
+
+  const addOption = () => {
+    setNewQuestionOptions(prev => [...prev, ""]);
+  };
+
+  const removeOption = (index: number) => {
+    setNewQuestionOptions(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const updateOption = (index: number, value: string) => {
+    setNewQuestionOptions(prev => prev.map((opt, i) => i === index ? value : opt));
   };
 
   const handleCreateClick = () => {
     setEditingCampaign(null);
     setSelectedTemplate(null);
     setWizardStep(1);
+    setCustomMainQuestion("");
+    setCustomQuestions([]);
+    setIsEditingMainQuestion(false);
     form.reset({
       templateId: "",
       campaignName: "",
@@ -868,6 +949,13 @@ export default function Marketing() {
     setEditingCampaign(campaign);
     setSelectedTemplate(campaign.template || null);
     setWizardStep(2);
+    
+    // Load custom questions if they exist
+    const mainQuestion = campaign.customMainQuestion || campaign.template?.questionText || "";
+    setCustomMainQuestion(mainQuestion);
+    setCustomQuestions((campaign.customQuestions as CustomQuestion[]) || []);
+    setIsEditingMainQuestion(false);
+    
     form.reset({
       templateId: campaign.templateId,
       campaignName: campaign.campaignName,
@@ -897,10 +985,17 @@ export default function Marketing() {
   };
 
   const handleSubmit = async (data: InsertSurveyCampaign) => {
+    // Add custom questions data
+    const submitData = {
+      ...data,
+      customMainQuestion: customMainQuestion !== selectedTemplate?.questionText ? customMainQuestion : null,
+      customQuestions: customQuestions.length > 0 ? customQuestions : null,
+    };
+    
     if (editingCampaign) {
-      await updateMutation.mutateAsync({ id: editingCampaign.id, data });
+      await updateMutation.mutateAsync({ id: editingCampaign.id, data: submitData });
     } else {
-      await createMutation.mutateAsync(data);
+      await createMutation.mutateAsync(submitData);
     }
   };
 
@@ -1388,17 +1483,133 @@ export default function Marketing() {
 
                   {selectedTemplate && (
                     <Card className="border-[#40E0D0] bg-[#40E0D0]/5">
-                      <CardHeader>
+                      <CardHeader className="flex flex-row items-center justify-between">
                         <CardTitle className="text-base text-[#40E0D0]">Perguntas da Pesquisa</CardTitle>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="rounded-full"
+                          onClick={() => {
+                            resetQuestionDialog();
+                            setShowAddQuestionDialog(true);
+                          }}
+                          data-testid="button-add-question"
+                        >
+                          <Plus className="w-4 h-4 mr-1" />
+                          Adicionar Pergunta
+                        </Button>
                       </CardHeader>
-                      <CardContent className="space-y-3">
-                        <div>
-                          <Label className="text-xs font-semibold text-[#40E0D0]">PERGUNTA PRINCIPAL:</Label>
-                          <p className="text-sm font-medium mt-1 bg-white dark:bg-background p-3 rounded-md border">
-                            {selectedTemplate.questionText}
-                          </p>
+                      <CardContent className="space-y-4">
+                        {/* Main Question */}
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-xs font-semibold text-[#40E0D0]">PERGUNTA PRINCIPAL:</Label>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 px-2 text-xs"
+                              onClick={() => setIsEditingMainQuestion(!isEditingMainQuestion)}
+                              data-testid="button-edit-main-question"
+                            >
+                              <Edit className="w-3 h-3 mr-1" />
+                              {isEditingMainQuestion ? "Cancelar" : "Editar"}
+                            </Button>
+                          </div>
+                          {isEditingMainQuestion ? (
+                            <div className="space-y-2">
+                              <Textarea
+                                value={customMainQuestion}
+                                onChange={(e) => setCustomMainQuestion(e.target.value)}
+                                placeholder="Digite a pergunta principal..."
+                                className="min-h-20"
+                                data-testid="textarea-custom-main-question"
+                              />
+                              <div className="flex gap-2">
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  className="rounded-full"
+                                  onClick={() => setIsEditingMainQuestion(false)}
+                                  data-testid="button-save-main-question"
+                                >
+                                  Salvar
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="rounded-full"
+                                  onClick={() => {
+                                    setCustomMainQuestion(selectedTemplate.questionText);
+                                    setIsEditingMainQuestion(false);
+                                  }}
+                                  data-testid="button-reset-main-question"
+                                >
+                                  Restaurar Original
+                                </Button>
+                              </div>
+                            </div>
+                          ) : (
+                            <p className="text-sm font-medium bg-white dark:bg-background p-3 rounded-md border">
+                              {customMainQuestion || selectedTemplate.questionText}
+                            </p>
+                          )}
                         </div>
-                        <div className="pt-2 border-t border-[#40E0D0]/30">
+
+                        {/* Custom Questions List */}
+                        {customQuestions.length > 0 && (
+                          <div className="space-y-2 pt-3 border-t border-[#40E0D0]/30">
+                            <Label className="text-xs font-semibold text-[#40E0D0]">PERGUNTAS ADICIONAIS:</Label>
+                            <div className="space-y-2">
+                              {customQuestions.map((question, index) => (
+                                <div key={question.id} className="bg-white dark:bg-background p-3 rounded-md border">
+                                  <div className="flex items-start justify-between gap-2">
+                                    <div className="flex-1">
+                                      <p className="text-sm font-medium">{index + 1}. {question.questionText}</p>
+                                      <p className="text-xs text-muted-foreground mt-1">
+                                        Tipo: {question.questionType === "open_text" ? "Resposta Aberta" : 
+                                               question.questionType === "single_choice" ? "Escolha Única" : "Múltipla Escolha"}
+                                      </p>
+                                      {question.options && question.options.length > 0 && (
+                                        <ul className="text-xs text-muted-foreground mt-1 ml-4 list-disc">
+                                          {question.options.map((opt, i) => (
+                                            <li key={i}>{opt}</li>
+                                          ))}
+                                        </ul>
+                                      )}
+                                    </div>
+                                    <div className="flex gap-1">
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-7 w-7"
+                                        onClick={() => handleEditQuestion(question)}
+                                        data-testid={`button-edit-question-${question.id}`}
+                                      >
+                                        <Edit className="w-3 h-3" />
+                                      </Button>
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-7 w-7 text-red-500 hover:text-red-600"
+                                        onClick={() => handleDeleteQuestion(question.id)}
+                                        data-testid={`button-delete-question-${question.id}`}
+                                      >
+                                        <Trash2 className="w-3 h-3" />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="pt-3 border-t border-[#40E0D0]/30">
                           <Label className="text-xs font-semibold text-muted-foreground">
                             DADOS DEMOGRÁFICOS (coletados automaticamente):
                           </Label>
@@ -1683,6 +1894,118 @@ export default function Marketing() {
               data-testid="button-confirm-pdf"
             >
               {isValidatingPassword ? "Validando..." : "Confirmar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add/Edit Question Dialog */}
+      <Dialog open={showAddQuestionDialog} onOpenChange={(open) => {
+        setShowAddQuestionDialog(open);
+        if (!open) resetQuestionDialog();
+      }}>
+        <DialogContent className="max-w-lg" aria-describedby="add-question-description">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold">
+              {editingQuestionId ? "Editar Pergunta" : "Adicionar Nova Pergunta"}
+            </DialogTitle>
+            <p id="add-question-description" className="text-sm text-muted-foreground">
+              Configure os detalhes da pergunta adicional para sua pesquisa
+            </p>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Texto da Pergunta *</Label>
+              <Textarea
+                value={newQuestionText}
+                onChange={(e) => setNewQuestionText(e.target.value)}
+                placeholder="Digite a pergunta..."
+                className="min-h-20"
+                data-testid="textarea-new-question"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Tipo de Resposta *</Label>
+              <Select 
+                value={newQuestionType} 
+                onValueChange={(value: 'open_text' | 'single_choice' | 'multiple_choice') => setNewQuestionType(value)}
+              >
+                <SelectTrigger data-testid="select-question-type">
+                  <SelectValue placeholder="Selecione o tipo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="open_text">Resposta Aberta (texto livre)</SelectItem>
+                  <SelectItem value="single_choice">Escolha Única (uma opção)</SelectItem>
+                  <SelectItem value="multiple_choice">Múltipla Escolha (várias opções)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {(newQuestionType === "single_choice" || newQuestionType === "multiple_choice") && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label>Opções de Resposta *</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={addOption}
+                    className="h-7 text-xs"
+                    data-testid="button-add-option"
+                  >
+                    <Plus className="w-3 h-3 mr-1" />
+                    Adicionar Opção
+                  </Button>
+                </div>
+                <div className="space-y-2">
+                  {newQuestionOptions.map((option, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <Input
+                        value={option}
+                        onChange={(e) => updateOption(index, e.target.value)}
+                        placeholder={`Opção ${index + 1}`}
+                        data-testid={`input-option-${index}`}
+                      />
+                      {newQuestionOptions.length > 2 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-red-500"
+                          onClick={() => removeOption(index)}
+                          data-testid={`button-remove-option-${index}`}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Mínimo de 2 opções para perguntas de escolha
+                </p>
+              </div>
+            )}
+          </div>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowAddQuestionDialog(false);
+                resetQuestionDialog();
+              }}
+              className="rounded-full"
+              data-testid="button-cancel-question"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleAddQuestion}
+              className="rounded-full bg-[#40E0D0] hover:bg-[#48D1CC] text-white"
+              data-testid="button-save-question"
+            >
+              {editingQuestionId ? "Salvar Alterações" : "Adicionar Pergunta"}
             </Button>
           </DialogFooter>
         </DialogContent>

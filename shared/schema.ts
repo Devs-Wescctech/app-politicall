@@ -508,6 +508,15 @@ export const surveyTemplates = pgTable("survey_templates", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Custom Question type for survey campaigns
+export interface CustomQuestion {
+  id: string;
+  questionText: string;
+  questionType: "open_text" | "single_choice" | "multiple_choice";
+  options?: string[];
+  required: boolean;
+}
+
 // Survey Campaigns - User-created survey instances
 export const surveyCampaigns = pgTable("survey_campaigns", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -525,6 +534,8 @@ export const surveyCampaigns = pgTable("survey_campaigns", {
   endDate: timestamp("end_date"),
   region: text("region"), // Region where the survey will be conducted (city, state, etc)
   targetAudience: text("target_audience"), // Optional description of target
+  customMainQuestion: text("custom_main_question"), // Custom main question (overrides template if set)
+  customQuestions: jsonb("custom_questions").$type<CustomQuestion[]>(), // Additional custom questions
   viewCount: integer("view_count").default(0).notNull(), // Track landing page views
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -798,6 +809,15 @@ export const insertSurveyTemplateSchema = createInsertSchema(surveyTemplates).om
   createdAt: true,
 });
 
+// Zod schema for custom questions
+export const customQuestionSchema = z.object({
+  id: z.string(),
+  questionText: z.string().min(5, "Pergunta deve ter no mínimo 5 caracteres"),
+  questionType: z.enum(["open_text", "single_choice", "multiple_choice"]),
+  options: z.array(z.string()).optional(),
+  required: z.boolean()
+});
+
 export const insertSurveyCampaignSchema = createInsertSchema(surveyCampaigns).omit({
   id: true,
   userId: true,
@@ -811,6 +831,8 @@ export const insertSurveyCampaignSchema = createInsertSchema(surveyCampaigns).om
   status: z.string().default("under_review"),
   startDate: z.string().nullable().optional(),
   endDate: z.string().nullable().optional(),
+  customMainQuestion: z.string().nullable().optional(),
+  customQuestions: z.array(customQuestionSchema).nullable().optional(),
 });
 
 export const insertSurveyLandingPageSchema = createInsertSchema(surveyLandingPages).omit({
