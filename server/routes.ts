@@ -6,8 +6,7 @@ import jwt from "jsonwebtoken";
 import multer from "multer";
 import { createRequire } from "module";
 const require = createRequire(import.meta.url);
-const pdfParseModule = require("pdf-parse");
-const pdfParse = pdfParseModule.default || pdfParseModule;
+const { PDFParse } = require("pdf-parse");
 import { insertUserSchema, loginSchema, insertContactSchema, insertPoliticalAllianceSchema, insertDemandSchema, insertDemandCommentSchema, insertEventSchema, insertAiConfigurationSchema, insertAiTrainingExampleSchema, insertAiResponseTemplateSchema, insertMarketingCampaignSchema, insertNotificationSchema, insertIntegrationSchema, insertSurveyCampaignSchema, insertSurveyLandingPageSchema, insertSurveyResponseSchema, insertLeadSchema, DEFAULT_PERMISSIONS } from "@shared/schema";
 
 // Configure multer for file uploads
@@ -1678,7 +1677,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Parse PDF
-      const pdfData = await pdfParse(req.file.buffer);
+      const parser = new PDFParse();
+      const pdfData = await parser.parse(req.file.buffer);
       const text = pdfData.text;
 
       // Split text into lines
