@@ -289,7 +289,7 @@ export default function PublicSupport() {
           <div className="absolute inset-0 opacity-25">
             {candidateData.avatar && (
               <div 
-                className="absolute inset-0 bg-cover bg-center blur-sm"
+                className="absolute inset-0 bg-cover bg-center blur-sm grayscale"
                 style={{ backgroundImage: `url(${candidateData.avatar})` }}
               ></div>
             )}
