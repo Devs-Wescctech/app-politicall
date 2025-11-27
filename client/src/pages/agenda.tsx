@@ -370,10 +370,10 @@ export default function Agenda() {
               )}
             </div>
           ) : (
-            <Badge variant="outline" className="gap-1 text-yellow-600 border-yellow-600">
+            <span className="flex items-center gap-1 text-yellow-600 text-sm">
               <AlertCircle className="h-3 w-3" />
               Google Calendar não autorizado
-            </Badge>
+            </span>
           )}
         </div>
         <div className="flex items-center gap-3">
