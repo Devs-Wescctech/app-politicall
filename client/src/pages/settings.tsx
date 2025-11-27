@@ -544,13 +544,13 @@ export default function Settings() {
   const baseUrl = 'https://www.politicall.com.br';
 
   return (
-    <div className="p-4 sm:p-6 md:p-8 space-y-6">
+    <div className="p-4 sm:p-6 md:p-8 space-y-6 max-w-full overflow-x-hidden">
       <div>
         <h1 className="text-3xl font-bold">Configurações</h1>
         <p className="text-muted-foreground mt-2">Gerencie suas preferências e informações da conta</p>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full max-w-full">
         <TabsList className="grid w-full max-w-lg grid-cols-3 rounded-full p-1">
           <TabsTrigger value="profile" data-testid="tab-profile" className="rounded-full">
             <User className="w-4 h-4 mr-2" />
@@ -566,7 +566,7 @@ export default function Settings() {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="profile" className="space-y-6 mt-6">
+        <TabsContent value="profile" className="space-y-6 mt-6 max-w-full overflow-x-hidden">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 space-y-6">
               <Card>
@@ -740,7 +740,7 @@ export default function Settings() {
           </div>
         </TabsContent>
 
-        <TabsContent value="api" className="space-y-6 mt-6">
+        <TabsContent value="api" className="space-y-6 mt-6 max-w-full overflow-x-hidden">
             {/* API Keys List */}
             <Card>
               <CardHeader>
@@ -1005,7 +1005,7 @@ export default function Settings() {
             </Card>
         </TabsContent>
 
-        <TabsContent value="google-calendar" className="space-y-6 mt-6">
+        <TabsContent value="google-calendar" className="space-y-6 mt-6 max-w-full overflow-x-hidden">
           {/* Setup Instructions Card */}
           <Card>
             <Collapsible defaultOpen={false}>
