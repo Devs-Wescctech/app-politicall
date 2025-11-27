@@ -34,7 +34,7 @@ import { z } from "zod";
 const PLATFORMS = [
   { id: "facebook", name: "Facebook", icon: SiFacebook },
   { id: "instagram", name: "Instagram", icon: SiInstagram },
-  { id: "twitter", name: "X (Twitter)", icon: SiX },
+  // X (Twitter) hidden - not yet supported
 ];
 
 const TRAINING_CATEGORIES = [
