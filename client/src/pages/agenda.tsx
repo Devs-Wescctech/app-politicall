@@ -821,7 +821,7 @@ export default function Agenda() {
                               href={(event as any).googleMeetLink} 
                               target="_blank" 
                               rel="noopener noreferrer"
-                              className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                              className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1"
                               data-testid={`timeline-link-meet-${event.id}`}
                             >
                               <Video className="h-3 w-3" />
