@@ -27,10 +27,7 @@ function NavItem({ icon, label, isActive, onClick, testId }: NavItemProps) {
       )}
       data-testid={testId}
     >
-      <div className={cn(
-        "flex items-center justify-center w-10 h-8 rounded-full transition-colors",
-        isActive && "bg-primary/10"
-      )}>
+      <div className="flex items-center justify-center">
         {icon}
       </div>
       <span className={cn(
@@ -39,9 +36,6 @@ function NavItem({ icon, label, isActive, onClick, testId }: NavItemProps) {
       )}>
         {label}
       </span>
-      {isActive && (
-        <div className="absolute bottom-0 h-[3px] w-16 bg-primary rounded-t-full" />
-      )}
     </button>
   );
 }
