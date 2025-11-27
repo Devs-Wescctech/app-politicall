@@ -1182,19 +1182,36 @@ export default function Admin() {
                 </DialogDescription>
               </div>
               {leads.length > 0 && (
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="select-all-leads"
-                    checked={selectedLeads.size === leads.length && leads.length > 0}
-                    onCheckedChange={(checked) => handleSelectAll(checked as boolean)}
-                    data-testid="checkbox-select-all-leads"
-                  />
-                  <label 
-                    htmlFor="select-all-leads" 
-                    className="text-sm font-medium cursor-pointer"
-                  >
-                    Selecionar todos
-                  </label>
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="select-all-leads"
+                      checked={selectedLeads.size === leads.length && leads.length > 0}
+                      onCheckedChange={(checked) => handleSelectAll(checked as boolean)}
+                      data-testid="checkbox-select-all-leads"
+                    />
+                    <label 
+                      htmlFor="select-all-leads" 
+                      className="text-sm font-medium cursor-pointer"
+                    >
+                      Selecionar todos
+                    </label>
+                  </div>
+                  {selectedLeads.size > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => {
+                        setLeadToDelete(null);
+                        setDeleteConfirmOpen(true);
+                      }}
+                      disabled={deleteMultipleLeadsMutation.isPending}
+                      title={`Excluir ${selectedLeads.size} selecionado(s)`}
+                      data-testid="button-delete-selected-header"
+                    >
+                      <Trash2 className="w-4 h-4 text-destructive" />
+                    </Button>
+                  )}
                 </div>
               )}
             </div>
