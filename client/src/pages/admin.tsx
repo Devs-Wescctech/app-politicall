@@ -1449,17 +1449,24 @@ export default function Admin() {
               </Button>
             </div>
             
-            <div className="flex flex-wrap gap-2 mt-4">
+            <div className="flex flex-wrap gap-3 mt-4 text-sm font-medium">
               {selectedCampaign?.status && (
-                <Badge 
-                  variant={selectedCampaign.status === "approved" ? "default" : selectedCampaign.status === "rejected" ? "destructive" : "secondary"}
-                  className={selectedCampaign.status === "approved" ? "bg-[#40E0D0] text-white" : ""}
+                <span 
+                  className={
+                    selectedCampaign.status === "approved" ? "text-[#40E0D0]" : 
+                    selectedCampaign.status === "rejected" ? "text-destructive" : "text-muted-foreground"
+                  }
                 >
                   {selectedCampaign.status === "approved" ? "Aprovada" : 
                    selectedCampaign.status === "rejected" ? "Rejeitada" : "Em Análise"}
-                </Badge>
+                </span>
               )}
-              {selectedCampaign?.campaignStage && getStageBadge(selectedCampaign.campaignStage)}
+              {selectedCampaign?.campaignStage && (
+                <span className="text-muted-foreground">
+                  {selectedCampaign.campaignStage === "pre_campaign" ? "Pré-Campanha" :
+                   selectedCampaign.campaignStage === "campaign" ? "Em Campanha" : "Finalizado"}
+                </span>
+              )}
             </div>
           </div>
 
