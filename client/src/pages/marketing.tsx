@@ -19,7 +19,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, Trash2, Edit, ExternalLink, Copy, CheckCircle, XCircle, Clock, BarChart3, ChevronDown, ChevronUp, Eye, FileText, Calendar } from "lucide-react";
+import { Plus, Trash2, Edit, ExternalLink, Copy, CheckCircle, XCircle, Clock, BarChart3, ChevronDown, ChevronUp, Eye, FileText, Calendar, Lock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useCurrentUser } from "@/hooks/use-current-user";
@@ -748,6 +748,12 @@ export default function Marketing() {
   const [campaignToDelete, setCampaignToDelete] = useState<string | null>(null);
   const [editingCampaign, setEditingCampaign] = useState<CampaignWithTemplate | null>(null);
   const [expandedResults, setExpandedResults] = useState<Set<string>>(new Set());
+  
+  // Password protection states
+  const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
+  const [exportPassword, setExportPassword] = useState("");
+  const [isValidatingPassword, setIsValidatingPassword] = useState(false);
+  const [pendingPdfCampaign, setPendingPdfCampaign] = useState<CampaignWithTemplate | null>(null);
 
   const form = useForm<InsertSurveyCampaign>({
     resolver: zodResolver(insertSurveyCampaignSchema),
@@ -911,6 +917,64 @@ export default function Marketing() {
     setExpandedResults(newExpanded);
   };
 
+  // Password protection for PDF download
+  const handlePdfDownload = (campaign: CampaignWithTemplate) => {
+    setPendingPdfCampaign(campaign);
+    setExportPassword("");
+    setIsPasswordDialogOpen(true);
+  };
+
+  const validatePasswordAndDownloadPdf = async () => {
+    if (!exportPassword.trim()) {
+      toast({ title: "Digite a senha do administrador", variant: "destructive" });
+      return;
+    }
+
+    setIsValidatingPassword(true);
+    try {
+      const response = await apiRequest("POST", "/api/auth/validate-admin-password", { password: exportPassword });
+      const result = await response.json();
+      
+      if (!response.ok) {
+        toast({ 
+          title: "Senha incorreta", 
+          description: result.error || "A senha do administrador está incorreta.",
+          variant: "destructive" 
+        });
+        return;
+      }
+      
+      if (result.valid && pendingPdfCampaign) {
+        setIsPasswordDialogOpen(false);
+        setExportPassword("");
+        
+        // Execute PDF generation
+        try {
+          if (pendingPdfCampaign.template) {
+            await generateSurveyPdfReport(pendingPdfCampaign, pendingPdfCampaign.template, pendingPdfCampaign.id);
+            toast({ title: "PDF gerado com sucesso!" });
+          }
+        } catch (error: any) {
+          toast({ 
+            title: "Erro ao gerar PDF", 
+            description: error.message,
+            variant: "destructive" 
+          });
+        }
+        
+        setPendingPdfCampaign(null);
+      }
+    } catch (error: any) {
+      toast({ 
+        title: "Erro de conexão", 
+        description: "Não foi possível validar a senha. Tente novamente.",
+        variant: "destructive" 
+      });
+    } finally {
+      setIsValidatingPassword(false);
+    }
+  };
+
   return (
     <div className="container mx-auto p-6 max-w-7xl">
       <div className="flex items-center justify-between mb-6">
@@ -1039,20 +1103,7 @@ export default function Marketing() {
                             variant="outline"
                             size="icon"
                             className="rounded-full flex-shrink-0"
-                            onClick={async () => {
-                              try {
-                                if (campaign.template) {
-                                  await generateSurveyPdfReport(campaign, campaign.template, campaign.id);
-                                  toast({ title: "PDF gerado com sucesso!" });
-                                }
-                              } catch (error: any) {
-                                toast({ 
-                                  title: "Erro ao gerar PDF", 
-                                  description: error.message,
-                                  variant: "destructive" 
-                                });
-                              }
-                            }}
+                            onClick={() => handlePdfDownload(campaign)}
                             data-testid={`button-pdf-${campaign.id}`}
                             title="Baixar Resultado em PDF"
                           >
@@ -1563,6 +1614,69 @@ export default function Marketing() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Password Confirmation Dialog for PDF Download */}
+      <Dialog open={isPasswordDialogOpen} onOpenChange={(open) => {
+        setIsPasswordDialogOpen(open);
+        if (!open) {
+          setExportPassword("");
+          setPendingPdfCampaign(null);
+        }
+      }}>
+        <DialogContent className="max-w-sm p-0" aria-describedby="password-dialog-description">
+          <DialogHeader className="px-5 pt-5 pb-3 border-b">
+            <DialogTitle className="text-lg font-bold flex items-center gap-2">
+              <Lock className="w-5 h-5 text-primary" />
+              Confirmação de Segurança
+            </DialogTitle>
+            <p id="password-dialog-description" className="text-xs text-muted-foreground mt-1">
+              Digite a senha do administrador da conta para autorizar o download do relatório
+            </p>
+          </DialogHeader>
+          <div className="p-4 space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Senha do Administrador</label>
+              <Input
+                type="password"
+                placeholder="Digite a senha"
+                value={exportPassword}
+                onChange={(e) => setExportPassword(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    validatePasswordAndDownloadPdf();
+                  }
+                }}
+                data-testid="input-pdf-password"
+              />
+              <p className="text-xs text-muted-foreground">
+                Somente o administrador ou usuários autorizados podem baixar relatórios
+              </p>
+            </div>
+          </div>
+          <DialogFooter className="px-5 py-4 border-t gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsPasswordDialogOpen(false);
+                setExportPassword("");
+                setPendingPdfCampaign(null);
+              }}
+              className="flex-1"
+              data-testid="button-cancel-pdf"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={validatePasswordAndDownloadPdf}
+              disabled={isValidatingPassword || !exportPassword.trim()}
+              className="flex-1"
+              data-testid="button-confirm-pdf"
+            >
+              {isValidatingPassword ? "Validando..." : "Confirmar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
