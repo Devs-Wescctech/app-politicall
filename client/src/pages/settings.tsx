@@ -714,6 +714,7 @@ export default function Settings() {
                       { key: 'contacts', label: 'Eleitores' },
                       { key: 'alliances', label: 'Alianças' },
                       { key: 'demands', label: 'Demandas' },
+                      { key: 'petitions', label: 'Petições' },
                       { key: 'agenda', label: 'Agenda' },
                       { key: 'ai', label: 'Atendimento IA' },
                       { key: 'marketing', label: 'Pesquisas' },
