@@ -4,6 +4,8 @@ import { storage } from "./storage";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import multer from "multer";
+import { google } from "googleapis";
+import crypto from "crypto";
 import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
 import { insertUserSchema, loginSchema, insertContactSchema, insertPoliticalAllianceSchema, insertDemandSchema, insertDemandCommentSchema, insertEventSchema, insertAiConfigurationSchema, insertAiTrainingExampleSchema, insertAiResponseTemplateSchema, insertMarketingCampaignSchema, insertNotificationSchema, insertIntegrationSchema, insertSurveyCampaignSchema, insertSurveyLandingPageSchema, insertSurveyResponseSchema, insertLeadSchema, DEFAULT_PERMISSIONS } from "@shared/schema";
 
@@ -3843,7 +3845,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const crc_token = req.query.crc_token;
     
     if (crc_token) {
-      const crypto = require('crypto');
       const consumer_secret = process.env.TWITTER_CONSUMER_SECRET || '';
       
       const hmac = crypto.createHmac('sha256', consumer_secret).update(crc_token as string).digest('base64');
@@ -4303,7 +4304,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const decryptedClientSecret = decryptApiKey(integration.clientSecret);
       
       // Create OAuth2 client
-      const { google } = require('googleapis');
+
       const oauth2Client = new google.auth.OAuth2(
         integration.clientId,
         decryptedClientSecret,
@@ -4348,7 +4349,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const decryptedClientSecret = decryptApiKey(integration.clientSecret);
       
       // Exchange code for tokens
-      const { google } = require('googleapis');
+
       const oauth2Client = new google.auth.OAuth2(
         integration.clientId,
         decryptedClientSecret,
@@ -4412,7 +4413,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const decryptedClientSecret = decryptApiKey(integration.clientSecret!);
       
       // Create OAuth2 client
-      const { google } = require('googleapis');
+
       const oauth2Client = new google.auth.OAuth2(
         integration.clientId,
         decryptedClientSecret,
