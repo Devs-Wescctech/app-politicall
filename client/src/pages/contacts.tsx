@@ -25,7 +25,7 @@ import {
   Building2, Wrench, Bus, Shield, Siren, Landmark, Vote,
   Flag, Home, Droplet, Construction, Hospital, Building,
   School, University, Baby as BabyIcon, Smile, Drum, Cake,
-  Calendar as CalendarIcon, Star, Mic2, ShoppingCart, Download, FileText, Sheet, MoreVertical, QrCode, Share2, UserCircle2, TrendingUp, MapPin, Info, Lock, Eye, EyeOff
+  Calendar as CalendarIcon, Star, Mic2, ShoppingCart, Download, FileText, Sheet, MoreVertical, QrCode, Share2, UserCircle2, TrendingUp, MapPin, Info, Lock
 } from "lucide-react";
 import { SiWhatsapp, SiFacebook, SiX } from "react-icons/si";
 import { useToast } from "@/hooks/use-toast";
@@ -270,7 +270,6 @@ export default function Contacts() {
   // Export password protection
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
   const [exportPassword, setExportPassword] = useState("");
-  const [showExportPassword, setShowExportPassword] = useState(false);
   const [isValidatingPassword, setIsValidatingPassword] = useState(false);
   const [pendingExportType, setPendingExportType] = useState<"pdf" | "excel" | "profile-pdf" | "profile-excel" | "copy-whatsapp" | "bulk-email" | null>(null);
   
@@ -502,7 +501,6 @@ export default function Contacts() {
   const requestProtectedAction = (type: "pdf" | "excel" | "profile-pdf" | "profile-excel" | "copy-whatsapp" | "bulk-email") => {
     setPendingExportType(type);
     setExportPassword("");
-    setShowExportPassword(false);
     setIsPasswordDialogOpen(true);
   };
 
@@ -2096,35 +2094,18 @@ export default function Contacts() {
           <div className="p-4 space-y-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">Senha do Administrador</label>
-              <div className="relative">
-                <Input
-                  type={showExportPassword ? "text" : "password"}
-                  placeholder="Digite a senha"
-                  value={exportPassword}
-                  onChange={(e) => setExportPassword(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      validatePasswordAndExport();
-                    }
-                  }}
-                  className="pr-10"
-                  data-testid="input-export-password"
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="absolute right-0 top-0 h-full px-3"
-                  onClick={() => setShowExportPassword(!showExportPassword)}
-                  data-testid="button-toggle-password-visibility"
-                >
-                  {showExportPassword ? (
-                    <EyeOff className="h-4 w-4 text-muted-foreground" />
-                  ) : (
-                    <Eye className="h-4 w-4 text-muted-foreground" />
-                  )}
-                </Button>
-              </div>
+              <Input
+                type="password"
+                placeholder="Digite a senha"
+                value={exportPassword}
+                onChange={(e) => setExportPassword(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    validatePasswordAndExport();
+                  }
+                }}
+                data-testid="input-export-password"
+              />
               <p className="text-xs text-muted-foreground">
                 Somente o administrador ou usuários autorizados podem exportar dados
               </p>
