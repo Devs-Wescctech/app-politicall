@@ -21,7 +21,7 @@ function NavItem({ icon, label, isActive, onClick, testId }: NavItemProps) {
     <button
       onClick={onClick}
       className={cn(
-        "relative flex flex-col items-center justify-center gap-1 h-full min-h-[44px] w-full transition-colors",
+        "relative flex flex-col items-center justify-center gap-1 h-full min-h-[44px] flex-1 transition-colors",
         "hover-elevate active-elevate-2",
         isActive ? "text-primary" : "text-muted-foreground hover:text-foreground"
       )}
@@ -61,7 +61,7 @@ export function AdminBottomNav({ activePage, onInboxClick, onSearchClick }: Admi
 
   return (
     <footer className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t shadow-lg">
-      <nav className="grid grid-cols-4 h-16 max-w-lg mx-auto">
+      <nav className="flex items-center h-16 max-w-lg mx-auto">
         <NavItem
           icon={<Megaphone className="w-5 h-5" />}
           label="Campanhas"
@@ -69,6 +69,7 @@ export function AdminBottomNav({ activePage, onInboxClick, onSearchClick }: Admi
           onClick={handleDashboardClick}
           testId="nav-campaigns"
         />
+        <div className="h-8 w-px bg-border" />
         <NavItem
           icon={<FileText className="w-5 h-5" />}
           label="Contratos"
@@ -76,6 +77,7 @@ export function AdminBottomNav({ activePage, onInboxClick, onSearchClick }: Admi
           onClick={handleContractsClick}
           testId="nav-contracts"
         />
+        <div className="h-8 w-px bg-border" />
         <NavItem
           icon={<Inbox className="w-5 h-5" />}
           label="Inbox"
@@ -83,6 +85,7 @@ export function AdminBottomNav({ activePage, onInboxClick, onSearchClick }: Admi
           onClick={handleInboxClick}
           testId="nav-inbox"
         />
+        <div className="h-8 w-px bg-border" />
         <NavItem
           icon={<Search className="w-5 h-5" />}
           label="Pesquisa"
