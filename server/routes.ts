@@ -4606,7 +4606,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // Check if already imported
           if (googleEventIds.has(googleEvent.id)) {
-            // Event already exists - check if we need to update the Meet link
+            // Event already exists - check if we need to update the Meet link or color
             const existingEvent = existingEvents.find(e => e.googleEventId === googleEvent.id);
             
             // Extract Google Meet link
@@ -4622,12 +4622,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
             }
             
-            // Update if the event doesn't have a Meet link but Google has one
-            if (existingEvent && meetLink && !(existingEvent as any).googleMeetLink) {
-              console.log('[Google Calendar Sync] Updating existing event with Meet link:', googleEvent.id);
-              await storage.updateEvent(existingEvent.id, req.accountId!, {
-                googleMeetLink: meetLink
-              });
+            // Map Google Calendar colorId to hex color
+            const googleColorMapExisting: { [key: string]: string } = {
+              '1': '#7986cb',  // Lavender
+              '2': '#33b679',  // Sage
+              '3': '#8e24aa',  // Grape
+              '4': '#e67c73',  // Flamingo
+              '5': '#f6bf26',  // Banana
+              '6': '#f4511e',  // Tangerine
+              '7': '#039be5',  // Peacock
+              '8': '#616161',  // Graphite
+              '9': '#3f51b5',  // Blueberry
+              '10': '#0b8043', // Basil
+              '11': '#d50000', // Tomato
+            };
+            const googleColor = googleEvent.colorId ? googleColorMapExisting[googleEvent.colorId] : null;
+            
+            // Check what needs updating
+            const needsMeetUpdate = meetLink && !(existingEvent as any).googleMeetLink;
+            const needsColorUpdate = googleColor && existingEvent?.borderColor !== googleColor;
+            
+            if (existingEvent && (needsMeetUpdate || needsColorUpdate)) {
+              const updateData: any = {};
+              if (needsMeetUpdate) updateData.googleMeetLink = meetLink;
+              if (needsColorUpdate) updateData.borderColor = googleColor;
+              
+              console.log('[Google Calendar Sync] Updating existing event:', googleEvent.id, updateData);
+              await storage.updateEvent(existingEvent.id, req.accountId!, updateData);
               importedEvents++; // Count as updated
             } else {
               console.log('[Google Calendar Sync] Skipping - already imported:', googleEvent.id);
@@ -4671,7 +4692,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
           }
           
-          console.log('[Google Calendar Sync] Creating event:', eventTitle, 'at', startDate, 'meetLink:', meetLink);
+          // Map Google Calendar colorId to hex color
+          const googleColorMap: { [key: string]: string } = {
+            '1': '#7986cb',  // Lavender
+            '2': '#33b679',  // Sage
+            '3': '#8e24aa',  // Grape
+            '4': '#e67c73',  // Flamingo
+            '5': '#f6bf26',  // Banana
+            '6': '#f4511e',  // Tangerine
+            '7': '#039be5',  // Peacock
+            '8': '#616161',  // Graphite
+            '9': '#3f51b5',  // Blueberry
+            '10': '#0b8043', // Basil
+            '11': '#d50000', // Tomato
+          };
+          const borderColor = googleEvent.colorId ? googleColorMap[googleEvent.colorId] || '#3b82f6' : '#3b82f6';
+          
+          console.log('[Google Calendar Sync] Creating event:', eventTitle, 'at', startDate, 'meetLink:', meetLink, 'color:', borderColor);
           
           try {
             await storage.createEvent({
@@ -4685,6 +4722,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               category: 'event',
               googleEventId: googleEvent.id,
               googleMeetLink: meetLink,
+              borderColor: borderColor,
               reminder: false,
             });
             
