@@ -14,7 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, Calendar as CalendarIcon, List, Clock, Trash2, Pencil, MapPin, RefreshCw, CheckCircle2, AlertCircle, Link2 } from "lucide-react";
+import { Plus, Calendar as CalendarIcon, List, Clock, Trash2, Pencil, MapPin, RefreshCw, CheckCircle2, AlertCircle, Link2, Video, ExternalLink } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -653,6 +653,30 @@ export default function Agenda() {
                       </FormItem>
                     )}
                   />
+
+                  {/* Google Meet Link - show only when editing an event that has a Meet link */}
+                  {editingEvent && (editingEvent as any).googleMeetLink && (
+                    <div className="flex items-center justify-between rounded-lg border p-4 bg-blue-50 dark:bg-blue-950">
+                      <div className="space-y-0.5">
+                        <div className="font-medium text-sm flex items-center gap-2">
+                          <Video className="h-4 w-4 text-blue-600" />
+                          Google Meet
+                        </div>
+                        <div className="text-sm text-muted-foreground">Videoconferência disponível</div>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => window.open((editingEvent as any).googleMeetLink, '_blank')}
+                        data-testid="button-open-meet"
+                      >
+                        <ExternalLink className="h-4 w-4 mr-1" />
+                        Abrir
+                      </Button>
+                    </div>
+                  )}
+
                   <FormField
                     control={form.control}
                     name="reminder"
@@ -742,9 +766,32 @@ export default function Agenda() {
                                   {event.location}
                                 </span>
                               )}
+                              {(event as any).googleMeetLink && (
+                                <a 
+                                  href={(event as any).googleMeetLink} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="flex items-center gap-1 text-blue-600 hover:text-blue-800"
+                                  data-testid={`link-meet-${event.id}`}
+                                >
+                                  <Video className="h-3 w-3" />
+                                  Google Meet
+                                </a>
+                              )}
                             </div>
                           </div>
                           <div className="flex gap-2">
+                            {(event as any).googleMeetLink && (
+                              <Button 
+                                variant="outline" 
+                                size="icon" 
+                                onClick={() => window.open((event as any).googleMeetLink, '_blank')}
+                                title="Abrir Google Meet"
+                                data-testid={`button-meet-${event.id}`}
+                              >
+                                <Video className="h-4 w-4 text-blue-600" />
+                              </Button>
+                            )}
                             <Button variant="ghost" size="icon" onClick={() => handleEdit(event)} data-testid={`button-edit-${event.id}`}>
                               <Pencil className="h-4 w-4" />
                             </Button>

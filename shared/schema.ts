@@ -318,6 +318,7 @@ export const events = pgTable("events", {
   reminder: boolean("reminder").default(false),
   reminderMinutes: integer("reminder_minutes"), // minutes before event
   googleEventId: text("google_event_id"), // Google Calendar event ID for synced events
+  googleMeetLink: text("google_meet_link"), // Google Meet video conference link
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

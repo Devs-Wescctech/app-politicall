@@ -4632,7 +4632,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // Create event in our system (use summary or "Sem título" if empty)
           const eventTitle = googleEvent.summary || '(Sem título)';
-          console.log('[Google Calendar Sync] Creating event:', eventTitle, 'at', startDate);
+          
+          // Extract Google Meet link from hangoutLink or conferenceData
+          let meetLink: string | null = null;
+          if (googleEvent.hangoutLink) {
+            meetLink = googleEvent.hangoutLink;
+          } else if (googleEvent.conferenceData?.entryPoints) {
+            const videoEntry = googleEvent.conferenceData.entryPoints.find(
+              (ep: any) => ep.entryPointType === 'video'
+            );
+            if (videoEntry?.uri) {
+              meetLink = videoEntry.uri;
+            }
+          }
+          
+          console.log('[Google Calendar Sync] Creating event:', eventTitle, 'at', startDate, 'meetLink:', meetLink);
           
           try {
             await storage.createEvent({
@@ -4645,6 +4659,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               location: googleEvent.location || null,
               category: 'event',
               googleEventId: googleEvent.id,
+              googleMeetLink: meetLink,
               reminder: false,
             });
             
@@ -4664,30 +4679,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         for (const localEvent of localEventsToSync) {
           try {
+            // Build request body
+            const requestBody: any = {
+              summary: localEvent.title,
+              description: localEvent.description || undefined,
+              location: localEvent.location || undefined,
+              start: { 
+                dateTime: new Date(localEvent.startDate).toISOString(),
+                timeZone: 'America/Sao_Paulo'
+              },
+              end: { 
+                dateTime: new Date(localEvent.endDate).toISOString(),
+                timeZone: 'America/Sao_Paulo'
+              },
+            };
+            
+            // Add Google Meet if autoCreateMeet is enabled
+            if (integration.autoCreateMeet) {
+              requestBody.conferenceData = {
+                createRequest: {
+                  requestId: `politicall-${localEvent.id}-${Date.now()}`,
+                  conferenceSolutionKey: {
+                    type: 'hangoutsMeet'
+                  }
+                }
+              };
+            }
+            
             // Create event in Google Calendar
             const googleEvent = await calendar.events.insert({
               calendarId: integration.calendarId || 'primary',
-              requestBody: {
-                summary: localEvent.title,
-                description: localEvent.description || undefined,
-                location: localEvent.location || undefined,
-                start: { 
-                  dateTime: new Date(localEvent.startDate).toISOString(),
-                  timeZone: 'America/Sao_Paulo'
-                },
-                end: { 
-                  dateTime: new Date(localEvent.endDate).toISOString(),
-                  timeZone: 'America/Sao_Paulo'
-                },
-              }
+              conferenceDataVersion: integration.autoCreateMeet ? 1 : 0,
+              requestBody
             });
             
-            // Update local event with Google Event ID
+            // Update local event with Google Event ID and Meet link
             if (googleEvent.data.id) {
-              await storage.updateEvent(localEvent.id, req.accountId!, {
+              const updateData: any = {
                 googleEventId: googleEvent.data.id
-              });
+              };
+              
+              // Save Meet link if created
+              if (googleEvent.data.hangoutLink) {
+                updateData.googleMeetLink = googleEvent.data.hangoutLink;
+              }
+              
+              await storage.updateEvent(localEvent.id, req.accountId!, updateData);
               exportedEvents++;
+              
+              console.log('[Google Calendar Sync] Event exported:', localEvent.title, 
+                'Meet link:', googleEvent.data.hangoutLink || 'none');
             }
           } catch (insertError) {
             console.error('Error syncing event to Google:', insertError);
