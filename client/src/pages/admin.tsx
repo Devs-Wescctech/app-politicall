@@ -1633,33 +1633,42 @@ export default function Admin() {
           </div>
 
           {/* Fixed Footer */}
-          <div className="flex-shrink-0 p-4 border-t bg-card flex items-center justify-between gap-2">
+          <div className="flex-shrink-0 p-4 border-t bg-card">
             <div className="flex items-center gap-2">
               {selectedCampaign?.status === "approved" && (
-                <Button
-                  onClick={() => {
-                    if (selectedCampaign) handleCopyLink(selectedCampaign);
-                  }}
-                  size="sm"
-                  variant="outline"
-                  data-testid="button-details-copy-link"
-                >
-                  {copiedId === selectedCampaign?.id ? (
-                    <>
-                      <Check className="w-4 h-4 mr-2 text-[#40E0D0]" />
-                      Copiado!
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-4 h-4 mr-2" />
-                      Copiar Link
-                    </>
-                  )}
-                </Button>
+                <>
+                  <Button
+                    onClick={() => {
+                      if (selectedCampaign) handleCopyLink(selectedCampaign);
+                    }}
+                    size="sm"
+                    variant="outline"
+                    className="flex-1"
+                    data-testid="button-details-copy-link"
+                  >
+                    {copiedId === selectedCampaign?.id ? (
+                      <>
+                        <Check className="w-4 h-4 mr-2 text-[#40E0D0]" />
+                        Copiado!
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-4 h-4 mr-2" />
+                        Copiar Link
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setDetailsDialogOpen(false)}
+                    size="sm"
+                    className="flex-1"
+                    data-testid="button-details-close"
+                  >
+                    Fechar
+                  </Button>
+                </>
               )}
-            </div>
-            
-            <div className="flex items-center gap-2">
               {selectedCampaign?.status === "under_review" && (
                 <>
                   <Button
@@ -1671,7 +1680,7 @@ export default function Admin() {
                     }}
                     disabled={approveMutation.isPending}
                     size="sm"
-                    className="bg-[#40E0D0] hover:bg-[#40E0D0]/90 text-white"
+                    className="flex-1 bg-[#40E0D0] hover:bg-[#40E0D0]/90 text-white"
                     data-testid="button-details-approve"
                   >
                     <CheckCircle2 className="w-4 h-4 mr-2" />
@@ -1687,21 +1696,34 @@ export default function Admin() {
                     disabled={rejectMutation.isPending}
                     size="sm"
                     variant="destructive"
+                    className="flex-1"
                     data-testid="button-details-reject"
                   >
                     <XCircle className="w-4 h-4 mr-2" />
                     Rejeitar
                   </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setDetailsDialogOpen(false)}
+                    size="sm"
+                    className="flex-1"
+                    data-testid="button-details-close"
+                  >
+                    Fechar
+                  </Button>
                 </>
               )}
-              <Button
-                variant="outline"
-                onClick={() => setDetailsDialogOpen(false)}
-                size="sm"
-                data-testid="button-details-close"
-              >
-                Fechar
-              </Button>
+              {selectedCampaign?.status === "rejected" && (
+                <Button
+                  variant="outline"
+                  onClick={() => setDetailsDialogOpen(false)}
+                  size="sm"
+                  className="flex-1"
+                  data-testid="button-details-close"
+                >
+                  Fechar
+                </Button>
+              )}
             </div>
           </div>
         </DialogContent>
