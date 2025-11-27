@@ -815,8 +815,31 @@ export default function Agenda() {
                               {event.location}
                             </p>
                           )}
+                          {(event as any).googleMeetLink && (
+                            <a 
+                              href={(event as any).googleMeetLink} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                              data-testid={`timeline-link-meet-${event.id}`}
+                            >
+                              <Video className="h-3 w-3" />
+                              Google Meet
+                            </a>
+                          )}
                         </div>
                         <div className="flex gap-2">
+                          {(event as any).googleMeetLink && (
+                            <Button 
+                              variant="outline" 
+                              size="icon" 
+                              onClick={() => window.open((event as any).googleMeetLink, '_blank')}
+                              title="Abrir Google Meet"
+                              data-testid={`timeline-button-meet-${event.id}`}
+                            >
+                              <Video className="h-4 w-4 text-blue-600" />
+                            </Button>
+                          )}
                           <Button variant="ghost" size="icon" onClick={() => handleEdit(event)}>
                             <Pencil className="h-4 w-4" />
                           </Button>
