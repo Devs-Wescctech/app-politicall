@@ -1583,7 +1583,7 @@ export default function Admin() {
                 <p className="text-sm font-medium mb-2" data-testid="text-details-main-question">
                   {selectedCampaign?.customMainQuestion || selectedCampaign?.template?.questionText || "Pergunta não definida"}
                 </p>
-                <Badge variant="secondary" className="text-xs">
+                <span className="text-xs text-muted-foreground">
                   {(() => {
                     const type = selectedCampaign?.customMainQuestionType || selectedCampaign?.template?.questionType;
                     switch(type) {
@@ -1593,7 +1593,7 @@ export default function Admin() {
                       default: return type || 'Tipo não definido';
                     }
                   })()}
-                </Badge>
+                </span>
                 
                 {/* Show options for choice questions */}
                 {(selectedCampaign?.customMainQuestionOptions?.length || selectedCampaign?.template?.options?.length) && (
@@ -1631,10 +1631,10 @@ export default function Admin() {
                           </Badge>
                         )}
                       </div>
-                      <Badge variant="secondary" className="text-xs">
+                      <span className="text-xs text-muted-foreground">
                         {question.questionType === 'open_text' ? 'Resposta Aberta' :
                          question.questionType === 'single_choice' ? 'Escolha Única' : 'Múltipla Escolha'}
-                      </Badge>
+                      </span>
                       
                       {question.options && question.options.length > 0 && (
                         <div className="mt-2 space-y-1">
