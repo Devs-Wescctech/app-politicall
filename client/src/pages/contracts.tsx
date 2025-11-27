@@ -33,7 +33,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { UserPlus, ArrowLeft, Mail, Lock, User as UserIcon, MoreVertical, Phone, Pencil, Trash2, Inbox, LogIn, Search, Key, Eye, EyeOff } from "lucide-react";
+import { UserPlus, ArrowLeft, Mail, Lock, User as UserIcon, MoreVertical, Phone, Pencil, Trash2, Inbox, LogIn, Search, Key, Eye, EyeOff, FileText } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { setAuthToken, setAuthUser } from "@/lib/auth";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -119,6 +119,7 @@ export default function ContractsPage() {
   const [confirmAdminPassword, setConfirmAdminPassword] = useState("");
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [activeTab, setActiveTab] = useState<"inbox" | "contracts" | "search">("contracts");
   
   // Module permissions state
   const [editPermissions, setEditPermissions] = useState({
@@ -590,34 +591,16 @@ export default function ContractsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       {/* Fixed Header */}
-      <header className="sticky top-0 z-50 bg-card border-b">
+      <header className="sticky top-0 z-50 bg-card border-b shrink-0">
         <div className="flex items-center justify-between px-6 py-4">
           <img src={logoUrl} alt="Politicall Logo" className="h-10" data-testid="img-logo" />
           <div className="flex items-center gap-3">
             <Button 
-              onClick={() => setInboxDialogOpen(true)}
-              variant="outline"
-              className="rounded-full w-48"
-              data-testid="button-inbox"
-            >
-              <Inbox className="w-4 h-4 mr-2" />
-              Caixa de Entrada
-            </Button>
-            <Button 
-              onClick={() => setLocation("/admin")}
-              variant="outline"
-              className="rounded-full w-48"
-              data-testid="button-back"
-            >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Voltar
-            </Button>
-            <Button 
               onClick={handleLogout} 
               variant="outline"
-              className="rounded-full w-48"
+              className="rounded-full"
               data-testid="button-logout"
             >
               Sair
@@ -627,7 +610,7 @@ export default function ContractsPage() {
       </header>
 
       {/* Main Content */}
-      <main className="container mx-auto p-6">
+      <main className="flex-1 container mx-auto p-6 pb-24">
         <div className="mb-6 flex flex-col gap-4">
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -864,6 +847,50 @@ export default function ContractsPage() {
           </div>
         )}
       </main>
+
+      {/* Fixed Bottom Navigation */}
+      <footer className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t shrink-0">
+        <div className="flex items-center justify-center gap-2 p-3">
+          <Button
+            onClick={() => {
+              setActiveTab("inbox");
+              setInboxDialogOpen(true);
+            }}
+            variant={activeTab === "inbox" ? "default" : "ghost"}
+            className="flex-1 max-w-40 flex-col h-auto py-2 gap-1"
+            data-testid="footer-button-inbox"
+          >
+            <Inbox className="w-5 h-5" />
+            <span className="text-xs">Caixa de Entrada</span>
+          </Button>
+          <Button
+            onClick={() => setActiveTab("contracts")}
+            variant={activeTab === "contracts" ? "default" : "ghost"}
+            className="flex-1 max-w-40 flex-col h-auto py-2 gap-1"
+            data-testid="footer-button-contracts"
+          >
+            <FileText className="w-5 h-5" />
+            <span className="text-xs">Contratos</span>
+          </Button>
+          <Button
+            onClick={() => {
+              setActiveTab("search");
+              // Focus on search input when clicking search tab
+              const searchInput = document.querySelector('[data-testid="input-search"]') as HTMLInputElement;
+              if (searchInput) {
+                searchInput.focus();
+                searchInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              }
+            }}
+            variant={activeTab === "search" ? "default" : "ghost"}
+            className="flex-1 max-w-40 flex-col h-auto py-2 gap-1"
+            data-testid="footer-button-search"
+          >
+            <Search className="w-5 h-5" />
+            <span className="text-xs">Pesquisa</span>
+          </Button>
+        </div>
+      </footer>
 
       {/* User Details Dialog */}
       <Dialog open={detailsDialogOpen} onOpenChange={setDetailsDialogOpen}>
