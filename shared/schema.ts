@@ -217,6 +217,9 @@ export const CONTACT_SOURCES = [
   "Rede Social X",
   "LinkedIn",
   "YouTube",
+  "WhatsApp",
+  "Importação",
+  "Politicall",
   "Outros"
 ] as const;
 
