@@ -3,7 +3,8 @@ import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { CheckCircle2, XCircle, ChevronLeft, ChevronRight, User, Copy, Check, DollarSign, Inbox, Mail, Phone, Trash2 } from "lucide-react";
+import { CheckCircle2, XCircle, ChevronLeft, ChevronRight, User, Copy, Check, DollarSign, Inbox, Mail, Phone, Trash2, Search } from "lucide-react";
+import { AdminBottomNav } from "@/components/admin-bottom-nav";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -772,33 +773,16 @@ export default function Admin() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       {/* Fixed Header */}
-      <header className="sticky top-0 z-50 bg-card border-b">
+      <header className="sticky top-0 z-50 bg-card border-b shrink-0">
         <div className="flex items-center justify-between px-6 py-4">
           <img src={logoUrl} alt="Politicall Logo" className="h-10" data-testid="img-logo" />
           <div className="flex items-center gap-3">
             <Button 
-              onClick={() => setInboxDialogOpen(true)}
-              variant="outline"
-              className="rounded-full w-48"
-              data-testid="button-inbox"
-            >
-              <Inbox className="w-4 h-4 mr-2" />
-              Caixa de Entrada
-            </Button>
-            <Button 
-              onClick={() => setLocation("/contracts")}
-              variant="outline"
-              className="rounded-full w-48"
-              data-testid="button-contracts"
-            >
-              Contratos
-            </Button>
-            <Button 
               onClick={handleLogout} 
               variant="outline"
-              className="rounded-full w-48"
+              className="rounded-full"
               data-testid="button-logout"
             >
               Sair
@@ -808,7 +792,7 @@ export default function Admin() {
       </header>
 
       {/* Main Content - Kanban Board */}
-      <main className="container mx-auto p-6">
+      <main className="flex-1 container mx-auto p-6 pb-24">
         <div className="mb-6 flex items-start justify-between gap-4">
           <div>
             <h2 className="text-xl font-semibold mb-2" data-testid="text-kanban-title">Kanban de Estágios</h2>
@@ -959,6 +943,19 @@ export default function Admin() {
           </div>
         )}
       </main>
+
+      {/* Bottom Navigation */}
+      <AdminBottomNav 
+        activePage="dashboard" 
+        onInboxClick={() => setInboxDialogOpen(true)}
+        onSearchClick={() => {
+          const searchInput = document.querySelector('[data-testid="input-search"]') as HTMLInputElement;
+          if (searchInput) {
+            searchInput.focus();
+            searchInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }}
+      />
 
       {/* Reject Dialog */}
       <Dialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>

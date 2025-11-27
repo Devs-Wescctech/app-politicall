@@ -33,7 +33,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { UserPlus, ArrowLeft, Mail, Lock, User as UserIcon, MoreVertical, Phone, Pencil, Trash2, Inbox, LogIn, Search, Key, Eye, EyeOff, FileText } from "lucide-react";
+import { UserPlus, ArrowLeft, Mail, Lock, User as UserIcon, MoreVertical, Phone, Pencil, Trash2, Inbox, LogIn, Search, Key, Eye, EyeOff } from "lucide-react";
+import { AdminBottomNav } from "@/components/admin-bottom-nav";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { setAuthToken, setAuthUser } from "@/lib/auth";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -119,7 +120,6 @@ export default function ContractsPage() {
   const [confirmAdminPassword, setConfirmAdminPassword] = useState("");
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [activeTab, setActiveTab] = useState<"inbox" | "contracts" | "search">("contracts");
   
   // Module permissions state
   const [editPermissions, setEditPermissions] = useState({
@@ -848,49 +848,18 @@ export default function ContractsPage() {
         )}
       </main>
 
-      {/* Fixed Bottom Navigation */}
-      <footer className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t shrink-0">
-        <div className="flex items-center justify-center gap-2 p-3">
-          <Button
-            onClick={() => {
-              setActiveTab("inbox");
-              setInboxDialogOpen(true);
-            }}
-            variant={activeTab === "inbox" ? "default" : "ghost"}
-            className="flex-1 max-w-40 flex-col h-auto py-2 gap-1"
-            data-testid="footer-button-inbox"
-          >
-            <Inbox className="w-5 h-5" />
-            <span className="text-xs">Caixa de Entrada</span>
-          </Button>
-          <Button
-            onClick={() => setActiveTab("contracts")}
-            variant={activeTab === "contracts" ? "default" : "ghost"}
-            className="flex-1 max-w-40 flex-col h-auto py-2 gap-1"
-            data-testid="footer-button-contracts"
-          >
-            <FileText className="w-5 h-5" />
-            <span className="text-xs">Contratos</span>
-          </Button>
-          <Button
-            onClick={() => {
-              setActiveTab("search");
-              // Focus on search input when clicking search tab
-              const searchInput = document.querySelector('[data-testid="input-search"]') as HTMLInputElement;
-              if (searchInput) {
-                searchInput.focus();
-                searchInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
-              }
-            }}
-            variant={activeTab === "search" ? "default" : "ghost"}
-            className="flex-1 max-w-40 flex-col h-auto py-2 gap-1"
-            data-testid="footer-button-search"
-          >
-            <Search className="w-5 h-5" />
-            <span className="text-xs">Pesquisa</span>
-          </Button>
-        </div>
-      </footer>
+      {/* Bottom Navigation */}
+      <AdminBottomNav 
+        activePage="contracts" 
+        onInboxClick={() => setInboxDialogOpen(true)}
+        onSearchClick={() => {
+          const searchInput = document.querySelector('[data-testid="input-search"]') as HTMLInputElement;
+          if (searchInput) {
+            searchInput.focus();
+            searchInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }}
+      />
 
       {/* User Details Dialog */}
       <Dialog open={detailsDialogOpen} onOpenChange={setDetailsDialogOpen}>
