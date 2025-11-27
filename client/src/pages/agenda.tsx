@@ -138,9 +138,10 @@ export default function Agenda() {
       setIsSyncing(true);
       return apiRequest("POST", "/api/google-calendar/sync");
     },
-    onSuccess: (data: any) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/events"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/google-calendar"] });
+    onSuccess: async (data: any) => {
+      // Força refetch imediato dos eventos para atualizar calendário e timeline
+      await queryClient.refetchQueries({ queryKey: ["/api/events"] });
+      await queryClient.refetchQueries({ queryKey: ["/api/google-calendar"] });
       toast({ 
         title: "Sincronização concluída!", 
         description: data.message || `${data.synced || 0} eventos sincronizados com o Google Calendar` 
