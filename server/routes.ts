@@ -4536,19 +4536,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get calendar service
       const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
       
+      console.log('[Google Calendar Sync] Starting sync...');
+      console.log('[Google Calendar Sync] Sync direction:', integration.syncDirection);
+      
       // Sync logic based on direction
       const syncDirection = integration.syncDirection || 'both';
       let importedEvents = 0;
       let exportedEvents = 0;
+      let skippedEvents = 0;
       
       // Get existing local events for mapping
       const existingEvents = await storage.getEvents(req.accountId!);
       const googleEventIds = new Set(existingEvents.filter(e => e.googleEventId).map(e => e.googleEventId));
+      console.log('[Google Calendar Sync] Existing local events:', existingEvents.length);
+      console.log('[Google Calendar Sync] Events already synced from Google:', googleEventIds.size);
       
       if (syncDirection === 'from_google' || syncDirection === 'both') {
         // Fetch events from Google Calendar (next 3 months)
         const threeMonthsFromNow = new Date();
         threeMonthsFromNow.setMonth(threeMonthsFromNow.getMonth() + 3);
+        
+        console.log('[Google Calendar Sync] Fetching events from Google Calendar...');
+        console.log('[Google Calendar Sync] Calendar ID:', integration.calendarId || 'primary');
+        console.log('[Google Calendar Sync] Time range:', new Date().toISOString(), 'to', threeMonthsFromNow.toISOString());
         
         const response = await calendar.events.list({
           calendarId: integration.calendarId || 'primary',
@@ -4560,13 +4570,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
         
         const googleEvents = response.data.items || [];
+        console.log('[Google Calendar Sync] Found', googleEvents.length, 'events in Google Calendar');
         
         // Import Google events to our system
         for (const googleEvent of googleEvents) {
-          if (!googleEvent.id || !googleEvent.summary) continue;
+          // Log each event for debugging
+          console.log('[Google Calendar Sync] Processing event:', {
+            id: googleEvent.id,
+            summary: googleEvent.summary,
+            start: googleEvent.start,
+            end: googleEvent.end
+          });
+          
+          if (!googleEvent.id) {
+            console.log('[Google Calendar Sync] Skipping - no event ID');
+            skippedEvents++;
+            continue;
+          }
           
           // Skip if already imported
-          if (googleEventIds.has(googleEvent.id)) continue;
+          if (googleEventIds.has(googleEvent.id)) {
+            console.log('[Google Calendar Sync] Skipping - already imported:', googleEvent.id);
+            skippedEvents++;
+            continue;
+          }
           
           // Parse start and end dates
           const startDate = googleEvent.start?.dateTime 
@@ -4581,24 +4608,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
               ? new Date(googleEvent.end.date) 
               : null;
           
-          if (!startDate || !endDate) continue;
+          if (!startDate || !endDate) {
+            console.log('[Google Calendar Sync] Skipping - no valid dates:', googleEvent.id);
+            skippedEvents++;
+            continue;
+          }
           
-          // Create event in our system
-          await storage.createEvent({
-            accountId: req.accountId!,
-            userId: req.userId!,
-            title: googleEvent.summary,
-            description: googleEvent.description || null,
-            startDate,
-            endDate,
-            location: googleEvent.location || null,
-            category: 'event',
-            googleEventId: googleEvent.id,
-            reminder: false,
-          });
+          // Create event in our system (use summary or "Sem título" if empty)
+          const eventTitle = googleEvent.summary || '(Sem título)';
+          console.log('[Google Calendar Sync] Creating event:', eventTitle, 'at', startDate);
           
-          importedEvents++;
+          try {
+            await storage.createEvent({
+              accountId: req.accountId!,
+              userId: req.userId!,
+              title: eventTitle,
+              description: googleEvent.description || null,
+              startDate,
+              endDate,
+              location: googleEvent.location || null,
+              category: 'event',
+              googleEventId: googleEvent.id,
+              reminder: false,
+            });
+            
+            importedEvents++;
+            console.log('[Google Calendar Sync] Event created successfully');
+          } catch (createError: any) {
+            console.error('[Google Calendar Sync] Error creating event:', createError.message);
+          }
         }
+        
+        console.log('[Google Calendar Sync] Import complete. Imported:', importedEvents, 'Skipped:', skippedEvents);
       }
       
       if (syncDirection === 'to_google' || syncDirection === 'both') {
