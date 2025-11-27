@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { 
   type SurveyTemplate,
@@ -749,6 +749,16 @@ export default function Marketing() {
   const [editingCampaign, setEditingCampaign] = useState<CampaignWithTemplate | null>(null);
   const [expandedResults, setExpandedResults] = useState<Set<string>>(new Set());
   
+  // Ref for scrollable content
+  const wizardScrollRef = useRef<HTMLDivElement>(null);
+  
+  // Scroll to top when wizard step changes
+  useEffect(() => {
+    if (wizardScrollRef.current) {
+      wizardScrollRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [wizardStep]);
+  
   // Password protection states
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
   const [exportPassword, setExportPassword] = useState("");
@@ -1195,7 +1205,7 @@ export default function Marketing() {
           </DialogHeader>
 
           {/* Scrollable Content */}
-          <div className="flex-1 overflow-y-auto px-6 py-6">
+          <div ref={wizardScrollRef} className="flex-1 overflow-y-auto px-6 py-6">
             <Form {...form}>
               {/* Step 1: Selecionar Template */}
               {wizardStep === 1 && !editingCampaign && (
