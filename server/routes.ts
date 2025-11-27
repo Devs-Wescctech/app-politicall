@@ -3,7 +3,17 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import multer from "multer";
+import { createRequire } from "module";
+const require = createRequire(import.meta.url);
+const pdfParse = require("pdf-parse");
 import { insertUserSchema, loginSchema, insertContactSchema, insertPoliticalAllianceSchema, insertDemandSchema, insertDemandCommentSchema, insertEventSchema, insertAiConfigurationSchema, insertAiTrainingExampleSchema, insertAiResponseTemplateSchema, insertMarketingCampaignSchema, insertNotificationSchema, insertIntegrationSchema, insertSurveyCampaignSchema, insertSurveyLandingPageSchema, insertSurveyResponseSchema, insertLeadSchema, DEFAULT_PERMISSIONS } from "@shared/schema";
+
+// Configure multer for file uploads
+const upload = multer({ 
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 } // 10MB max
+});
 import { db } from "./db";
 import { politicalParties, politicalAlliances, surveyTemplates, surveyCampaigns, surveyLandingPages, surveyResponses, users, events, demands, demandComments, contacts, aiConfigurations, type SurveyTemplate, type SurveyCampaign, type InsertSurveyCampaign, type SurveyLandingPage, type InsertSurveyLandingPage, type SurveyResponse, type InsertSurveyResponse } from "@shared/schema";
 import { sql, eq, desc, and } from "drizzle-orm";
@@ -1652,6 +1662,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true });
     } catch (error: any) {
       res.status(400).json({ error: error.message });
+    }
+  });
+
+  // Parse PDF file and extract contact data
+  app.post("/api/contacts/parse-pdf", authenticateToken, requirePermission("contacts"), upload.single('file'), async (req: AuthRequest, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "Nenhum arquivo enviado" });
+      }
+
+      if (req.file.mimetype !== 'application/pdf') {
+        return res.status(400).json({ error: "O arquivo deve ser um PDF" });
+      }
+
+      // Parse PDF
+      const pdfData = await pdfParse(req.file.buffer);
+      const text = pdfData.text;
+
+      // Split text into lines
+      const lines = text.split('\n')
+        .map(line => line.trim())
+        .filter(line => line.length > 0);
+
+      if (lines.length < 2) {
+        return res.status(400).json({ error: "O PDF não contém dados suficientes para importação" });
+      }
+
+      // Parse each line - split by multiple spaces or tabs
+      const data = lines.map(line => {
+        // First try tab separation
+        if (line.includes('\t')) {
+          return line.split('\t').map(v => v.trim()).filter(v => v);
+        }
+        // Then try multiple spaces (common in PDF tables)
+        return line.split(/\s{2,}/).map(v => v.trim()).filter(v => v);
+      }).filter(row => row.length > 0);
+
+      if (data.length < 2) {
+        return res.status(400).json({ error: "Não foi possível extrair dados tabulares do PDF" });
+      }
+
+      res.json({ data });
+    } catch (error: any) {
+      console.error('Erro ao processar PDF:', error);
+      res.status(500).json({ error: "Erro ao processar o PDF. Verifique se o arquivo não está corrompido." });
     }
   });
 

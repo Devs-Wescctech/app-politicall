@@ -1,7 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { type Contact, type InsertContact, insertContactSchema, CONTACT_INTERESTS, CONTACT_SOURCES, GENDER_OPTIONS } from "@shared/schema";
-// PDF.js will be loaded dynamically when needed
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -553,65 +552,28 @@ export default function Contacts() {
           return values;
         });
       } else if (fileExtension === 'pdf') {
-        // Extract text from PDF using dynamic import
+        // Process PDF on server for better reliability
         try {
-          const pdfjsLib = await import('pdfjs-dist');
-          const pdfjsWorker = await import('pdfjs-dist/build/pdf.worker.min.mjs');
+          const formData = new FormData();
+          formData.append('file', file);
           
-          // Configure worker for PDF.js v5+
-          pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
+          const response = await fetch('/api/contacts/parse-pdf', {
+            method: 'POST',
+            body: formData,
+            credentials: 'include',
+          });
           
-          const buffer = await file.arrayBuffer();
-          const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(buffer) });
-          const pdf = await loadingTask.promise;
-          
-          const allLines: string[] = [];
-          
-          for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-            const page = await pdf.getPage(pageNum);
-            const textContent = await page.getTextContent();
-            
-            // Group items by their Y position to reconstruct lines
-            const itemsByY: Map<number, string[]> = new Map();
-            
-            for (const item of textContent.items) {
-              if ('str' in item && (item as any).str.trim()) {
-                // Round Y to group items on same line
-                const y = Math.round((item as any).transform[5]);
-                if (!itemsByY.has(y)) {
-                  itemsByY.set(y, []);
-                }
-                itemsByY.get(y)!.push((item as any).str);
-              }
-            }
-            
-            // Sort by Y (descending - top to bottom) and join items
-            const sortedYs = Array.from(itemsByY.keys()).sort((a, b) => b - a);
-            for (const y of sortedYs) {
-              const lineText = itemsByY.get(y)!.join('\t');
-              if (lineText.trim()) {
-                allLines.push(lineText);
-              }
-            }
-          }
-          
-          if (allLines.length < 2) {
-            setImportErrors(['O PDF não contém dados tabulares suficientes para importação']);
+          if (!response.ok) {
+            const errorData = await response.json();
+            setImportErrors([errorData.error || 'Erro ao processar o PDF']);
             return;
           }
           
-          // Parse lines into data array
-          data = allLines.map(line => {
-            // Split by tabs first (added during line reconstruction)
-            if (line.includes('\t')) {
-              return line.split('\t').map(v => v.trim()).filter(v => v);
-            }
-            // Fallback: split by multiple spaces
-            return line.split(/\s{2,}/).map(v => v.trim()).filter(v => v);
-          }).filter(row => row.length > 0);
+          const result = await response.json();
+          data = result.data;
           
-          if (data.length < 2) {
-            setImportErrors(['Não foi possível extrair dados tabulares do PDF. Tente converter para Excel ou CSV.']);
+          if (!data || data.length < 2) {
+            setImportErrors(['O PDF não contém dados tabulares suficientes para importação']);
             return;
           }
         } catch (pdfError) {
