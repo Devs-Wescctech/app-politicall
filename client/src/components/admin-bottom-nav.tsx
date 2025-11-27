@@ -1,5 +1,5 @@
 import { useLocation } from "wouter";
-import { Inbox, FileText, Search, LayoutDashboard } from "lucide-react";
+import { Inbox, FileText, Search, Megaphone } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface AdminBottomNavProps {
@@ -69,11 +69,11 @@ export function AdminBottomNav({ activePage, onInboxClick, onSearchClick }: Admi
     <footer className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t shadow-lg">
       <nav className="grid grid-cols-4 h-16 max-w-lg mx-auto">
         <NavItem
-          icon={<LayoutDashboard className="w-5 h-5" />}
-          label="Dashboard"
+          icon={<Megaphone className="w-5 h-5" />}
+          label="Campanhas"
           isActive={activePage === "dashboard"}
           onClick={handleDashboardClick}
-          testId="nav-dashboard"
+          testId="nav-campaigns"
         />
         <NavItem
           icon={<FileText className="w-5 h-5" />}
