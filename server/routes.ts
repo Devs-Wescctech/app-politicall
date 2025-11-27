@@ -4604,10 +4604,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
             continue;
           }
           
-          // Skip if already imported
+          // Check if already imported
           if (googleEventIds.has(googleEvent.id)) {
-            console.log('[Google Calendar Sync] Skipping - already imported:', googleEvent.id);
-            skippedEvents++;
+            // Event already exists - check if we need to update the Meet link
+            const existingEvent = existingEvents.find(e => e.googleEventId === googleEvent.id);
+            
+            // Extract Google Meet link
+            let meetLink: string | null = null;
+            if (googleEvent.hangoutLink) {
+              meetLink = googleEvent.hangoutLink;
+            } else if (googleEvent.conferenceData?.entryPoints) {
+              const videoEntry = googleEvent.conferenceData.entryPoints.find(
+                (ep: any) => ep.entryPointType === 'video'
+              );
+              if (videoEntry?.uri) {
+                meetLink = videoEntry.uri;
+              }
+            }
+            
+            // Update if the event doesn't have a Meet link but Google has one
+            if (existingEvent && meetLink && !(existingEvent as any).googleMeetLink) {
+              console.log('[Google Calendar Sync] Updating existing event with Meet link:', googleEvent.id);
+              await storage.updateEvent(existingEvent.id, req.accountId!, {
+                googleMeetLink: meetLink
+              });
+              importedEvents++; // Count as updated
+            } else {
+              console.log('[Google Calendar Sync] Skipping - already imported:', googleEvent.id);
+              skippedEvents++;
+            }
             continue;
           }
           
