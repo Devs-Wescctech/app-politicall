@@ -370,7 +370,7 @@ export default function Agenda() {
               )}
             </div>
           ) : (
-            <span className="flex items-center gap-1 text-yellow-600 text-sm">
+            <span className="flex items-center gap-1 text-muted-foreground text-sm">
               <AlertCircle className="h-3 w-3" />
               Google Calendar não autorizado
             </span>
