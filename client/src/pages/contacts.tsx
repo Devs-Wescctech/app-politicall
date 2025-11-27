@@ -1,11 +1,7 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { type Contact, type InsertContact, insertContactSchema, CONTACT_INTERESTS, CONTACT_SOURCES, GENDER_OPTIONS } from "@shared/schema";
-import * as pdfjsLib from 'pdfjs-dist';
-import type { TextItem } from 'pdfjs-dist/types/src/display/api';
-
-// Configure PDF.js worker - use legacy build for better compatibility
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
+// PDF.js will be loaded dynamically when needed
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -557,10 +553,16 @@ export default function Contacts() {
           return values;
         });
       } else if (fileExtension === 'pdf') {
-        // Extract text from PDF
+        // Extract text from PDF using dynamic import
         try {
+          const pdfjsLib = await import('pdfjs-dist');
+          const pdfjsWorker = await import('pdfjs-dist/build/pdf.worker.min.mjs');
+          
+          // Configure worker for PDF.js v5+
+          pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
+          
           const buffer = await file.arrayBuffer();
-          const loadingTask = pdfjsLib.getDocument({ data: buffer });
+          const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(buffer) });
           const pdf = await loadingTask.promise;
           
           const allLines: string[] = [];
@@ -573,14 +575,13 @@ export default function Contacts() {
             const itemsByY: Map<number, string[]> = new Map();
             
             for (const item of textContent.items) {
-              if ('str' in item && item.str.trim()) {
-                const textItem = item as TextItem;
+              if ('str' in item && (item as any).str.trim()) {
                 // Round Y to group items on same line
-                const y = Math.round(textItem.transform[5]);
+                const y = Math.round((item as any).transform[5]);
                 if (!itemsByY.has(y)) {
                   itemsByY.set(y, []);
                 }
-                itemsByY.get(y)!.push(textItem.str);
+                itemsByY.get(y)!.push((item as any).str);
               }
             }
             
