@@ -79,7 +79,7 @@ const apiKeySchema = z.object({
 
 const googleCalendarSchema = z.object({
   clientId: z.string().min(1, "Client ID é obrigatório"),
-  clientSecret: z.string().min(1, "Client Secret é obrigatório"),
+  clientSecret: z.string(), // Optional when already configured - backend validates
   redirectUri: z.string().min(1, "Redirect URI é obrigatório"),
   syncDirection: z.enum(["to_google", "from_google", "both"]).default("both"),
   autoCreateMeet: z.boolean().default(false),
