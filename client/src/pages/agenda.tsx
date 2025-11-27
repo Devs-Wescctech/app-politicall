@@ -795,14 +795,14 @@ export default function Agenda() {
                               <SiGooglecalendar className="h-4 w-4 text-blue-500" title="Sincronizado com Google Calendar" />
                             )}
                             {event.category && (
-                              <Badge 
-                                variant="secondary"
+                              <span 
+                                className="text-sm font-medium flex items-center gap-1"
                                 style={{ 
                                   color: event.borderColor || CATEGORY_CONFIG[event.category as keyof typeof CATEGORY_CONFIG]?.borderColor || "#3b82f6"
                                 }}
                               >
                                 {CATEGORY_CONFIG[event.category as keyof typeof CATEGORY_CONFIG]?.label}
-                              </Badge>
+                              </span>
                             )}
                           </div>
                           <p className="text-sm text-muted-foreground">
