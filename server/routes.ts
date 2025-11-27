@@ -2832,6 +2832,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           campaignName: campaign.campaignName,
           slug: campaign.slug,
           status: campaign.status,
+          customMainQuestion: campaign.customMainQuestion,
+          customMainQuestionType: campaign.customMainQuestionType,
+          customMainQuestionOptions: campaign.customMainQuestionOptions,
+          customQuestions: campaign.customQuestions,
         },
         template: {
           questionText: template.questionText,

@@ -21,12 +21,24 @@ import { CheckCircle2, AlertCircle } from "lucide-react";
 import logoUrl from "@assets/logo pol_1763308638963.png";
 import surveyBackground from "@assets/d39a8f83-9488-4450-a920-1ca2b1507b3e_1763589660859.jpg";
 
+type CustomQuestion = {
+  id: string;
+  questionText: string;
+  questionType: 'open_text' | 'single_choice' | 'multiple_choice';
+  options?: string[];
+  required: boolean;
+};
+
 type SurveyData = {
   campaign: {
     id: string;
     campaignName: string;
     slug: string;
     status: string;
+    customMainQuestion?: string | null;
+    customMainQuestionType?: string | null;
+    customMainQuestionOptions?: string[] | null;
+    customQuestions?: CustomQuestion[] | null;
   };
   template: {
     questionText: string;
@@ -45,6 +57,24 @@ export default function SurveyLanding() {
     queryKey: ["/api/pesquisa", slug],
     enabled: !!slug,
   });
+
+  // Get the effective question data (custom overrides template)
+  const getEffectiveQuestionData = () => {
+    if (!surveyData) return null;
+    
+    const hasCustomQuestion = surveyData.campaign.customMainQuestion && surveyData.campaign.customMainQuestion.trim() !== '';
+    const questionText = hasCustomQuestion 
+      ? surveyData.campaign.customMainQuestion! 
+      : surveyData.template.questionText;
+    const questionType = (surveyData.campaign.customMainQuestionType || surveyData.template.questionType) as "open_text" | "single_choice" | "multiple_choice" | "rating";
+    const options = surveyData.campaign.customMainQuestionOptions?.length 
+      ? surveyData.campaign.customMainQuestionOptions 
+      : surveyData.template.options;
+    
+    return { questionText, questionType, options };
+  };
+
+  const effectiveQuestion = getEffectiveQuestionData();
 
   const formSchema = z.object({
     // Demographic fields (mandatory)
@@ -72,16 +102,17 @@ export default function SurveyLanding() {
     answers: z.array(z.string()).optional(),
     ratings: z.record(z.number()).optional(),
   }).refine((data) => {
-    if (surveyData?.template.questionType === "open_text") {
+    const questionType = effectiveQuestion?.questionType;
+    if (questionType === "open_text") {
       return !!data.answer && data.answer.trim().length > 0;
     }
-    if (surveyData?.template.questionType === "single_choice") {
+    if (questionType === "single_choice") {
       return !!data.answer;
     }
-    if (surveyData?.template.questionType === "multiple_choice") {
+    if (questionType === "multiple_choice") {
       return data.answers && data.answers.length > 0;
     }
-    if (surveyData?.template.questionType === "rating") {
+    if (questionType === "rating") {
       return data.ratings && Object.keys(data.ratings).length > 0;
     }
     return false;
@@ -117,13 +148,14 @@ export default function SurveyLanding() {
       };
       
       // Response data based on question type
-      if (surveyData?.template.questionType === "open_text") {
+      const questionType = effectiveQuestion?.questionType;
+      if (questionType === "open_text") {
         payload.responseData = { answer: data.answer };
-      } else if (surveyData?.template.questionType === "single_choice") {
+      } else if (questionType === "single_choice") {
         payload.responseData = { answer: data.answer };
-      } else if (surveyData?.template.questionType === "multiple_choice") {
+      } else if (questionType === "multiple_choice") {
         payload.responseData = { answers: data.answers };
-      } else if (surveyData?.template.questionType === "rating") {
+      } else if (questionType === "rating") {
         payload.responseData = { ratings: data.ratings };
       }
 
@@ -160,23 +192,23 @@ export default function SurveyLanding() {
   };
 
   useEffect(() => {
-    if (surveyData) {
+    if (surveyData && effectiveQuestion) {
       const cleanName = surveyData.campaign.campaignName.replace(/\s*\(Neutra\)\s*/gi, '');
       document.title = `${cleanName} | Politicall`;
       const metaDescription = document.querySelector('meta[name="description"]');
       if (metaDescription) {
         metaDescription.setAttribute(
           "content",
-          `Participe da pesquisa: ${surveyData.template.questionText}`
+          `Participe da pesquisa: ${effectiveQuestion.questionText}`
         );
       } else {
         const meta = document.createElement("meta");
         meta.name = "description";
-        meta.content = `Participe da pesquisa: ${surveyData.template.questionText}`;
+        meta.content = `Participe da pesquisa: ${effectiveQuestion.questionText}`;
         document.head.appendChild(meta);
       }
     }
-  }, [surveyData]);
+  }, [surveyData, effectiveQuestion]);
 
   if (isLoading) {
     return (
@@ -474,14 +506,14 @@ export default function SurveyLanding() {
                 {/* Survey Question Section */}
                 <div>
                   <h3 className="text-xl font-semibold mb-2" data-testid="text-question">
-                    {surveyData.template.questionText}
+                    {effectiveQuestion?.questionText}
                   </h3>
                   <p className="text-sm text-muted-foreground mb-6">
                     Por favor, responda a pergunta abaixo.
                   </p>
                 </div>
 
-                {surveyData.template.questionType === "open_text" && (
+                {effectiveQuestion?.questionType === "open_text" && (
                   <FormField
                     control={form.control}
                     name="answer"
@@ -502,7 +534,7 @@ export default function SurveyLanding() {
                   />
                 )}
 
-                {surveyData.template.questionType === "single_choice" && surveyData.template.options && (
+                {effectiveQuestion?.questionType === "single_choice" && effectiveQuestion?.options && (
                   <FormField
                     control={form.control}
                     name="answer"
@@ -515,7 +547,7 @@ export default function SurveyLanding() {
                             data-testid="radio-group-single-choice"
                           >
                             <div className="space-y-3">
-                              {surveyData.template.options!.map((option, index) => (
+                              {effectiveQuestion.options!.map((option, index) => (
                                 <div
                                   key={index}
                                   className="flex items-center space-x-3 rounded-lg border p-4 hover-elevate"
@@ -542,14 +574,14 @@ export default function SurveyLanding() {
                   />
                 )}
 
-                {surveyData.template.questionType === "multiple_choice" && surveyData.template.options && (
+                {effectiveQuestion?.questionType === "multiple_choice" && effectiveQuestion?.options && (
                   <FormField
                     control={form.control}
                     name="answers"
                     render={() => (
                       <FormItem>
                         <div className="space-y-3">
-                          {surveyData.template.options!.map((option, index) => (
+                          {effectiveQuestion.options!.map((option, index) => (
                             <FormField
                               key={index}
                               control={form.control}
@@ -585,9 +617,9 @@ export default function SurveyLanding() {
                   />
                 )}
 
-                {surveyData.template.questionType === "rating" && surveyData.template.options && (
+                {effectiveQuestion?.questionType === "rating" && effectiveQuestion?.options && (
                   <div className="space-y-4">
-                    {surveyData.template.options.map((option, index) => (
+                    {effectiveQuestion.options.map((option, index) => (
                       <div key={index} className="space-y-2">
                         <Label className="text-base" data-testid={`label-rating-${index}`}>
                           {option}
