@@ -14,7 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, Calendar as CalendarIcon, Clock, Trash2, Pencil, MapPin, RefreshCw, CheckCircle2, AlertCircle, Link2, Video, ExternalLink } from "lucide-react";
+import { Plus, Calendar as CalendarIcon, Clock, Trash2, Pencil, MapPin, RefreshCw, CheckCircle2, AlertCircle, Link2, Video, ExternalLink, Tag } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -801,6 +801,7 @@ export default function Agenda() {
                                   color: event.borderColor || CATEGORY_CONFIG[event.category as keyof typeof CATEGORY_CONFIG]?.borderColor || "#3b82f6"
                                 }}
                               >
+                                <Tag className="h-3 w-3" />
                                 {CATEGORY_CONFIG[event.category as keyof typeof CATEGORY_CONFIG]?.label}
                               </span>
                             )}
