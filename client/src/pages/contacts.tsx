@@ -272,7 +272,7 @@ export default function Contacts() {
   const [exportPassword, setExportPassword] = useState("");
   const [showExportPassword, setShowExportPassword] = useState(false);
   const [isValidatingPassword, setIsValidatingPassword] = useState(false);
-  const [pendingExportType, setPendingExportType] = useState<"pdf" | "excel" | "profile-pdf" | "profile-excel" | null>(null);
+  const [pendingExportType, setPendingExportType] = useState<"pdf" | "excel" | "profile-pdf" | "profile-excel" | "copy-whatsapp" | "bulk-email" | null>(null);
   
   const { toast } = useToast();
 
@@ -456,7 +456,7 @@ export default function Contacts() {
     });
   }, [contacts, searchQuery, selectedCity, selectedState, selectedInterest, selectedSource]);
 
-  const handleBulkEmail = () => {
+  const executeBulkEmail = () => {
     const emailAddresses = contacts?.filter(c => c.email).map(c => c.email).join(',');
     if (!emailAddresses) {
       toast({ title: "Nenhum contato com email", variant: "destructive" });
@@ -465,7 +465,7 @@ export default function Contacts() {
     window.location.href = `mailto:?bcc=${emailAddresses}`;
   };
 
-  const handleCopyWhatsAppNumbers = () => {
+  const executeCopyWhatsAppNumbers = () => {
     const phones = contacts
       ?.filter(c => c.phone)
       .map(c => {
@@ -490,8 +490,16 @@ export default function Contacts() {
     });
   };
 
-  // Password validation for exports
-  const requestExport = (type: "pdf" | "excel" | "profile-pdf" | "profile-excel") => {
+  const handleCopyWhatsAppNumbers = () => {
+    requestProtectedAction("copy-whatsapp");
+  };
+
+  const handleBulkEmail = () => {
+    requestProtectedAction("bulk-email");
+  };
+
+  // Password validation for exports and protected actions
+  const requestProtectedAction = (type: "pdf" | "excel" | "profile-pdf" | "profile-excel" | "copy-whatsapp" | "bulk-email") => {
     setPendingExportType(type);
     setExportPassword("");
     setShowExportPassword(false);
@@ -522,7 +530,7 @@ export default function Contacts() {
         setIsPasswordDialogOpen(false);
         setExportPassword("");
         
-        // Execute the pending export
+        // Execute the pending action
         switch (pendingExportType) {
           case "pdf":
             await executeExportPDF();
@@ -535,6 +543,12 @@ export default function Contacts() {
             break;
           case "profile-excel":
             await executeExportProfileExcel();
+            break;
+          case "copy-whatsapp":
+            executeCopyWhatsAppNumbers();
+            break;
+          case "bulk-email":
+            executeBulkEmail();
             break;
         }
         setPendingExportType(null);
@@ -1056,7 +1070,7 @@ export default function Contacts() {
                 <div className="grid gap-3">
                   <Card 
                     className="cursor-pointer transition-all hover-elevate active-elevate-2 border-2 hover:border-primary/20"
-                    onClick={() => requestExport("pdf")}
+                    onClick={() => requestProtectedAction("pdf")}
                     data-testid="button-export-pdf"
                   >
                     <CardContent className="p-4">
@@ -1085,7 +1099,7 @@ export default function Contacts() {
 
                   <Card 
                     className="cursor-pointer transition-all hover-elevate active-elevate-2 border-2 hover:border-primary/20"
-                    onClick={() => requestExport("excel")}
+                    onClick={() => requestProtectedAction("excel")}
                     data-testid="button-export-excel"
                   >
                     <CardContent className="p-4">
@@ -1515,7 +1529,7 @@ export default function Contacts() {
                 <div className="grid gap-3">
                   <Card 
                     className="cursor-pointer transition-all hover-elevate active-elevate-2 border-2 hover:border-primary/20"
-                    onClick={() => requestExport("profile-pdf")}
+                    onClick={() => requestProtectedAction("profile-pdf")}
                     data-testid="button-export-profile-pdf"
                   >
                     <CardContent className="p-4">
@@ -1535,7 +1549,7 @@ export default function Contacts() {
 
                   <Card 
                     className="cursor-pointer transition-all hover-elevate active-elevate-2 border-2 hover:border-primary/20"
-                    onClick={() => requestExport("profile-excel")}
+                    onClick={() => requestProtectedAction("profile-excel")}
                     data-testid="button-export-profile-excel"
                   >
                     <CardContent className="p-4">
