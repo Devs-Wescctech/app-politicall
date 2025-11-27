@@ -4595,11 +4595,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
             id: googleEvent.id,
             summary: googleEvent.summary,
             start: googleEvent.start,
-            end: googleEvent.end
+            end: googleEvent.end,
+            eventType: (googleEvent as any).eventType,
+            transparency: googleEvent.transparency
           });
           
           if (!googleEvent.id) {
             console.log('[Google Calendar Sync] Skipping - no event ID');
+            skippedEvents++;
+            continue;
+          }
+          
+          // Skip birthday events, holidays, and other automatic events
+          const eventType = (googleEvent as any).eventType;
+          if (eventType === 'birthday' || eventType === 'fromGmail' || eventType === 'outOfOffice') {
+            console.log('[Google Calendar Sync] Skipping - automatic event type:', eventType);
+            skippedEvents++;
+            continue;
+          }
+          
+          // Skip transparent events (events that don't block time, like birthdays)
+          if (googleEvent.transparency === 'transparent') {
+            console.log('[Google Calendar Sync] Skipping - transparent event (birthday/reminder):', googleEvent.summary);
             skippedEvents++;
             continue;
           }
