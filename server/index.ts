@@ -1,3 +1,15 @@
+/**
+ * ============================================================================
+ * POLITICALL - Plataforma de Gestão Política
+ * ============================================================================
+ * 
+ * Desenvolvido por: David Flores Andrade
+ * Website: www.politicall.com.br
+ * 
+ * Todos os direitos reservados © 2024-2025
+ * ============================================================================
+ */
+
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";

@@ -1,3 +1,15 @@
+/**
+ * ============================================================================
+ * POLITICALL - Plataforma de Gestão Política
+ * ============================================================================
+ * 
+ * Desenvolvido por: David Flores Andrade
+ * Website: www.politicall.com.br
+ * 
+ * Todos os direitos reservados © 2024-2025
+ * ============================================================================
+ */
+
 import { sql } from "drizzle-orm";
 import { pgTable, text, varchar, timestamp, integer, boolean, jsonb, numeric, uuid } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";

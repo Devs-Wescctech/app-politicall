@@ -1,5 +1,11 @@
 # Politicall Platform
 
+## Desenvolvedor
+
+**David Flores Andrade**
+Website: www.politicall.com.br
+Todos os direitos reservados © 2024-2025
+
 ## Overview
 
 Politicall is a comprehensive political management platform for Brazilian politicians and their teams. It offers integrated tools for constituent relationship management (CRM), political alliance tracking, demand management, event scheduling, AI-powered social media attendance, and marketing campaign automation. The platform emphasizes data-dense dashboards and professional productivity workflows, following Material Design principles adapted for enterprise use.
