@@ -2027,18 +2027,20 @@ export default function Contacts() {
               </div>
             </DialogContent>
           </Dialog>
-          <Button 
-            variant="outline"
-            size="icon"
-            onClick={() => {
-              resetImport();
-              setIsImportDialogOpen(true);
-            }}
-            data-testid="button-import"
-            title="Importar lista de contatos"
-          >
-            <Upload className="w-4 h-4" />
-          </Button>
+          {currentUser?.role !== 'voluntario' && (
+            <Button 
+              variant="outline"
+              size="icon"
+              onClick={() => {
+                resetImport();
+                setIsImportDialogOpen(true);
+              }}
+              data-testid="button-import"
+              title="Importar lista de contatos"
+            >
+              <Upload className="w-4 h-4" />
+            </Button>
+          )}
           <Dialog open={isImportDialogOpen} onOpenChange={(open) => {
             setIsImportDialogOpen(open);
             if (!open) resetImport();
