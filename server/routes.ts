@@ -1144,7 +1144,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         email: z.string().email(),
         password: z.string().min(6),
         name: z.string().min(2),
-        role: z.enum(["admin", "coordenador", "assessor"]),
+        role: z.enum(["admin", "coordenador", "assessor", "voluntario"]),
         permissions: z.object({
           dashboard: z.boolean(),
           contacts: z.boolean(),
@@ -1505,7 +1505,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         email: z.string().email(),
         password: z.string().min(6),
         name: z.string().min(2),
-        role: z.enum(["admin", "coordenador", "assessor"]),
+        role: z.enum(["admin", "coordenador", "assessor", "voluntario"]),
         permissions: z.object({
           dashboard: z.boolean(),
           contacts: z.boolean(),
@@ -1556,7 +1556,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       // Validate role and permissions if provided
       const updateSchema = z.object({
-        role: z.enum(["admin", "coordenador", "assessor"]).optional(),
+        role: z.enum(["admin", "coordenador", "assessor", "voluntario"]).optional(),
         name: z.string().min(2).optional(),
         email: z.string().email().optional(),
         password: z.string().min(6).optional(),

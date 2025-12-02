@@ -76,14 +76,14 @@ export const DEFAULT_PERMISSIONS = {
     settings: false     // Assessor NÃO acessa configurações
   },
   voluntario: {
-    dashboard: true,
+    dashboard: false,
     contacts: true,     // Voluntário pode ver eleitores
     alliances: false,   // Voluntário NÃO acessa alianças políticas
     demands: false,     // Voluntário NÃO acessa demandas
-    agenda: true,       // Voluntário pode ver agenda
+    agenda: false,      // Voluntário NÃO acessa agenda
     ai: false,          // Voluntário NÃO usa IA
     marketing: false,   // Voluntário NÃO faz marketing
-    petitions: true,    // Voluntário pode coletar assinaturas
+    petitions: false,   // Voluntário NÃO acessa petições
     users: false,       // Voluntário NÃO gerencia usuários
     settings: false     // Voluntário NÃO acessa configurações
   }
