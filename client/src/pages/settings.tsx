@@ -163,6 +163,7 @@ export default function Settings() {
   });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const backgroundInputRef = useRef<HTMLInputElement>(null);
 
   const [selectedState, setSelectedState] = useState(currentUser?.state || "");
   const [availableCities, setAvailableCities] = useState<string[]>([]);
@@ -306,6 +307,27 @@ export default function Settings() {
         variant: "destructive",
         title: "Erro",
         description: error.message || "Erro ao enviar foto",
+      });
+    },
+  });
+
+  const uploadBackgroundMutation = useMutation({
+    mutationFn: async (landingBackground: string) => {
+      return await apiRequest("PATCH", "/api/auth/profile", { landingBackground });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/account/admin"] });
+      toast({
+        title: "Sucesso",
+        description: "Plano de fundo da página de apoio atualizado",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: error.message || "Erro ao enviar imagem de fundo",
       });
     },
   });
@@ -469,6 +491,41 @@ export default function Settings() {
     reader.onload = (e) => {
       const base64 = e.target?.result as string;
       uploadAvatarMutation.mutate(base64);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleBackgroundClick = () => {
+    backgroundInputRef.current?.click();
+  };
+
+  const handleBackgroundFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Por favor, selecione uma imagem",
+      });
+      return;
+    }
+
+    // Allow larger files for background (up to 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "A imagem deve ter no máximo 10MB",
+      });
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const base64 = e.target?.result as string;
+      uploadBackgroundMutation.mutate(base64);
     };
     reader.readAsDataURL(file);
   };
@@ -715,6 +772,40 @@ export default function Settings() {
                     <p className="font-semibold text-lg">{currentUser?.name}</p>
                     <p className="text-sm text-muted-foreground">{currentUser?.email}</p>
                   </div>
+                  
+                  {/* Background upload button - only for admins */}
+                  {user?.role === 'admin' && (
+                    <div className="pt-3 border-t">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full"
+                        onClick={handleBackgroundClick}
+                        disabled={uploadBackgroundMutation.isPending}
+                        data-testid="button-upload-background"
+                      >
+                        {uploadBackgroundMutation.isPending ? (
+                          <>Enviando...</>
+                        ) : (
+                          <>
+                            <Camera className="w-4 h-4 mr-2" />
+                            Plano de Fundo
+                          </>
+                        )}
+                      </Button>
+                      <p className="text-xs text-muted-foreground text-center mt-1">
+                        Imagem de fundo da página de apoio
+                      </p>
+                      <input
+                        ref={backgroundInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={handleBackgroundFileChange}
+                        className="hidden"
+                        data-testid="input-background"
+                      />
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 

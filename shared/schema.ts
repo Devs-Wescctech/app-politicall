@@ -117,6 +117,7 @@ export const users = pgTable("users", {
   permissions: jsonb("permissions").$type<UserPermissions>(),
   phone: text("phone"),
   avatar: text("avatar"), // Base64 encoded image or URL
+  landingBackground: text("landing_background"), // Background image for public support landing page
   slug: text("slug").unique(), // URL slug for public supporter page (e.g., "joao-silva")
   volunteerCode: text("volunteer_code").unique(), // 4-digit unique code for volunteers (e.g., "A1B2")
   partyId: varchar("party_id").references(() => politicalParties.id),

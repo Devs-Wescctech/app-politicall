@@ -246,13 +246,16 @@ export default function PublicSupport() {
     );
   }
 
+  // Use custom landing background if available, otherwise use default
+  const backgroundImageUrl = candidateData.landingBackground || publicSupportBgUrl;
+
   return (
     <div className="min-h-screen relative overflow-hidden">
-      {/* Background Image */}
+      {/* Background Image - uses custom background if available */}
       <div 
         className="fixed inset-0 z-0 bg-cover bg-center bg-no-repeat"
         style={{
-          backgroundImage: `url(${publicSupportBgUrl})`,
+          backgroundImage: `url(${backgroundImageUrl})`,
         }}
       ></div>
       

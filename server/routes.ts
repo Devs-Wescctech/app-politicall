@@ -703,6 +703,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         name: z.string().min(2, "Nome deve ter no mínimo 2 caracteres").optional(),
         phone: z.string().optional(),
         avatar: z.string().optional(),
+        landingBackground: z.string().optional(),
         partyId: z.string().optional(),
         politicalPosition: z.string().optional(),
         electionNumber: z.string().optional(),
