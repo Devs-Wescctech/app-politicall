@@ -27,7 +27,7 @@ import {
   Building2, Wrench, Bus, Shield, Siren, Landmark, Vote,
   Flag, Home, Droplet, Construction, Hospital, Building,
   School, University, Baby as BabyIcon, Smile, Drum, Cake,
-  Calendar as CalendarIcon, Star, Mic2, ShoppingCart, Download, FileText, Sheet, MoreVertical, QrCode, Share2, UserCircle2, TrendingUp, MapPin, Info, Lock, Upload, FileSpreadsheet, AlertCircle, CheckCircle2, Filter, ChevronDown
+  Calendar as CalendarIcon, Star, Mic2, ShoppingCart, Download, FileText, Sheet, MoreVertical, QrCode, Share2, UserCircle2, TrendingUp, MapPin, Info, Lock, Upload, FileSpreadsheet, AlertCircle, CheckCircle2, Filter, ChevronDown, ExternalLink
 } from "lucide-react";
 import { SiWhatsapp, SiFacebook, SiX } from "react-icons/si";
 import { useToast } from "@/hooks/use-toast";
@@ -1641,30 +1641,12 @@ export default function Contacts() {
                           className="flex-1"
                           size="sm"
                           onClick={() => {
-                            const svg = document.querySelector('#qr-code-dialog-description')?.parentElement?.parentElement?.querySelector('svg');
-                            if (svg) {
-                              const svgData = new XMLSerializer().serializeToString(svg);
-                              const canvas = document.createElement('canvas');
-                              const ctx = canvas.getContext('2d');
-                              const img = new Image();
-                              img.onload = () => {
-                                canvas.width = img.width;
-                                canvas.height = img.height;
-                                ctx?.drawImage(img, 0, 0);
-                                const pngFile = canvas.toDataURL('image/png');
-                                const downloadLink = document.createElement('a');
-                                downloadLink.download = `qr-code-apoio-${qrCodeSlug}.png`;
-                                downloadLink.href = pngFile;
-                                downloadLink.click();
-                              };
-                              img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
-                            }
-                            toast({ title: "QR Code baixado com sucesso!" });
+                            window.open(`https://www.politicall.com.br/apoio/${qrCodeSlug}`, '_blank');
                           }}
-                          data-testid="button-download-qr"
+                          data-testid="button-open-qr-url"
                         >
-                          <Download className="w-3.5 h-3.5 mr-1.5" />
-                          Baixar
+                          <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
+                          Abrir
                         </Button>
                       </div>
                       
