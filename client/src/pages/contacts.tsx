@@ -2206,6 +2206,9 @@ export default function Contacts() {
             if (!open) {
               setEditingContact(null);
               form.reset();
+            } else if (!editingContact && currentUser?.role === 'voluntario') {
+              // Para voluntários criando novo contato, preencher fonte automaticamente
+              form.setValue('source', `Vol. ${currentUser.name}`);
             }
           }}>
             <DialogTrigger asChild>
@@ -2443,20 +2446,31 @@ export default function Contacts() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Fonte</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value || undefined}>
+                        {currentUser?.role === 'voluntario' && !editingContact ? (
                           <FormControl>
-                            <SelectTrigger data-testid="select-contact-source">
-                              <SelectValue placeholder="Como foi feito o cadastro?" />
-                            </SelectTrigger>
+                            <Input 
+                              value={`Vol. ${currentUser.name}`} 
+                              disabled 
+                              className="bg-muted"
+                              data-testid="input-contact-source-volunteer"
+                            />
                           </FormControl>
-                          <SelectContent>
-                            {CONTACT_SOURCES.map((source) => (
-                              <SelectItem key={source} value={source}>
-                                {source}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        ) : (
+                          <Select onValueChange={field.onChange} value={field.value || undefined}>
+                            <FormControl>
+                              <SelectTrigger data-testid="select-contact-source">
+                                <SelectValue placeholder="Como foi feito o cadastro?" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {CONTACT_SOURCES.map((source) => (
+                                <SelectItem key={source} value={source}>
+                                  {source}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
                         <FormMessage />
                       </FormItem>
                     )}
