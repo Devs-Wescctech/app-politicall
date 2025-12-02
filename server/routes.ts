@@ -620,9 +620,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get current authenticated user (with fresh role from database)
   app.get("/api/auth/me", authenticateToken, async (req: AuthRequest, res) => {
     try {
-      const user = await storage.getUser(req.userId!);
+      let user = await storage.getUser(req.userId!);
       if (!user) {
         return res.status(404).json({ error: "Usuário não encontrado" });
+      }
+      
+      // Auto-generate volunteer code if user is a volunteer and doesn't have one
+      if (user.role === 'voluntario' && !user.volunteerCode) {
+        const volunteerCode = await storage.generateUniqueVolunteerCode();
+        user = await storage.updateUser(user.id, user.accountId, { volunteerCode });
       }
       
       // Get party information if user has partyId
