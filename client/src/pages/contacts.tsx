@@ -1440,77 +1440,81 @@ export default function Contacts() {
           >
             <QrCode className="w-4 h-4" />
           </Button>
-          <Button 
-            variant="outline"
-            size="icon"
-            className="h-8 w-8 sm:h-9 sm:w-9 hidden sm:flex"
-            onClick={() => setIsProfileDialogOpen(true)}
-            data-testid="button-voter-profile"
-            title="Perfil Agregado dos Eleitores"
-          >
-            <UserCircle2 className="w-4 h-4" />
-          </Button>
-          <Button 
-            variant="outline"
-            size="icon"
-            className="h-8 w-8 sm:h-9 sm:w-9 hidden sm:flex"
-            onClick={handleBulkEmail}
-            data-testid="button-bulk-email"
-            title="Enviar email em massa"
-          >
-            <Send className="w-4 h-4" />
-          </Button>
-          <Button 
-            variant="outline"
-            size="icon"
-            className="h-8 w-8 sm:h-9 sm:w-9 hidden sm:flex"
-            onClick={handleCopyWhatsAppNumbers}
-            data-testid="button-copy-whatsapp"
-            title="Copiar números para WhatsApp Business"
-          >
-            <Copy className="w-4 h-4" />
-          </Button>
-          <Button 
-            variant="outline"
-            size="icon"
-            className="h-8 w-8 sm:h-9 sm:w-9 hidden sm:flex"
-            onClick={() => setIsExportDialogOpen(true)}
-            data-testid="button-export"
-            title="Exportar eleitores"
-          >
-            <Download className="w-4 h-4" />
-          </Button>
-          
-          {/* Mobile: More options dropdown */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
+          {currentUser?.role !== 'voluntario' && (
+            <>
               <Button 
                 variant="outline"
                 size="icon"
-                className="h-8 w-8 sm:hidden"
+                className="h-8 w-8 sm:h-9 sm:w-9 hidden sm:flex"
+                onClick={() => setIsProfileDialogOpen(true)}
+                data-testid="button-voter-profile"
+                title="Perfil Agregado dos Eleitores"
               >
-                <MoreVertical className="w-4 h-4" />
+                <UserCircle2 className="w-4 h-4" />
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => setIsProfileDialogOpen(true)}>
-                <UserCircle2 className="w-4 h-4 mr-2" />
-                Perfil dos Eleitores
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleBulkEmail}>
-                <Send className="w-4 h-4 mr-2" />
-                Enviar email em massa
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleCopyWhatsAppNumbers}>
-                <Copy className="w-4 h-4 mr-2" />
-                Copiar WhatsApps
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setIsExportDialogOpen(true)}>
-                <Download className="w-4 h-4 mr-2" />
-                Exportar
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+              <Button 
+                variant="outline"
+                size="icon"
+                className="h-8 w-8 sm:h-9 sm:w-9 hidden sm:flex"
+                onClick={handleBulkEmail}
+                data-testid="button-bulk-email"
+                title="Enviar email em massa"
+              >
+                <Send className="w-4 h-4" />
+              </Button>
+              <Button 
+                variant="outline"
+                size="icon"
+                className="h-8 w-8 sm:h-9 sm:w-9 hidden sm:flex"
+                onClick={handleCopyWhatsAppNumbers}
+                data-testid="button-copy-whatsapp"
+                title="Copiar números para WhatsApp Business"
+              >
+                <Copy className="w-4 h-4" />
+              </Button>
+              <Button 
+                variant="outline"
+                size="icon"
+                className="h-8 w-8 sm:h-9 sm:w-9 hidden sm:flex"
+                onClick={() => setIsExportDialogOpen(true)}
+                data-testid="button-export"
+                title="Exportar eleitores"
+              >
+                <Download className="w-4 h-4" />
+              </Button>
+              
+              {/* Mobile: More options dropdown - Only for non-volunteers */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button 
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8 sm:hidden"
+                  >
+                    <MoreVertical className="w-4 h-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => setIsProfileDialogOpen(true)}>
+                    <UserCircle2 className="w-4 h-4 mr-2" />
+                    Perfil dos Eleitores
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleBulkEmail}>
+                    <Send className="w-4 h-4 mr-2" />
+                    Enviar email em massa
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleCopyWhatsAppNumbers}>
+                    <Copy className="w-4 h-4 mr-2" />
+                    Copiar WhatsApps
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setIsExportDialogOpen(true)}>
+                    <Download className="w-4 h-4 mr-2" />
+                    Exportar
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </>
+          )}
           <Dialog open={isExportDialogOpen} onOpenChange={setIsExportDialogOpen}>
             <DialogContent className="max-w-md p-0" aria-describedby="export-dialog-description">
               <DialogHeader className="px-5 pt-5 pb-3 border-b">
