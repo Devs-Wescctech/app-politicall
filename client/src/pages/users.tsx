@@ -32,12 +32,14 @@ const ROLE_CONFIG = {
   admin: { label: "Adm", icon: Shield, color: "text-red-600 dark:text-red-400" },
   coordenador: { label: "Coordenador", icon: Users, color: "text-blue-600 dark:text-blue-400" },
   assessor: { label: "Assessor", icon: UserIcon, color: "text-green-600 dark:text-green-400" },
+  voluntario: { label: "Voluntário de Campanha", icon: Trophy, color: "text-orange-600 dark:text-orange-400" },
 };
 
 // Roles disponíveis para criação/edição (sem admin)
 const EDITABLE_ROLES = {
   coordenador: ROLE_CONFIG.coordenador,
   assessor: ROLE_CONFIG.assessor,
+  voluntario: ROLE_CONFIG.voluntario,
 };
 
 // Form validation schema (admin não pode ser selecionado)
@@ -46,7 +48,7 @@ const createUserSchema = z.object({
   email: z.string().email("Email inválido"),
   password: z.string().min(6, "Senha deve ter pelo menos 6 caracteres"),
   confirmPassword: z.string(),
-  role: z.enum(["coordenador", "assessor"], {
+  role: z.enum(["coordenador", "assessor", "voluntario"], {
     required_error: "Selecione um nível de acesso",
   }),
 }).refine((data) => data.password === data.confirmPassword, {

@@ -74,6 +74,18 @@ export const DEFAULT_PERMISSIONS = {
     petitions: false,   // Assessor NÃO acessa petições
     users: false,       // Assessor NÃO gerencia usuários
     settings: false     // Assessor NÃO acessa configurações
+  },
+  voluntario: {
+    dashboard: true,
+    contacts: true,     // Voluntário pode ver eleitores
+    alliances: false,   // Voluntário NÃO acessa alianças políticas
+    demands: false,     // Voluntário NÃO acessa demandas
+    agenda: true,       // Voluntário pode ver agenda
+    ai: false,          // Voluntário NÃO usa IA
+    marketing: false,   // Voluntário NÃO faz marketing
+    petitions: true,    // Voluntário pode coletar assinaturas
+    users: false,       // Voluntário NÃO gerencia usuários
+    settings: false     // Voluntário NÃO acessa configurações
   }
 } as const;
 
@@ -101,7 +113,7 @@ export const users = pgTable("users", {
   email: text("email").notNull().unique(),
   password: text("password").notNull(),
   name: text("name").notNull(),
-  role: text("role").notNull().default("assessor"), // admin, coordenador, assessor
+  role: text("role").notNull().default("assessor"), // admin, coordenador, assessor, voluntario
   permissions: jsonb("permissions").$type<UserPermissions>(),
   phone: text("phone"),
   avatar: text("avatar"), // Base64 encoded image or URL
@@ -698,7 +710,7 @@ export const insertUserSchema = createInsertSchema(users).pick({
   email: z.string().email("Email inválido"),
   password: z.string().min(6, "Senha deve ter no mínimo 6 caracteres"),
   name: z.string().min(2, "Nome deve ter no mínimo 2 caracteres"),
-  role: z.enum(["admin", "coordenador", "assessor"]).optional(),
+  role: z.enum(["admin", "coordenador", "assessor", "voluntario"]).optional(),
   permissions: z.object({
     dashboard: z.boolean(),
     contacts: z.boolean(),
