@@ -313,10 +313,9 @@ export default function Contacts() {
   const qrCodeSlug = currentUser?.role === 'voluntario' && currentUser?.volunteerCode 
     ? `${baseSlug}/${currentUser.volunteerCode}` 
     : baseSlug;
-  const qrCodeName = currentUser?.role === 'admin' ? currentUser?.name : 
-    currentUser?.role === 'voluntario' ? currentUser?.name : adminData?.name;
-  const qrCodeAvatar = currentUser?.role === 'admin' ? currentUser?.avatar : 
-    currentUser?.role === 'voluntario' ? currentUser?.avatar : adminData?.avatar;
+  // O nome e avatar do QR Code sempre usa do admin/candidato (landing page é do candidato)
+  const qrCodeName = currentUser?.role === 'admin' ? currentUser?.name : adminData?.name;
+  const qrCodeAvatar = currentUser?.role === 'admin' ? currentUser?.avatar : adminData?.avatar;
 
   // Buscar perfil agregado dos eleitores
   const { data: voterProfile } = useQuery<any>({
