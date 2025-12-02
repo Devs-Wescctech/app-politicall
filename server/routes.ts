@@ -1637,6 +1637,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.get("/api/contacts", authenticateToken, requirePermission("contacts"), async (req: AuthRequest, res) => {
     try {
+      // Get current user to check role
+      const currentUser = await storage.getUser(req.userId!);
+      
+      // Volunteers only see contacts they registered themselves
+      if (currentUser?.role === "voluntario") {
+        const contacts = await storage.getContactsByUser(req.accountId!, req.userId!);
+        return res.json(contacts);
+      }
+      
+      // All other roles see all contacts
       const contacts = await storage.getContacts(req.accountId!);
       res.json(contacts);
     } catch (error: any) {
