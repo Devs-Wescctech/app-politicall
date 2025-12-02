@@ -59,7 +59,15 @@ Preferred communication style: Simple, everyday language.
   - **Secure Resources:** Integrations, survey landing pages, notifications, AI config, demand comments all validate accountId. Methods throw "not found or access denied" if accountId doesn't match.
   - **Global Resources:** politicalParties and surveyTemplates tables remain global (accessible to all accounts). getUser/getUserByEmail remain global for authentication but all data access requires accountId.
   - **Fresh Start:** New accounts start with zero data, no party, default logo, and only Dashboard/Users/Settings visible until modules are enabled.
-- **Role-Based Permission System:** Implemented multi-user RBAC with 'admin', 'coordenador', 'assessor' roles, authorization middleware, and database-authoritative role verification.
+- **Role-Based Permission System:** Implemented multi-user RBAC with 'admin', 'coordenador', 'assessor', 'voluntario' roles, authorization middleware, and database-authoritative role verification.
+- **Volunteer Tracking System (NEW):** Unique 4-digit volunteer codes for tracking supporter referrals. Implementation details:
+  - **Automatic Code Generation:** When a volunteer is created, the system generates a unique 4-digit alphanumeric code (e.g., "A1B2") stored in the `volunteerCode` field.
+  - **Personalized URL:** Volunteers have a personalized LP URL format: `www.politicall.com.br/apoio/{adminSlug}/{volunteerCode}`.
+  - **Source Tracking:** When a supporter registers via a volunteer's URL, the contact source is set to "Vol. [Volunteer Name]" (e.g., "Vol. Maria Santos").
+  - **Admin Visibility:** Admins can see in the contacts list which volunteer referred each supporter through the "Fonte" (Source) field.
+  - **Volunteer QR Code:** Volunteers see their personalized URL with code when accessing the QR Code modal in Contacts page.
+  - **Data Isolation:** Volunteers only see contacts they personally registered; other roles see all contacts.
+  - **Route Format:** `/apoio/:slug/:volunteerCode` handles volunteer referral URLs alongside standard `/apoio/:slug` URLs.
 - **Notifications System:** In-app notifications with various types and priority levels, stored in a database. Backend API for creation, retrieval, and management. Frontend NotificationBell component with real-time updates and bulk actions. Automatic triggers for urgent demands, demand comments, upcoming events, and survey campaign approval/rejection notifications.
 - **Event Recurrence System:** Events table includes a `recurrence` field (none/daily/weekly/monthly). Backend expands recurring events dynamically for up to 3 months, creating unique occurrences while maintaining the original event as the source of truth. Frontend supports recurrence in forms and displays generated occurrences across views.
 - **Admin Campaign Management:** Admin panel with a tab system ("Todas", "Pendentes", "Aprovadas", "Rejeitadas") for organizing campaigns. Campaign cards display status with color-coded badges. Campaigns remain visible after approval/rejection. User panel synchronizes with admin actions, showing updated campaign statuses.

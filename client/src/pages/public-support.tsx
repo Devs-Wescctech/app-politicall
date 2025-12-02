@@ -55,7 +55,13 @@ const PARTY_COLORS: Record<string, string> = {
 };
 
 export default function PublicSupport() {
-  const [, params] = useRoute("/apoio/:slug");
+  const [matchWithCode, paramsWithCode] = useRoute("/apoio/:slug/:volunteerCode");
+  const [matchWithoutCode, paramsWithoutCode] = useRoute("/apoio/:slug");
+  
+  // Use params from the matching route
+  const params = matchWithCode ? paramsWithCode : paramsWithoutCode;
+  const volunteerCode = matchWithCode ? paramsWithCode?.volunteerCode : undefined;
+  
   const { toast } = useToast();
   const [isSubmitted, setIsSubmitted] = useState(false);
   
@@ -120,7 +126,11 @@ export default function PublicSupport() {
       if (!params?.slug) {
         throw new Error("Slug não encontrado");
       }
-      return apiRequest("POST", `/api/public/support/${params.slug}`, data);
+      // Use volunteer code in URL if present
+      const endpoint = volunteerCode 
+        ? `/api/public/support/${params.slug}/${volunteerCode}`
+        : `/api/public/support/${params.slug}`;
+      return apiRequest("POST", endpoint, data);
     },
     onSuccess: () => {
       setIsSubmitted(true);

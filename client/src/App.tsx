@@ -140,6 +140,7 @@ function App() {
             <Route path="/admin" component={Admin} />
             <Route path="/contracts" component={Contracts} />
             <Route path="/pesquisa/:slug" component={SurveyLanding} />
+            <Route path="/apoio/:slug/:volunteerCode" component={PublicSupport} />
             <Route path="/apoio/:slug" component={PublicSupport} />
             <Route path="/thank-you" component={ThankYouPage} />
             <Route path="/" component={LandingPage} />

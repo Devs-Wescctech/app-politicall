@@ -306,9 +306,15 @@ export default function Contacts() {
   });
 
   // Usar slug do usuário se for admin, caso contrário usar do adminData
-  const qrCodeSlug = currentUser?.role === 'admin' ? currentUser?.slug : adminData?.slug;
-  const qrCodeName = currentUser?.role === 'admin' ? currentUser?.name : adminData?.name;
-  const qrCodeAvatar = currentUser?.role === 'admin' ? currentUser?.avatar : adminData?.avatar;
+  // Para voluntários, adicionar o código único do voluntário à URL
+  const baseSlug = currentUser?.role === 'admin' ? currentUser?.slug : adminData?.slug;
+  const qrCodeSlug = currentUser?.role === 'voluntario' && currentUser?.volunteerCode 
+    ? `${baseSlug}/${currentUser.volunteerCode}` 
+    : baseSlug;
+  const qrCodeName = currentUser?.role === 'admin' ? currentUser?.name : 
+    currentUser?.role === 'voluntario' ? currentUser?.name : adminData?.name;
+  const qrCodeAvatar = currentUser?.role === 'admin' ? currentUser?.avatar : 
+    currentUser?.role === 'voluntario' ? currentUser?.avatar : adminData?.avatar;
 
   // Buscar perfil agregado dos eleitores
   const { data: voterProfile } = useQuery<any>({

@@ -343,7 +343,41 @@ export class DatabaseStorage implements IStorage {
     return result[0] || undefined;
   }
 
-  async createPublicSupporter(slug: string, contact: InsertContact): Promise<Contact> {
+  async getVolunteerByCode(volunteerCode: string): Promise<{ id: string; name: string; accountId: string } | undefined> {
+    const [volunteer] = await db.select({
+      id: users.id,
+      name: users.name,
+      accountId: users.accountId
+    })
+      .from(users)
+      .where(eq(users.volunteerCode, volunteerCode))
+      .limit(1);
+    
+    return volunteer || undefined;
+  }
+
+  async generateUniqueVolunteerCode(): Promise<string> {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let code: string;
+    let attempts = 0;
+    
+    do {
+      code = '';
+      for (let i = 0; i < 4; i++) {
+        code += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      attempts++;
+      
+      const existing = await this.getVolunteerByCode(code);
+      if (!existing) {
+        return code;
+      }
+    } while (attempts < 100);
+    
+    throw new Error('Could not generate unique volunteer code');
+  }
+
+  async createPublicSupporter(slug: string, contact: InsertContact, volunteerCode?: string): Promise<Contact> {
     // First, get the candidate by slug to get userId and accountId
     const candidate = await this.getCandidateBySlug(slug);
     if (!candidate) {
@@ -353,12 +387,24 @@ export class DatabaseStorage implements IStorage {
     // Normalize the contact name for deduplication
     const normalized = normalizeText(contact.name);
     
-    // Create contact with automatic source "Politicall"
+    // Determine source based on volunteer code
+    let source = "Politicall";
+    let creatorUserId = candidate.id;
+    
+    if (volunteerCode) {
+      const volunteer = await this.getVolunteerByCode(volunteerCode);
+      if (volunteer && volunteer.accountId === candidate.accountId) {
+        source = `Vol. ${volunteer.name}`;
+        creatorUserId = volunteer.id;
+      }
+    }
+    
+    // Create contact with automatic source
     const contactData = {
       ...contact,
-      userId: candidate.id,
+      userId: creatorUserId,
       accountId: candidate.accountId,
-      source: "Politicall"
+      source: source
     };
     
     // Use transaction to ensure atomicity and handle deduplication

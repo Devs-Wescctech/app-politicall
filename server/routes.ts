@@ -1179,6 +1179,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Admin não encontrado" });
       }
       
+      // Generate volunteer code if creating a volunteer
+      let volunteerCode: string | undefined;
+      if (validatedData.role === 'voluntario') {
+        volunteerCode = await storage.generateUniqueVolunteerCode();
+      }
+      
       // Create user with specified role and permissions, inheriting accountId from admin
       const { ...userData } = validatedData;
       const user = await storage.createUser({
@@ -1186,6 +1192,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         password: hashedPassword,
         accountId: adminUser.accountId,
         permissions: permissionsToSave,
+        volunteerCode,
       } as any);
 
       // Don't send password to frontend
@@ -1534,6 +1541,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Always define permissions explicitly - use provided or defaults for role
       const permissionsToSave = validatedData.permissions || DEFAULT_PERMISSIONS[validatedData.role as keyof typeof DEFAULT_PERMISSIONS];
       
+      // Generate volunteer code if creating a volunteer
+      let volunteerCode: string | undefined;
+      if (validatedData.role === 'voluntario') {
+        volunteerCode = await storage.generateUniqueVolunteerCode();
+      }
+      
       // Create user inheriting accountId from current admin
       const { ...userData } = validatedData;
       const user = await storage.createUser({
@@ -1541,6 +1554,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         password: hashedPassword,
         accountId: req.accountId!,
         permissions: permissionsToSave,
+        volunteerCode,
       } as any);
 
       // Don't send password to frontend
@@ -1591,9 +1605,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Hash password if provided
-      const dataToUpdate = { ...validatedData };
+      const dataToUpdate: any = { ...validatedData };
       if (validatedData.password) {
         dataToUpdate.password = await bcrypt.hash(validatedData.password, 10);
+      }
+      
+      // Generate volunteer code if changing role to volunteer and user doesn't have one
+      if (validatedData.role === 'voluntario' && !currentUser.volunteerCode) {
+        dataToUpdate.volunteerCode = await storage.generateUniqueVolunteerCode();
       }
       
       const updated = await storage.updateUser(req.params.id, req.accountId!, dataToUpdate);
@@ -4234,6 +4253,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validatedData = insertContactSchema.parse(req.body);
       
       const supporter = await storage.createPublicSupporter(slug, validatedData);
+      
+      res.status(201).json(supporter);
+    } catch (error: any) {
+      if (error.message === "Candidate not found") {
+        return res.status(404).json({ error: "Candidato não encontrado" });
+      }
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Create public supporter with volunteer code (PUBLIC - no auth required)
+  app.post("/api/public/support/:slug/:volunteerCode", async (req, res) => {
+    try {
+      const { slug, volunteerCode } = req.params;
+      const validatedData = insertContactSchema.parse(req.body);
+      
+      const supporter = await storage.createPublicSupporter(slug, validatedData, volunteerCode);
       
       res.status(201).json(supporter);
     } catch (error: any) {
