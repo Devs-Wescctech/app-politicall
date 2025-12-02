@@ -1416,18 +1416,22 @@ export default function Contacts() {
   };
 
   return (
-    <div className="p-4 sm:p-6 md:p-8 space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <h1 className="text-3xl font-bold">Eleitores</h1>
-          <span className="text-xs text-muted-foreground" data-testid="text-contact-count">
-            {contacts?.length || 0} {(contacts?.length || 0) === 1 ? 'eleitor' : 'eleitores'}
-          </span>
+    <div className="p-3 sm:p-6 md:p-8 space-y-4 sm:space-y-6">
+      {/* Header - Mobile optimized */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <h1 className="text-xl sm:text-3xl font-bold truncate">Eleitores</h1>
+          <Badge variant="secondary" className="text-xs shrink-0" data-testid="text-contact-count">
+            {contacts?.length || 0}
+          </Badge>
         </div>
-        <div className="flex flex-wrap gap-2">
+        
+        {/* Mobile: Icon buttons in a row */}
+        <div className="flex items-center gap-1 sm:gap-2">
           <Button 
             variant="outline"
             size="icon"
+            className="h-8 w-8 sm:h-9 sm:w-9"
             onClick={() => setIsQrCodeDialogOpen(true)}
             data-testid="button-qr-code"
             title="Compartilhar QR Code de apoio"
@@ -1437,6 +1441,7 @@ export default function Contacts() {
           <Button 
             variant="outline"
             size="icon"
+            className="h-8 w-8 sm:h-9 sm:w-9 hidden sm:flex"
             onClick={() => setIsProfileDialogOpen(true)}
             data-testid="button-voter-profile"
             title="Perfil Agregado dos Eleitores"
@@ -1446,6 +1451,7 @@ export default function Contacts() {
           <Button 
             variant="outline"
             size="icon"
+            className="h-8 w-8 sm:h-9 sm:w-9 hidden sm:flex"
             onClick={handleBulkEmail}
             data-testid="button-bulk-email"
             title="Enviar email em massa"
@@ -1455,6 +1461,7 @@ export default function Contacts() {
           <Button 
             variant="outline"
             size="icon"
+            className="h-8 w-8 sm:h-9 sm:w-9 hidden sm:flex"
             onClick={handleCopyWhatsAppNumbers}
             data-testid="button-copy-whatsapp"
             title="Copiar números para WhatsApp Business"
@@ -1464,12 +1471,44 @@ export default function Contacts() {
           <Button 
             variant="outline"
             size="icon"
+            className="h-8 w-8 sm:h-9 sm:w-9 hidden sm:flex"
             onClick={() => setIsExportDialogOpen(true)}
             data-testid="button-export"
             title="Exportar eleitores"
           >
             <Download className="w-4 h-4" />
           </Button>
+          
+          {/* Mobile: More options dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button 
+                variant="outline"
+                size="icon"
+                className="h-8 w-8 sm:hidden"
+              >
+                <MoreVertical className="w-4 h-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => setIsProfileDialogOpen(true)}>
+                <UserCircle2 className="w-4 h-4 mr-2" />
+                Perfil dos Eleitores
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleBulkEmail}>
+                <Send className="w-4 h-4 mr-2" />
+                Enviar email em massa
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleCopyWhatsAppNumbers}>
+                <Copy className="w-4 h-4 mr-2" />
+                Copiar WhatsApps
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setIsExportDialogOpen(true)}>
+                <Download className="w-4 h-4 mr-2" />
+                Exportar
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Dialog open={isExportDialogOpen} onOpenChange={setIsExportDialogOpen}>
             <DialogContent className="max-w-md p-0" aria-describedby="export-dialog-description">
               <DialogHeader className="px-5 pt-5 pb-3 border-b">
@@ -2500,128 +2539,137 @@ export default function Contacts() {
           </Dialog>
         </div>
       </div>
-      <Card>
-        <CardHeader>
-          <div className="flex flex-wrap md:flex-nowrap items-center gap-4">
-            <div className="relative transition-all duration-300 ease-in-out" style={{
-              width: isSearchFocused 
-                ? '600px' 
-                : (isStateFocused || isCityFocused || isInterestFocused || isSourceFocused) 
-                  ? '200px' 
-                  : '350px'
+      <Card className="border-0 sm:border shadow-none sm:shadow-sm">
+        <CardHeader className="px-0 sm:px-6 pb-3 sm:pb-6">
+          {/* Mobile: Stacked search and filters */}
+          <div className="space-y-3">
+            {/* Search - Full width on mobile */}
+            <div className="relative w-full sm:w-auto sm:transition-all sm:duration-300 sm:ease-in-out" style={{
+              width: typeof window !== 'undefined' && window.innerWidth >= 640 
+                ? (isSearchFocused 
+                  ? '600px' 
+                  : (isStateFocused || isCityFocused || isInterestFocused || isSourceFocused) 
+                    ? '200px' 
+                    : '350px')
+                : '100%'
             }}>
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Buscar contatos..."
+                placeholder="Buscar eleitores..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onFocus={() => setIsSearchFocused(true)}
                 onBlur={() => setIsSearchFocused(false)}
-                className="pl-10 rounded-full w-full"
+                className="pl-10 rounded-full w-full h-10"
                 data-testid="input-search-contacts"
               />
             </div>
-            <Select 
-              value={selectedState} 
-              onValueChange={(value) => setSelectedState(value === "all" ? "" : value)}
-              onOpenChange={(open) => setIsStateFocused(open)}
-            >
-              <SelectTrigger 
-                className={`rounded-full transition-all duration-300 ${isStateFocused ? 'w-[240px]' : 'w-[180px]'}`} 
-                data-testid="select-state-filter"
+            
+            {/* Filters - Horizontal scroll on mobile, wrap on desktop */}
+            <div className="flex gap-2 overflow-x-auto pb-1 sm:pb-0 sm:flex-wrap scrollbar-hide -mx-3 px-3 sm:mx-0 sm:px-0">
+              <Select 
+                value={selectedState} 
+                onValueChange={(value) => setSelectedState(value === "all" ? "" : value)}
+                onOpenChange={(open) => setIsStateFocused(open)}
               >
-                <SelectValue placeholder="Estados" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os estados</SelectItem>
-                {states.map((state) => (
-                  <SelectItem key={state} value={state}>
-                    {state}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select 
-              value={selectedCity} 
-              onValueChange={(value) => setSelectedCity(value === "all" ? "" : value)}
-              onOpenChange={(open) => setIsCityFocused(open)}
-            >
-              <SelectTrigger 
-                className={`rounded-full transition-all duration-300 ${isCityFocused ? 'w-[240px]' : 'w-[180px]'}`} 
-                data-testid="select-city-filter"
+                <SelectTrigger 
+                  className="rounded-full min-w-[120px] sm:min-w-0 sm:w-auto h-9 text-xs sm:text-sm shrink-0 sm:shrink"
+                  data-testid="select-state-filter"
+                >
+                  <SelectValue placeholder="Estado" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  {states.map((state) => (
+                    <SelectItem key={state} value={state}>
+                      {state}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select 
+                value={selectedCity} 
+                onValueChange={(value) => setSelectedCity(value === "all" ? "" : value)}
+                onOpenChange={(open) => setIsCityFocused(open)}
               >
-                <SelectValue placeholder="Cidades" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas as cidades</SelectItem>
-                {cities.map((city) => (
-                  <SelectItem key={city} value={city}>
-                    {city}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select 
-              value={selectedInterest} 
-              onValueChange={(value) => setSelectedInterest(value === "all" ? "" : value)}
-              onOpenChange={(open) => setIsInterestFocused(open)}
-            >
-              <SelectTrigger 
-                className={`rounded-full transition-all duration-300 ${isInterestFocused ? 'w-[240px]' : 'w-[180px]'}`} 
-                data-testid="select-interest-filter"
+                <SelectTrigger 
+                  className="rounded-full min-w-[120px] sm:min-w-0 sm:w-auto h-9 text-xs sm:text-sm shrink-0 sm:shrink"
+                  data-testid="select-city-filter"
+                >
+                  <SelectValue placeholder="Cidade" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas</SelectItem>
+                  {cities.map((city) => (
+                    <SelectItem key={city} value={city}>
+                      {city}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select 
+                value={selectedInterest} 
+                onValueChange={(value) => setSelectedInterest(value === "all" ? "" : value)}
+                onOpenChange={(open) => setIsInterestFocused(open)}
               >
-                <SelectValue placeholder="Interesses" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os interesses</SelectItem>
-                {CONTACT_INTERESTS.map((interest) => (
-                  <SelectItem key={interest} value={interest}>
-                    {interest}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select 
-              value={selectedSource} 
-              onValueChange={(value) => setSelectedSource(value === "all" ? "" : value)}
-              onOpenChange={(open) => setIsSourceFocused(open)}
-            >
-              <SelectTrigger 
-                className={`rounded-full transition-all duration-300 ${isSourceFocused ? 'w-[240px]' : 'w-[180px]'}`} 
-                data-testid="select-source-filter"
+                <SelectTrigger 
+                  className="rounded-full min-w-[120px] sm:min-w-0 sm:w-auto h-9 text-xs sm:text-sm shrink-0 sm:shrink"
+                  data-testid="select-interest-filter"
+                >
+                  <SelectValue placeholder="Interesse" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  {CONTACT_INTERESTS.map((interest) => (
+                    <SelectItem key={interest} value={interest}>
+                      {interest}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select 
+                value={selectedSource} 
+                onValueChange={(value) => setSelectedSource(value === "all" ? "" : value)}
+                onOpenChange={(open) => setIsSourceFocused(open)}
               >
-                <SelectValue placeholder="Fonte" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas as fontes</SelectItem>
-                {sources.map((source) => (
-                  <SelectItem key={source} value={source}>
-                    {source}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+                <SelectTrigger 
+                  className="rounded-full min-w-[100px] sm:min-w-0 sm:w-auto h-9 text-xs sm:text-sm shrink-0 sm:shrink"
+                  data-testid="select-source-filter"
+                >
+                  <SelectValue placeholder="Fonte" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas</SelectItem>
+                  {sources.map((source) => (
+                    <SelectItem key={source} value={source}>
+                      {source}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-0 sm:px-6">
           {isLoading ? (
-            <div className="space-y-3">
+            <div className="space-y-3 px-3 sm:px-0">
               {[...Array(5)].map((_, i) => (
-                <Skeleton key={i} className="h-12 w-full" />
+                <Skeleton key={i} className="h-16 sm:h-12 w-full rounded-lg" />
               ))}
             </div>
           ) : (
             <>
             {/* Bulk action bar */}
             {selectedContacts.size > 0 && (
-              <div className="flex items-center justify-between p-3 mb-3 bg-primary/10 rounded-lg border border-primary/20">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 mb-3 mx-3 sm:mx-0 bg-primary/10 rounded-lg border border-primary/20 gap-2">
                 <span className="text-sm font-medium">
                   {selectedContacts.size} contato(s) selecionado(s)
                 </span>
-                <div className="flex gap-2">
+                <div className="flex gap-2 w-full sm:w-auto">
                   <Button
                     variant="outline"
                     size="sm"
+                    className="flex-1 sm:flex-none"
                     onClick={() => setSelectedContacts(new Set())}
                     data-testid="button-clear-selection"
                   >
@@ -2631,135 +2679,243 @@ export default function Contacts() {
                   <Button
                     variant="destructive"
                     size="sm"
+                    className="flex-1 sm:flex-none"
                     onClick={() => setIsBulkDeleteDialogOpen(true)}
                     data-testid="button-bulk-delete"
                   >
                     <Trash2 className="h-4 w-4 mr-1" />
-                    Excluir selecionados
+                    Excluir
                   </Button>
                 </div>
               </div>
             )}
             
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-12">
+            {/* Mobile: Card layout */}
+            <div className="sm:hidden space-y-2 px-3">
+              {filteredContacts && filteredContacts.length > 0 ? (
+                filteredContacts.map((contact) => (
+                  <div 
+                    key={contact.id} 
+                    className="flex items-center gap-3 p-3 bg-muted/30 rounded-xl border"
+                    data-testid={`card-contact-${contact.id}`}
+                  >
                     <Checkbox
-                      checked={filteredContacts && filteredContacts.length > 0 && selectedContacts.size === filteredContacts.length}
-                      onCheckedChange={toggleSelectAll}
-                      data-testid="checkbox-select-all"
+                      checked={selectedContacts.has(contact.id)}
+                      onCheckedChange={() => toggleSelectContact(contact.id)}
+                      className="shrink-0"
+                      data-testid={`checkbox-contact-${contact.id}`}
                     />
-                  </TableHead>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>Interesses</TableHead>
-                  <TableHead>Fonte</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredContacts && filteredContacts.length > 0 ? (
-                  filteredContacts.map((contact) => (
-                    <TableRow key={contact.id} data-testid={`row-contact-${contact.id}`}>
-                      <TableCell>
-                        <Checkbox
-                          checked={selectedContacts.has(contact.id)}
-                          onCheckedChange={() => toggleSelectContact(contact.id)}
-                          data-testid={`checkbox-contact-${contact.id}`}
-                        />
-                      </TableCell>
-                      <TableCell className="font-medium">{formatName(contact.name)}</TableCell>
-                      <TableCell>
-                        <div className="flex gap-1 flex-wrap">
-                          {contact.interests && contact.interests.length > 0 ? (
-                            contact.interests.map((interest, idx) => {
+                    <div className="flex-1 min-w-0" onClick={() => handleEdit(contact)}>
+                      <p className="font-medium text-sm truncate">{formatName(contact.name)}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        {contact.source && (
+                          <span className="text-xs text-muted-foreground truncate max-w-[120px]">
+                            {contact.source}
+                          </span>
+                        )}
+                        {contact.interests && contact.interests.length > 0 && (
+                          <div className="flex gap-0.5">
+                            {contact.interests.slice(0, 3).map((interest, idx) => {
                               const IconComponent = INTEREST_ICONS[interest] || Globe2;
                               return (
-                                <Badge 
-                                  key={idx} 
-                                  variant="outline" 
-                                  className={`text-xs p-1.5 ${getInterestColor(interest)}`}
+                                <div 
+                                  key={idx}
+                                  className={`p-1 rounded ${getInterestColor(interest)}`}
                                   title={interest}
                                 >
-                                  <IconComponent className="h-3.5 w-3.5" />
-                                </Badge>
+                                  <IconComponent className="h-3 w-3" />
+                                </div>
                               );
-                            })
+                            })}
+                            {contact.interests.length > 3 && (
+                              <span className="text-xs text-muted-foreground ml-1">
+                                +{contact.interests.length - 3}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      {contact.phone && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => {
+                            const cleanPhone = contact.phone!.replace(/\D/g, '');
+                            window.open(`https://wa.me/55${cleanPhone}`, '_blank');
+                          }}
+                        >
+                          <MessageCircle className="h-4 w-4 text-green-600" />
+                        </Button>
+                      )}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            data-testid={`button-actions-${contact.id}`}
+                          >
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          {contact.email && (
+                            <DropdownMenuItem
+                              onClick={() => window.location.href = `mailto:${contact.email}`}
+                            >
+                              <Mail className="h-4 w-4 mr-2" />
+                              Enviar email
+                            </DropdownMenuItem>
+                          )}
+                          <DropdownMenuItem onClick={() => handleEdit(contact)}>
+                            <Pencil className="h-4 w-4 mr-2" />
+                            Editar
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => handleDelete(contact.id)}
+                            className="text-destructive focus:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Excluir
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center text-muted-foreground py-12">
+                  <Users className="h-12 w-12 mx-auto mb-3 opacity-20" />
+                  <p className="text-sm">{searchQuery ? "Nenhum contato encontrado" : "Nenhum contato cadastrado"}</p>
+                </div>
+              )}
+            </div>
+
+            {/* Desktop: Table layout */}
+            <div className="hidden sm:block">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-12">
+                      <Checkbox
+                        checked={filteredContacts && filteredContacts.length > 0 && selectedContacts.size === filteredContacts.length}
+                        onCheckedChange={toggleSelectAll}
+                        data-testid="checkbox-select-all"
+                      />
+                    </TableHead>
+                    <TableHead>Nome</TableHead>
+                    <TableHead>Interesses</TableHead>
+                    <TableHead>Fonte</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredContacts && filteredContacts.length > 0 ? (
+                    filteredContacts.map((contact) => (
+                      <TableRow key={contact.id} data-testid={`row-contact-${contact.id}`}>
+                        <TableCell>
+                          <Checkbox
+                            checked={selectedContacts.has(contact.id)}
+                            onCheckedChange={() => toggleSelectContact(contact.id)}
+                            data-testid={`checkbox-contact-${contact.id}`}
+                          />
+                        </TableCell>
+                        <TableCell className="font-medium">{formatName(contact.name)}</TableCell>
+                        <TableCell>
+                          <div className="flex gap-1 flex-wrap">
+                            {contact.interests && contact.interests.length > 0 ? (
+                              contact.interests.map((interest, idx) => {
+                                const IconComponent = INTEREST_ICONS[interest] || Globe2;
+                                return (
+                                  <Badge 
+                                    key={idx} 
+                                    variant="outline" 
+                                    className={`text-xs p-1.5 ${getInterestColor(interest)}`}
+                                    title={interest}
+                                  >
+                                    <IconComponent className="h-3.5 w-3.5" />
+                                  </Badge>
+                                );
+                              })
+                            ) : (
+                              <span className="text-xs text-muted-foreground">-</span>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {contact.source ? (
+                            <span className="text-sm">{contact.source}</span>
                           ) : (
                             <span className="text-xs text-muted-foreground">-</span>
                           )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {contact.source ? (
-                          <span className="text-sm">{contact.source}</span>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">-</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              data-testid={`button-actions-${contact.id}`}
-                            >
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            {contact.email && (
-                              <DropdownMenuItem
-                                onClick={() => window.location.href = `mailto:${contact.email}`}
-                                data-testid={`button-email-${contact.id}`}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                data-testid={`button-actions-${contact.id}`}
                               >
-                                <Mail className="h-4 w-4 mr-2" />
-                                Enviar email
-                              </DropdownMenuItem>
-                            )}
-                            {contact.phone && (
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              {contact.email && (
+                                <DropdownMenuItem
+                                  onClick={() => window.location.href = `mailto:${contact.email}`}
+                                  data-testid={`button-email-${contact.id}`}
+                                >
+                                  <Mail className="h-4 w-4 mr-2" />
+                                  Enviar email
+                                </DropdownMenuItem>
+                              )}
+                              {contact.phone && (
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    const cleanPhone = contact.phone!.replace(/\D/g, '');
+                                    window.open(`https://wa.me/55${cleanPhone}`, '_blank');
+                                  }}
+                                  data-testid={`button-whatsapp-${contact.id}`}
+                                >
+                                  <MessageCircle className="h-4 w-4 mr-2" />
+                                  Abrir WhatsApp
+                                </DropdownMenuItem>
+                              )}
+                              <DropdownMenuSeparator />
                               <DropdownMenuItem
-                                onClick={() => {
-                                  const cleanPhone = contact.phone!.replace(/\D/g, '');
-                                  window.open(`https://wa.me/55${cleanPhone}`, '_blank');
-                                }}
-                                data-testid={`button-whatsapp-${contact.id}`}
+                                onClick={() => handleEdit(contact)}
+                                data-testid={`button-edit-${contact.id}`}
                               >
-                                <MessageCircle className="h-4 w-4 mr-2" />
-                                Abrir WhatsApp
+                                <Pencil className="h-4 w-4 mr-2" />
+                                Editar
                               </DropdownMenuItem>
-                            )}
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              onClick={() => handleEdit(contact)}
-                              data-testid={`button-edit-${contact.id}`}
-                            >
-                              <Pencil className="h-4 w-4 mr-2" />
-                              Editar
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => handleDelete(contact.id)}
-                              data-testid={`button-delete-${contact.id}`}
-                              className="text-destructive focus:text-destructive"
-                            >
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Excluir
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                              <DropdownMenuItem
+                                onClick={() => handleDelete(contact.id)}
+                                data-testid={`button-delete-${contact.id}`}
+                                className="text-destructive focus:text-destructive"
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Excluir
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                        {searchQuery ? "Nenhum contato encontrado" : "Nenhum contato cadastrado"}
                       </TableCell>
                     </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                      {searchQuery ? "Nenhum contato encontrado" : "Nenhum contato cadastrado"}
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
             </>
           )}
         </CardContent>
