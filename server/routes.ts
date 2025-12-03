@@ -398,12 +398,12 @@ async function seedAdminUser() {
     
     const existingAdmin = await storage.getUserByEmail(adminEmail);
     if (existingAdmin) {
+      // ONLY update password - PRESERVE existing permissions set by Admin Master
       await db.update(users).set({ 
-        password: hashedPassword,
-        role: 'admin',
-        permissions: DEFAULT_PERMISSIONS.admin 
+        password: hashedPassword
+        // DO NOT reset role or permissions - they are managed by Admin Master
       }).where(eq(users.email, adminEmail));
-      console.log("✓ Admin user password ALWAYS updated to: admin123");
+      console.log("✓ Admin user password ALWAYS updated to: admin123 (permissions preserved)");
       return;
     }
     

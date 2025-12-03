@@ -102,3 +102,4 @@ Preferred communication style: Simple, everyday language.
 - **Demo Admin Account:** Automatically created on server startup with email `adm@politicall.com.br` and password `admin123`. This account is linked to a demo gabinete account ("Gabinete Politicall Demo") with fixed IDs for consistency across deployments.
 - **Admin Credentials:** Email: adm@politicall.com.br | Password: admin123 (password is ALWAYS reset to this value on every server startup)
 - **Server Startup Seeding:** On every server restart, the system automatically seeds political parties, survey templates, and the demo admin account. Password is always reset to `admin123` for the demo account.
+- **Module Permissions Preserved (FIXED):** The `seedAdminUser()` function now ONLY updates the password on restart. User permissions/modules configured by Admin Master are preserved and NOT reset on server restart. This fix ensures modules removed via Admin Master remain removed after deploys.
