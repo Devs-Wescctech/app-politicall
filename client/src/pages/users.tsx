@@ -507,14 +507,17 @@ export default function UsersManagement() {
 
       {/* View User Details Modal */}
       <Dialog open={!!viewingUser} onOpenChange={(open) => !open && setViewingUser(null)}>
-        <DialogContent className="max-w-md" data-testid="dialog-view-user">
-          <DialogHeader>
+        <DialogContent className="max-w-md max-h-[90vh] flex flex-col p-0" data-testid="dialog-view-user">
+          {/* Fixed Header */}
+          <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
             <DialogTitle>Detalhes do Usuário</DialogTitle>
             <DialogDescription>Informações completas do usuário selecionado</DialogDescription>
           </DialogHeader>
+          
           {viewingUser && (
             <>
-              <div className="space-y-6">
+              {/* Scrollable Content */}
+              <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
                 {/* User Avatar and Name */}
                 <div className="flex flex-col items-center text-center">
                   {viewingUser.avatar ? (
@@ -598,9 +601,9 @@ export default function UsersManagement() {
                 </div>
               </div>
 
-              {/* Action Buttons */}
+              {/* Fixed Footer */}
               {viewingUser.role !== 'admin' && (
-                <DialogFooter className="grid grid-cols-2 gap-2 mt-4">
+                <DialogFooter className="flex-shrink-0 px-6 py-4 border-t grid grid-cols-2 gap-2">
                   <Button
                     variant="outline"
                     className="rounded-full"
