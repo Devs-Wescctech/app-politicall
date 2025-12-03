@@ -418,7 +418,7 @@ export default function UsersManagement() {
               <div className="flex items-center gap-2 mb-4 pb-4 border-b">
                 <Filter className="w-4 h-4 text-muted-foreground" />
                 <Select value={roleFilter} onValueChange={setRoleFilter}>
-                  <SelectTrigger className="w-[200px]" data-testid="select-role-filter">
+                  <SelectTrigger className="w-[200px] rounded-full" data-testid="select-role-filter">
                     <SelectValue placeholder="Filtrar por função" />
                   </SelectTrigger>
                   <SelectContent>
