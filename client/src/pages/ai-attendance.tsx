@@ -1099,15 +1099,14 @@ export default function AiAttendance() {
                       Configuração de Webhook no Meta
                     </h4>
                     <div className="space-y-1 text-sm">
-                      <p className="font-medium">Passo 1: Adicione o produto "Webhooks" no seu app Meta</p>
-                      <p className="font-medium">Passo 2: Configure o webhook:</p>
+                      <p className="font-medium">Passo 1: Configure o webhook:</p>
                       <code className="block bg-background px-3 py-2 rounded border text-xs font-mono">
                         https://www.politicall.com.br/api/webhook/facebook
                       </code>
                       <p className="text-xs text-muted-foreground">IMPORTANTE: A URL DEVE ser HTTPS (SSL válido obrigatório)</p>
-                      <p className="font-medium">Passo 3: Defina um Verify Token (crie uma senha qualquer, ex: "meutoken123")</p>
-                      <p className="font-medium">Passo 4: Inscreva-se nos campos: <code className="text-xs">messages</code>, <code className="text-xs">messaging_postbacks</code></p>
-                      <p className="font-medium">Passo 5: Subscreva sua Página ao webhook (via Graph API ou manualmente)</p>
+                      <p className="font-medium">Passo 2: Defina um Verify Token (crie uma senha qualquer, ex: "meutoken123")</p>
+                      <p className="font-medium">Passo 3: Inscreva-se nos campos: <code className="text-xs">messages</code>, <code className="text-xs">messaging_postbacks</code></p>
+                      <p className="font-medium">Passo 4: Subscreva sua Página ao webhook (via Graph API ou manualmente)</p>
                       <p className="text-xs text-muted-foreground">Permissões necessárias: pages_messaging, pages_read_engagement</p>
                       <p className="text-xs text-muted-foreground">Para produção: Envie seu app para revisão do Meta</p>
                       {accountSlug && (
