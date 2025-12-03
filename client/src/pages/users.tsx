@@ -70,7 +70,7 @@ export default function UsersManagement() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
   const [rankingPeriod, setRankingPeriod] = useState<string>("all");
-  const [isUsersSectionOpen, setIsUsersSectionOpen] = useState(true);
+  const [isUsersSectionOpen, setIsUsersSectionOpen] = useState(false);
   const [roleFilter, setRoleFilter] = useState<string>("all");
   const [viewingUser, setViewingUser] = useState<Omit<User, "password"> | null>(null);
   
