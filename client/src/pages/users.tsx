@@ -17,7 +17,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useCurrentUser } from "@/hooks/use-current-user";
-import { Shield, User as UserIcon, Users, Plus, Settings, Eye, EyeOff, Trash2, ChevronDown, ChevronUp, Trophy, Award, Sun, Calendar, CalendarDays, Infinity, Mail, Phone, MapPin } from "lucide-react";
+import { Shield, User as UserIcon, Users, Plus, Settings, Eye, EyeOff, Trash2, ChevronDown, ChevronUp, Trophy, Award, Sun, Calendar, CalendarDays, Infinity, Mail, Phone, MapPin, Heart } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Cell, Tooltip } from "recharts";
 import {
@@ -33,7 +33,7 @@ const ROLE_CONFIG = {
   admin: { label: "Adm", icon: Shield, color: "text-red-600 dark:text-red-400" },
   coordenador: { label: "Coordenador", icon: Users, color: "text-blue-600 dark:text-blue-400" },
   assessor: { label: "Assessor", icon: UserIcon, color: "text-green-600 dark:text-green-400" },
-  voluntario: { label: "Voluntário de Campanha", icon: Trophy, color: "text-orange-600 dark:text-orange-400" },
+  voluntario: { label: "Voluntário de Campanha", icon: Heart, color: "text-orange-600 dark:text-orange-400" },
 };
 
 // Roles disponíveis para criação/edição (sem admin)
