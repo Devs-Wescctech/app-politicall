@@ -620,7 +620,6 @@ export default function Settings() {
         <h1 className="text-3xl font-bold">Configurações</h1>
         <p className="text-muted-foreground mt-2">Gerencie suas preferências e informações da conta</p>
       </div>
-
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full max-w-full">
         <TabsList className="grid w-full max-w-lg grid-cols-3 rounded-full p-1">
           <TabsTrigger value="profile" data-testid="tab-profile" className="rounded-full">
@@ -810,7 +809,7 @@ export default function Settings() {
 
               <Card>
                 <CardHeader>
-                  <CardTitle>Recursos</CardTitle>
+                  <CardTitle>Módulos</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3 text-sm">
@@ -1425,7 +1424,6 @@ export default function Settings() {
           </div>
         </TabsContent>
       </Tabs>
-
       {/* Edit Profile Dialog */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
         <DialogContent className="max-w-md max-h-[90vh] flex flex-col p-0" data-testid="dialog-edit-profile">
@@ -1674,7 +1672,6 @@ export default function Settings() {
           </Form>
         </DialogContent>
       </Dialog>
-
       {/* Create API Key Dialog */}
       <Dialog open={showApiKeyDialog} onOpenChange={setShowApiKeyDialog}>
         <DialogContent data-testid="dialog-create-api-key">
@@ -1740,7 +1737,6 @@ export default function Settings() {
           </Form>
         </DialogContent>
       </Dialog>
-
       {/* New API Key Alert */}
       <Dialog open={showNewKeyAlert} onOpenChange={setShowNewKeyAlert}>
         <DialogContent data-testid="dialog-new-api-key">
@@ -1786,7 +1782,6 @@ export default function Settings() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={!!deleteKeyId} onOpenChange={(open) => !open && setDeleteKeyId(null)}>
         <AlertDialogContent data-testid="dialog-delete-api-key">
