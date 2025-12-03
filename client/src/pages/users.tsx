@@ -446,7 +446,7 @@ export default function UsersManagement() {
                     return (
                       <div
                         key={user.id}
-                        className="flex items-center gap-3 p-3 rounded-lg hover-elevate cursor-pointer border border-transparent hover:border-border"
+                        className="flex items-center gap-3 p-3 rounded-lg hover-elevate cursor-pointer border border-transparent hover:border-border text-[12px]"
                         onClick={() => setViewingUser(user)}
                         data-testid={`user-row-${user.id}`}
                       >
@@ -489,7 +489,6 @@ export default function UsersManagement() {
           </CollapsibleContent>
         </Card>
       </Collapsible>
-
       {/* View User Details Modal */}
       <Dialog open={!!viewingUser} onOpenChange={(open) => !open && setViewingUser(null)}>
         <DialogContent className="max-w-md max-h-[90vh] flex flex-col p-0" data-testid="dialog-view-user">
@@ -619,7 +618,6 @@ export default function UsersManagement() {
           )}
         </DialogContent>
       </Dialog>
-
       {/* Activity Ranking Section */}
       <Card className="mt-8">
         <CardHeader>
@@ -702,7 +700,6 @@ export default function UsersManagement() {
           )}
         </CardContent>
       </Card>
-
       {/* Edit Role Dialog */}
       <Dialog open={!!selectedUser} onOpenChange={(open) => {
         if (!open) {
