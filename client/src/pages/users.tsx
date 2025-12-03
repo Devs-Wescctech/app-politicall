@@ -537,10 +537,10 @@ export default function UsersManagement() {
                     const roleConfig = ROLE_CONFIG[viewingUser.role as keyof typeof ROLE_CONFIG];
                     const RoleIcon = roleConfig.icon;
                     return (
-                      <Badge className={`mt-2 ${roleConfig.color}`}>
-                        <RoleIcon className="w-3 h-3 mr-1" />
-                        {roleConfig.label}
-                      </Badge>
+                      <div className="flex items-center gap-1 mt-2 text-foreground">
+                        <RoleIcon className="w-4 h-4" />
+                        <span className="text-sm">{roleConfig.label}</span>
+                      </div>
                     );
                   })()}
                 </div>
