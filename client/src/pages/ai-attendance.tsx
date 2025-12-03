@@ -449,7 +449,7 @@ export default function AiAttendance() {
                 <CardTitle className="text-base">Modo Compliance TSE</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-muted-foreground text-[12px]">
                   Respostas institucionais dentro das normas do TSE. A IA fornece informações gerais e
                   encaminha para canais oficiais quando necessário.
                 </p>
