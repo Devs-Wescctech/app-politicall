@@ -195,6 +195,7 @@ export default function UsersManagement() {
     id: string;
     name: string;
     role: string;
+    avatar: string | null;
     activityCount: number;
   }>>({
     queryKey: ["/api/users/activity-ranking", rankingPeriod],
@@ -731,6 +732,14 @@ export default function UsersManagement() {
                     <div className="flex items-center gap-3 mb-2">
                       <div className="flex items-center gap-2 min-w-0 flex-1">
                         <span className="font-semibold text-lg shrink-0">{index + 1}°</span>
+                        <Avatar className="w-6 h-6 shrink-0">
+                          {user.avatar ? (
+                            <AvatarImage src={user.avatar} alt={user.name} />
+                          ) : null}
+                          <AvatarFallback className="text-[10px]">
+                            {user.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
                         <span className="font-medium truncate">{user.name}</span>
                         <span className="text-sm text-muted-foreground shrink-0">
                           ({roleConfig.label})
