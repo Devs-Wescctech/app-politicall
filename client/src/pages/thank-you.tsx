@@ -87,15 +87,6 @@ export default function ThankYouPage() {
                 <ArrowLeft className="w-4 h-4" />
                 Voltar para Início
               </Button>
-              <Button
-                size="lg"
-                onClick={() => setLocation("/admin-login")}
-                className="gap-2"
-                data-testid="button-access-panel"
-              >
-                <Home className="w-4 h-4" />
-                Acessar Painel
-              </Button>
             </div>
           </CardContent>
         </Card>
