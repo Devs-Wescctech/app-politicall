@@ -775,11 +775,6 @@ export default function UsersManagement() {
             <>
               <div className="overflow-y-auto px-6 py-4 space-y-4">
                 <div>
-                  <p className="text-sm font-medium mb-1">Usuário</p>
-                  <p className="text-sm">{selectedUser.name}</p>
-                  <p className="text-xs text-muted-foreground">{selectedUser.email}</p>
-                </div>
-                <div>
                   <p className="text-sm font-medium mb-2">Novo Nível de Acesso</p>
                   <Select value={newRole} onValueChange={setNewRole}>
                     <SelectTrigger data-testid="select-role">
