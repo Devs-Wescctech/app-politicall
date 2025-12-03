@@ -1216,7 +1216,6 @@ export default function AiAttendance() {
                       Configuração de Webhook do Instagram (Meta)
                     </h4>
                     <div className="space-y-1 text-sm">
-                      <p className="font-medium">Passo 1: Configure a URL de callback do Instagram:</p>
                       <code className="block bg-background px-3 py-2 rounded-full border text-xs font-mono">
                         https://www.politicall.com.br/api/webhook/instagram
                       </code>
