@@ -779,7 +779,7 @@ export default function UsersManagement() {
                   <p className="text-xs text-muted-foreground">{selectedUser.email}</p>
                 </div>
                 <div>
-                  <p className="text-sm font-medium mb-2">Novo Nível de Acesso</p>
+                  <p className="font-medium mb-2 text-[12px]">Novo Nível de Acesso</p>
                   <Select value={newRole} onValueChange={setNewRole}>
                     <SelectTrigger data-testid="select-role">
                       <SelectValue />
