@@ -1099,13 +1099,13 @@ export default function AiAttendance() {
                       Configuração de Webhook no Meta
                     </h4>
                     <div className="space-y-1 text-sm">
-                      <code className="block bg-background px-3 py-2 rounded border text-xs font-mono">
+                      <code className="block bg-background px-3 py-2 rounded-full border text-xs font-mono">
                         https://www.politicall.com.br/api/webhook/facebook
                       </code>
                       {accountSlug && (
                         <>
                           <p className="font-medium mt-3">Política de Privacidade:</p>
-                          <code className="block bg-background px-3 py-2 rounded border text-xs font-mono">
+                          <code className="block bg-background px-3 py-2 rounded-full border text-xs font-mono">
                             https://www.politicall.com.br/privacy/facebook/{accountSlug}
                           </code>
                         </>
@@ -1217,7 +1217,7 @@ export default function AiAttendance() {
                     </h4>
                     <div className="space-y-1 text-sm">
                       <p className="font-medium">Passo 1: Configure a URL de callback do Instagram:</p>
-                      <code className="block bg-background px-3 py-2 rounded border text-xs font-mono">
+                      <code className="block bg-background px-3 py-2 rounded-full border text-xs font-mono">
                         https://www.politicall.com.br/api/webhook/instagram
                       </code>
                       <p className="text-xs text-muted-foreground">IMPORTANTE: A URL DEVE ser HTTPS (SSL válido obrigatório)</p>
@@ -1229,7 +1229,7 @@ export default function AiAttendance() {
                       {accountSlug && (
                         <>
                           <p className="font-medium mt-3">Política de Privacidade:</p>
-                          <code className="block bg-background px-3 py-2 rounded border text-xs font-mono">
+                          <code className="block bg-background px-3 py-2 rounded-full border text-xs font-mono">
                             https://www.politicall.com.br/privacy/instagram/{accountSlug}
                           </code>
                           <p className="text-xs text-muted-foreground">Use esta URL na configuração da Política de Privacidade do seu app Meta</p>
@@ -1356,7 +1356,7 @@ export default function AiAttendance() {
                     <div className="space-y-1 text-sm">
                       <p className="font-medium">Passo 1: Acesse Twitter Developer Portal → Seu App → Account Activity API</p>
                       <p className="font-medium">Passo 2: Cole a URL de Callback:</p>
-                      <code className="block bg-background px-3 py-2 rounded border text-xs font-mono">
+                      <code className="block bg-background px-3 py-2 rounded-full border text-xs font-mono">
                         https://www.politicall.com.br/api/webhook/twitter
                       </code>
                       <p className="text-xs text-muted-foreground">IMPORTANTE: A URL DEVE ser HTTPS (SSL válido obrigatório)</p>
@@ -1367,7 +1367,7 @@ export default function AiAttendance() {
                       {accountSlug && (
                         <>
                           <p className="font-medium mt-3">Política de Privacidade:</p>
-                          <code className="block bg-background px-3 py-2 rounded border text-xs font-mono">
+                          <code className="block bg-background px-3 py-2 rounded-full border text-xs font-mono">
                             https://www.politicall.com.br/privacy/twitter/{accountSlug}
                           </code>
                           <p className="text-xs text-muted-foreground">Use esta URL na configuração de Privacidade do seu app X/Twitter</p>
@@ -1507,7 +1507,7 @@ export default function AiAttendance() {
                     <div className="space-y-1 text-sm">
                       <p className="font-medium">Passo 1: Acesse Meta Developer → Seu App → WhatsApp → Configuration</p>
                       <p className="font-medium">Passo 2: Cole a URL de Callback:</p>
-                      <code className="block bg-background px-3 py-2 rounded border text-xs font-mono">
+                      <code className="block bg-background px-3 py-2 rounded-full border text-xs font-mono">
                         https://www.politicall.com.br/api/webhook/whatsapp
                       </code>
                       <p className="text-xs text-muted-foreground">IMPORTANTE: A URL DEVE ser HTTPS (SSL válido obrigatório)</p>
