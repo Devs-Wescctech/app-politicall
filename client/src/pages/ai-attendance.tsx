@@ -1225,7 +1225,6 @@ export default function AiAttendance() {
                           <code className="block bg-background px-3 py-2 rounded-full border text-xs font-mono">
                             https://www.politicall.com.br/privacy/instagram/{accountSlug}
                           </code>
-                          <p className="text-xs text-muted-foreground">Use esta URL na configuração da Política de Privacidade do seu app Meta</p>
                         </>
                       )}
                     </div>
