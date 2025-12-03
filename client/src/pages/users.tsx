@@ -749,7 +749,7 @@ export default function UsersManagement() {
                         {user.activityCount}
                       </span>
                     </div>
-                    <div className="relative h-2 bg-muted rounded-full overflow-hidden">
+                    <div className="relative h-1 bg-muted rounded-full overflow-hidden">
                       <div
                         className={`absolute top-0 left-0 h-full ${
                           isTopUser ? "bg-primary" : "bg-primary/60"
