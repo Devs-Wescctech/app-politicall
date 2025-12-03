@@ -1581,6 +1581,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         name: z.string().min(2).optional(),
         email: z.string().email().optional(),
         password: z.string().min(6).optional(),
+        avatar: z.string().nullable().optional(),
         permissions: z.object({
           dashboard: z.boolean(),
           contacts: z.boolean(),

@@ -17,7 +17,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useCurrentUser } from "@/hooks/use-current-user";
-import { Shield, User as UserIcon, Users, Plus, Settings, Eye, EyeOff, Trash2, ChevronDown, ChevronUp, Trophy, Award, Sun, Calendar, CalendarDays, Infinity, Mail, Phone, MapPin, Heart, Filter } from "lucide-react";
+import { Shield, User as UserIcon, Users, Plus, Settings, Eye, EyeOff, Trash2, ChevronDown, ChevronUp, Trophy, Award, Sun, Calendar, CalendarDays, Infinity, Mail, Phone, MapPin, Heart, Filter, Camera, Loader2 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Cell, Tooltip } from "recharts";
 import {
@@ -216,6 +216,37 @@ export default function UsersManagement() {
       return response.json();
     },
   });
+
+  // Avatar upload mutation
+  const uploadAvatarMutation = useMutation({
+    mutationFn: async ({ userId, avatar }: { userId: string; avatar: string }) => {
+      return await apiRequest("PATCH", `/api/users/${userId}`, { avatar });
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      setViewingUser(prev => prev ? { ...prev, avatar: data.avatar } : null);
+      toast({
+        title: "Foto atualizada",
+        description: "A foto de perfil foi atualizada com sucesso.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: error.message || "Erro ao atualizar foto de perfil",
+      });
+    },
+  });
+
+  const handleAvatarUpload = (userId: string, file: File) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64 = reader.result as string;
+      uploadAvatarMutation.mutate({ userId, avatar: base64 });
+    };
+    reader.readAsDataURL(file);
+  };
 
   const updateRoleMutation = useMutation({
     mutationFn: async ({ userId, role, permissions, password }: { userId: string; role: string; permissions: UserPermissions; password?: string }) => {
@@ -500,22 +531,50 @@ export default function UsersManagement() {
           
           {viewingUser && (
             <>
+              {/* Hidden file input for avatar upload */}
+              <input
+                type="file"
+                id="avatar-upload"
+                className="hidden"
+                accept="image/*"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    handleAvatarUpload(viewingUser.id, file);
+                    e.target.value = '';
+                  }
+                }}
+              />
               {/* Scrollable Content */}
               <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
                 {/* User Avatar and Name */}
                 <div className="flex flex-col items-center text-center">
-                  {viewingUser.avatar ? (
-                    <Avatar className="h-20 w-20 mb-3">
-                      <AvatarImage src={viewingUser.avatar} alt={viewingUser.name} />
-                      <AvatarFallback>
-                        <UserIcon className="h-10 w-10" />
-                      </AvatarFallback>
-                    </Avatar>
-                  ) : (
-                    <div className="h-20 w-20 rounded-full bg-muted flex items-center justify-center mb-3">
-                      <UserIcon className="h-10 w-10 text-muted-foreground" />
+                  <label
+                    htmlFor="avatar-upload"
+                    className="relative cursor-pointer group mb-3"
+                    data-testid="button-upload-avatar"
+                  >
+                    {viewingUser.avatar ? (
+                      <Avatar className="h-20 w-20">
+                        <AvatarImage src={viewingUser.avatar} alt={viewingUser.name} />
+                        <AvatarFallback>
+                          <UserIcon className="h-10 w-10" />
+                        </AvatarFallback>
+                      </Avatar>
+                    ) : (
+                      <div className="h-20 w-20 rounded-full bg-muted flex items-center justify-center">
+                        <UserIcon className="h-10 w-10 text-muted-foreground" />
+                      </div>
+                    )}
+                    {/* Overlay with camera icon */}
+                    <div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                      {uploadAvatarMutation.isPending ? (
+                        <Loader2 className="h-6 w-6 text-white animate-spin" />
+                      ) : (
+                        <Camera className="h-6 w-6 text-white" />
+                      )}
                     </div>
-                  )}
+                  </label>
                   <h3 className="text-xl font-semibold">{viewingUser.name}</h3>
                   {(() => {
                     const roleConfig = ROLE_CONFIG[viewingUser.role as keyof typeof ROLE_CONFIG];
