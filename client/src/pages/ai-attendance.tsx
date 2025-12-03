@@ -1102,7 +1102,6 @@ export default function AiAttendance() {
                       <code className="block bg-background px-3 py-2 rounded border text-xs font-mono">
                         https://www.politicall.com.br/api/webhook/facebook
                       </code>
-                      <p className="text-xs text-muted-foreground">Para produção: Envie seu app para revisão do Meta</p>
                       {accountSlug && (
                         <>
                           <p className="font-medium mt-3">Política de Privacidade:</p>
