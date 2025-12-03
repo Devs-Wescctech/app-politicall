@@ -460,7 +460,7 @@ export default function AiAttendance() {
                 <CardTitle className="text-base">Modo Formal</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-muted-foreground text-[12px]">
                   A IA responde como se fosse o político, mantendo o tom e posicionamento configurado.
                   Use com responsabilidade.
                 </p>
