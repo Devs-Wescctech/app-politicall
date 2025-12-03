@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { type User, DEFAULT_PERMISSIONS, type UserPermissions } from "@shared/schema";
 import { useForm } from "react-hook-form";
@@ -6,17 +6,18 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useCurrentUser } from "@/hooks/use-current-user";
-import { Shield, User as UserIcon, Users, Plus, Settings, Eye, EyeOff, Trash2, ChevronDown, ChevronUp, Trophy, Award, Sun, Calendar, CalendarDays, Infinity } from "lucide-react";
+import { Shield, User as UserIcon, Users, Plus, Settings, Eye, EyeOff, Trash2, ChevronDown, ChevronUp, Trophy, Award, Sun, Calendar, CalendarDays, Infinity, Mail, Phone, MapPin } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Cell, Tooltip } from "recharts";
 import {
@@ -69,6 +70,9 @@ export default function UsersManagement() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
   const [rankingPeriod, setRankingPeriod] = useState<string>("all");
+  const [isUsersSectionOpen, setIsUsersSectionOpen] = useState(true);
+  const [roleFilter, setRoleFilter] = useState<string>("all");
+  const [viewingUser, setViewingUser] = useState<Omit<User, "password"> | null>(null);
   
   // Edit dialog password states
   const [newPassword, setNewPassword] = useState("");
@@ -170,6 +174,21 @@ export default function UsersManagement() {
   const { data: users, isLoading } = useQuery<Omit<User, "password">[]>({
     queryKey: ["/api/users"],
   });
+
+  // Filter and sort users alphabetically
+  const filteredAndSortedUsers = useMemo(() => {
+    if (!users) return [];
+    
+    let filtered = users;
+    
+    // Apply role filter
+    if (roleFilter !== "all") {
+      filtered = filtered.filter(user => user.role === roleFilter);
+    }
+    
+    // Sort alphabetically by name
+    return [...filtered].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+  }, [users, roleFilter]);
 
   // Query for activity ranking with period filter
   const { data: ranking, isLoading: isRankingLoading } = useQuery<Array<{
@@ -365,123 +384,253 @@ export default function UsersManagement() {
           </Button>
         )}
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {isLoading ? (
-          [...Array(6)].map((_, i) => <Skeleton key={i} className="h-32 w-full" />)
-        ) : users && users.length > 0 ? (
-          users.map((user) => {
-            const roleConfig = ROLE_CONFIG[user.role as keyof typeof ROLE_CONFIG];
-            const RoleIcon = roleConfig.icon;
+      {/* Collapsible Users Section */}
+      <Collapsible open={isUsersSectionOpen} onOpenChange={setIsUsersSectionOpen}>
+        <Card>
+          <CollapsibleTrigger asChild>
+            <CardHeader className="cursor-pointer hover-elevate">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                    <Users className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-lg">Usuários</CardTitle>
+                    <p className="text-sm text-muted-foreground">
+                      {users?.length || 0} usuário{(users?.length || 0) !== 1 ? 's' : ''} cadastrado{(users?.length || 0) !== 1 ? 's' : ''}
+                    </p>
+                  </div>
+                </div>
+                <Button variant="ghost" size="icon">
+                  {isUsersSectionOpen ? (
+                    <ChevronUp className="h-5 w-5" />
+                  ) : (
+                    <ChevronDown className="h-5 w-5" />
+                  )}
+                </Button>
+              </div>
+            </CardHeader>
+          </CollapsibleTrigger>
+          
+          <CollapsibleContent>
+            <CardContent className="pt-0">
+              {/* Filters */}
+              <div className="flex flex-wrap items-center gap-2 mb-4 pb-4 border-b">
+                <span className="text-sm text-muted-foreground">Filtrar por:</span>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant={roleFilter === "all" ? "default" : "outline"}
+                    size="sm"
+                    className="rounded-full"
+                    onClick={() => setRoleFilter("all")}
+                    data-testid="filter-all-roles"
+                  >
+                    Todos
+                  </Button>
+                  {Object.entries(ROLE_CONFIG).map(([role, config]) => {
+                    const Icon = config.icon;
+                    const count = users?.filter(u => u.role === role).length || 0;
+                    return (
+                      <Button
+                        key={role}
+                        variant={roleFilter === role ? "default" : "outline"}
+                        size="sm"
+                        className="rounded-full"
+                        onClick={() => setRoleFilter(role)}
+                        data-testid={`filter-role-${role}`}
+                      >
+                        <Icon className="w-3 h-3 mr-1" />
+                        {config.label} ({count})
+                      </Button>
+                    );
+                  })}
+                </div>
+              </div>
 
-            const isExpanded = expandedCards.has(user.id);
-            
-            return (
-              <Card key={user.id} className="hover-elevate" data-testid={`card-user-${user.id}`}>
-                <div
-                  className="cursor-pointer"
-                  onClick={() => toggleCard(user.id)}
-                >
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2 flex-1 min-w-0">
-                        {user.role === 'admin' && user.avatar ? (
+              {/* Users List */}
+              {isLoading ? (
+                <div className="space-y-2">
+                  {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-14 w-full" />)}
+                </div>
+              ) : filteredAndSortedUsers.length > 0 ? (
+                <div className="space-y-1">
+                  {filteredAndSortedUsers.map((user) => {
+                    const roleConfig = ROLE_CONFIG[user.role as keyof typeof ROLE_CONFIG];
+                    const RoleIcon = roleConfig.icon;
+                    
+                    return (
+                      <div
+                        key={user.id}
+                        className="flex items-center gap-3 p-3 rounded-lg hover-elevate cursor-pointer border border-transparent hover:border-border"
+                        onClick={() => setViewingUser(user)}
+                        data-testid={`user-row-${user.id}`}
+                      >
+                        {user.avatar ? (
                           <Avatar className="h-10 w-10 shrink-0">
                             <AvatarImage src={user.avatar} alt={user.name} />
                             <AvatarFallback>
-                              <UserIcon className="h-5 w-5 text-primary" />
+                              <UserIcon className="h-5 w-5" />
                             </AvatarFallback>
                           </Avatar>
                         ) : (
-                          <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                            <UserIcon className="h-5 w-5 text-primary" />
+                          <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center shrink-0">
+                            <UserIcon className="h-5 w-5 text-muted-foreground" />
                           </div>
                         )}
-                        <div className={`min-w-0 flex-1 flex items-center gap-1 text-sm font-medium ${roleConfig.color}`}>
-                          <RoleIcon className="w-4 h-4" />
-                          <span className="hidden sm:inline">{roleConfig.label}</span>
-                          <span className="sm:hidden">{roleConfig.label.substring(0, 3)}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium truncate">{user.name}</p>
+                          <p className="text-sm text-muted-foreground truncate">{user.email}</p>
                         </div>
+                        <Badge variant="secondary" className={`shrink-0 ${roleConfig.color}`}>
+                          <RoleIcon className="w-3 h-3 mr-1" />
+                          {roleConfig.label}
+                        </Badge>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="shrink-0 ml-2"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleCard(user.id);
-                        }}
-                      >
-                        {isExpanded ? (
-                          <ChevronUp className="h-4 w-4" />
-                        ) : (
-                          <ChevronDown className="h-4 w-4" />
-                        )}
-                      </Button>
-                    </div>
-                  </CardHeader>
+                    );
+                  })}
                 </div>
-                
-                {isExpanded && (
-                  <CardContent className="p-6 pt-0 space-y-3">
-                    <p className="text-base font-medium truncate pb-3 border-b" title={user.name}>
-                      {user.name}
-                    </p>
-                    <p className="text-sm text-muted-foreground truncate pb-3 border-b" title={user.email}>
-                      {user.email}
-                    </p>
-                    <div className="space-y-1 text-xs text-muted-foreground">
-                      <div>
-                        <span className="hidden sm:inline">Cadastrado em </span>
-                        {new Date(user.createdAt).toLocaleDateString("pt-BR")}
-                      </div>
-                      <div className="font-medium">
-                        Atividades: {(user as any).activityCount || 0}
+              ) : (
+                <div className="text-center py-12">
+                  <UserIcon className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                  <p className="text-muted-foreground">
+                    {roleFilter !== "all" 
+                      ? `Nenhum usuário com a função "${ROLE_CONFIG[roleFilter as keyof typeof ROLE_CONFIG]?.label}" encontrado`
+                      : "Nenhum usuário encontrado"
+                    }
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
+
+      {/* View User Details Modal */}
+      <Dialog open={!!viewingUser} onOpenChange={(open) => !open && setViewingUser(null)}>
+        <DialogContent className="max-w-md" data-testid="dialog-view-user">
+          <DialogHeader>
+            <DialogTitle>Detalhes do Usuário</DialogTitle>
+            <DialogDescription>Informações completas do usuário selecionado</DialogDescription>
+          </DialogHeader>
+          {viewingUser && (
+            <>
+              <div className="space-y-6">
+                {/* User Avatar and Name */}
+                <div className="flex flex-col items-center text-center">
+                  {viewingUser.avatar ? (
+                    <Avatar className="h-20 w-20 mb-3">
+                      <AvatarImage src={viewingUser.avatar} alt={viewingUser.name} />
+                      <AvatarFallback>
+                        <UserIcon className="h-10 w-10" />
+                      </AvatarFallback>
+                    </Avatar>
+                  ) : (
+                    <div className="h-20 w-20 rounded-full bg-muted flex items-center justify-center mb-3">
+                      <UserIcon className="h-10 w-10 text-muted-foreground" />
+                    </div>
+                  )}
+                  <h3 className="text-xl font-semibold">{viewingUser.name}</h3>
+                  {(() => {
+                    const roleConfig = ROLE_CONFIG[viewingUser.role as keyof typeof ROLE_CONFIG];
+                    const RoleIcon = roleConfig.icon;
+                    return (
+                      <Badge className={`mt-2 ${roleConfig.color}`}>
+                        <RoleIcon className="w-3 h-3 mr-1" />
+                        {roleConfig.label}
+                      </Badge>
+                    );
+                  })()}
+                </div>
+
+                {/* User Info */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                    <Mail className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-xs text-muted-foreground">Email</p>
+                      <p className="text-sm font-medium truncate">{viewingUser.email}</p>
+                    </div>
+                  </div>
+                  
+                  {viewingUser.phone && (
+                    <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                      <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-xs text-muted-foreground">Telefone</p>
+                        <p className="text-sm font-medium">{viewingUser.phone}</p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 flex-wrap pt-2">
-                      {user.role !== 'admin' && (
-                        <>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleEditRole(user);
-                            }}
-                            data-testid={`button-edit-role-${user.id}`}
-                            className="rounded-full flex-1"
-                          >
-                            <Settings className="w-4 h-4 mr-2" />
-                            Alterar Permissão
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setUserToDelete(user);
-                            }}
-                            data-testid={`button-delete-user-${user.id}`}
-                            className="rounded-full flex-1 text-destructive hover:text-destructive"
-                          >
-                            <Trash2 className="w-4 h-4 mr-2" />
-                            Excluir
-                          </Button>
-                        </>
-                      )}
+                  )}
+                  
+                  {(viewingUser.city || viewingUser.state) && (
+                    <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                      <MapPin className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-xs text-muted-foreground">Localização</p>
+                        <p className="text-sm font-medium">
+                          {[viewingUser.city, viewingUser.state].filter(Boolean).join(', ')}
+                        </p>
+                      </div>
                     </div>
-                  </CardContent>
-                )}
-              </Card>
-            );
-          })
-        ) : (
-          <Card className="col-span-full p-12 text-center">
-            <UserIcon className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-            <p className="text-muted-foreground">Nenhum usuário encontrado</p>
-          </Card>
-        )}
-      </div>
+                  )}
+                  
+                  <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                    <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-xs text-muted-foreground">Cadastrado em</p>
+                      <p className="text-sm font-medium">
+                        {new Date(viewingUser.createdAt).toLocaleDateString("pt-BR", {
+                          day: "2-digit",
+                          month: "long",
+                          year: "numeric"
+                        })}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                    <Trophy className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-xs text-muted-foreground">Atividades Realizadas</p>
+                      <p className="text-sm font-medium">{(viewingUser as any).activityCount || 0}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              {viewingUser.role !== 'admin' && (
+                <DialogFooter className="grid grid-cols-2 gap-2 mt-4">
+                  <Button
+                    variant="outline"
+                    className="rounded-full"
+                    onClick={() => {
+                      setViewingUser(null);
+                      handleEditRole(viewingUser);
+                    }}
+                    data-testid="button-edit-role-modal"
+                  >
+                    <Settings className="w-4 h-4 mr-2" />
+                    Alterar Permissão
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="rounded-full text-destructive hover:text-destructive"
+                    onClick={() => {
+                      setViewingUser(null);
+                      setUserToDelete(viewingUser);
+                    }}
+                    data-testid="button-delete-user-modal"
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Excluir
+                  </Button>
+                </DialogFooter>
+              )}
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Activity Ranking Section */}
       <Card className="mt-8">
