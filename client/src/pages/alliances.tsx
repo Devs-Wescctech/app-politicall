@@ -1071,7 +1071,7 @@ export default function Alliances() {
           <DialogHeader className="px-6 pt-6 pb-4 border-b">
             <DialogTitle className="flex items-center gap-2">
               <span>{selectedParty?.acronym}</span>
-              <Badge className={selectedParty ? IDEOLOGY_BADGES[selectedParty.ideology as keyof typeof IDEOLOGY_BADGES] : ""}>
+              <Badge className={`rounded-full ${selectedParty ? IDEOLOGY_BADGES[selectedParty.ideology as keyof typeof IDEOLOGY_BADGES] : ""}`}>
                 {selectedParty?.ideology}
               </Badge>
             </DialogTitle>
@@ -1150,7 +1150,7 @@ export default function Alliances() {
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Partido</label>
                   <div className="mt-1">
-                    <Badge className={IDEOLOGY_BADGES[selectedAlliance.party.ideology as keyof typeof IDEOLOGY_BADGES]}>
+                    <Badge className={`rounded-full ${IDEOLOGY_BADGES[selectedAlliance.party.ideology as keyof typeof IDEOLOGY_BADGES]}`}>
                       {selectedAlliance.party.acronym} - {selectedAlliance.party.ideology}
                     </Badge>
                   </div>
