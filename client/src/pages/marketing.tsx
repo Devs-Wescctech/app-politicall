@@ -1295,14 +1295,6 @@ export default function Marketing() {
           <Card className="text-center py-12">
             <CardContent>
               <p className="text-muted-foreground mb-4">Nenhuma campanha criada ainda</p>
-              <Button
-                onClick={handleCreateClick}
-                className="rounded-full"
-                data-testid="button-create-first-campaign"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Criar Primeira Campanha
-              </Button>
             </CardContent>
           </Card>
         )}
