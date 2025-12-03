@@ -1102,7 +1102,6 @@ export default function AiAttendance() {
                       <code className="block bg-background px-3 py-2 rounded border text-xs font-mono">
                         https://www.politicall.com.br/api/webhook/facebook
                       </code>
-                      <p className="text-xs text-muted-foreground">IMPORTANTE: A URL DEVE ser HTTPS (SSL válido obrigatório)</p>
                       <p className="font-medium">Passo 1: Defina um Verify Token (crie uma senha qualquer, ex: "meutoken123")</p>
                       <p className="font-medium">Passo 2: Inscreva-se nos campos: <code className="text-xs">messages</code>, <code className="text-xs">messaging_postbacks</code></p>
                       <p className="font-medium">Passo 3: Subscreva sua Página ao webhook (via Graph API ou manualmente)</p>
