@@ -18,7 +18,7 @@ import { Plus, Calendar as CalendarIcon, Clock, Trash2, Pencil, MapPin, RefreshC
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Skeleton } from "@/components/ui/skeleton";
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, startOfWeek, endOfWeek, addMonths, subMonths, parse } from "date-fns";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, startOfWeek, endOfWeek, addMonths, subMonths, parse } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -744,9 +744,12 @@ export default function Agenda() {
               ))}
               {calendarDays.map((day, i) => {
                 const dayEvents = futureEvents?.filter((event) => isSameDay(new Date(event.startDate), day)) || [];
+                const isTodayDate = isToday(day);
                 return (
                   <div key={i} className="min-h-24 p-2 border rounded-lg">
-                    <div className="text-sm font-medium mb-1">{format(day, "d")}</div>
+                    <div className={`text-sm font-medium mb-1 ${isTodayDate ? "w-7 h-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center" : ""}`}>
+                      {format(day, "d")}
+                    </div>
                     <div className="space-y-1">
                       {dayEvents.slice(0, 3).map((event) => (
                         <div
