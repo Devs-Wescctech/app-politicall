@@ -21,7 +21,7 @@ import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, Trash2, Edit, ExternalLink, Copy, CheckCircle, XCircle, Clock, BarChart3, ChevronDown, ChevronUp, Eye, FileText, Calendar, Lock } from "lucide-react";
+import { Plus, Trash2, Edit, ExternalLink, Copy, CheckCircle, XCircle, Clock, BarChart3, ChevronDown, ChevronUp, Eye, FileText, Calendar, Lock, ClipboardList } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useCurrentUser } from "@/hooks/use-current-user";
@@ -1292,9 +1292,15 @@ export default function Marketing() {
             })}
           </div>
         ) : (
-          <Card className="text-center py-12">
-            <CardContent>
-              <p className="text-muted-foreground mb-4">Nenhuma campanha criada ainda</p>
+          <Card className="text-center py-16">
+            <CardContent className="flex flex-col items-center justify-center">
+              <div className="w-24 h-24 rounded-full bg-muted/50 flex items-center justify-center mb-6">
+                <ClipboardList className="w-12 h-12 text-muted-foreground" />
+              </div>
+              <h3 className="text-lg font-semibold mb-2">Nenhuma campanha criada</h3>
+              <p className="text-muted-foreground mb-6 max-w-md">
+                Crie sua primeira pesquisa mercadológica para começar a coletar dados e insights valiosos.
+              </p>
             </CardContent>
           </Card>
         )}
