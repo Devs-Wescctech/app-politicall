@@ -17,7 +17,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useCurrentUser } from "@/hooks/use-current-user";
-import { Shield, User as UserIcon, Users, Plus, Settings, Eye, EyeOff, Trash2, ChevronDown, ChevronUp, Trophy, Award, Sun, Calendar, CalendarDays, Infinity, Mail, Phone, MapPin, Heart } from "lucide-react";
+import { Shield, User as UserIcon, Users, Plus, Settings, Eye, EyeOff, Trash2, ChevronDown, ChevronUp, Trophy, Award, Sun, Calendar, CalendarDays, Infinity, Mail, Phone, MapPin, Heart, Filter } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Cell, Tooltip } from "recharts";
 import {
@@ -71,6 +71,7 @@ export default function UsersManagement() {
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
   const [rankingPeriod, setRankingPeriod] = useState<string>("all");
   const [isUsersSectionOpen, setIsUsersSectionOpen] = useState(false);
+  const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const [roleFilter, setRoleFilter] = useState<string>("all");
   const [viewingUser, setViewingUser] = useState<Omit<User, "password"> | null>(null);
   
@@ -414,38 +415,59 @@ export default function UsersManagement() {
           
           <CollapsibleContent>
             <CardContent className="pt-0">
-              {/* Filters */}
-              <div className="flex flex-wrap items-center gap-2 mb-4 pb-4 border-b">
-                <span className="text-sm text-muted-foreground">Filtrar por:</span>
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    variant={roleFilter === "all" ? "default" : "outline"}
-                    size="sm"
-                    className="rounded-full"
-                    onClick={() => setRoleFilter("all")}
-                    data-testid="filter-all-roles"
-                  >
-                    Todos
-                  </Button>
-                  {Object.entries(ROLE_CONFIG).map(([role, config]) => {
-                    const Icon = config.icon;
-                    const count = users?.filter(u => u.role === role).length || 0;
-                    return (
-                      <Button
-                        key={role}
-                        variant={roleFilter === role ? "default" : "outline"}
-                        size="sm"
-                        className="rounded-full"
-                        onClick={() => setRoleFilter(role)}
-                        data-testid={`filter-role-${role}`}
-                      >
-                        <Icon className="w-3 h-3 mr-1" />
-                        {config.label} ({count})
-                      </Button>
-                    );
-                  })}
-                </div>
-              </div>
+              {/* Collapsible Filters */}
+              <Collapsible open={isFiltersOpen} onOpenChange={setIsFiltersOpen} className="mb-4">
+                <CollapsibleTrigger asChild>
+                  <div className="flex items-center justify-between py-2 cursor-pointer hover-elevate rounded-lg px-2 -mx-2">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Filter className="w-4 h-4" />
+                      <span>Filtrar por função</span>
+                      {roleFilter !== "all" && (
+                        <span className="text-xs text-primary">
+                          ({ROLE_CONFIG[roleFilter as keyof typeof ROLE_CONFIG]?.label})
+                        </span>
+                      )}
+                    </div>
+                    <Button variant="ghost" size="icon" className="h-6 w-6">
+                      {isFiltersOpen ? (
+                        <ChevronUp className="h-4 w-4" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="flex flex-wrap gap-2 pt-3 pb-4 border-b">
+                    <Button
+                      variant={roleFilter === "all" ? "default" : "outline"}
+                      size="sm"
+                      className="rounded-full"
+                      onClick={() => setRoleFilter("all")}
+                      data-testid="filter-all-roles"
+                    >
+                      Todos
+                    </Button>
+                    {Object.entries(ROLE_CONFIG).map(([role, config]) => {
+                      const Icon = config.icon;
+                      const count = users?.filter(u => u.role === role).length || 0;
+                      return (
+                        <Button
+                          key={role}
+                          variant={roleFilter === role ? "default" : "outline"}
+                          size="sm"
+                          className="rounded-full"
+                          onClick={() => setRoleFilter(role)}
+                          data-testid={`filter-role-${role}`}
+                        >
+                          <Icon className="w-3 h-3 mr-1" />
+                          {config.label} ({count})
+                        </Button>
+                      );
+                    })}
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
 
               {/* Users List */}
               {isLoading ? (
