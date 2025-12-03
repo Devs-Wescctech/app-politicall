@@ -432,7 +432,7 @@ export default function AiAttendance() {
           <div className="flex items-center justify-between">
             <div>
               <CardTitle>Modo de Operação</CardTitle>
-              <CardDescription>Escolha como a IA deve responder</CardDescription>
+              <CardDescription className="text-muted-foreground text-[12px]">Escolha como a IA deve responder</CardDescription>
             </div>
             <Switch
               checked={config?.mode === "formal"}
