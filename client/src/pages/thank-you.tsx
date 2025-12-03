@@ -59,7 +59,7 @@ export default function ThankYouPage() {
               <h2 className="font-semibold mb-3 text-foreground" data-testid="text-next-steps-title">
                 Próximos Passos:
               </h2>
-              <ul className="space-y-2 text-sm text-muted-foreground">
+              <ul className="space-y-2 text-muted-foreground text-[12px]">
                 <li className="flex items-start gap-2">
                   <CheckCircle2 className="w-4 h-4 mt-0.5 text-primary flex-shrink-0" />
                   <span>Nossa equipe analisará suas informações</span>
