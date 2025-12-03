@@ -481,10 +481,10 @@ export default function UsersManagement() {
                           <p className="font-medium truncate">{user.name}</p>
                           <p className="text-sm text-muted-foreground truncate">{user.email}</p>
                         </div>
-                        <Badge variant="secondary" className={`shrink-0 ${roleConfig.color}`}>
-                          <RoleIcon className="w-3 h-3 mr-1" />
-                          {roleConfig.label}
-                        </Badge>
+                        <div className="flex items-center gap-1 shrink-0 text-foreground text-sm">
+                          <RoleIcon className="w-3 h-3" />
+                          <span>{roleConfig.label}</span>
+                        </div>
                       </div>
                     );
                   })}
