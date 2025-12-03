@@ -1102,8 +1102,7 @@ export default function AiAttendance() {
                       <code className="block bg-background px-3 py-2 rounded border text-xs font-mono">
                         https://www.politicall.com.br/api/webhook/facebook
                       </code>
-                      <p className="font-medium">Passo 1: Inscreva-se nos campos: <code className="text-xs">messages</code>, <code className="text-xs">messaging_postbacks</code></p>
-                      <p className="font-medium">Passo 2: Subscreva sua Página ao webhook (via Graph API ou manualmente)</p>
+                      <p className="font-medium">Passo 1: Subscreva sua Página ao webhook (via Graph API ou manualmente)</p>
                       <p className="text-xs text-muted-foreground">Permissões necessárias: pages_messaging, pages_read_engagement</p>
                       <p className="text-xs text-muted-foreground">Para produção: Envie seu app para revisão do Meta</p>
                       {accountSlug && (
