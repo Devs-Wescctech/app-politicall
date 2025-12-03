@@ -1219,12 +1219,6 @@ export default function AiAttendance() {
                       <code className="block bg-background px-3 py-2 rounded-full border text-xs font-mono">
                         https://www.politicall.com.br/api/webhook/instagram
                       </code>
-                      <p className="text-xs text-muted-foreground">IMPORTANTE: A URL DEVE ser HTTPS (SSL válido obrigatório)</p>
-                      <p className="font-medium">Passo 2: Configure o Verify Token (mesmo que você definir abaixo)</p>
-                      <p className="font-medium">Passo 3: Conecte sua conta Instagram Business à Página do Facebook</p>
-                      <p className="font-medium">Passo 4: Inscreva-se nos campos: <code className="text-xs">messages</code></p>
-                      <p className="text-xs text-muted-foreground">Permissões necessárias: instagram_basic, instagram_manage_messages</p>
-                      <p className="text-xs text-muted-foreground">Para produção: Seu app precisa passar por revisão do Meta</p>
                       {accountSlug && (
                         <>
                           <p className="font-medium mt-3">Política de Privacidade:</p>
