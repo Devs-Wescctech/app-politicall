@@ -464,7 +464,7 @@ export default function UsersManagement() {
                         )}
                         <div className="flex-1 min-w-0">
                           <p className="font-medium truncate">{user.name}</p>
-                          <p className="text-sm text-muted-foreground truncate">{user.email}</p>
+                          <p className="text-muted-foreground truncate text-[12px]">{user.email}</p>
                         </div>
                         <div className="flex items-center gap-1 shrink-0 text-foreground text-sm">
                           <RoleIcon className="w-3 h-3" />
