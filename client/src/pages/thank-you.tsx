@@ -45,7 +45,7 @@ export default function ThankYouPage() {
             </h1>
 
             {/* Mensagem */}
-            <p className="text-lg text-muted-foreground mb-8" data-testid="text-message">
+            <p className="text-muted-foreground mb-8 text-[12px]" data-testid="text-message">
               Obrigado por solicitar uma demonstração da Politicall. 
               Nossa equipe entrará em contato em breve para apresentar 
               como nossa plataforma pode transformar sua gestão política.
