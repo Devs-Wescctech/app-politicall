@@ -801,7 +801,7 @@ export default function UsersManagement() {
                 </div>
                 
                 <div className="space-y-3">
-                  <p className="text-sm font-medium">Permissões de Acesso aos Menus</p>
+                  <p className="font-medium text-[12px]">Permissões de Acesso aos Menus</p>
                   <p className="text-xs text-muted-foreground">Apenas módulos disponíveis na sua conta</p>
                   <div className="grid grid-cols-2 gap-3">
                     {Object.entries({
