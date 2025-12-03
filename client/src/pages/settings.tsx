@@ -770,7 +770,6 @@ export default function Settings() {
                   </div>
                   <div className="text-center">
                     <p className="font-semibold text-lg">{currentUser?.name}</p>
-                    <p className="text-sm text-muted-foreground">{currentUser?.email}</p>
                   </div>
                   
                   {/* Background upload button - only for admins */}
