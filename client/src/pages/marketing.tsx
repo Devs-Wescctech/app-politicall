@@ -1132,7 +1132,6 @@ export default function Marketing() {
           Nova Campanha
         </Button>
       </div>
-
       <div className="grid lg:grid-cols-1 gap-6">
         {campaignsLoading ? (
           <div className="space-y-4">
@@ -1298,14 +1297,13 @@ export default function Marketing() {
                 <ClipboardList className="w-12 h-12 text-muted-foreground" />
               </div>
               <h3 className="text-lg font-semibold mb-2">Nenhuma campanha criada</h3>
-              <p className="text-muted-foreground mb-6 max-w-md">
+              <p className="text-muted-foreground mb-6 max-w-md text-[12px]">
                 Crie sua primeira pesquisa mercadológica para começar a coletar dados e insights valiosos.
               </p>
             </CardContent>
           </Card>
         )}
       </div>
-
       <Dialog open={showWizard} onOpenChange={setShowWizard}>
         <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col p-0">
           {/* Fixed Header */}
@@ -1925,7 +1923,6 @@ export default function Marketing() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -1949,7 +1946,6 @@ export default function Marketing() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
       {/* Password Confirmation Dialog for PDF Download */}
       <Dialog open={isPasswordDialogOpen} onOpenChange={(open) => {
         setIsPasswordDialogOpen(open);
@@ -2012,7 +2008,6 @@ export default function Marketing() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
       {/* Add/Edit Question Dialog */}
       <Dialog open={showAddQuestionDialog} onOpenChange={(open) => {
         setShowAddQuestionDialog(open);
