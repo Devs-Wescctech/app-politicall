@@ -2530,18 +2530,10 @@ export default function Contacts() {
       </div>
       <Card className="border-0 sm:border shadow-none sm:shadow-sm">
         <CardHeader className="px-0 sm:px-6 pb-3 sm:pb-6">
-          {/* Mobile: Stacked search and filters */}
-          <div className="space-y-3">
-            {/* Search - Full width on mobile */}
-            <div className="relative w-full sm:w-auto sm:transition-all sm:duration-300 sm:ease-in-out" style={{
-              width: typeof window !== 'undefined' && window.innerWidth >= 640 
-                ? (isSearchFocused 
-                  ? '600px' 
-                  : (isStateFocused || isCityFocused || isInterestFocused || isSourceFocused) 
-                    ? '200px' 
-                    : '350px')
-                : '100%'
-            }}>
+          {/* All filters in one responsive row */}
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Search */}
+            <div className="relative flex-1 min-w-[200px] max-w-full sm:max-w-[300px]">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Buscar eleitores..."
@@ -2549,193 +2541,108 @@ export default function Contacts() {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onFocus={() => setIsSearchFocused(true)}
                 onBlur={() => setIsSearchFocused(false)}
-                className="pl-10 rounded-full w-full h-10"
+                className="pl-10 rounded-full w-full h-9"
                 data-testid="input-search-contacts"
               />
             </div>
             
-            {/* Mobile: Collapsible filters */}
-            <div className="sm:hidden">
-              <Collapsible open={isFiltersOpen} onOpenChange={setIsFiltersOpen}>
-                <CollapsibleTrigger asChild>
-                  <Button 
-                    variant="outline" 
-                    className="w-full justify-between h-10 rounded-xl"
-                    data-testid="button-toggle-filters"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Filter className="h-4 w-4" />
-                      <span className="text-sm">Filtros</span>
-                      {(selectedState || selectedCity || selectedInterest || selectedSource) && (
-                        <Badge variant="secondary" className="text-xs px-1.5 py-0 h-5">
-                          {[selectedState, selectedCity, selectedInterest, selectedSource].filter(Boolean).length}
-                        </Badge>
-                      )}
-                    </div>
-                    <ChevronDown className={`h-4 w-4 transition-transform ${isFiltersOpen ? 'rotate-180' : ''}`} />
-                  </Button>
-                </CollapsibleTrigger>
-                <CollapsibleContent className="pt-3 space-y-2">
-                  <Select 
-                    value={selectedState} 
-                    onValueChange={(value) => setSelectedState(value === "all" ? "" : value)}
-                  >
-                    <SelectTrigger className="w-full h-10 rounded-xl" data-testid="select-state-filter-mobile">
-                      <SelectValue placeholder="Estado" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos os estados</SelectItem>
-                      {states.map((state) => (
-                        <SelectItem key={state} value={state}>{state}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Select 
-                    value={selectedCity} 
-                    onValueChange={(value) => setSelectedCity(value === "all" ? "" : value)}
-                  >
-                    <SelectTrigger className="w-full h-10 rounded-xl" data-testid="select-city-filter-mobile">
-                      <SelectValue placeholder="Cidade" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todas as cidades</SelectItem>
-                      {cities.map((city) => (
-                        <SelectItem key={city} value={city}>{city}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Select 
-                    value={selectedInterest} 
-                    onValueChange={(value) => setSelectedInterest(value === "all" ? "" : value)}
-                  >
-                    <SelectTrigger className="w-full h-10 rounded-xl" data-testid="select-interest-filter-mobile">
-                      <SelectValue placeholder="Interesse" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos os interesses</SelectItem>
-                      {CONTACT_INTERESTS.map((interest) => (
-                        <SelectItem key={interest} value={interest}>{interest}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Select 
-                    value={selectedSource} 
-                    onValueChange={(value) => setSelectedSource(value === "all" ? "" : value)}
-                  >
-                    <SelectTrigger className="w-full h-10 rounded-xl" data-testid="select-source-filter-mobile">
-                      <SelectValue placeholder="Fonte" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todas as fontes</SelectItem>
-                      {sources.map((source) => (
-                        <SelectItem key={source} value={source}>{source}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {(selectedState || selectedCity || selectedInterest || selectedSource) && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="w-full text-muted-foreground"
-                      onClick={() => {
-                        setSelectedState("");
-                        setSelectedCity("");
-                        setSelectedInterest("");
-                        setSelectedSource("");
-                      }}
-                      data-testid="button-clear-filters"
-                    >
-                      <X className="h-4 w-4 mr-1" />
-                      Limpar filtros
-                    </Button>
-                  )}
-                </CollapsibleContent>
-              </Collapsible>
-            </div>
+            {/* State Filter */}
+            <Select 
+              value={selectedState} 
+              onValueChange={(value) => setSelectedState(value === "all" ? "" : value)}
+              onOpenChange={(open) => setIsStateFocused(open)}
+            >
+              <SelectTrigger 
+                className="rounded-full w-[120px] sm:w-[140px] h-9"
+                data-testid="select-state-filter"
+              >
+                <SelectValue placeholder="Estado" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                {states.map((state) => (
+                  <SelectItem key={state} value={state}>{state}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-            {/* Desktop: Inline filters */}
-            <div className="hidden sm:flex gap-2 flex-wrap">
-              <Select 
-                value={selectedState} 
-                onValueChange={(value) => setSelectedState(value === "all" ? "" : value)}
-                onOpenChange={(open) => setIsStateFocused(open)}
+            {/* City Filter */}
+            <Select 
+              value={selectedCity} 
+              onValueChange={(value) => setSelectedCity(value === "all" ? "" : value)}
+              onOpenChange={(open) => setIsCityFocused(open)}
+            >
+              <SelectTrigger 
+                className="rounded-full w-[120px] sm:w-[140px] h-9"
+                data-testid="select-city-filter"
               >
-                <SelectTrigger 
-                  className={`rounded-full transition-all duration-300 ${isStateFocused ? 'w-[240px]' : 'w-[180px]'}`}
-                  data-testid="select-state-filter"
-                >
-                  <SelectValue placeholder="Estados" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos os estados</SelectItem>
-                  {states.map((state) => (
-                    <SelectItem key={state} value={state}>
-                      {state}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select 
-                value={selectedCity} 
-                onValueChange={(value) => setSelectedCity(value === "all" ? "" : value)}
-                onOpenChange={(open) => setIsCityFocused(open)}
+                <SelectValue placeholder="Cidade" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas</SelectItem>
+                {cities.map((city) => (
+                  <SelectItem key={city} value={city}>{city}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {/* Interest Filter */}
+            <Select 
+              value={selectedInterest} 
+              onValueChange={(value) => setSelectedInterest(value === "all" ? "" : value)}
+              onOpenChange={(open) => setIsInterestFocused(open)}
+            >
+              <SelectTrigger 
+                className="rounded-full w-[120px] sm:w-[140px] h-9"
+                data-testid="select-interest-filter"
               >
-                <SelectTrigger 
-                  className={`rounded-full transition-all duration-300 ${isCityFocused ? 'w-[240px]' : 'w-[180px]'}`}
-                  data-testid="select-city-filter"
-                >
-                  <SelectValue placeholder="Cidades" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas as cidades</SelectItem>
-                  {cities.map((city) => (
-                    <SelectItem key={city} value={city}>
-                      {city}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select 
-                value={selectedInterest} 
-                onValueChange={(value) => setSelectedInterest(value === "all" ? "" : value)}
-                onOpenChange={(open) => setIsInterestFocused(open)}
+                <SelectValue placeholder="Interesse" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                {CONTACT_INTERESTS.map((interest) => (
+                  <SelectItem key={interest} value={interest}>{interest}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {/* Source Filter */}
+            <Select 
+              value={selectedSource} 
+              onValueChange={(value) => setSelectedSource(value === "all" ? "" : value)}
+              onOpenChange={(open) => setIsSourceFocused(open)}
+            >
+              <SelectTrigger 
+                className="rounded-full w-[120px] sm:w-[140px] h-9"
+                data-testid="select-source-filter"
               >
-                <SelectTrigger 
-                  className={`rounded-full transition-all duration-300 ${isInterestFocused ? 'w-[240px]' : 'w-[180px]'}`}
-                  data-testid="select-interest-filter"
-                >
-                  <SelectValue placeholder="Interesses" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos os interesses</SelectItem>
-                  {CONTACT_INTERESTS.map((interest) => (
-                    <SelectItem key={interest} value={interest}>
-                      {interest}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select 
-                value={selectedSource} 
-                onValueChange={(value) => setSelectedSource(value === "all" ? "" : value)}
-                onOpenChange={(open) => setIsSourceFocused(open)}
+                <SelectValue placeholder="Fonte" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas</SelectItem>
+                {sources.map((source) => (
+                  <SelectItem key={source} value={source}>{source}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {/* Clear filters button */}
+            {(selectedState || selectedCity || selectedInterest || selectedSource) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-9 px-2 text-muted-foreground"
+                onClick={() => {
+                  setSelectedState("");
+                  setSelectedCity("");
+                  setSelectedInterest("");
+                  setSelectedSource("");
+                }}
+                data-testid="button-clear-filters"
               >
-                <SelectTrigger 
-                  className={`rounded-full transition-all duration-300 ${isSourceFocused ? 'w-[240px]' : 'w-[180px]'}`}
-                  data-testid="select-source-filter"
-                >
-                  <SelectValue placeholder="Fonte" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas as fontes</SelectItem>
-                  {sources.map((source) => (
-                    <SelectItem key={source} value={source}>
-                      {source}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+                <X className="h-4 w-4" />
+              </Button>
+            )}
           </div>
         </CardHeader>
         <CardContent className="px-0 sm:px-6">
