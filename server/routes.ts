@@ -519,6 +519,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Seed test campaign on startup
   await seedTestCampaign();
 
+  // ==================== HEALTH CHECK ====================
+  
+  // Health check endpoint for Docker/Kubernetes health probes
+  app.get("/api/health", (_req, res) => {
+    res.status(200).json({ 
+      status: "healthy", 
+      timestamp: new Date().toISOString(),
+      version: process.env.npm_package_version || "1.0.0"
+    });
+  });
+
   // ==================== AUTHENTICATION ====================
   
   // Register
