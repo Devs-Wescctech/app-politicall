@@ -1223,7 +1223,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           agenda: z.boolean(),
           ai: z.boolean(),
           marketing: z.boolean(),
-          petitions: z.boolean(),
           users: z.boolean(),
           settings: z.boolean(),
         }).optional(),
@@ -1288,7 +1287,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           agenda: z.boolean(),
           ai: z.boolean(),
           marketing: z.boolean(),
-          petitions: z.boolean(),
           users: z.boolean(),
           settings: z.boolean(),
         }).optional(),
@@ -1592,7 +1590,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           agenda: z.boolean(),
           ai: z.boolean(),
           marketing: z.boolean(),
-          petitions: z.boolean(),
           users: z.boolean(),
           settings: z.boolean(),
         }).optional(),
@@ -1654,7 +1651,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           agenda: z.boolean(),
           ai: z.boolean(),
           marketing: z.boolean(),
-          petitions: z.boolean(),
           users: z.boolean(),
           settings: z.boolean(),
         }).optional(),
@@ -2957,6 +2953,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ...validatedData,
         userId: req.userId!,
         accountId: req.accountId!,
+        status: "approved",
+        campaignStage: "aprovado",
       });
       
       res.json(campaign);

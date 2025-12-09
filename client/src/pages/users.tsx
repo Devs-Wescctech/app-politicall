@@ -133,7 +133,6 @@ export default function UsersManagement() {
         ai: roleDefaults.ai && adminPermissions.ai,
         marketing: roleDefaults.marketing && adminPermissions.marketing,
         users: roleDefaults.users && adminPermissions.users,
-        petitions: roleDefaults.petitions && adminPermissions.petitions,
         settings: roleDefaults.settings && adminPermissions.settings,
       };
       setCustomPermissions(limitedPermissions);
@@ -164,7 +163,6 @@ export default function UsersManagement() {
         ai: roleDefaults.ai && adminPermissions.ai,
         marketing: roleDefaults.marketing && adminPermissions.marketing,
         users: roleDefaults.users && adminPermissions.users,
-        petitions: roleDefaults.petitions && adminPermissions.petitions,
         settings: roleDefaults.settings && adminPermissions.settings,
       };
       setEditPermissions(limitedPermissions);
@@ -826,7 +824,6 @@ export default function UsersManagement() {
                       agenda: 'Agenda',
                       ai: 'Atendimento IA',
                       marketing: 'Pesquisas',
-                      petitions: 'Petições',
                       users: 'Usuários'
                     })
                     .filter(([key]) => adminPermissions[key as keyof UserPermissions])
@@ -1048,7 +1045,6 @@ export default function UsersManagement() {
                       agenda: 'Agenda',
                       ai: 'Atendimento IA',
                       marketing: 'Pesquisas',
-                      petitions: 'Petições',
                       users: 'Usuários'
                     })
                     .filter(([key]) => adminPermissions[key as keyof UserPermissions])

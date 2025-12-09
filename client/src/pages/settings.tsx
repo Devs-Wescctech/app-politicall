@@ -13,7 +13,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
-import { User, Edit, Camera, Key, Copy, Trash2, Calendar, Clock, CheckCircle2, XCircle, Plus, Code2, AlertCircle, Terminal, Globe, ChevronDown, ExternalLink, RefreshCw, Settings2, Link, Lock, Users, Handshake, ClipboardList, FileCheck, Bot, BarChart3 } from "lucide-react";
+import { User, Edit, Camera, Key, Copy, Trash2, Calendar, Clock, CheckCircle2, XCircle, Plus, Code2, AlertCircle, Terminal, Globe, ChevronDown, ExternalLink, RefreshCw, Settings2, Link, Lock, Users, Handshake, ClipboardList, Bot, BarChart3 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { getAuthUser } from "@/lib/auth";
 import { useForm } from "react-hook-form";
@@ -831,7 +831,6 @@ export default function Settings() {
                       { key: 'contacts', label: 'Eleitores', icon: Users },
                       { key: 'alliances', label: 'Alianças', icon: Handshake },
                       { key: 'demands', label: 'Demandas', icon: ClipboardList },
-                      { key: 'petitions', label: 'Petições', icon: FileCheck },
                       { key: 'agenda', label: 'Agenda', icon: Calendar },
                       { key: 'ai', label: 'Atendimento IA', icon: Bot },
                       { key: 'marketing', label: 'Pesquisas', icon: BarChart3 },

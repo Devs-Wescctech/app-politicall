@@ -17,7 +17,6 @@ const DEFAULT_USER_PERMISSIONS: UserPermissions = {
   agenda: true,
   ai: false,
   marketing: false,
-  petitions: false,
   users: false,
   settings: false,
 };

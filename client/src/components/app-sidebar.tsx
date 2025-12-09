@@ -8,8 +8,7 @@ import {
   Megaphone,
   Settings,
   LogOut,
-  Shield,
-  ScrollText
+  Shield
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
@@ -61,7 +60,6 @@ export function AppSidebar() {
     agenda: false,
     ai: false,
     marketing: false,
-    petitions: false,
     users: false,
     settings: false,
   };
@@ -109,12 +107,6 @@ export function AppSidebar() {
       url: "/ai-attendance",
       icon: Bot,
       permissionKey: "ai",
-    },
-    {
-      title: "Petições",
-      url: "/petitions",
-      icon: ScrollText,
-      permissionKey: "petitions",
     },
     {
       title: "Usuários",

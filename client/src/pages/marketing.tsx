@@ -21,7 +21,7 @@ import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, Trash2, Edit, ExternalLink, Copy, CheckCircle, XCircle, Clock, BarChart3, ChevronDown, ChevronUp, Eye, FileText, Calendar, Lock, ClipboardList } from "lucide-react";
+import { Plus, Trash2, Edit, ExternalLink, Copy, CheckCircle, BarChart3, ChevronDown, ChevronUp, Eye, FileText, Calendar, Lock, ClipboardList } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useCurrentUser } from "@/hooks/use-current-user";
@@ -38,11 +38,6 @@ if (typeof window !== 'undefined') {
 }
 
 const CAMPAIGN_STAGE_CONFIG = {
-  aguardando: { 
-    label: "Aguardando", 
-    iconColor: "text-gray-500 dark:text-gray-400",
-    icon: Clock
-  },
   aprovado: { 
     label: "Aprovado", 
     iconColor: "text-[#40E0D0]",
@@ -785,7 +780,7 @@ export default function Marketing() {
       templateId: "",
       campaignName: "",
       slug: "",
-      status: "under_review",
+      status: "approved",
       startDate: new Date().toISOString(),
       endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
       targetAudience: null,
@@ -806,7 +801,7 @@ export default function Marketing() {
     mutationFn: (data: InsertSurveyCampaign) => apiRequest("POST", "/api/survey-campaigns", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/survey-campaigns"] });
-      toast({ title: "Campanha criada com sucesso e enviada para aprovação!" });
+      toast({ title: "Campanha criada com sucesso!" });
       setShowWizard(false);
       setWizardStep(1);
       setSelectedTemplate(null);
@@ -953,7 +948,7 @@ export default function Marketing() {
       templateId: "",
       campaignName: "",
       slug: "",
-      status: "under_review",
+      status: "approved",
       startDate: new Date().toISOString(),
       endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
       region: null,
@@ -1142,7 +1137,7 @@ export default function Marketing() {
         ) : campaigns && campaigns.length > 0 ? (
           <div className="space-y-4">
             {campaigns.map((campaign) => {
-              const stageConfig = CAMPAIGN_STAGE_CONFIG[campaign.campaignStage as keyof typeof CAMPAIGN_STAGE_CONFIG] || CAMPAIGN_STAGE_CONFIG.aguardando;
+              const stageConfig = CAMPAIGN_STAGE_CONFIG[campaign.campaignStage as keyof typeof CAMPAIGN_STAGE_CONFIG] || CAMPAIGN_STAGE_CONFIG.aprovado;
               const StageIcon = stageConfig.icon;
               const isApproved = campaign.status === "approved" || campaign.status === "active";
               const landingUrl = getLandingPageUrl(campaign.slug);

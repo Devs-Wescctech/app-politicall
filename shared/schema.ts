@@ -32,7 +32,6 @@ export type UserPermissions = {
   agenda: boolean;
   ai: boolean;
   marketing: boolean;
-  petitions: boolean;
   users: boolean;
   settings: boolean;
 };
@@ -47,7 +46,6 @@ export const DEFAULT_PERMISSIONS = {
     agenda: true,
     ai: true,
     marketing: true,
-    petitions: true,
     users: true,
     settings: true
   },
@@ -59,7 +57,6 @@ export const DEFAULT_PERMISSIONS = {
     agenda: true,
     ai: true,
     marketing: true,
-    petitions: true,
     users: false,  // Coordenador NÃO gerencia usuários
     settings: true
   },
@@ -71,7 +68,6 @@ export const DEFAULT_PERMISSIONS = {
     agenda: true,
     ai: false,          // Assessor NÃO usa IA
     marketing: false,   // Assessor NÃO faz marketing
-    petitions: false,   // Assessor NÃO acessa petições
     users: false,       // Assessor NÃO gerencia usuários
     settings: false     // Assessor NÃO acessa configurações
   },
@@ -83,7 +79,6 @@ export const DEFAULT_PERMISSIONS = {
     agenda: false,      // Voluntário NÃO acessa agenda
     ai: false,          // Voluntário NÃO usa IA
     marketing: false,   // Voluntário NÃO faz marketing
-    petitions: false,   // Voluntário NÃO acessa petições
     users: false,       // Voluntário NÃO gerencia usuários
     settings: false     // Voluntário NÃO acessa configurações
   }
@@ -557,8 +552,8 @@ export const surveyCampaigns = pgTable("survey_campaigns", {
   templateId: varchar("template_id").notNull().references(() => surveyTemplates.id),
   campaignName: text("campaign_name").notNull(),
   slug: text("slug").notNull().unique(), // URL slug for landing page
-  status: text("status").notNull().default("under_review"), // under_review, approved, rejected, active, paused, completed
-  campaignStage: text("campaign_stage").notNull().default("aguardando"), // aguardando, aprovado, em_producao, finalizado
+  status: text("status").notNull().default("approved"), // approved, active, paused, completed
+  campaignStage: text("campaign_stage").notNull().default("aprovado"), // aprovado, em_producao, finalizado
   productionStartDate: timestamp("production_start_date"), // Date when campaign enters "em_producao" stage
   adminReviewerId: varchar("admin_reviewer_id").references(() => users.id),
   adminNotes: text("admin_notes"),
@@ -721,7 +716,6 @@ export const insertUserSchema = createInsertSchema(users).pick({
     agenda: z.boolean(),
     ai: z.boolean(),
     marketing: z.boolean(),
-    petitions: z.boolean(),
     users: z.boolean(),
     settings: z.boolean(),
   }).optional(),
