@@ -10,6 +10,14 @@
 #
 # Para atualizar imagem:
 #   docker-compose pull && docker-compose up -d
+#
+# Volume de Uploads:
+#   Os arquivos de imagem (avatares e backgrounds) são armazenados em volume
+#   persistente. São acessíveis publicamente pois são usados em páginas públicas
+#   como /apoio/:slug e landing pages de pesquisa. A segurança é garantida por:
+#   - Nomes de arquivo aleatórios de 32 caracteres hex (impossível adivinhar)
+#   - express.static não permite listagem de diretórios
+#   - Validação de MIME type impede execução de código malicioso
 # ============================================================================
 
 version: '3.8'
@@ -29,8 +37,6 @@ services:
     volumes:
       # Volume persistente para uploads de imagens
       - politicall_uploads:/app/uploads
-      # Configuração do admin (senha do Admin Master)
-      - politicall_config:/app/.admin-config.json
     networks:
       - politicall-network
     healthcheck:
@@ -46,6 +52,4 @@ networks:
 
 volumes:
   politicall_uploads:
-    driver: local
-  politicall_config:
     driver: local

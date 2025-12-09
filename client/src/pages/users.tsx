@@ -240,13 +240,18 @@ export default function UsersManagement() {
     },
   });
 
-  const handleAvatarUpload = (userId: string, file: File) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const base64 = reader.result as string;
-      uploadAvatarMutation.mutate({ userId, avatar: base64 });
-    };
-    reader.readAsDataURL(file);
+  const handleAvatarUpload = async (userId: string, file: File) => {
+    try {
+      const { uploadImage } = await import("@/lib/queryClient");
+      const avatarUrl = await uploadImage(file, 'avatar');
+      uploadAvatarMutation.mutate({ userId, avatar: avatarUrl });
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: error.message || "Erro ao fazer upload da imagem",
+      });
+    }
   };
 
   const updateRoleMutation = useMutation({

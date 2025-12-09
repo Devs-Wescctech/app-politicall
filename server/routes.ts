@@ -708,44 +708,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Upload image endpoint - returns URL path instead of base64
+  // MIME type to safe extension mapping (ignore client extension)
+  const MIME_TO_EXT: Record<string, string> = {
+    'image/jpeg': 'jpg',
+    'image/png': 'png',
+    'image/webp': 'webp',
+    'image/gif': 'gif'
+  };
+
   app.post("/api/upload/image", authenticateToken, upload.single('file'), async (req: AuthRequest, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ error: "Nenhum arquivo enviado" });
       }
 
-      // Validate file type
-      const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-      if (!allowedMimeTypes.includes(req.file.mimetype)) {
+      // Validate file type - use strict MIME mapping (ignore client extension)
+      const safeExt = MIME_TO_EXT[req.file.mimetype];
+      if (!safeExt) {
         return res.status(400).json({ error: "Tipo de arquivo não permitido. Use JPEG, PNG, WebP ou GIF." });
       }
 
-      // Create uploads directory structure if it doesn't exist
+      // Setup directories with async operations
       const uploadsDir = path.join(process.cwd(), 'uploads');
       const avatarsDir = path.join(uploadsDir, 'avatars');
       const backgroundsDir = path.join(uploadsDir, 'backgrounds');
       
-      if (!fs.existsSync(uploadsDir)) {
-        fs.mkdirSync(uploadsDir, { recursive: true });
-      }
-      if (!fs.existsSync(avatarsDir)) {
-        fs.mkdirSync(avatarsDir, { recursive: true });
-      }
-      if (!fs.existsSync(backgroundsDir)) {
-        fs.mkdirSync(backgroundsDir, { recursive: true });
-      }
+      // Create directories if they don't exist (async)
+      await fs.promises.mkdir(avatarsDir, { recursive: true });
+      await fs.promises.mkdir(backgroundsDir, { recursive: true });
 
       // Determine subdirectory based on type query param
       const imageType = req.query.type as string || 'avatars';
       const targetDir = imageType === 'background' ? backgroundsDir : avatarsDir;
 
-      // Generate unique filename
-      const ext = req.file.originalname.split('.').pop() || 'jpg';
-      const filename = `${req.userId}-${Date.now()}.${ext}`;
+      // Generate secure random filename (not based on userId to prevent enumeration)
+      const randomBytes = crypto.randomBytes(16).toString('hex');
+      const filename = `${randomBytes}.${safeExt}`;
       const filepath = path.join(targetDir, filename);
 
-      // Save file to disk
-      fs.writeFileSync(filepath, req.file.buffer);
+      // Save file to disk asynchronously
+      await fs.promises.writeFile(filepath, req.file.buffer);
 
       // Return the URL path (not base64)
       const urlPath = `/uploads/${imageType === 'background' ? 'backgrounds' : 'avatars'}/${filename}`;

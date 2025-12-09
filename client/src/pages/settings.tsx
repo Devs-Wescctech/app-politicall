@@ -487,12 +487,19 @@ export default function Settings() {
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const base64 = e.target?.result as string;
-      uploadAvatarMutation.mutate(base64);
-    };
-    reader.readAsDataURL(file);
+    (async () => {
+      try {
+        const { uploadImage } = await import("@/lib/queryClient");
+        const avatarUrl = await uploadImage(file, 'avatar');
+        uploadAvatarMutation.mutate(avatarUrl);
+      } catch (error: any) {
+        toast({
+          variant: "destructive",
+          title: "Erro",
+          description: error.message || "Erro ao fazer upload da imagem",
+        });
+      }
+    })();
   };
 
   const handleBackgroundClick = () => {
@@ -522,12 +529,19 @@ export default function Settings() {
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const base64 = e.target?.result as string;
-      uploadBackgroundMutation.mutate(base64);
-    };
-    reader.readAsDataURL(file);
+    (async () => {
+      try {
+        const { uploadImage } = await import("@/lib/queryClient");
+        const backgroundUrl = await uploadImage(file, 'background');
+        uploadBackgroundMutation.mutate(backgroundUrl);
+      } catch (error: any) {
+        toast({
+          variant: "destructive",
+          title: "Erro",
+          description: error.message || "Erro ao fazer upload da imagem",
+        });
+      }
+    })();
   };
 
   const onSubmitProfile = (data: ProfileForm) => {
