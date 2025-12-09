@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { CheckCircle2, XCircle, ChevronLeft, ChevronRight, ChevronDown, User, Copy, Check, DollarSign, Inbox, Mail, Phone, Trash2, Search, Sun, Moon, Eye, Calendar, MapPin, Users, FileText, MessageSquare, BarChart3, X, Key } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronDown, User, Copy, Check, DollarSign, Inbox, Mail, Phone, Trash2, Search, Sun, Moon, Eye, Calendar, MapPin, Users, FileText, MessageSquare, BarChart3, X, Key } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { AdminBottomNav } from "@/components/admin-bottom-nav";
 import { Button } from "@/components/ui/button";
@@ -77,13 +77,11 @@ type CampaignWithTemplate = SurveyCampaign & {
 export default function Admin() {
   const [, setLocation] = useLocation();
   const [isVerifying, setIsVerifying] = useState(true);
-  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [paidDialogOpen, setPaidDialogOpen] = useState(false);
   const [deleteCampaignDialogOpen, setDeleteCampaignDialogOpen] = useState(false);
   const [inboxDialogOpen, setInboxDialogOpen] = useState(false);
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
   const [selectedCampaign, setSelectedCampaign] = useState<CampaignWithTemplate | null>(null);
-  const [rejectNotes, setRejectNotes] = useState("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [selectedLeads, setSelectedLeads] = useState<Set<string>>(new Set());
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -298,126 +296,6 @@ export default function Admin() {
       deleteMultipleLeadsMutation.mutate(Array.from(selectedLeads));
     }
   };
-
-  // Approve mutation
-  const approveMutation = useMutation({
-    mutationFn: async (campaignId: string) => {
-      const token = localStorage.getItem("admin_token");
-      const response = await fetch(`/api/admin/survey-campaigns/${campaignId}/approve`, {
-        method: "PATCH",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-      
-      if (!response.ok) {
-        throw new Error("Erro ao aprovar campanha");
-      }
-      
-      return response.json();
-    },
-    onMutate: async (campaignId: string) => {
-      // Cancel any outgoing refetches
-      await queryClient.cancelQueries({ queryKey: ["/api/admin/survey-campaigns"] });
-      
-      // Snapshot the previous value
-      const previousCampaigns = queryClient.getQueryData<CampaignWithTemplate[]>(["/api/admin/survey-campaigns"]);
-      
-      // Optimistically update to the new value
-      queryClient.setQueryData<CampaignWithTemplate[]>(["/api/admin/survey-campaigns"], (old) => {
-        if (!old) return old;
-        return old.map(campaign => 
-          campaign.id === campaignId 
-            ? { ...campaign, status: "approved", campaignStage: "aprovado" } 
-            : campaign
-        );
-      });
-      
-      // Return a context object with the snapshotted value
-      return { previousCampaigns };
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/survey-campaigns"] });
-      toast({
-        title: "Campanha aprovada",
-        description: "A campanha foi aprovada com sucesso.",
-      });
-    },
-    onError: (error: Error, campaignId, context) => {
-      // Rollback to the previous value on error
-      if (context?.previousCampaigns) {
-        queryClient.setQueryData(["/api/admin/survey-campaigns"], context.previousCampaigns);
-      }
-      toast({
-        title: "Erro ao aprovar",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
-  // Reject mutation
-  const rejectMutation = useMutation({
-    mutationFn: async ({ campaignId, adminNotes }: { campaignId: string; adminNotes: string }) => {
-      const token = localStorage.getItem("admin_token");
-      const response = await fetch(`/api/admin/survey-campaigns/${campaignId}/reject`, {
-        method: "PATCH",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ adminNotes }),
-      });
-      
-      if (!response.ok) {
-        throw new Error("Erro ao rejeitar campanha");
-      }
-      
-      return response.json();
-    },
-    onMutate: async ({ campaignId, adminNotes }) => {
-      // Cancel any outgoing refetches
-      await queryClient.cancelQueries({ queryKey: ["/api/admin/survey-campaigns"] });
-      
-      // Snapshot the previous value
-      const previousCampaigns = queryClient.getQueryData<CampaignWithTemplate[]>(["/api/admin/survey-campaigns"]);
-      
-      // Optimistically update to the new value
-      queryClient.setQueryData<CampaignWithTemplate[]>(["/api/admin/survey-campaigns"], (old) => {
-        if (!old) return old;
-        return old.map(campaign => 
-          campaign.id === campaignId 
-            ? { ...campaign, status: "rejected", adminNotes } 
-            : campaign
-        );
-      });
-      
-      // Return a context object with the snapshotted value
-      return { previousCampaigns };
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/survey-campaigns"] });
-      setRejectDialogOpen(false);
-      setRejectNotes("");
-      setSelectedCampaign(null);
-      toast({
-        title: "Campanha rejeitada",
-        description: "A campanha foi rejeitada com sucesso.",
-      });
-    },
-    onError: (error: Error, variables, context) => {
-      // Rollback to the previous value on error
-      if (context?.previousCampaigns) {
-        queryClient.setQueryData(["/api/admin/survey-campaigns"], context.previousCampaigns);
-      }
-      toast({
-        title: "Erro ao rejeitar",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
 
   // Update stage mutation
   const updateStageMutation = useMutation({
@@ -641,24 +519,6 @@ export default function Admin() {
     }
   };
 
-  const handleApprove = (campaign: CampaignWithTemplate) => {
-    approveMutation.mutate(campaign.id);
-  };
-
-  const handleRejectClick = (campaign: CampaignWithTemplate) => {
-    setSelectedCampaign(campaign);
-    setRejectDialogOpen(true);
-  };
-
-  const handleRejectConfirm = () => {
-    if (selectedCampaign) {
-      rejectMutation.mutate({
-        campaignId: selectedCampaign.id,
-        adminNotes: rejectNotes || "Rejeitado pelo administrador",
-      });
-    }
-  };
-
   const handleMoveStage = (campaignId: string, newStage: string) => {
     updateStageMutation.mutate({ campaignId, campaignStage: newStage });
   };
@@ -689,24 +549,19 @@ export default function Admin() {
     return null;
   }
 
-  // Filter campaigns by stage and status
+  // Filter campaigns by stage (all campaigns are now auto-approved)
   const allCampaigns = campaigns || [];
   
   // Filter by campaign stage for kanban
-  const aguardandoCampaigns = allCampaigns.filter(c => c.campaignStage === "aguardando");
   const aprovadoCampaigns = allCampaigns.filter(c => c.campaignStage === "aprovado");
   const emProducaoCampaigns = allCampaigns.filter(c => c.campaignStage === "em_producao");
   const finalizadoCampaigns = allCampaigns.filter(c => c.campaignStage === "finalizado");
   
-  // Filter by status for tabs
-  const pendingCampaigns = allCampaigns.filter(c => c.status === "under_review");
+  // All approved campaigns (for revenue calculation)
   const approvedCampaigns = allCampaigns.filter(c => c.status === "approved");
-  const rejectedCampaigns = allCampaigns.filter(c => c.status === "rejected");
 
   const getStageBadge = (campaignStage: string) => {
     switch (campaignStage) {
-      case "aguardando":
-        return <span className="text-xs font-medium text-muted-foreground">Aguardando</span>;
       case "aprovado":
         return <Badge className="bg-[#40E0D0] text-white">Aprovado</Badge>;
       case "em_producao":
@@ -720,8 +575,7 @@ export default function Admin() {
 
   const renderCampaignCard = (campaign: CampaignWithTemplate) => {
     const stageMap = {
-      "aguardando": { prev: null, next: null }, // No advance button in Aguardando - approval moves automatically
-      "aprovado": { prev: "aguardando", next: "em_producao" },
+      "aprovado": { prev: null, next: "em_producao" },
       "em_producao": { prev: "aprovado", next: "finalizado" },
       "finalizado": { prev: "em_producao", next: null }
     };
@@ -800,17 +654,6 @@ export default function Admin() {
                       <Copy className="w-4 h-4 text-muted-foreground hover:text-[#40E0D0]" />
                     )}
                   </Button>
-                  {campaign.campaignStage === "aguardando" && (
-                    <Button
-                      onClick={() => handleDeleteCampaignClick(campaign)}
-                      size="sm"
-                      variant="ghost"
-                      className="h-8 w-8 p-0"
-                      data-testid={`button-delete-campaign-${campaign.id}`}
-                    >
-                      <Trash2 className="w-4 h-4 text-destructive hover:text-destructive/80" />
-                    </Button>
-                  )}
                 </div>
               )}
             </div>
@@ -829,33 +672,6 @@ export default function Admin() {
               </div>
             )}
           </div>
-
-          {campaign.status === "under_review" && (
-            <div className="space-y-1.5 pt-1">
-              <Button
-                onClick={() => handleApprove(campaign)}
-                disabled={approveMutation.isPending}
-                size="sm"
-                variant="outline"
-                className="w-full border-[#40E0D0] text-foreground hover:bg-[#40E0D0]/10"
-                data-testid={`button-approve-${campaign.id}`}
-              >
-                <CheckCircle2 className="w-3 h-3 mr-1 text-[#40E0D0]" />
-                Aprovar
-              </Button>
-              <Button
-                onClick={() => handleRejectClick(campaign)}
-                disabled={rejectMutation.isPending}
-                size="sm"
-                variant="outline"
-                className="w-full border-destructive text-foreground hover:bg-destructive/10"
-                data-testid={`button-reject-${campaign.id}`}
-              >
-                <XCircle className="w-3 h-3 mr-1 text-destructive" />
-                Rejeitar
-              </Button>
-            </div>
-          )}
 
           <div className="flex gap-2 pt-1">
             {campaign.campaignStage === "finalizado" ? (
@@ -939,8 +755,8 @@ export default function Admin() {
         </div>
 
         {isLoading && (
-          <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
-            {[1, 2, 3, 4].map((i) => (
+          <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+            {[1, 2, 3].map((i) => (
               <div key={i} className="space-y-4">
                 <Card>
                   <CardHeader>
@@ -970,32 +786,7 @@ export default function Admin() {
         )}
 
         {!isLoading && !error && (
-          <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-4" data-testid="kanban-board">
-            {/* Coluna Aguardando */}
-            <div className="space-y-4" data-testid="kanban-column-aguardando">
-              <Card className="bg-muted/50">
-                <CardHeader className="p-4">
-                  <div className="flex items-center justify-between gap-2">
-                    <CardTitle className="text-base font-semibold">Aguardando</CardTitle>
-                    <Badge variant="secondary" data-testid="badge-count-aguardando">
-                      {aguardandoCampaigns.length}
-                    </Badge>
-                  </div>
-                </CardHeader>
-              </Card>
-              <div className="space-y-3">
-                {aguardandoCampaigns.length === 0 ? (
-                  <Card className="p-4" data-testid="empty-aguardando">
-                    <p className="text-sm text-center text-muted-foreground">
-                      Nenhuma campanha aguardando
-                    </p>
-                  </Card>
-                ) : (
-                  aguardandoCampaigns.map(renderCampaignCard)
-                )}
-              </div>
-            </div>
-
+          <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3" data-testid="kanban-board">
             {/* Coluna Aprovado */}
             <div className="space-y-4" data-testid="kanban-column-aprovado">
               <Card className="bg-[#40E0D0]/10">
@@ -1086,62 +877,6 @@ export default function Admin() {
           }
         }}
       />
-
-      {/* Reject Dialog */}
-      <Dialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
-        <DialogContent data-testid="dialog-reject">
-          <DialogHeader>
-            <DialogTitle data-testid="text-dialog-title">Rejeitar Campanha</DialogTitle>
-            <DialogDescription data-testid="text-dialog-description">
-              {selectedCampaign && (
-                <>
-                  Você está rejeitando a campanha: <strong>{selectedCampaign.campaignName}</strong>
-                </>
-              )}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <label htmlFor="reject-notes" className="text-sm font-medium">
-                Motivo da rejeição
-              </label>
-              <Textarea
-                id="reject-notes"
-                placeholder="Digite o motivo da rejeição..."
-                value={rejectNotes}
-                onChange={(e) => setRejectNotes(e.target.value)}
-                className="min-h-32"
-                data-testid="input-reject-notes"
-              />
-            </div>
-          </div>
-
-          <DialogFooter className="flex gap-2">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setRejectDialogOpen(false);
-                setRejectNotes("");
-                setSelectedCampaign(null);
-              }}
-              className="flex-1"
-              data-testid="button-cancel-reject"
-            >
-              Cancelar
-            </Button>
-            <Button
-              onClick={handleRejectConfirm}
-              disabled={rejectMutation.isPending}
-              variant="destructive"
-              className="flex-1"
-              data-testid="button-confirm-reject"
-            >
-              Confirmar Rejeição
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Paid Dialog */}
       <Dialog open={paidDialogOpen} onOpenChange={setPaidDialogOpen}>
@@ -1777,95 +1512,6 @@ export default function Admin() {
                       variant="outline"
                       className="flex-1"
                       data-testid="button-details-reset-password"
-                    >
-                      <Key className="w-4 h-4 mr-2" />
-                      Resetar Senha
-                    </Button>
-                  )}
-                  <Button
-                    variant="outline"
-                    onClick={() => setDetailsDialogOpen(false)}
-                    size="sm"
-                    className="flex-1"
-                    data-testid="button-details-close"
-                  >
-                    Fechar
-                  </Button>
-                </>
-              )}
-              {selectedCampaign?.status === "under_review" && (
-                <>
-                  <Button
-                    onClick={() => {
-                      if (selectedCampaign) {
-                        setDetailsDialogOpen(false);
-                        handleApprove(selectedCampaign);
-                      }
-                    }}
-                    disabled={approveMutation.isPending}
-                    size="sm"
-                    className="flex-1 bg-[#40E0D0] hover:bg-[#40E0D0]/90 text-white"
-                    data-testid="button-details-approve"
-                  >
-                    <CheckCircle2 className="w-4 h-4 mr-2" />
-                    Aprovar
-                  </Button>
-                  <Button
-                    onClick={() => {
-                      if (selectedCampaign) {
-                        setDetailsDialogOpen(false);
-                        handleRejectClick(selectedCampaign);
-                      }
-                    }}
-                    disabled={rejectMutation.isPending}
-                    size="sm"
-                    variant="destructive"
-                    className="flex-1"
-                    data-testid="button-details-reject"
-                  >
-                    <XCircle className="w-4 h-4 mr-2" />
-                    Rejeitar
-                  </Button>
-                  {selectedCampaign?.user && (
-                    <Button
-                      onClick={() => {
-                        if (selectedCampaign?.user) {
-                          handleResetPasswordClick({ id: selectedCampaign.user.id, name: selectedCampaign.user.name });
-                        }
-                      }}
-                      size="sm"
-                      variant="outline"
-                      className="flex-1"
-                      data-testid="button-details-reset-password-review"
-                    >
-                      <Key className="w-4 h-4 mr-2" />
-                      Senha
-                    </Button>
-                  )}
-                  <Button
-                    variant="outline"
-                    onClick={() => setDetailsDialogOpen(false)}
-                    size="sm"
-                    className="flex-1"
-                    data-testid="button-details-close"
-                  >
-                    Fechar
-                  </Button>
-                </>
-              )}
-              {selectedCampaign?.status === "rejected" && (
-                <>
-                  {selectedCampaign?.user && (
-                    <Button
-                      onClick={() => {
-                        if (selectedCampaign?.user) {
-                          handleResetPasswordClick({ id: selectedCampaign.user.id, name: selectedCampaign.user.name });
-                        }
-                      }}
-                      size="sm"
-                      variant="outline"
-                      className="flex-1"
-                      data-testid="button-details-reset-password-rejected"
                     >
                       <Key className="w-4 h-4 mr-2" />
                       Resetar Senha
