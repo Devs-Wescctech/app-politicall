@@ -1,0 +1,229 @@
+2:37:46 AM [express] HEAD /api/health 200 in 1ms :: {"status":"healthy","timestamp":"2025-12-09T00:3…
+^Csup_wescc@srvappsprod:/var/www/html/app-politicall$ ^C
+sup_wescc@srvappsprod:/var/www/html/app-politicall$ ^C
+sup_wescc@srvappsprod:/var/www/html/app-politicall$ ^C
+sup_wescc@srvappsprod:/var/www/html/app-politicall$ sudo nano /etc/postgresql/18/main/pg_hba.conf 
+[sudo] password for sup_wescc: 
+sup_wescc@srvappsprod:/var/www/html/app-politicall$ sudo systemctl reload postgresql
+sup_wescc@srvappsprod:/var/www/html/app-politicall$ docker restart politicall
+docker logs -f politicall
+politicall
+AI Integrations not configured. Set AI_INTEGRATIONS_OPENAI_BASE_URL and AI_INTEGRATIONS_OPENAI_API_KEY to enable AI features.
+❌ ERROR seeding admin user: error: no pg_hba.conf entry for host "172.19.0.2", user "auth_bd", database "politicall", no encryption
+    at /app/node_modules/pg-pool/index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async file:///app/node_modules/drizzle-orm/node-postgres/session.js:83:22
+    at async DatabaseStorage.getUserByEmail (file:///app/dist/index.js:1083:20)
+    at async seedAdminUser (file:///app/dist/index.js:2804:27)
+    at async registerRoutes (file:///app/dist/index.js:2878:3)
+    at async file:///app/dist/index.js:6844:18 {
+  length: 159,
+  severity: 'FATAL',
+  code: '28000',
+  detail: undefined,
+  hint: undefined,
+  position: undefined,
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'auth.c',
+  line: '530',
+  routine: 'ClientAuthentication'
+}
+Error seeding political parties: error: no pg_hba.conf entry for host "172.19.0.2", user "auth_bd", database "politicall", no encryption
+    at /app/node_modules/pg-pool/index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async file:///app/node_modules/drizzle-orm/node-postgres/session.js:83:22
+    at async DatabaseStorage.getAllParties (file:///app/dist/index.js:1263:12)
+    at async seedPoliticalParties (file:///app/dist/index.js:2590:29)
+    at async registerRoutes (file:///app/dist/index.js:2879:3)
+    at async file:///app/dist/index.js:6844:18 {
+  length: 159,
+  severity: 'FATAL',
+  code: '28000',
+  detail: undefined,
+  hint: undefined,
+  position: undefined,
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'auth.c',
+  line: '530',
+  routine: 'ClientAuthentication'
+}
+Error seeding survey templates: error: no pg_hba.conf entry for host "172.19.0.2", user "auth_bd", database "politicall", no encryption
+    at /app/node_modules/pg-pool/index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async file:///app/node_modules/drizzle-orm/node-postgres/session.js:83:22
+    at async DatabaseStorage.getSurveyTemplates (file:///app/dist/index.js:1724:12)
+    at async seedSurveyTemplates (file:///app/dist/index.js:2603:31)
+    at async registerRoutes (file:///app/dist/index.js:2880:3)
+    at async file:///app/dist/index.js:6844:18 {
+  length: 159,
+  severity: 'FATAL',
+  code: '28000',
+  detail: undefined,
+  hint: undefined,
+  position: undefined,
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'auth.c',
+  line: '530',
+  routine: 'ClientAuthentication'
+}
+Error seeding test campaign: error: no pg_hba.conf entry for host "172.19.0.2", user "auth_bd", database "politicall", no encryption
+    at /app/node_modules/pg-pool/index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async file:///app/node_modules/drizzle-orm/node-postgres/session.js:83:22
+    at async DatabaseStorage.getUser (file:///app/dist/index.js:1079:20)
+    at async seedTestCampaign (file:///app/dist/index.js:2849:22)
+    at async registerRoutes (file:///app/dist/index.js:2881:3)
+    at async file:///app/dist/index.js:6844:18 {
+  length: 159,
+  severity: 'FATAL',
+  code: '28000',
+  detail: undefined,
+  hint: undefined,
+  position: undefined,
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'auth.c',
+  line: '530',
+  routine: 'ClientAuthentication'
+}
+12:36:43 AM [express] serving on port 5000
+12:36:46 AM [express] HEAD /api/health 200 in 5ms :: {"status":"healthy","timestamp":"2025-12-09T00:3…
+12:37:16 AM [express] HEAD /api/health 200 in 1ms :: {"status":"healthy","timestamp":"2025-12-09T00:3…
+12:37:46 AM [express] HEAD /api/health 200 in 1ms :: {"status":"healthy","timestamp":"2025-12-09T00:3…
+12:38:16 AM [express] HEAD /api/health 200 in 1ms :: {"status":"healthy","timestamp":"2025-12-09T00:3…
+12:38:47 AM [express] HEAD /api/health 200 in 1ms :: {"status":"healthy","timestamp":"2025-12-09T00:3…
+12:39:17 AM [express] HEAD /api/health 200 in 1ms :: {"status":"healthy","timestamp":"2025-12-09T00:3…
+AI Integrations not configured. Set AI_INTEGRATIONS_OPENAI_BASE_URL and AI_INTEGRATIONS_OPENAI_API_KEY to enable AI features.
+❌ ERROR seeding admin user: error: relation "users" does not exist
+    at /app/node_modules/pg-pool/index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async file:///app/node_modules/drizzle-orm/node-postgres/session.js:83:22
+    at async DatabaseStorage.getUserByEmail (file:///app/dist/index.js:1083:20)
+    at async seedAdminUser (file:///app/dist/index.js:2804:27)
+    at async registerRoutes (file:///app/dist/index.js:2878:3)
+    at async file:///app/dist/index.js:6844:18 {
+  length: 105,
+  severity: 'ERROR',
+  code: '42P01',
+  detail: undefined,
+  hint: undefined,
+  position: '338',
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'parse_relation.c',
+  line: '1466',
+  routine: 'parserOpenTable'
+}
+Error seeding political parties: error: relation "political_parties" does not exist
+    at /app/node_modules/pg-pool/index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async file:///app/node_modules/drizzle-orm/node-postgres/session.js:83:22
+    at async DatabaseStorage.getAllParties (file:///app/dist/index.js:1263:12)
+    at async seedPoliticalParties (file:///app/dist/index.js:2590:29)
+    at async registerRoutes (file:///app/dist/index.js:2879:3)
+    at async file:///app/dist/index.js:6844:18 {
+  length: 116,
+  severity: 'ERROR',
+  code: '42P01',
+  detail: undefined,
+  hint: undefined,
+  position: '64',
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'parse_relation.c',
+  line: '1466',
+  routine: 'parserOpenTable'
+}
+Error seeding survey templates: error: relation "survey_templates" does not exist
+    at /app/node_modules/pg-pool/index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async file:///app/node_modules/drizzle-orm/node-postgres/session.js:83:22
+    at async DatabaseStorage.getSurveyTemplates (file:///app/dist/index.js:1724:12)
+    at async seedSurveyTemplates (file:///app/dist/index.js:2603:31)
+    at async registerRoutes (file:///app/dist/index.js:2880:3)
+    at async file:///app/dist/index.js:6844:18 {
+  length: 116,
+  severity: 'ERROR',
+  code: '42P01',
+  detail: undefined,
+  hint: undefined,
+  position: '117',
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'parse_relation.c',
+  line: '1466',
+  routine: 'parserOpenTable'
+}
+Error seeding test campaign: error: relation "users" does not exist
+    at /app/node_modules/pg-pool/index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async file:///app/node_modules/drizzle-orm/node-postgres/session.js:83:22
+    at async DatabaseStorage.getUser (file:///app/dist/index.js:1079:20)
+    at async seedTestCampaign (file:///app/dist/index.js:2849:22)
+    at async registerRoutes (file:///app/dist/index.js:2881:3)
+    at async file:///app/dist/index.js:6844:18 {
+  length: 105,
+  severity: 'ERROR',
+  code: '42P01',
+  detail: undefined,
+  hint: undefined,
+  position: '338',
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'parse_relation.c',
+  line: '1466',
+  routine: 'parserOpenTable'
+}
+12:39:42 AM [express] serving on port 5000
+12:39:45 AM [express] HEAD /api/health 200 in 6ms :: {"status":"healthy","timestamp":"2025-12-09T00:3…
