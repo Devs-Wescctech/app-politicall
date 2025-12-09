@@ -1,0 +1,90 @@
+sup_wescc@srvappsprod:~$ sudo -u postgres psql politicall < /home/sup_wescc/fix_constraints.sql
+[sudo] password for sup_wescc: 
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+CREATE INDEX
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ERROR:  insert or update on table "ai_configurations" violates foreign key constraint "ai_configurations_user_id_users_id_fk"
+DETAIL:  Key (user_id)=(90a1d528-a3b9-4b72-aa45-78fbb44b0939) is not present in table "users".
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ERROR:  insert or update on table "contacts" violates foreign key constraint "contacts_user_id_users_id_fk"
+DETAIL:  Key (user_id)=(90a1d528-a3b9-4b72-aa45-78fbb44b0939) is not present in table "users".
+ERROR:  insert or update on table "demand_comments" violates foreign key constraint "demand_comments_user_id_users_id_fk"
+DETAIL:  Key (user_id)=(4f19ea38-8650-4766-9f2e-ea3951e545b5) is not present in table "users".
+ERROR:  insert or update on table "demands" violates foreign key constraint "demands_user_id_users_id_fk"
+DETAIL:  Key (user_id)=(90a1d528-a3b9-4b72-aa45-78fbb44b0939) is not present in table "users".
+ERROR:  insert or update on table "events" violates foreign key constraint "events_user_id_users_id_fk"
+DETAIL:  Key (user_id)=(90a1d528-a3b9-4b72-aa45-78fbb44b0939) is not present in table "users".
+ALTER TABLE
+ALTER TABLE
+ERROR:  insert or update on table "google_ads_campaigns" violates foreign key constraint "google_ads_campaigns_user_id_users_id_fk"
+DETAIL:  Key (user_id)=(d0476e06-f1b0-4204-8280-111fa6478fc9) is not present in table "users".
+ERROR:  insert or update on table "google_calendar_integrations" violates foreign key constraint "google_calendar_integrations_user_id_fkey"
+DETAIL:  Key (user_id)=(d0476e06-f1b0-4204-8280-111fa6478fc9) is not present in table "users".
+ALTER TABLE
+ERROR:  insert or update on table "marketing_campaigns" violates foreign key constraint "marketing_campaigns_user_id_users_id_fk"
+DETAIL:  Key (user_id)=(d0476e06-f1b0-4204-8280-111fa6478fc9) is not present in table "users".
+ERROR:  insert or update on table "notifications" violates foreign key constraint "notifications_user_id_users_id_fk"
+DETAIL:  Key (user_id)=(2dd828ec-34d6-4763-8c85-27a2e624f96a) is not present in table "users".
+ERROR:  insert or update on table "political_alliances" violates foreign key constraint "political_alliances_user_id_users_id_fk"
+DETAIL:  Key (user_id)=(90a1d528-a3b9-4b72-aa45-78fbb44b0939) is not present in table "users".
+ALTER TABLE
+ALTER TABLE
+sup_wescc@srvappsprod:~$ 
