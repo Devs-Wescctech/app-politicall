@@ -49,10 +49,13 @@ COPY --from=builder /app/dist ./dist
 # Copiar assets estáticos se existirem
 COPY --from=builder /app/attached_assets ./attached_assets
 
+# Criar diretório de uploads com estrutura
+RUN mkdir -p /app/uploads/avatars /app/uploads/backgrounds
+
 # Criar usuário não-root para segurança
 RUN groupadd -g 1001 nodejs && useradd -u 1001 -g nodejs politicall
 
-# Mudar ownership dos arquivos
+# Mudar ownership dos arquivos (incluindo uploads)
 RUN chown -R politicall:nodejs /app
 
 # Usar usuário não-root
