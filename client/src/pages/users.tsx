@@ -17,7 +17,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useCurrentUser } from "@/hooks/use-current-user";
-import { Shield, User as UserIcon, Users, Plus, Settings, Eye, EyeOff, Trash2, ChevronDown, ChevronUp, Trophy, Award, Sun, Calendar, CalendarDays, Infinity, Mail, Phone, MapPin, Heart, Filter, Camera, Loader2 } from "lucide-react";
+import { Shield, User as UserIcon, Users, Plus, Settings, Eye, EyeOff, Trash2, ChevronDown, ChevronUp, Trophy, Award, Sun, Calendar, CalendarDays, Infinity, Mail, Phone, MapPin, Heart, Filter, Camera, Loader2, Key } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Cell, Tooltip } from "recharts";
 import {
@@ -77,6 +77,12 @@ export default function UsersManagement() {
   // Edit dialog password states
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
+  
+  // Password reset dialog states
+  const [resetPasswordDialogOpen, setResetPasswordDialogOpen] = useState(false);
+  const [userToResetPassword, setUserToResetPassword] = useState<Omit<User, "password"> | null>(null);
+  const [resetPassword, setResetPassword] = useState("");
+  const [confirmResetPassword, setConfirmResetPassword] = useState("");
   
   // Permissions state for create dialog
   const [customPermissions, setCustomPermissions] = useState<UserPermissions>(DEFAULT_PERMISSIONS.assessor);
@@ -337,6 +343,54 @@ export default function UsersManagement() {
       });
     },
   });
+
+  const resetPasswordMutation = useMutation({
+    mutationFn: async ({ userId, password }: { userId: string; password: string }) => {
+      return await apiRequest("PATCH", `/api/users/${userId}`, { password });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      setResetPasswordDialogOpen(false);
+      setUserToResetPassword(null);
+      setResetPassword("");
+      setConfirmResetPassword("");
+      toast({
+        title: "Senha alterada",
+        description: "A senha do usuário foi alterada com sucesso.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        variant: "destructive",
+        title: "Erro ao resetar senha",
+        description: error.message || "Não foi possível alterar a senha",
+      });
+    },
+  });
+
+  const handleResetPassword = () => {
+    if (!userToResetPassword) return;
+    
+    if (resetPassword.length < 6) {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "A senha deve ter pelo menos 6 caracteres",
+      });
+      return;
+    }
+    
+    if (resetPassword !== confirmResetPassword) {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "As senhas não coincidem",
+      });
+      return;
+    }
+    
+    resetPasswordMutation.mutate({ userId: userToResetPassword.id, password: resetPassword });
+  };
 
   const handleEditRole = (user: Omit<User, "password">) => {
     setSelectedUser(user);
@@ -650,7 +704,7 @@ export default function UsersManagement() {
 
               {/* Fixed Footer */}
               {viewingUser.role !== 'admin' && (
-                <DialogFooter className="flex-shrink-0 px-6 py-4 border-t grid grid-cols-2 gap-2">
+                <DialogFooter className="flex-shrink-0 px-6 py-4 border-t grid grid-cols-3 gap-2">
                   <Button
                     variant="outline"
                     className="rounded-full"
@@ -661,7 +715,19 @@ export default function UsersManagement() {
                     data-testid="button-edit-role-modal"
                   >
                     <Settings className="w-4 h-4 mr-2" />
-                    Alterar Permissão
+                    Permissão
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="rounded-full"
+                    onClick={() => {
+                      setUserToResetPassword(viewingUser);
+                      setResetPasswordDialogOpen(true);
+                    }}
+                    data-testid="button-reset-password-modal"
+                  >
+                    <Key className="w-4 h-4 mr-2" />
+                    Resetar Senha
                   </Button>
                   <Button
                     variant="outline"
@@ -679,6 +745,72 @@ export default function UsersManagement() {
               )}
             </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Password Reset Dialog */}
+      <Dialog open={resetPasswordDialogOpen} onOpenChange={(open) => {
+        if (!open) {
+          setResetPasswordDialogOpen(false);
+          setUserToResetPassword(null);
+          setResetPassword("");
+          setConfirmResetPassword("");
+        }
+      }}>
+        <DialogContent className="max-w-md" data-testid="dialog-reset-password">
+          <DialogHeader>
+            <DialogTitle>Resetar Senha</DialogTitle>
+            <DialogDescription>
+              {userToResetPassword && (
+                <>Alterar a senha de <strong>{userToResetPassword.name}</strong></>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <label className="text-sm font-medium mb-2 block">Nova Senha</label>
+              <Input
+                type="password"
+                placeholder="Mínimo 6 caracteres"
+                value={resetPassword}
+                onChange={(e) => setResetPassword(e.target.value)}
+                data-testid="input-reset-password"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-2 block">Confirmar Senha</label>
+              <Input
+                type="password"
+                placeholder="Digite a senha novamente"
+                value={confirmResetPassword}
+                onChange={(e) => setConfirmResetPassword(e.target.value)}
+                data-testid="input-confirm-reset-password"
+              />
+            </div>
+          </div>
+          <DialogFooter className="grid grid-cols-2 gap-2">
+            <Button
+              variant="outline"
+              className="rounded-full"
+              onClick={() => {
+                setResetPasswordDialogOpen(false);
+                setUserToResetPassword(null);
+                setResetPassword("");
+                setConfirmResetPassword("");
+              }}
+              data-testid="button-cancel-reset-password"
+            >
+              Cancelar
+            </Button>
+            <Button
+              className="rounded-full"
+              onClick={handleResetPassword}
+              disabled={resetPasswordMutation.isPending}
+              data-testid="button-confirm-reset-password"
+            >
+              {resetPasswordMutation.isPending ? "Salvando..." : "Salvar"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
       {/* Activity Ranking Section */}

@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { CheckCircle2, XCircle, ChevronLeft, ChevronRight, ChevronDown, User, Copy, Check, DollarSign, Inbox, Mail, Phone, Trash2, Search, Sun, Moon, Eye, Calendar, MapPin, Users, FileText, MessageSquare, BarChart3, X } from "lucide-react";
+import { CheckCircle2, XCircle, ChevronLeft, ChevronRight, ChevronDown, User, Copy, Check, DollarSign, Inbox, Mail, Phone, Trash2, Search, Sun, Moon, Eye, Calendar, MapPin, Users, FileText, MessageSquare, BarChart3, X, Key } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { AdminBottomNav } from "@/components/admin-bottom-nav";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -87,6 +88,10 @@ export default function Admin() {
   const [selectedLeads, setSelectedLeads] = useState<Set<string>>(new Set());
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [leadToDelete, setLeadToDelete] = useState<string | null>(null);
+  const [passwordResetDialogOpen, setPasswordResetDialogOpen] = useState(false);
+  const [userToResetPassword, setUserToResetPassword] = useState<{ id: string; name: string } | null>(null);
+  const [resetPassword, setResetPassword] = useState("");
+  const [confirmResetPassword, setConfirmResetPassword] = useState("");
   const [isDarkMode, setIsDarkMode] = useState(() => {
     if (typeof window !== 'undefined') {
       return document.documentElement.classList.contains('dark');
@@ -544,6 +549,73 @@ export default function Admin() {
       });
     },
   });
+
+  const resetPasswordMutation = useMutation({
+    mutationFn: async ({ userId, password }: { userId: string; password: string }) => {
+      const token = localStorage.getItem("admin_token");
+      const response = await fetch(`/api/admin/users/${userId}/password`, {
+        method: "PATCH",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ password }),
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Erro ao resetar senha");
+      }
+      
+      return response.json();
+    },
+    onSuccess: () => {
+      setPasswordResetDialogOpen(false);
+      setUserToResetPassword(null);
+      setResetPassword("");
+      setConfirmResetPassword("");
+      toast({
+        title: "Senha alterada",
+        description: "A senha do usuário foi alterada com sucesso.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erro ao resetar senha",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleResetPasswordClick = (user: { id: string; name: string }) => {
+    setUserToResetPassword(user);
+    setPasswordResetDialogOpen(true);
+  };
+
+  const handleResetPasswordConfirm = () => {
+    if (!userToResetPassword) return;
+    
+    if (resetPassword.length < 6) {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "A senha deve ter pelo menos 6 caracteres",
+      });
+      return;
+    }
+    
+    if (resetPassword !== confirmResetPassword) {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "As senhas não coincidem",
+      });
+      return;
+    }
+    
+    resetPasswordMutation.mutate({ userId: userToResetPassword.id, password: resetPassword });
+  };
 
   const handleLogout = () => {
     localStorage.removeItem("admin_token");
@@ -1694,6 +1766,22 @@ export default function Admin() {
                       </>
                     )}
                   </Button>
+                  {selectedCampaign?.user && (
+                    <Button
+                      onClick={() => {
+                        if (selectedCampaign?.user) {
+                          handleResetPasswordClick({ id: selectedCampaign.user.id, name: selectedCampaign.user.name });
+                        }
+                      }}
+                      size="sm"
+                      variant="outline"
+                      className="flex-1"
+                      data-testid="button-details-reset-password"
+                    >
+                      <Key className="w-4 h-4 mr-2" />
+                      Resetar Senha
+                    </Button>
+                  )}
                   <Button
                     variant="outline"
                     onClick={() => setDetailsDialogOpen(false)}
@@ -1738,6 +1826,22 @@ export default function Admin() {
                     <XCircle className="w-4 h-4 mr-2" />
                     Rejeitar
                   </Button>
+                  {selectedCampaign?.user && (
+                    <Button
+                      onClick={() => {
+                        if (selectedCampaign?.user) {
+                          handleResetPasswordClick({ id: selectedCampaign.user.id, name: selectedCampaign.user.name });
+                        }
+                      }}
+                      size="sm"
+                      variant="outline"
+                      className="flex-1"
+                      data-testid="button-details-reset-password-review"
+                    >
+                      <Key className="w-4 h-4 mr-2" />
+                      Senha
+                    </Button>
+                  )}
                   <Button
                     variant="outline"
                     onClick={() => setDetailsDialogOpen(false)}
@@ -1750,18 +1854,100 @@ export default function Admin() {
                 </>
               )}
               {selectedCampaign?.status === "rejected" && (
-                <Button
-                  variant="outline"
-                  onClick={() => setDetailsDialogOpen(false)}
-                  size="sm"
-                  className="flex-1"
-                  data-testid="button-details-close"
-                >
-                  Fechar
-                </Button>
+                <>
+                  {selectedCampaign?.user && (
+                    <Button
+                      onClick={() => {
+                        if (selectedCampaign?.user) {
+                          handleResetPasswordClick({ id: selectedCampaign.user.id, name: selectedCampaign.user.name });
+                        }
+                      }}
+                      size="sm"
+                      variant="outline"
+                      className="flex-1"
+                      data-testid="button-details-reset-password-rejected"
+                    >
+                      <Key className="w-4 h-4 mr-2" />
+                      Resetar Senha
+                    </Button>
+                  )}
+                  <Button
+                    variant="outline"
+                    onClick={() => setDetailsDialogOpen(false)}
+                    size="sm"
+                    className="flex-1"
+                    data-testid="button-details-close"
+                  >
+                    Fechar
+                  </Button>
+                </>
               )}
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Password Reset Dialog */}
+      <Dialog open={passwordResetDialogOpen} onOpenChange={(open) => {
+        if (!open) {
+          setPasswordResetDialogOpen(false);
+          setUserToResetPassword(null);
+          setResetPassword("");
+          setConfirmResetPassword("");
+        }
+      }}>
+        <DialogContent className="max-w-md" data-testid="dialog-reset-password-admin">
+          <DialogHeader>
+            <DialogTitle>Resetar Senha</DialogTitle>
+            <DialogDescription>
+              {userToResetPassword && (
+                <>Alterar a senha de <strong>{userToResetPassword.name}</strong></>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <label className="text-sm font-medium mb-2 block">Nova Senha</label>
+              <Input
+                type="password"
+                placeholder="Mínimo 6 caracteres"
+                value={resetPassword}
+                onChange={(e) => setResetPassword(e.target.value)}
+                data-testid="input-reset-password-admin"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-2 block">Confirmar Senha</label>
+              <Input
+                type="password"
+                placeholder="Digite a senha novamente"
+                value={confirmResetPassword}
+                onChange={(e) => setConfirmResetPassword(e.target.value)}
+                data-testid="input-confirm-reset-password-admin"
+              />
+            </div>
+          </div>
+          <DialogFooter className="grid grid-cols-2 gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setPasswordResetDialogOpen(false);
+                setUserToResetPassword(null);
+                setResetPassword("");
+                setConfirmResetPassword("");
+              }}
+              data-testid="button-cancel-reset-password-admin"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleResetPasswordConfirm}
+              disabled={resetPasswordMutation.isPending}
+              data-testid="button-confirm-reset-password-admin"
+            >
+              {resetPasswordMutation.isPending ? "Salvando..." : "Salvar"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

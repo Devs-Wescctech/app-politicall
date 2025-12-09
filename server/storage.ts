@@ -3,7 +3,7 @@ import {
   accounts, users, contacts, politicalParties, politicalAlliances, demands, demandComments, events,
   aiConfigurations, aiConversations, aiTrainingExamples, aiResponseTemplates, 
   marketingCampaigns, notifications, integrations, googleCalendarIntegrations, surveyTemplates, surveyCampaigns, surveyLandingPages, surveyResponses, leads,
-  apiKeys, apiKeyUsage,
+  apiKeys, apiKeyUsage, contactActivities,
   type Account, type User, type InsertUser, type Contact, type InsertContact,
   type PoliticalParty, type PoliticalAlliance, type InsertPoliticalAlliance,
   type Demand, type InsertDemand, type DemandComment, type InsertDemandComment,
@@ -20,7 +20,8 @@ import {
   type SurveyResponse, type InsertSurveyResponse,
   type Lead, type InsertLead,
   type ApiKey, type InsertApiKey,
-  type ApiKeyUsage, type InsertApiKeyUsage
+  type ApiKeyUsage, type InsertApiKeyUsage,
+  type ContactActivity, type InsertContactActivity
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, count, inArray } from "drizzle-orm";
@@ -170,6 +171,10 @@ export interface IStorage {
   deleteApiKey(id: string, accountId: string): Promise<void>;
   validateApiKey(key: string): Promise<ApiKey | null>;
   updateApiKeyUsage(apiKeyId: string, usage: Omit<InsertApiKeyUsage, "apiKeyId">): Promise<void>;
+
+  // Contact Activities (Timeline)
+  getContactActivities(contactId: string, accountId: string): Promise<(ContactActivity & { userName?: string })[]>;
+  createContactActivity(activity: InsertContactActivity): Promise<ContactActivity>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1394,6 +1399,40 @@ export class DatabaseStorage implements IStorage {
         ...usage,
         apiKeyId,
       });
+  }
+
+  // Contact Activities (Timeline)
+  async getContactActivities(contactId: string, accountId: string): Promise<(ContactActivity & { userName?: string })[]> {
+    const activities = await db.select({
+      id: contactActivities.id,
+      contactId: contactActivities.contactId,
+      accountId: contactActivities.accountId,
+      userId: contactActivities.userId,
+      activityType: contactActivities.activityType,
+      description: contactActivities.description,
+      metadata: contactActivities.metadata,
+      createdAt: contactActivities.createdAt,
+      userName: users.name,
+    })
+    .from(contactActivities)
+    .leftJoin(users, eq(contactActivities.userId, users.id))
+    .where(and(
+      eq(contactActivities.contactId, contactId),
+      eq(contactActivities.accountId, accountId)
+    ))
+    .orderBy(desc(contactActivities.createdAt));
+    
+    return activities.map(a => ({
+      ...a,
+      userName: a.userName ?? undefined,
+    }));
+  }
+
+  async createContactActivity(activity: InsertContactActivity): Promise<ContactActivity> {
+    const [newActivity] = await db.insert(contactActivities)
+      .values(activity)
+      .returning();
+    return newActivity;
   }
 }
 

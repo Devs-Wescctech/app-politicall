@@ -1025,7 +1025,7 @@ export default function Settings() {
                   
                   <div className="space-y-4">
                     <div>
-                      <p className="text-xs font-medium mb-2">Listar Contatos</p>
+                      <p className="text-xs font-medium mb-2">Listar Eleitores</p>
                       <div className="bg-muted p-3 rounded-md">
                         <pre className="text-xs font-mono overflow-x-auto">
 {`curl -X GET ${baseUrl}/api/v1/contacts \\

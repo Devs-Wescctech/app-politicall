@@ -961,7 +961,7 @@ export default function ContractsPage() {
                     data-testid="checkbox-module-contacts"
                   />
                   <label htmlFor="module-contacts" className={`text-sm ${!isEditingUser ? 'text-muted-foreground' : ''}`}>
-                    Contatos
+                    Eleitores
                   </label>
                 </div>
                 <div className="flex items-center space-x-2">

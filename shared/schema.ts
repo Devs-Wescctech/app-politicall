@@ -1013,3 +1013,34 @@ export type InsertApiKeyUsage = z.infer<typeof insertApiKeyUsageSchema>;
 
 export type Lead = typeof leads.$inferSelect;
 export type InsertLead = z.infer<typeof insertLeadSchema>;
+
+// Contact Activities - Timeline for tracking all interactions with voters/people
+export const contactActivities = pgTable("contact_activities", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  contactId: varchar("contact_id").notNull().references(() => contacts.id, { onDelete: "cascade" }),
+  accountId: varchar("account_id").notNull().references(() => accounts.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").references(() => users.id),
+  activityType: varchar("activity_type").notNull(),
+  description: text("description").notNull(),
+  metadata: jsonb("metadata").$type<Record<string, any>>(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const contactActivitiesRelations = relations(contactActivities, ({ one }) => ({
+  contact: one(contacts, {
+    fields: [contactActivities.contactId],
+    references: [contacts.id],
+  }),
+  user: one(users, {
+    fields: [contactActivities.userId],
+    references: [users.id],
+  }),
+}));
+
+export const insertContactActivitySchema = createInsertSchema(contactActivities).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type ContactActivity = typeof contactActivities.$inferSelect;
+export type InsertContactActivity = z.infer<typeof insertContactActivitySchema>;

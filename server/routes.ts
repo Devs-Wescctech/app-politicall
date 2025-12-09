@@ -19,7 +19,7 @@ import multer from "multer";
 import { google } from "googleapis";
 import crypto from "crypto";
 import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
-import { insertUserSchema, loginSchema, insertContactSchema, insertPoliticalAllianceSchema, insertDemandSchema, insertDemandCommentSchema, insertEventSchema, insertAiConfigurationSchema, insertAiTrainingExampleSchema, insertAiResponseTemplateSchema, insertMarketingCampaignSchema, insertNotificationSchema, insertIntegrationSchema, insertSurveyCampaignSchema, insertSurveyLandingPageSchema, insertSurveyResponseSchema, insertLeadSchema, DEFAULT_PERMISSIONS } from "@shared/schema";
+import { insertUserSchema, loginSchema, insertContactSchema, insertContactActivitySchema, insertPoliticalAllianceSchema, insertDemandSchema, insertDemandCommentSchema, insertEventSchema, insertAiConfigurationSchema, insertAiTrainingExampleSchema, insertAiResponseTemplateSchema, insertMarketingCampaignSchema, insertNotificationSchema, insertIntegrationSchema, insertSurveyCampaignSchema, insertSurveyLandingPageSchema, insertSurveyResponseSchema, insertLeadSchema, DEFAULT_PERMISSIONS } from "@shared/schema";
 
 // Configure multer for file uploads
 const upload = multer({ 
@@ -1308,6 +1308,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Reset user password (admin panel only)
+  app.patch("/api/admin/users/:id/password", authenticateAdminToken, async (req: AuthRequest, res) => {
+    try {
+      const schema = z.object({
+        password: z.string().min(6, "Senha deve ter pelo menos 6 caracteres"),
+      });
+
+      const validatedData = schema.parse(req.body);
+      
+      // Get user to find their accountId
+      const user = await storage.getUser(req.params.id);
+      if (!user) {
+        return res.status(404).json({ error: "Usuário não encontrado" });
+      }
+      
+      // Hash the new password
+      const hashedPassword = await bcrypt.hash(validatedData.password, 10);
+      
+      const updated = await storage.updateUser(req.params.id, user.accountId, { password: hashedPassword });
+      const { password, ...sanitizedUser } = updated;
+      res.json(sanitizedUser);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
   // Mark payment as paid (admin panel only)
   app.post("/api/admin/users/:id/payment", authenticateAdminToken, async (req: AuthRequest, res) => {
     try {
@@ -1769,6 +1795,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       await storage.deleteContact(req.params.id, req.accountId!);
       res.json({ success: true });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // Contact Activities (Timeline)
+  app.get("/api/contacts/:id/activities", authenticateToken, requirePermission("contacts"), async (req: AuthRequest, res) => {
+    try {
+      const activities = await storage.getContactActivities(req.params.id, req.accountId!);
+      res.json(activities);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/contacts/:id/activities", authenticateToken, requirePermission("contacts"), async (req: AuthRequest, res) => {
+    try {
+      const validatedData = insertContactActivitySchema.parse({
+        ...req.body,
+        contactId: req.params.id,
+        accountId: req.accountId!,
+        userId: req.userId!,
+      });
+      const activity = await storage.createContactActivity(validatedData);
+      res.json(activity);
     } catch (error: any) {
       res.status(400).json({ error: error.message });
     }

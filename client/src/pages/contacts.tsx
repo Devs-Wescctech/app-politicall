@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { type Contact, type InsertContact, insertContactSchema, CONTACT_INTERESTS, CONTACT_SOURCES, GENDER_OPTIONS } from "@shared/schema";
+import { type Contact, type InsertContact, type ContactActivity, insertContactSchema, CONTACT_INTERESTS, CONTACT_SOURCES, GENDER_OPTIONS } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,7 +27,8 @@ import {
   Building2, Wrench, Bus, Shield, Siren, Landmark, Vote,
   Flag, Home, Droplet, Construction, Hospital, Building,
   School, University, Baby as BabyIcon, Smile, Drum, Cake,
-  Calendar as CalendarIcon, Star, Mic2, ShoppingCart, Download, FileText, Sheet, MoreVertical, QrCode, Share2, UserCircle2, TrendingUp, MapPin, Info, Lock, Upload, FileSpreadsheet, AlertCircle, CheckCircle2, Filter, ChevronDown, ExternalLink
+  Calendar as CalendarIcon, Star, Mic2, ShoppingCart, Download, FileText, Sheet, MoreVertical, QrCode, Share2, UserCircle2, TrendingUp, MapPin, Info, Lock, Upload, FileSpreadsheet, AlertCircle, CheckCircle2, Filter, ChevronDown, ExternalLink,
+  UserPlus, ClipboardList, Phone, Clock, History
 } from "lucide-react";
 import { SiWhatsapp, SiFacebook, SiX } from "react-icons/si";
 import { useToast } from "@/hooks/use-toast";
@@ -291,6 +292,11 @@ export default function Contacts() {
   const [isBulkDeleteDialogOpen, setIsBulkDeleteDialogOpen] = useState(false);
   const [bulkDeletePassword, setBulkDeletePassword] = useState("");
   
+  // Timeline
+  const [isTimelineDialogOpen, setIsTimelineDialogOpen] = useState(false);
+  const [timelineContact, setTimelineContact] = useState<Contact | null>(null);
+  const [newActivityNote, setNewActivityNote] = useState("");
+  
   const { toast } = useToast();
 
   const { data: contacts, isLoading } = useQuery<Contact[]>({
@@ -321,6 +327,12 @@ export default function Contacts() {
   const { data: voterProfile } = useQuery<any>({
     queryKey: ["/api/contacts/profile"],
     enabled: isProfileDialogOpen, // Só busca quando o modal está aberto
+  });
+
+  // Timeline activities query
+  const { data: timelineActivities, isLoading: isLoadingActivities } = useQuery<(ContactActivity & { userName?: string })[]>({
+    queryKey: ["/api/contacts", timelineContact?.id, "activities"],
+    enabled: isTimelineDialogOpen && !!timelineContact,
   });
 
   const form = useForm<InsertContact>({
@@ -414,6 +426,61 @@ export default function Contacts() {
       toast({ title: "Erro ao excluir contato", variant: "destructive" });
     },
   });
+
+  const createActivityMutation = useMutation({
+    mutationFn: ({ contactId, data }: { contactId: string; data: { activityType: string; description: string } }) =>
+      apiRequest("POST", `/api/contacts/${contactId}/activities`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/contacts", timelineContact?.id, "activities"] });
+      toast({ title: "Atividade registrada com sucesso!" });
+      setNewActivityNote("");
+    },
+    onError: () => {
+      toast({ title: "Erro ao registrar atividade", variant: "destructive" });
+    },
+  });
+
+  const handleOpenTimeline = (contact: Contact) => {
+    setTimelineContact(contact);
+    setIsTimelineDialogOpen(true);
+  };
+
+  const handleAddActivity = () => {
+    if (!timelineContact || !newActivityNote.trim()) return;
+    createActivityMutation.mutate({
+      contactId: timelineContact.id,
+      data: {
+        activityType: "note_added",
+        description: newActivityNote.trim(),
+      },
+    });
+  };
+
+  const getActivityIcon = (activityType: string) => {
+    switch (activityType) {
+      case "created": return <UserPlus className="h-4 w-4 text-green-600" />;
+      case "updated": return <Pencil className="h-4 w-4 text-blue-600" />;
+      case "demand_created": return <ClipboardList className="h-4 w-4 text-purple-600" />;
+      case "event_added": return <CalendarIcon className="h-4 w-4 text-orange-600" />;
+      case "note_added": return <MessageCircle className="h-4 w-4 text-primary" />;
+      case "call_made": return <Phone className="h-4 w-4 text-emerald-600" />;
+      case "message_sent": return <Send className="h-4 w-4 text-sky-600" />;
+      default: return <Clock className="h-4 w-4 text-muted-foreground" />;
+    }
+  };
+
+  const getActivityLabel = (activityType: string) => {
+    switch (activityType) {
+      case "created": return "Cadastro";
+      case "updated": return "Atualização";
+      case "demand_created": return "Demanda criada";
+      case "event_added": return "Evento adicionado";
+      case "note_added": return "Nota";
+      case "call_made": return "Ligação";
+      case "message_sent": return "Mensagem";
+      default: return "Atividade";
+    }
+  };
 
   const handleSubmit = (data: InsertContact) => {
     if (editingContact) {
@@ -2017,7 +2084,7 @@ export default function Contacts() {
                 setIsImportDialogOpen(true);
               }}
               data-testid="button-import"
-              title="Importar lista de contatos"
+              title="Importar lista de eleitores"
             >
               <Upload className="w-4 h-4" />
             </Button>
@@ -2028,7 +2095,7 @@ export default function Contacts() {
           }}>
             <DialogContent className="max-w-lg max-h-[90vh] flex flex-col p-0" aria-describedby="import-dialog-description">
               <DialogHeader className="px-5 pt-5 pb-3 border-b">
-                <DialogTitle className="text-xl font-bold">Importar Contatos</DialogTitle>
+                <DialogTitle className="text-xl font-bold">Importar Eleitores</DialogTitle>
                 <p id="import-dialog-description" className="text-xs text-muted-foreground mt-1">
                   Importe uma lista de contatos de qualquer formato (.xlsx, .xls, .csv, .pdf)
                 </p>
@@ -2765,6 +2832,10 @@ export default function Contacts() {
                               Enviar email
                             </DropdownMenuItem>
                           )}
+                          <DropdownMenuItem onClick={() => handleOpenTimeline(contact)}>
+                            <History className="h-4 w-4 mr-2" />
+                            Timeline
+                          </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleEdit(contact)}>
                             <Pencil className="h-4 w-4 mr-2" />
                             Editar
@@ -2784,7 +2855,7 @@ export default function Contacts() {
               ) : (
                 <div className="text-center text-muted-foreground py-12">
                   <Users className="h-12 w-12 mx-auto mb-3 opacity-20" />
-                  <p className="text-sm">{searchQuery ? "Nenhum contato encontrado" : "Nenhum contato cadastrado"}</p>
+                  <p className="text-sm">{searchQuery ? "Nenhum eleitor encontrado" : "Nenhum eleitor cadastrado"}</p>
                 </div>
               )}
             </div>
@@ -2882,6 +2953,13 @@ export default function Contacts() {
                               )}
                               <DropdownMenuSeparator />
                               <DropdownMenuItem
+                                onClick={() => handleOpenTimeline(contact)}
+                                data-testid={`button-timeline-${contact.id}`}
+                              >
+                                <History className="h-4 w-4 mr-2" />
+                                Timeline
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
                                 onClick={() => handleEdit(contact)}
                                 data-testid={`button-edit-${contact.id}`}
                               >
@@ -2904,7 +2982,7 @@ export default function Contacts() {
                   ) : (
                     <TableRow>
                       <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                        {searchQuery ? "Nenhum contato encontrado" : "Nenhum contato cadastrado"}
+                        {searchQuery ? "Nenhum eleitor encontrado" : "Nenhum eleitor cadastrado"}
                       </TableCell>
                     </TableRow>
                   )}
@@ -3038,6 +3116,123 @@ export default function Contacts() {
               data-testid="button-confirm-bulk-delete"
             >
               {isBulkDeleting ? "Excluindo..." : "Excluir"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Timeline Dialog */}
+      <Dialog open={isTimelineDialogOpen} onOpenChange={(open) => {
+        setIsTimelineDialogOpen(open);
+        if (!open) {
+          setTimelineContact(null);
+          setNewActivityNote("");
+        }
+      }}>
+        <DialogContent className="max-w-lg max-h-[85vh] flex flex-col p-0" aria-describedby="timeline-dialog-description">
+          <DialogHeader className="px-5 pt-5 pb-3 border-b">
+            <DialogTitle className="text-lg font-bold flex items-center gap-2">
+              <History className="w-5 h-5 text-primary" />
+              Timeline - {timelineContact ? formatName(timelineContact.name) : ""}
+            </DialogTitle>
+            <p id="timeline-dialog-description" className="text-xs text-muted-foreground mt-1">
+              Histórico de interações e atividades com este eleitor
+            </p>
+          </DialogHeader>
+          
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            {/* Add new activity form */}
+            <div className="space-y-2 pb-4 border-b">
+              <label className="text-sm font-medium">Adicionar Nota</label>
+              <div className="flex gap-2">
+                <Textarea
+                  placeholder="Digite uma nota ou observação..."
+                  value={newActivityNote}
+                  onChange={(e) => setNewActivityNote(e.target.value)}
+                  className="min-h-[60px] flex-1"
+                  data-testid="textarea-new-activity"
+                />
+              </div>
+              <Button
+                onClick={handleAddActivity}
+                disabled={createActivityMutation.isPending || !newActivityNote.trim()}
+                size="sm"
+                className="w-full"
+                data-testid="button-add-activity"
+              >
+                {createActivityMutation.isPending ? "Salvando..." : "Adicionar Nota"}
+              </Button>
+            </div>
+
+            {/* Activities list */}
+            <div className="space-y-3">
+              {isLoadingActivities ? (
+                <div className="space-y-3">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="flex gap-3 animate-pulse">
+                      <div className="w-8 h-8 rounded-full bg-muted" />
+                      <div className="flex-1 space-y-2">
+                        <div className="h-4 w-32 bg-muted rounded" />
+                        <div className="h-3 w-48 bg-muted rounded" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : timelineActivities && timelineActivities.length > 0 ? (
+                <div className="relative">
+                  <div className="absolute left-4 top-0 bottom-0 w-px bg-border" />
+                  <div className="space-y-4">
+                    {timelineActivities.map((activity) => (
+                      <div key={activity.id} className="relative flex gap-3 pl-2" data-testid={`activity-${activity.id}`}>
+                        <div className="relative z-10 flex items-center justify-center w-8 h-8 rounded-full bg-background border border-border shrink-0">
+                          {getActivityIcon(activity.activityType)}
+                        </div>
+                        <div className="flex-1 min-w-0 pb-4">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm font-medium">
+                              {getActivityLabel(activity.activityType)}
+                            </span>
+                            {activity.userName && (
+                              <span className="text-xs text-muted-foreground">
+                                por {activity.userName}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-sm text-muted-foreground mt-1 break-words">
+                            {activity.description}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {new Date(activity.createdAt).toLocaleDateString("pt-BR", {
+                              day: "2-digit",
+                              month: "2-digit",
+                              year: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Clock className="w-12 h-12 mx-auto mb-3 opacity-20" />
+                  <p className="text-sm">Nenhuma atividade registrada</p>
+                  <p className="text-xs mt-1">Adicione notas para registrar interações</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter className="px-5 py-4 border-t">
+            <Button
+              variant="outline"
+              onClick={() => setIsTimelineDialogOpen(false)}
+              className="w-full"
+              data-testid="button-close-timeline"
+            >
+              Fechar
             </Button>
           </DialogFooter>
         </DialogContent>

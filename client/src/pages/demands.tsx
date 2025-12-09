@@ -14,7 +14,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, Calendar as CalendarIcon, MessageSquare, Clock, User, CalendarDays, RefreshCw, Play, Check, X, Trash2, Edit, Save } from "lucide-react";
+import { Plus, Calendar as CalendarIcon, MessageSquare, Clock, User, CalendarDays, RefreshCw, Play, Check, X, Trash2, Edit, Save, History } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -737,8 +737,12 @@ export default function Demands() {
               </SheetHeader>
               <div className="flex-1 overflow-y-auto px-6 py-4">
               <Tabs defaultValue="details">
-                <TabsList className="grid w-full grid-cols-2 rounded-full">
+                <TabsList className="grid w-full grid-cols-3 rounded-full">
                   <TabsTrigger value="details" className="rounded-full">Detalhes</TabsTrigger>
+                  <TabsTrigger value="timeline" className="rounded-full" data-testid="tab-timeline">
+                    <History className="h-4 w-4 mr-2" />
+                    Timeline
+                  </TabsTrigger>
                   <TabsTrigger value="comments" className="rounded-full">
                     <MessageSquare className="h-4 w-4 mr-2" />
                     Comentários
@@ -870,6 +874,124 @@ export default function Demands() {
                         </p>
                       )
                     )}
+                  </div>
+                </TabsContent>
+                <TabsContent value="timeline" className="space-y-4 mt-4" data-testid="timeline-content">
+                  <div className="relative">
+                    {/* Vertical timeline line */}
+                    <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-primary/20" />
+                    
+                    <div className="space-y-4">
+                      {(() => {
+                        // Build timeline entries
+                        type TimelineEntry = {
+                          id: string;
+                          type: 'created' | 'comment' | 'status' | 'assigned';
+                          title: string;
+                          description?: string;
+                          userName?: string;
+                          date: Date;
+                        };
+                        
+                        const entries: TimelineEntry[] = [];
+                        
+                        // Add creation event
+                        entries.push({
+                          id: 'creation',
+                          type: 'created',
+                          title: 'Demanda criada',
+                          description: `"${selectedDemand.title}" foi adicionada ao sistema`,
+                          date: new Date(selectedDemand.createdAt),
+                        });
+                        
+                        // Add comments
+                        if (comments && comments.length > 0) {
+                          comments.forEach((comment: any) => {
+                            entries.push({
+                              id: `comment-${comment.id}`,
+                              type: 'comment',
+                              title: 'Comentário adicionado',
+                              description: comment.comment,
+                              userName: comment.userName,
+                              date: new Date(comment.createdAt),
+                            });
+                          });
+                        }
+                        
+                        // Sort by date (oldest first to show chronological order)
+                        entries.sort((a, b) => a.date.getTime() - b.date.getTime());
+                        
+                        const getIcon = (type: TimelineEntry['type']) => {
+                          switch (type) {
+                            case 'created':
+                              return <Plus className="h-4 w-4" />;
+                            case 'comment':
+                              return <MessageSquare className="h-4 w-4" />;
+                            case 'status':
+                              return <RefreshCw className="h-4 w-4" />;
+                            case 'assigned':
+                              return <User className="h-4 w-4" />;
+                            default:
+                              return <Clock className="h-4 w-4" />;
+                          }
+                        };
+                        
+                        const getIconBgColor = (type: TimelineEntry['type']) => {
+                          switch (type) {
+                            case 'created':
+                              return 'bg-primary text-primary-foreground';
+                            case 'comment':
+                              return 'bg-blue-500 text-white dark:bg-blue-600';
+                            case 'status':
+                              return 'bg-amber-500 text-white dark:bg-amber-600';
+                            case 'assigned':
+                              return 'bg-purple-500 text-white dark:bg-purple-600';
+                            default:
+                              return 'bg-muted text-muted-foreground';
+                          }
+                        };
+                        
+                        if (entries.length === 0) {
+                          return (
+                            <p className="text-sm text-muted-foreground text-center py-8">
+                              Nenhuma atividade registrada
+                            </p>
+                          );
+                        }
+                        
+                        return entries.map((entry) => (
+                          <div key={entry.id} className="relative pl-10" data-testid={`timeline-entry-${entry.id}`}>
+                            {/* Icon circle */}
+                            <div className={`absolute left-0 p-2 rounded-full ${getIconBgColor(entry.type)} z-10`}>
+                              {getIcon(entry.type)}
+                            </div>
+                            
+                            {/* Content */}
+                            <Card className="p-3">
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium">{entry.title}</p>
+                                  {entry.userName && (
+                                    <p className="text-xs text-primary font-medium mt-0.5">
+                                      por {entry.userName}
+                                    </p>
+                                  )}
+                                  {entry.description && (
+                                    <p className="text-sm text-muted-foreground mt-1 break-words">
+                                      {entry.description}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                              <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
+                                <Clock className="h-3 w-3" />
+                                {format(entry.date, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                              </p>
+                            </Card>
+                          </div>
+                        ));
+                      })()}
+                    </div>
                   </div>
                 </TabsContent>
                 <TabsContent value="comments" className="space-y-4 mt-4">
