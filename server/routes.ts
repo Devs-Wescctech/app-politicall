@@ -707,6 +707,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Upload image endpoint - returns URL path instead of base64
+  app.post("/api/upload/image", authenticateToken, upload.single('file'), async (req: AuthRequest, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "Nenhum arquivo enviado" });
+      }
+
+      // Validate file type
+      const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+      if (!allowedMimeTypes.includes(req.file.mimetype)) {
+        return res.status(400).json({ error: "Tipo de arquivo não permitido. Use JPEG, PNG, WebP ou GIF." });
+      }
+
+      // Create uploads directory structure if it doesn't exist
+      const uploadsDir = path.join(process.cwd(), 'uploads');
+      const avatarsDir = path.join(uploadsDir, 'avatars');
+      const backgroundsDir = path.join(uploadsDir, 'backgrounds');
+      
+      if (!fs.existsSync(uploadsDir)) {
+        fs.mkdirSync(uploadsDir, { recursive: true });
+      }
+      if (!fs.existsSync(avatarsDir)) {
+        fs.mkdirSync(avatarsDir, { recursive: true });
+      }
+      if (!fs.existsSync(backgroundsDir)) {
+        fs.mkdirSync(backgroundsDir, { recursive: true });
+      }
+
+      // Determine subdirectory based on type query param
+      const imageType = req.query.type as string || 'avatars';
+      const targetDir = imageType === 'background' ? backgroundsDir : avatarsDir;
+
+      // Generate unique filename
+      const ext = req.file.originalname.split('.').pop() || 'jpg';
+      const filename = `${req.userId}-${Date.now()}.${ext}`;
+      const filepath = path.join(targetDir, filename);
+
+      // Save file to disk
+      fs.writeFileSync(filepath, req.file.buffer);
+
+      // Return the URL path (not base64)
+      const urlPath = `/uploads/${imageType === 'background' ? 'backgrounds' : 'avatars'}/${filename}`;
+      
+      res.json({ url: urlPath, filename });
+    } catch (error: any) {
+      console.error('Erro ao fazer upload:', error);
+      res.status(500).json({ error: "Erro ao fazer upload da imagem" });
+    }
+  });
+
   // Update current user's profile
   app.patch("/api/auth/profile", authenticateToken, async (req: AuthRequest, res) => {
     try {

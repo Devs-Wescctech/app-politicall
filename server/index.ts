@@ -31,6 +31,9 @@ app.use(express.urlencoded({ limit: '50mb', extended: false }));
 
 app.use('/assets', express.static('attached_assets'));
 
+// Serve uploaded files from persistent storage
+app.use('/uploads', express.static('uploads'));
+
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
