@@ -6,12 +6,12 @@
 # ============================================================================
 
 # Stage 1: Build
-FROM node:20-alpine AS builder
+FROM node:20-slim AS builder
 
 WORKDIR /app
 
 # Instalar dependências de build para módulos nativos (bcrypt)
-RUN apk add --no-cache python3 make g++
+RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
 
 # Copiar arquivos de dependências
 COPY package*.json ./
@@ -26,16 +26,16 @@ COPY . .
 RUN npm run build
 
 # Stage 2: Production
-FROM node:20-alpine AS production
+FROM node:20-slim AS production
 
 WORKDIR /app
-
-# Instalar dependências de runtime para módulos nativos
-RUN apk add --no-cache python3 make g++
 
 # Variáveis de ambiente
 ENV NODE_ENV=production
 ENV PORT=5000
+
+# Instalar wget para health check e dependências de runtime
+RUN apt-get update && apt-get install -y wget && rm -rf /var/lib/apt/lists/*
 
 # Copiar package.json para produção
 COPY package*.json ./
@@ -50,8 +50,7 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/attached_assets ./attached_assets
 
 # Criar usuário não-root para segurança
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S politicall -u 1001
+RUN groupadd -g 1001 nodejs && useradd -u 1001 -g nodejs politicall
 
 # Mudar ownership dos arquivos
 RUN chown -R politicall:nodejs /app
