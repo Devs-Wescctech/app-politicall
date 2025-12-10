@@ -40,8 +40,10 @@ import AiAttendance from "@/pages/ai-attendance";
 import Marketing from "@/pages/marketing";
 import Settings from "@/pages/settings";
 import UsersManagement from "@/pages/users";
+import FieldOperatives from "@/pages/field-operatives";
 import SurveyLanding from "@/pages/survey-landing";
 import PublicSupport from "@/pages/public-support";
+import CaboLanding from "@/pages/cabo-landing";
 import LandingPage from "@/pages/landing";
 import ThankYouPage from "@/pages/thank-you";
 
@@ -101,6 +103,11 @@ function AuthenticatedLayout() {
                   <Marketing />
                 </ProtectedRoute>
               </Route>
+              <Route path="/field-operatives">
+                <ProtectedRoute>
+                  <FieldOperatives />
+                </ProtectedRoute>
+              </Route>
               <Route path="/settings">
                 <ProtectedRoute>
                   <Settings />
@@ -136,6 +143,7 @@ function App() {
             <Route path="/pesquisa/:slug" component={SurveyLanding} />
             <Route path="/apoio/:slug/:volunteerCode" component={PublicSupport} />
             <Route path="/apoio/:slug" component={PublicSupport} />
+            <Route path="/cabo/:adminSlug/:caboSlug" component={CaboLanding} />
             <Route path="/thank-you" component={ThankYouPage} />
             <Route path="/" component={LandingPage} />
             <Route path="/:rest*">
