@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { User, Inbox, Mail, Phone, Trash2, Search, Sun, Moon, Users, X, Key, ChevronDown } from "lucide-react";
+import { User, Inbox, Mail, Phone, Trash2, Search, Sun, Moon, Users, X, Key, ChevronDown, MessageSquare } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { AdminBottomNav } from "@/components/admin-bottom-nav";
 import { Button } from "@/components/ui/button";
