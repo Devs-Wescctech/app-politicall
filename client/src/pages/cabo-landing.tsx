@@ -1,17 +1,16 @@
-import { useParams, useLocation } from "wouter";
+import { useParams } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { X, Loader2, Vote, Users } from "lucide-react";
+import { Loader2, Users, CheckCircle2, X, Vote } from "lucide-react";
 import logoUrl from "@assets/logo pol_1763308638963_1763559095972.png";
 
 const BRAZILIAN_STATES = [
@@ -80,8 +79,7 @@ type RegistrationFormData = z.infer<typeof registrationSchema>;
 
 export default function CaboLanding() {
   const { adminSlug, caboSlug } = useParams<{ adminSlug: string; caboSlug: string }>();
-  const [, setLocation] = useLocation();
-  const { toast } = useToast();
+  const [isRegistered, setIsRegistered] = useState(false);
 
   const getPartyColor = (partyAcronym?: string | null) => {
     if (!partyAcronym) return "#40E0D0";
@@ -139,17 +137,7 @@ export default function CaboLanding() {
       return apiRequest("POST", `/api/public/cabos/${adminSlug}/${caboSlug}/register`, formData);
     },
     onSuccess: () => {
-      toast({
-        title: "Cadastro realizado!",
-      });
-      setLocation("/thank-you");
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Erro ao realizar cadastro",
-        description: error.message || "Tente novamente mais tarde",
-        variant: "destructive",
-      });
+      setIsRegistered(true);
     },
   });
 
@@ -374,16 +362,37 @@ export default function CaboLanding() {
               style={{ background: `linear-gradient(90deg, ${partyColor} 0%, ${partyColor}80 100%)` }}
             ></div>
             <CardContent className="p-6">
-              <div className="text-center mb-5">
-                <h2 className="text-xl font-bold text-gray-800" data-testid="text-form-title">
-                  Faça parte dessa mudança!
-                </h2>
-                <p className="text-gray-500 text-sm mt-1">
-                  Cadastre seu apoio e junte-se a nós
-                </p>
-              </div>
+              {isRegistered ? (
+                <div className="text-center py-8">
+                  <div 
+                    className="w-16 h-16 mx-auto rounded-full flex items-center justify-center mb-4"
+                    style={{ backgroundColor: `${partyColor}20` }}
+                  >
+                    <CheckCircle2 
+                      className="w-8 h-8" 
+                      style={{ color: partyColor }}
+                    />
+                  </div>
+                  <h2 
+                    className="text-xl font-bold mb-2"
+                    style={{ color: partyColor }}
+                    data-testid="text-success-title"
+                  >
+                    Cadastro realizado!
+                  </h2>
+                </div>
+              ) : (
+                <>
+                  <div className="text-center mb-5">
+                    <h2 className="text-xl font-bold text-gray-800" data-testid="text-form-title">
+                      Faça parte dessa mudança!
+                    </h2>
+                    <p className="text-gray-500 text-sm mt-1">
+                      Cadastre seu apoio e junte-se a nós
+                    </p>
+                  </div>
 
-              <Form {...form}>
+                  <Form {...form}>
                 <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
                   <FormField
                     control={form.control}
@@ -515,6 +524,8 @@ export default function CaboLanding() {
                   </Button>
                 </form>
               </Form>
+                </>
+              )}
             </CardContent>
           </Card>
         </div>
