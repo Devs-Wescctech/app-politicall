@@ -784,8 +784,6 @@ export default function Marketing() {
       startDate: new Date().toISOString(),
       endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
       targetAudience: null,
-      adminReviewerId: null,
-      adminNotes: null,
     },
   });
 
@@ -953,8 +951,6 @@ export default function Marketing() {
       endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
       region: null,
       targetAudience: null,
-      adminReviewerId: null,
-      adminNotes: null,
     });
     setShowWizard(true);
   };
@@ -983,8 +979,6 @@ export default function Marketing() {
       endDate: campaign.endDate ? campaign.endDate.toString() : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
       region: campaign.region,
       targetAudience: campaign.targetAudience,
-      adminReviewerId: campaign.adminReviewerId,
-      adminNotes: campaign.adminNotes,
     });
     setShowWizard(true);
   };
@@ -1251,15 +1245,6 @@ export default function Marketing() {
                         <Label className="text-xs font-medium">Público-Alvo:</Label>
                         <p className="text-xs text-muted-foreground" data-testid={`text-target-audience-${campaign.id}`}>
                           {campaign.targetAudience}
-                        </p>
-                      </div>
-                    )}
-
-                    {campaign.adminNotes && (
-                      <div className="space-y-2">
-                        <Label className="text-xs font-medium">Notas do Administrador:</Label>
-                        <p className="text-xs text-muted-foreground" data-testid={`text-admin-notes-${campaign.id}`}>
-                          {campaign.adminNotes}
                         </p>
                       </div>
                     )}
@@ -1826,13 +1811,6 @@ export default function Marketing() {
                         <Label className="text-sm">Prazo de Coleta:</Label>
                         <p className="text-sm font-semibold">7 dias corridos</p>
                       </div>
-                      <div className="flex items-center justify-between">
-                        <Label className="text-sm">Investimento:</Label>
-                        <p className="text-lg font-bold text-[#40E0D0]">R$ 1.250,00</p>
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        Valor será cobrado na próxima fatura do seu plano
-                      </p>
                     </CardContent>
                   </Card>
 
@@ -1911,7 +1889,7 @@ export default function Marketing() {
                     ? "Criando..."
                     : editingCampaign
                     ? "Atualizar Campanha"
-                    : "Criar e Enviar para Aprovação"
+                    : "Criar Campanha"
                   : "Próximo"}
               </Button>
             </div>

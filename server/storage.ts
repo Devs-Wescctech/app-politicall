@@ -3,7 +3,7 @@ import {
   accounts, users, contacts, politicalParties, politicalAlliances, demands, demandComments, events,
   aiConfigurations, aiConversations, aiTrainingExamples, aiResponseTemplates, 
   marketingCampaigns, notifications, integrations, googleCalendarIntegrations, surveyTemplates, surveyCampaigns, surveyLandingPages, surveyResponses, leads,
-  apiKeys, apiKeyUsage, contactActivities,
+  apiKeys, apiKeyUsage, contactActivities, fieldOperatives,
   type Account, type User, type InsertUser, type Contact, type InsertContact,
   type PoliticalParty, type PoliticalAlliance, type InsertPoliticalAlliance,
   type Demand, type InsertDemand, type DemandComment, type InsertDemandComment,
@@ -21,10 +21,11 @@ import {
   type Lead, type InsertLead,
   type ApiKey, type InsertApiKey,
   type ApiKeyUsage, type InsertApiKeyUsage,
-  type ContactActivity, type InsertContactActivity
+  type ContactActivity, type InsertContactActivity,
+  type FieldOperative, type InsertFieldOperative
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, count, inArray } from "drizzle-orm";
+import { eq, desc, and, count, inArray, gte, isNull } from "drizzle-orm";
 import { encryptApiKey, decryptApiKey } from "./crypto";
 import bcrypt from "bcrypt";
 import crypto from "crypto";
@@ -175,6 +176,15 @@ export interface IStorage {
   // Contact Activities (Timeline)
   getContactActivities(contactId: string, accountId: string): Promise<(ContactActivity & { userName?: string })[]>;
   createContactActivity(activity: InsertContactActivity): Promise<ContactActivity>;
+
+  // Field Operatives (Cabos Eleitorais)
+  getFieldOperatives(accountId: string): Promise<FieldOperative[]>;
+  getFieldOperative(id: string, accountId: string): Promise<FieldOperative | undefined>;
+  getFieldOperativeBySlug(slug: string, accountId: string): Promise<FieldOperative | undefined>;
+  createFieldOperative(operative: InsertFieldOperative & { accountId: string }): Promise<FieldOperative>;
+  updateFieldOperative(id: string, accountId: string, updates: Partial<InsertFieldOperative>): Promise<FieldOperative | undefined>;
+  deleteFieldOperative(id: string, accountId: string): Promise<boolean>;
+  getFieldOperativeStats(id: string, accountId: string): Promise<{ totalContacts: number; recentContacts: number }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1433,6 +1443,129 @@ export class DatabaseStorage implements IStorage {
       .values(activity)
       .returning();
     return newActivity;
+  }
+
+  // Field Operatives (Cabos Eleitorais)
+  private generateSlugFromName(name: string): string {
+    return name
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '');
+  }
+
+  async getFieldOperatives(accountId: string): Promise<FieldOperative[]> {
+    return await db.select()
+      .from(fieldOperatives)
+      .where(eq(fieldOperatives.accountId, accountId))
+      .orderBy(desc(fieldOperatives.createdAt));
+  }
+
+  async getFieldOperative(id: string, accountId: string): Promise<FieldOperative | undefined> {
+    const [operative] = await db.select()
+      .from(fieldOperatives)
+      .where(and(
+        eq(fieldOperatives.id, id),
+        eq(fieldOperatives.accountId, accountId)
+      ));
+    return operative || undefined;
+  }
+
+  async getFieldOperativeBySlug(slug: string, accountId: string): Promise<FieldOperative | undefined> {
+    const [operative] = await db.select()
+      .from(fieldOperatives)
+      .where(and(
+        eq(fieldOperatives.slug, slug),
+        eq(fieldOperatives.accountId, accountId)
+      ));
+    return operative || undefined;
+  }
+
+  async createFieldOperative(operative: InsertFieldOperative & { accountId: string }): Promise<FieldOperative> {
+    let baseSlug = this.generateSlugFromName(operative.name);
+    let slug = baseSlug;
+    let counter = 1;
+
+    while (true) {
+      const existing = await this.getFieldOperativeBySlug(slug, operative.accountId);
+      if (!existing) break;
+      counter++;
+      slug = `${baseSlug}-${counter}`;
+    }
+
+    const [newOperative] = await db.insert(fieldOperatives)
+      .values({
+        ...operative,
+        slug
+      })
+      .returning();
+    return newOperative;
+  }
+
+  async updateFieldOperative(id: string, accountId: string, updates: Partial<InsertFieldOperative>): Promise<FieldOperative | undefined> {
+    const updateData: any = { ...updates };
+
+    if (updates.name) {
+      let baseSlug = this.generateSlugFromName(updates.name);
+      let slug = baseSlug;
+      let counter = 1;
+
+      while (true) {
+        const existing = await this.getFieldOperativeBySlug(slug, accountId);
+        if (!existing || existing.id === id) break;
+        counter++;
+        slug = `${baseSlug}-${counter}`;
+      }
+      updateData.slug = slug;
+    }
+
+    const [updated] = await db.update(fieldOperatives)
+      .set(updateData)
+      .where(and(
+        eq(fieldOperatives.id, id),
+        eq(fieldOperatives.accountId, accountId)
+      ))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteFieldOperative(id: string, accountId: string): Promise<boolean> {
+    const result = await db.delete(fieldOperatives)
+      .where(and(
+        eq(fieldOperatives.id, id),
+        eq(fieldOperatives.accountId, accountId)
+      ))
+      .returning();
+    return result.length > 0;
+  }
+
+  async getFieldOperativeStats(id: string, accountId: string): Promise<{ totalContacts: number; recentContacts: number }> {
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+    const totalResult = await db.select({ count: count() })
+      .from(contacts)
+      .where(and(
+        eq(contacts.accountId, accountId),
+        eq(contacts.fieldOperativeId, id)
+      ));
+
+    const recentResult = await db.select({ count: count() })
+      .from(contacts)
+      .where(and(
+        eq(contacts.accountId, accountId),
+        eq(contacts.fieldOperativeId, id),
+        gte(contacts.createdAt, sevenDaysAgo)
+      ));
+
+    return {
+      totalContacts: totalResult[0]?.count || 0,
+      recentContacts: recentResult[0]?.count || 0
+    };
   }
 }
 
