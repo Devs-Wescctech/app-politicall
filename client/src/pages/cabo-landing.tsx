@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { X, Loader2 } from "lucide-react";
+import { X, Loader2, Vote, Users } from "lucide-react";
 import logoUrl from "@assets/logo pol_1763308638963_1763559095972.png";
 
 const BRAZILIAN_STATES = [
@@ -51,14 +51,20 @@ const PARTY_COLORS: Record<string, string> = {
 interface CaboLandingData {
   candidate: {
     name: string;
-    avatar: string | null;
-    partyName: string | null;
-    partyAcronym: string | null;
+    photo: string | null;
+    party: {
+      id: string;
+      name: string;
+      acronym: string;
+      logoUrl: string | null;
+    } | null;
+    politicalPosition: string | null;
+    electionNumber: string | null;
   };
   cabo: {
     name: string;
-    avatarUrl: string | null;
-    coverImageUrl: string | null;
+    photo: string | null;
+    coverImage: string | null;
   };
 }
 
@@ -198,8 +204,9 @@ export default function CaboLanding() {
     return null;
   }
 
-  const partyColor = getPartyColor(data.candidate.partyAcronym);
-  const backgroundImageUrl = data.cabo.coverImageUrl;
+  const partyColor = getPartyColor(data.candidate.party?.acronym);
+  const partyColorLight = `${partyColor}20`;
+  const backgroundImageUrl = data.cabo.coverImage;
 
   return (
     <div className="min-h-screen relative overflow-hidden flex flex-col">
@@ -217,87 +224,131 @@ export default function CaboLanding() {
         ></div>
       )}
 
-      <div className="fixed inset-0 z-5 bg-black/50"></div>
+      <div className="fixed inset-0 z-5 bg-gradient-to-b from-black/60 via-black/40 to-black/70"></div>
 
-      <div
-        className="relative z-20 min-h-screen flex flex-col"
-        style={{
-          '--background': '0 0% 100%',
-          '--foreground': '240 10% 3.9%',
-          '--card': '0 0% 100%',
-          '--card-foreground': '240 10% 3.9%',
-          '--popover': '0 0% 100%',
-          '--popover-foreground': '240 10% 3.9%',
-          '--primary': '240 5.9% 10%',
-          '--primary-foreground': '0 0% 98%',
-          '--secondary': '240 4.8% 95.9%',
-          '--secondary-foreground': '240 5.9% 10%',
-          '--muted': '240 4.8% 95.9%',
-          '--muted-foreground': '240 3.8% 46.1%',
-          '--accent': '240 4.8% 95.9%',
-          '--accent-foreground': '240 5.9% 10%',
-          '--destructive': '0 84.2% 60.2%',
-          '--destructive-foreground': '0 0% 98%',
-          '--border': '240 5.9% 90%',
-          '--input': '240 5.9% 90%',
-          '--ring': '240 5.9% 10%',
-        } as React.CSSProperties}
-      >
-        <div className="container mx-auto px-4 py-8 max-w-lg flex-1">
-          <div className="text-center space-y-6 mb-6 bg-white/95 backdrop-blur-md rounded-lg p-6 shadow-xl">
-            <div className="flex items-center justify-center gap-4">
-              <Avatar
-                className="w-20 h-20 shadow-lg ring-4 ring-white/70"
-                style={{
-                  borderWidth: '3px',
-                  borderStyle: 'solid',
-                  borderColor: partyColor,
-                }}
-              >
-                <AvatarImage src={data.candidate.avatar || undefined} alt={data.candidate.name} />
-                <AvatarFallback className="text-2xl bg-gray-200">
-                  {data.candidate.name?.charAt(0)}
-                </AvatarFallback>
-              </Avatar>
+      <div className="relative z-20 min-h-screen flex flex-col">
+        <div className="container mx-auto px-4 py-6 max-w-lg flex-1">
+          
+          <div className="relative mb-6">
+            <div 
+              className="relative rounded-2xl overflow-hidden shadow-2xl"
+              style={{
+                background: `linear-gradient(145deg, ${partyColor} 0%, ${partyColor}DD 100%)`,
+              }}
+            >
+              <div className="absolute inset-0 opacity-10">
+                <div className="absolute top-0 right-0 w-40 h-40 bg-white rounded-full -translate-y-1/2 translate-x-1/2"></div>
+                <div className="absolute bottom-0 left-0 w-32 h-32 bg-white rounded-full translate-y-1/2 -translate-x-1/2"></div>
+              </div>
+              
+              <div className="relative p-6 text-center">
+                <div className="flex items-center justify-center gap-4 mb-4">
+                  <div className="relative">
+                    <div 
+                      className="w-28 h-28 rounded-full overflow-hidden border-4 border-white shadow-xl bg-white"
+                    >
+                      {data.candidate.photo ? (
+                        <img 
+                          src={data.candidate.photo} 
+                          alt={data.candidate.name}
+                          className="w-full h-full object-cover"
+                          data-testid="img-candidate"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-gray-200 text-gray-500 text-3xl font-bold">
+                          {data.candidate.name?.charAt(0)}
+                        </div>
+                      )}
+                    </div>
+                    {data.candidate.electionNumber && (
+                      <div 
+                        className="absolute -bottom-2 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-sm font-bold text-white shadow-lg"
+                        style={{ backgroundColor: partyColor, border: '2px solid white' }}
+                        data-testid="text-election-number"
+                      >
+                        {data.candidate.electionNumber}
+                      </div>
+                    )}
+                  </div>
+                  
+                  {data.cabo.photo && (
+                    <div className="relative">
+                      <div 
+                        className="w-20 h-20 rounded-full overflow-hidden border-3 border-white/80 shadow-lg bg-white"
+                      >
+                        <img 
+                          src={data.cabo.photo} 
+                          alt={data.cabo.name}
+                          className="w-full h-full object-cover"
+                          data-testid="img-cabo"
+                        />
+                      </div>
+                      <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-white rounded-full flex items-center justify-center shadow">
+                        <Users className="w-3 h-3" style={{ color: partyColor }} />
+                      </div>
+                    </div>
+                  )}
+                </div>
 
-              {data.cabo.avatarUrl && (
-                <Avatar className="w-14 h-14 shadow-lg ring-2 ring-white/70">
-                  <AvatarImage src={data.cabo.avatarUrl} alt={data.cabo.name} />
-                  <AvatarFallback className="text-lg bg-gray-200">
-                    {data.cabo.name?.charAt(0)}
-                  </AvatarFallback>
-                </Avatar>
-              )}
-            </div>
+                <div className="space-y-2">
+                  <h1 
+                    className="text-2xl md:text-3xl font-black text-white drop-shadow-lg tracking-tight"
+                    data-testid="text-candidate-name"
+                  >
+                    {data.candidate.name}
+                  </h1>
+                  
+                  {data.candidate.politicalPosition && (
+                    <p className="text-white/90 text-sm font-medium" data-testid="text-position">
+                      {data.candidate.politicalPosition}
+                    </p>
+                  )}
+                  
+                  {data.candidate.party && (
+                    <div className="flex items-center justify-center gap-2">
+                      {data.candidate.party.logoUrl && (
+                        <img 
+                          src={data.candidate.party.logoUrl} 
+                          alt={data.candidate.party.acronym}
+                          className="h-6 w-auto"
+                        />
+                      )}
+                      <span 
+                        className="px-3 py-1 rounded-full text-xs font-bold bg-white/20 text-white backdrop-blur-sm"
+                        data-testid="text-party"
+                      >
+                        {data.candidate.party.acronym}
+                      </span>
+                    </div>
+                  )}
+                </div>
 
-            <div className="space-y-2">
-              <h1
-                className="text-2xl md:text-3xl font-bold"
-                style={{ color: partyColor }}
-                data-testid="text-title"
-              >
-                Apoie {data.candidate.name}
-              </h1>
-              <p className="text-gray-600 text-sm" data-testid="text-subtitle">
-                Indicado por <span className="font-semibold">{data.cabo.name}</span>
-              </p>
-              {data.candidate.partyName && (
-                <p
-                  className="text-xs font-medium px-3 py-1 rounded-full inline-block"
-                  style={{ backgroundColor: `${partyColor}20`, color: partyColor }}
-                  data-testid="text-party"
-                >
-                  {data.candidate.partyAcronym} - {data.candidate.partyName}
-                </p>
-              )}
+                <div className="mt-4 pt-4 border-t border-white/20">
+                  <div className="flex items-center justify-center gap-2 text-white/90">
+                    <Vote className="w-4 h-4" />
+                    <span className="text-sm">
+                      Indicado por <span className="font-bold">{data.cabo.name}</span>
+                    </span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
-          <Card className="shadow-xl bg-white/95 backdrop-blur-md">
+          <Card className="shadow-2xl bg-white/95 backdrop-blur-md border-0 rounded-2xl overflow-hidden">
+            <div 
+              className="h-1"
+              style={{ background: `linear-gradient(90deg, ${partyColor} 0%, ${partyColor}80 100%)` }}
+            ></div>
             <CardContent className="p-6">
-              <h2 className="text-lg font-semibold mb-4 text-gray-800" data-testid="text-form-title">
-                Cadastre seu apoio
-              </h2>
+              <div className="text-center mb-5">
+                <h2 className="text-xl font-bold text-gray-800" data-testid="text-form-title">
+                  Faça parte dessa mudança!
+                </h2>
+                <p className="text-gray-500 text-sm mt-1">
+                  Cadastre seu apoio e junte-se a nós
+                </p>
+              </div>
 
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
@@ -306,12 +357,12 @@ export default function CaboLanding() {
                     name="name"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-gray-700">Nome *</FormLabel>
+                        <FormLabel className="text-gray-700 font-medium">Nome completo *</FormLabel>
                         <FormControl>
                           <Input
                             {...field}
-                            placeholder="Seu nome completo"
-                            className="bg-white"
+                            placeholder="Digite seu nome"
+                            className="bg-gray-50 border-gray-200 focus:border-gray-400 rounded-lg h-11"
                             data-testid="input-name"
                           />
                         </FormControl>
@@ -325,13 +376,13 @@ export default function CaboLanding() {
                     name="email"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-gray-700">Email</FormLabel>
+                        <FormLabel className="text-gray-700 font-medium">Email</FormLabel>
                         <FormControl>
                           <Input
                             {...field}
                             type="email"
                             placeholder="seu@email.com"
-                            className="bg-white"
+                            className="bg-gray-50 border-gray-200 focus:border-gray-400 rounded-lg h-11"
                             data-testid="input-email"
                           />
                         </FormControl>
@@ -345,12 +396,12 @@ export default function CaboLanding() {
                     name="phone"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-gray-700">Telefone</FormLabel>
+                        <FormLabel className="text-gray-700 font-medium">WhatsApp</FormLabel>
                         <FormControl>
                           <Input
                             {...field}
                             placeholder="(00) 00000-0000"
-                            className="bg-white"
+                            className="bg-gray-50 border-gray-200 focus:border-gray-400 rounded-lg h-11"
                             onChange={(e) => {
                               const formatted = formatPhoneNumber(e.target.value);
                               field.onChange(formatted);
@@ -364,18 +415,18 @@ export default function CaboLanding() {
                     )}
                   />
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-2 gap-3">
                     <FormField
                       control={form.control}
                       name="city"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-gray-700">Cidade</FormLabel>
+                          <FormLabel className="text-gray-700 font-medium">Cidade</FormLabel>
                           <FormControl>
                             <Input
                               {...field}
                               placeholder="Sua cidade"
-                              className="bg-white"
+                              className="bg-gray-50 border-gray-200 focus:border-gray-400 rounded-lg h-11"
                               data-testid="input-city"
                             />
                           </FormControl>
@@ -389,11 +440,11 @@ export default function CaboLanding() {
                       name="state"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-gray-700">Estado</FormLabel>
+                          <FormLabel className="text-gray-700 font-medium">Estado</FormLabel>
                           <Select onValueChange={field.onChange} value={field.value}>
                             <FormControl>
-                              <SelectTrigger className="bg-white" data-testid="select-state">
-                                <SelectValue placeholder="Selecione" />
+                              <SelectTrigger className="bg-gray-50 border-gray-200 focus:border-gray-400 rounded-lg h-11" data-testid="select-state">
+                                <SelectValue placeholder="UF" />
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
@@ -412,18 +463,21 @@ export default function CaboLanding() {
 
                   <Button
                     type="submit"
-                    className="w-full text-white font-semibold py-3"
+                    className="w-full text-white font-bold py-3 h-12 rounded-lg shadow-lg transition-all duration-200 hover:scale-[1.02] hover:shadow-xl"
                     style={{ backgroundColor: partyColor }}
                     disabled={submitMutation.isPending}
                     data-testid="button-submit"
                   >
                     {submitMutation.isPending ? (
                       <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
                         Enviando...
                       </>
                     ) : (
-                      "Registrar Apoio"
+                      <>
+                        <Vote className="w-5 h-5 mr-2" />
+                        Quero Apoiar!
+                      </>
                     )}
                   </Button>
                 </form>
