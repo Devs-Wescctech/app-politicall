@@ -267,7 +267,23 @@ export const contacts = pgTable("contacts", {
   city: text("city"),
   interests: text("interests").array(),
   source: text("source"),
+  fieldOperativeId: varchar("field_operative_id").references(() => fieldOperatives.id, { onDelete: "set null" }),
   notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Field Operatives (Cabos Eleitorais) - Campaign workers who register voters
+export const fieldOperatives = pgTable("field_operatives", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  accountId: varchar("account_id").notNull().references(() => accounts.id, { onDelete: 'cascade' }),
+  name: text("name").notNull(),
+  slug: text("slug").notNull(), // Unique slug for landing page URL
+  avatarUrl: text("avatar_url"), // Photo of the field operative
+  coverImageUrl: text("cover_image_url"), // Cover/background image for landing page
+  phone: text("phone"),
+  email: text("email"),
+  notes: text("notes"),
+  isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -616,6 +632,18 @@ export const contactsRelations = relations(contacts, ({ one }) => ({
     fields: [contacts.userId],
     references: [users.id],
   }),
+  fieldOperative: one(fieldOperatives, {
+    fields: [contacts.fieldOperativeId],
+    references: [fieldOperatives.id],
+  }),
+}));
+
+export const fieldOperativesRelations = relations(fieldOperatives, ({ one, many }) => ({
+  account: one(accounts, {
+    fields: [fieldOperatives.accountId],
+    references: [accounts.id],
+  }),
+  contacts: many(contacts),
 }));
 
 export const politicalAlliancesRelations = relations(politicalAlliances, ({ one }) => ({
@@ -741,6 +769,8 @@ export const insertContactSchema = createInsertSchema(contacts).omit({
   age: z.number().int().positive().max(120).optional(),
   gender: z.enum(["Masculino", "Feminino", "Não-binário", "Outro", "Prefiro não responder"]).optional(),
 });
+
+export const insertFieldOperativeSchema = createInsertSchema(fieldOperatives).omit({ id: true, createdAt: true });
 
 export const insertPoliticalAllianceSchema = createInsertSchema(politicalAlliances).omit({
   id: true,
@@ -955,6 +985,9 @@ export type LoginUser = z.infer<typeof loginSchema>;
 
 export type Contact = typeof contacts.$inferSelect;
 export type InsertContact = z.infer<typeof insertContactSchema>;
+
+export type FieldOperative = typeof fieldOperatives.$inferSelect;
+export type InsertFieldOperative = z.infer<typeof insertFieldOperativeSchema>;
 
 export type PoliticalParty = typeof politicalParties.$inferSelect;
 

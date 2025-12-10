@@ -8,7 +8,8 @@ import {
   Megaphone,
   Settings,
   LogOut,
-  Shield
+  Shield,
+  UserCheck
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
@@ -73,9 +74,15 @@ export function AppSidebar() {
       alwaysVisible: true,
     },
     {
-      title: "Eleitores",
+      title: "Eleitores/Pessoas",
       url: "/contacts",
       icon: Users,
+      permissionKey: "contacts",
+    },
+    {
+      title: "Cabo Eleitoral",
+      url: "/field-operatives",
+      icon: UserCheck,
       permissionKey: "contacts",
     },
     {
