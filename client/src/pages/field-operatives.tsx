@@ -50,6 +50,7 @@ export default function FieldOperatives() {
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
+  const [isReportsDialogOpen, setIsReportsDialogOpen] = useState(false);
   
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
@@ -67,6 +68,11 @@ export default function FieldOperatives() {
 
   const { data: globalStats } = useQuery<{ totalContacts: number; recentContacts: number }>({
     queryKey: ["/api/field-operatives-stats"],
+  });
+
+  const { data: allOperativesStats } = useQuery<Record<string, FieldOperativeStats>>({
+    queryKey: ["/api/field-operatives-all-stats"],
+    enabled: isReportsDialogOpen,
   });
 
   const form = useForm<FormData>({
@@ -289,7 +295,11 @@ export default function FieldOperatives() {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card 
+          className="cursor-pointer hover-elevate"
+          onClick={() => setIsReportsDialogOpen(true)}
+          data-testid="card-total-contacts"
+        >
           <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total de Contatos</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
@@ -298,10 +308,14 @@ export default function FieldOperatives() {
             <div className="text-2xl font-bold" data-testid="text-total-contacts">
               {globalStats?.totalContacts ?? <Skeleton className="h-8 w-16" />}
             </div>
-            <p className="text-xs text-muted-foreground">Captados pelos cabos</p>
+            <p className="text-xs text-muted-foreground">Clique para ver detalhes</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card 
+          className="cursor-pointer hover-elevate"
+          onClick={() => setIsReportsDialogOpen(true)}
+          data-testid="card-recent-contacts"
+        >
           <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Últimos 7 dias</CardTitle>
             <Calendar className="h-4 w-4 text-muted-foreground" />
@@ -310,7 +324,7 @@ export default function FieldOperatives() {
             <div className="text-2xl font-bold" data-testid="text-recent-contacts">
               {globalStats?.recentContacts ?? <Skeleton className="h-8 w-16" />}
             </div>
-            <p className="text-xs text-muted-foreground">Novos contatos</p>
+            <p className="text-xs text-muted-foreground">Clique para ver detalhes</p>
           </CardContent>
         </Card>
       </div>
@@ -654,6 +668,87 @@ export default function FieldOperatives() {
           onDownloadQR={() => downloadQRCode(viewingOperative)}
         />
       )}
+
+      <Dialog open={isReportsDialogOpen} onOpenChange={setIsReportsDialogOpen}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Relatório de Contatos por Cabo Eleitoral</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-3 gap-4 p-4 bg-muted/50 rounded-lg">
+              <div className="text-center">
+                <div className="text-2xl font-bold">{operatives?.length || 0}</div>
+                <p className="text-sm text-muted-foreground">Total de Cabos</p>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold">{globalStats?.totalContacts || 0}</div>
+                <p className="text-sm text-muted-foreground">Total de Contatos</p>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold">{globalStats?.recentContacts || 0}</div>
+                <p className="text-sm text-muted-foreground">Últimos 7 dias</p>
+              </div>
+            </div>
+
+            <div className="border rounded-lg overflow-hidden">
+              <table className="w-full">
+                <thead className="bg-muted/50">
+                  <tr>
+                    <th className="text-left p-3 font-medium">Cabo Eleitoral</th>
+                    <th className="text-center p-3 font-medium">Total</th>
+                    <th className="text-center p-3 font-medium">Últimos 7 dias</th>
+                    <th className="text-center p-3 font-medium">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {operatives?.map(operative => {
+                    const stats = allOperativesStats?.[operative.id];
+                    return (
+                      <tr 
+                        key={operative.id} 
+                        className="border-t hover:bg-muted/30 cursor-pointer"
+                        onClick={() => {
+                          setIsReportsDialogOpen(false);
+                          setViewingOperative(operative);
+                        }}
+                        data-testid={`row-operative-${operative.id}`}
+                      >
+                        <td className="p-3">
+                          <div className="flex items-center gap-3">
+                            <Avatar className="h-8 w-8">
+                              {operative.avatarUrl ? (
+                                <AvatarImage src={operative.avatarUrl} alt={operative.name} />
+                              ) : null}
+                              <AvatarFallback className="text-xs">
+                                {operative.name.split(" ").map(n => n[0]).slice(0, 2).join("").toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            <span className="font-medium">{operative.name}</span>
+                          </div>
+                        </td>
+                        <td className="text-center p-3 font-bold">
+                          {stats?.totalContacts ?? <Skeleton className="h-4 w-8 inline-block" />}
+                        </td>
+                        <td className="text-center p-3">
+                          {stats?.recentContacts ?? <Skeleton className="h-4 w-8 inline-block" />}
+                        </td>
+                        <td className="text-center p-3">
+                          <Badge variant={operative.isActive ? "default" : "secondary"}>
+                            {operative.isActive ? "Ativo" : "Inativo"}
+                          </Badge>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setIsReportsDialogOpen(false)}>Fechar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -744,19 +839,29 @@ function OperativeCard({
         </div>
 
         <div className="hidden">
-          <QRCodeSVG
-            id={`qr-${operative.id}`}
-            value={landingUrl}
-            size={256}
-            level="H"
-            includeMargin
-            imageSettings={operative.avatarUrl ? {
-              src: operative.avatarUrl,
-              height: 50,
-              width: 50,
-              excavate: true,
-            } : undefined}
-          />
+          <div id={`qr-container-${operative.id}`} className="relative inline-block bg-white p-4">
+            <QRCodeSVG
+              id={`qr-${operative.id}`}
+              value={landingUrl}
+              size={256}
+              level="H"
+              includeMargin
+            />
+            {operative.avatarUrl && (
+              <div 
+                id={`qr-avatar-${operative.id}`}
+                className="absolute inset-0 flex items-center justify-center pointer-events-none"
+              >
+                <div className="w-16 h-16 rounded-full border-[4px] border-white shadow-lg overflow-hidden bg-white">
+                  <img 
+                    src={operative.avatarUrl} 
+                    alt={operative.name}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </CardContent>
     </Card>
@@ -863,20 +968,25 @@ function DetailsDialog({
 
           <div className="flex flex-col items-center gap-4 p-4 bg-muted/50 rounded-lg">
             <h4 className="font-medium">QR Code</h4>
-            <div className="bg-white p-4 rounded-lg">
+            <div className="bg-white p-4 rounded-lg relative">
               <QRCodeSVG
                 id={`qr-details-${operative.id}`}
                 value={landingUrl}
                 size={180}
                 level="H"
                 includeMargin
-                imageSettings={operative.avatarUrl ? {
-                  src: operative.avatarUrl,
-                  height: 36,
-                  width: 36,
-                  excavate: true,
-                } : undefined}
               />
+              {operative.avatarUrl && (
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <div className="w-12 h-12 rounded-full border-[3px] border-white shadow-lg overflow-hidden bg-white">
+                    <img 
+                      src={operative.avatarUrl} 
+                      alt={operative.name}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
             <Button variant="outline" onClick={onDownloadQR} data-testid="button-download-qr-details">
               <Download className="h-4 w-4 mr-2" />
