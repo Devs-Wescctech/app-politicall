@@ -40,21 +40,6 @@ import { calculateGenderDistribution } from "./utils/gender-detector";
 import fs from "fs";
 import path from "path";
 
-// Ensure upload directories exist
-const uploadsDir = path.join(process.cwd(), 'uploads');
-const avatarsDir = path.join(uploadsDir, 'avatars');
-const backgroundsDir = path.join(uploadsDir, 'backgrounds');
-
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
-if (!fs.existsSync(avatarsDir)) {
-  fs.mkdirSync(avatarsDir, { recursive: true });
-}
-if (!fs.existsSync(backgroundsDir)) {
-  fs.mkdirSync(backgroundsDir, { recursive: true });
-}
-
 // Admin master password management
 const ADMIN_CONFIG_FILE = path.join(process.cwd(), '.admin-config.json');
 const DEFAULT_ADMIN_PASSWORD = "politicall123";
@@ -2026,7 +2011,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     { name: 'coverImage', maxCount: 1 }
   ]), async (req: AuthRequest, res) => {
     try {
-      const validatedData = insertFieldOperativeSchema.parse(req.body);
+      // Normalize multipart form data - convert string booleans and handle empty strings
+      const normalizedBody = {
+        ...req.body,
+        isActive: req.body.isActive === 'true' || req.body.isActive === true ? true : 
+                  req.body.isActive === 'false' || req.body.isActive === false ? false : undefined,
+        name: req.body.name || undefined,
+        slug: req.body.slug || undefined,
+        phone: req.body.phone || undefined,
+        email: req.body.email || undefined,
+        notes: req.body.notes || undefined,
+      };
+      const validatedData = insertFieldOperativeSchema.parse(normalizedBody);
       
       const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
       
@@ -2072,7 +2068,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Cabo eleitoral não encontrado" });
       }
       
-      const validatedData = insertFieldOperativeSchema.partial().parse(req.body);
+      // Normalize multipart form data - convert string booleans and handle empty strings
+      const normalizedBody = {
+        ...req.body,
+        isActive: req.body.isActive === 'true' || req.body.isActive === true ? true : 
+                  req.body.isActive === 'false' || req.body.isActive === false ? false : undefined,
+        name: req.body.name || undefined,
+        slug: req.body.slug || undefined,
+        phone: req.body.phone || undefined,
+        email: req.body.email || undefined,
+        notes: req.body.notes || undefined,
+      };
+      const validatedData = insertFieldOperativeSchema.partial().parse(normalizedBody);
       
       const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
       
