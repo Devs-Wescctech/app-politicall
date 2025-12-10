@@ -770,7 +770,7 @@ export const insertContactSchema = createInsertSchema(contacts).omit({
   gender: z.enum(["Masculino", "Feminino", "Não-binário", "Outro", "Prefiro não responder"]).optional(),
 });
 
-export const insertFieldOperativeSchema = createInsertSchema(fieldOperatives).omit({ id: true, createdAt: true });
+export const insertFieldOperativeSchema = createInsertSchema(fieldOperatives).omit({ id: true, accountId: true, slug: true, createdAt: true });
 
 export const insertPoliticalAllianceSchema = createInsertSchema(politicalAlliances).omit({
   id: true,
