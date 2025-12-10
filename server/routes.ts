@@ -40,6 +40,21 @@ import { calculateGenderDistribution } from "./utils/gender-detector";
 import fs from "fs";
 import path from "path";
 
+// Ensure upload directories exist
+const uploadsDir = path.join(process.cwd(), 'uploads');
+const avatarsDir = path.join(uploadsDir, 'avatars');
+const backgroundsDir = path.join(uploadsDir, 'backgrounds');
+
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+if (!fs.existsSync(avatarsDir)) {
+  fs.mkdirSync(avatarsDir, { recursive: true });
+}
+if (!fs.existsSync(backgroundsDir)) {
+  fs.mkdirSync(backgroundsDir, { recursive: true });
+}
+
 // Admin master password management
 const ADMIN_CONFIG_FILE = path.join(process.cwd(), '.admin-config.json');
 const DEFAULT_ADMIN_PASSWORD = "politicall123";
