@@ -374,12 +374,23 @@ export default function CaboLanding() {
                     />
                   </div>
                   <h2 
-                    className="text-xl font-bold mb-2"
+                    className="text-xl font-bold mb-4"
                     style={{ color: partyColor }}
                     data-testid="text-success-title"
                   >
                     Cadastro realizado!
                   </h2>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setIsRegistered(false);
+                      form.reset();
+                    }}
+                    className="mt-2"
+                    data-testid="button-new-registration"
+                  >
+                    Novo cadastro
+                  </Button>
                 </div>
               ) : (
                 <>
