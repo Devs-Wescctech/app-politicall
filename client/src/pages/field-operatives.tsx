@@ -15,13 +15,14 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { 
   Plus, Pencil, Trash2, Copy, QrCode, Download, ExternalLink,
-  Phone, Mail, Users, UserPlus, Calendar, Eye, X, Upload, Image
+  Phone, Mail, Users, UserPlus, Calendar, Eye, X, Upload, Image, FileSpreadsheet
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { getAuthToken } from "@/lib/auth";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { QRCodeSVG } from 'qrcode.react';
+import * as XLSX from 'xlsx';
 
 const formSchema = z.object({
   name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
@@ -62,6 +63,10 @@ export default function FieldOperatives() {
 
   const { data: operatives, isLoading } = useQuery<FieldOperative[]>({
     queryKey: ["/api/field-operatives"],
+  });
+
+  const { data: globalStats } = useQuery<{ totalContacts: number; recentContacts: number }>({
+    queryKey: ["/api/field-operatives-stats"],
   });
 
   const form = useForm<FormData>({
@@ -282,6 +287,30 @@ export default function FieldOperatives() {
             <div className="text-2xl font-bold" data-testid="text-active-operatives">
               {isLoading ? <Skeleton className="h-8 w-16" /> : operatives?.filter(o => o.isActive).length || 0}
             </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total de Contatos</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold" data-testid="text-total-contacts">
+              {globalStats?.totalContacts ?? <Skeleton className="h-8 w-16" />}
+            </div>
+            <p className="text-xs text-muted-foreground">Captados pelos cabos</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Últimos 7 dias</CardTitle>
+            <Calendar className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold" data-testid="text-recent-contacts">
+              {globalStats?.recentContacts ?? <Skeleton className="h-8 w-16" />}
+            </div>
+            <p className="text-xs text-muted-foreground">Novos contatos</p>
           </CardContent>
         </Card>
       </div>
@@ -721,6 +750,12 @@ function OperativeCard({
             size={256}
             level="H"
             includeMargin
+            imageSettings={operative.avatarUrl ? {
+              src: operative.avatarUrl,
+              height: 50,
+              width: 50,
+              excavate: true,
+            } : undefined}
           />
         </div>
       </CardContent>
@@ -835,6 +870,12 @@ function DetailsDialog({
                 size={180}
                 level="H"
                 includeMargin
+                imageSettings={operative.avatarUrl ? {
+                  src: operative.avatarUrl,
+                  height: 36,
+                  width: 36,
+                  excavate: true,
+                } : undefined}
               />
             </div>
             <Button variant="outline" onClick={onDownloadQR} data-testid="button-download-qr-details">
@@ -871,7 +912,36 @@ function DetailsDialog({
 
           {contacts && contacts.length > 0 && (
             <div>
-              <h4 className="font-medium mb-3">Contatos Registrados ({contacts.length})</h4>
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="font-medium">Contatos Registrados ({contacts.length})</h4>
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  onClick={() => {
+                    const worksheetData = [
+                      ['CONTATOS - ' + operative.name.toUpperCase()],
+                      [],
+                      ['Nome', 'Email', 'Telefone', 'Cidade', 'Estado'],
+                      ...contacts.map(c => [
+                        c.name,
+                        c.email || '-',
+                        c.phone || '-',
+                        c.city || '-',
+                        c.state || '-'
+                      ])
+                    ];
+                    const wb = XLSX.utils.book_new();
+                    const ws = XLSX.utils.aoa_to_sheet(worksheetData);
+                    ws['!cols'] = [{ wch: 30 }, { wch: 25 }, { wch: 15 }, { wch: 20 }, { wch: 10 }];
+                    XLSX.utils.book_append_sheet(wb, ws, 'Contatos');
+                    XLSX.writeFile(wb, `contatos-${operative.slug || operative.id}.xlsx`);
+                  }}
+                  data-testid="button-export-contacts"
+                >
+                  <FileSpreadsheet className="h-4 w-4 mr-1" />
+                  Exportar
+                </Button>
+              </div>
               <div className="max-h-48 overflow-y-auto space-y-2">
                 {contacts.map(contact => (
                   <div 

@@ -2137,6 +2137,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/field-operatives-stats", authenticateToken, requirePermission("contacts"), async (req: AuthRequest, res) => {
+    try {
+      const allContacts = await storage.getContacts(req.accountId!);
+      const caboContacts = allContacts.filter(c => c.fieldOperativeId);
+      
+      const now = new Date();
+      const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      
+      const recentContacts = caboContacts.filter(c => {
+        const createdAt = c.createdAt ? new Date(c.createdAt) : null;
+        return createdAt && createdAt >= sevenDaysAgo;
+      });
+      
+      res.json({
+        totalContacts: caboContacts.length,
+        recentContacts: recentContacts.length,
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // ==================== POLITICAL PARTIES & ALLIANCES ====================
   
   app.get("/api/parties", authenticateToken, requirePermission("alliances"), async (req: AuthRequest, res) => {
