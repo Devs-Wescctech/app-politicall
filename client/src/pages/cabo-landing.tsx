@@ -268,49 +268,14 @@ export default function CaboLanding() {
                 )}
               </div>
 
-              <div className="absolute right-4 top-4 z-10">
-                <div className="relative">
-                  <div 
-                    className="w-20 h-20 md:w-24 md:h-24 rounded-2xl overflow-hidden border-4 border-white shadow-2xl bg-white"
-                    style={{
-                      transform: 'rotate(5deg)',
-                    }}
-                  >
-                    {data.cabo.photo ? (
-                      <img 
-                        src={data.cabo.photo} 
-                        alt={data.cabo.name}
-                        className="w-full h-full object-cover"
-                        data-testid="img-cabo"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-gray-100 text-gray-400 text-2xl font-bold">
-                        {data.cabo.name?.charAt(0)}
-                      </div>
-                    )}
-                  </div>
-                  <div 
-                    className="absolute -bottom-2 left-1/2 -translate-x-1/2 px-2 py-0.5 text-[9px] font-black text-white shadow-lg whitespace-nowrap"
-                    style={{ 
-                      backgroundColor: partyColor,
-                      borderRadius: '4px',
-                      transform: 'rotate(5deg)',
-                    }}
-                  >
-                    {data.cabo.name.split(' ')[0].toUpperCase()}
-                  </div>
-                </div>
-              </div>
-
-              <div className="absolute bottom-0 left-0 right-0 p-5 z-10">
+              <div className="absolute bottom-0 left-0 right-0 z-10">
                 <div 
-                  className="p-4 rounded-2xl"
+                  className="p-4"
                   style={{
-                    background: 'rgba(0,0,0,0.7)',
-                    backdropFilter: 'blur(10px)',
+                    background: 'linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.8) 70%, transparent 100%)',
                   }}
                 >
-                  <div className="flex items-start gap-4">
+                  <div className="flex items-start gap-4 mb-4">
                     <div 
                       className="flex-shrink-0 px-4 py-3 rounded-xl text-center"
                       style={{ backgroundColor: partyColor }}
@@ -327,7 +292,7 @@ export default function CaboLanding() {
                     
                     <div className="flex-1 min-w-0">
                       <h1 
-                        className="text-xl md:text-2xl font-black text-white leading-tight truncate"
+                        className="text-xl md:text-2xl font-black text-white leading-tight"
                         data-testid="text-candidate-name"
                       >
                         {data.candidate.name}
@@ -337,11 +302,65 @@ export default function CaboLanding() {
                           {data.candidate.politicalPosition}
                         </p>
                       )}
-                      <div className="flex items-center gap-2 mt-2">
-                        <Users className="w-3.5 h-3.5 text-white/60" />
-                        <span className="text-xs text-white/70">
-                          Indicação: <span className="font-semibold text-white/90">{data.cabo.name}</span>
-                        </span>
+                    </div>
+                  </div>
+
+                  <div 
+                    className="relative rounded-xl overflow-hidden"
+                    style={{
+                      background: `linear-gradient(135deg, ${partyColor}15 0%, ${partyColor}30 100%)`,
+                      border: `2px solid ${partyColor}50`,
+                    }}
+                  >
+                    <div 
+                      className="absolute top-0 left-0 px-3 py-1 text-[10px] font-bold text-white uppercase tracking-wider"
+                      style={{ 
+                        backgroundColor: partyColor,
+                        borderBottomRightRadius: '8px',
+                      }}
+                    >
+                      Apoiador Oficial
+                    </div>
+                    
+                    <div className="flex items-center gap-4 p-4 pt-8">
+                      <div 
+                        className="flex-shrink-0 w-16 h-16 md:w-20 md:h-20 rounded-xl overflow-hidden border-3 shadow-xl"
+                        style={{ borderColor: partyColor }}
+                      >
+                        {data.cabo.photo ? (
+                          <img 
+                            src={data.cabo.photo} 
+                            alt={data.cabo.name}
+                            className="w-full h-full object-cover"
+                            data-testid="img-cabo"
+                          />
+                        ) : (
+                          <div 
+                            className="w-full h-full flex items-center justify-center text-white text-2xl font-bold"
+                            style={{ backgroundColor: partyColor }}
+                          >
+                            {data.cabo.name?.charAt(0)}
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="flex-1 min-w-0">
+                        <p className="text-white/60 text-xs font-medium mb-0.5">
+                          Indicação de
+                        </p>
+                        <h2 className="text-lg md:text-xl font-bold text-white leading-tight">
+                          {data.cabo.name}
+                        </h2>
+                        <p className="text-white/70 text-sm mt-1">
+                          Faça parte dessa mudança!
+                        </p>
+                      </div>
+                      
+                      <div className="flex-shrink-0">
+                        <Users 
+                          className="w-8 h-8 opacity-40"
+                          style={{ color: partyColor }}
+                        />
                       </div>
                     </div>
                   </div>
