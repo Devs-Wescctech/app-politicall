@@ -58,7 +58,7 @@ export default function FieldOperatives() {
     queryKey: ["/api/account/admin"],
   });
 
-  const baseSlug = currentUser?.role === 'admin' ? currentUser?.slug : adminData?.slug;
+  const baseSlug = adminData?.slug;
 
   const { data: operatives, isLoading } = useQuery<FieldOperative[]>({
     queryKey: ["/api/field-operatives"],
