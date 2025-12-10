@@ -2011,9 +2011,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     { name: 'coverImage', maxCount: 1 }
   ]), async (req: AuthRequest, res) => {
     try {
-      console.log("[field-operatives] POST - body:", JSON.stringify(req.body));
-      console.log("[field-operatives] POST - files:", req.files ? Object.keys(req.files) : 'none');
-      
       // Normalize multipart form data - convert string booleans and handle empty strings
       const normalizedBody = {
         ...req.body,
@@ -2026,36 +2023,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
         notes: req.body.notes || undefined,
       };
       
-      console.log("[field-operatives] POST - normalizedBody:", JSON.stringify(normalizedBody));
-      
+      // Validate BEFORE touching filesystem
       const validatedData = insertFieldOperativeSchema.parse(normalizedBody);
-      console.log("[field-operatives] POST - validation passed");
       
       const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
       
       let avatarUrl: string | undefined;
       let coverImageUrl: string | undefined;
       
+      // Setup directories with async operations (same pattern as working upload endpoint)
+      const uploadsDir = path.join(process.cwd(), 'uploads');
+      const avatarsDir = path.join(uploadsDir, 'avatars');
+      const backgroundsDir = path.join(uploadsDir, 'backgrounds');
+      
+      // Create directories if they don't exist (async, safe)
+      await fs.promises.mkdir(avatarsDir, { recursive: true });
+      await fs.promises.mkdir(backgroundsDir, { recursive: true });
+      
       if (files?.avatar?.[0]) {
         const avatarFile = files.avatar[0];
-        const ext = avatarFile.mimetype?.split('/')[1] || 'jpg';
-        const avatarFilename = `cabo-avatar-${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`;
-        const avatarPath = path.join(process.cwd(), 'uploads', 'avatars', avatarFilename);
-        console.log("[field-operatives] POST - saving avatar to:", avatarPath);
-        fs.writeFileSync(avatarPath, avatarFile.buffer);
+        // Use MIME type mapping for safe extension
+        const ext = MIME_TO_EXT[avatarFile.mimetype] || 'jpg';
+        const randomBytes = crypto.randomBytes(8).toString('hex');
+        const avatarFilename = `cabo-avatar-${Date.now()}-${randomBytes}.${ext}`;
+        const avatarPath = path.join(avatarsDir, avatarFilename);
+        // Use async write (won't crash on error)
+        await fs.promises.writeFile(avatarPath, avatarFile.buffer);
         avatarUrl = `/uploads/avatars/${avatarFilename}`;
-        console.log("[field-operatives] POST - avatar saved:", avatarUrl);
       }
       
       if (files?.coverImage?.[0]) {
         const coverFile = files.coverImage[0];
-        const ext = coverFile.mimetype?.split('/')[1] || 'jpg';
-        const coverFilename = `cabo-cover-${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`;
-        const coverPath = path.join(process.cwd(), 'uploads', 'backgrounds', coverFilename);
-        console.log("[field-operatives] POST - saving cover to:", coverPath);
-        fs.writeFileSync(coverPath, coverFile.buffer);
+        // Use MIME type mapping for safe extension
+        const ext = MIME_TO_EXT[coverFile.mimetype] || 'jpg';
+        const randomBytes = crypto.randomBytes(8).toString('hex');
+        const coverFilename = `cabo-cover-${Date.now()}-${randomBytes}.${ext}`;
+        const coverPath = path.join(backgroundsDir, coverFilename);
+        // Use async write (won't crash on error)
+        await fs.promises.writeFile(coverPath, coverFile.buffer);
         coverImageUrl = `/uploads/backgrounds/${coverFilename}`;
-        console.log("[field-operatives] POST - cover saved:", coverImageUrl);
       }
       
       const operative = await storage.createFieldOperative({
@@ -2065,10 +2071,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         accountId: req.accountId!
       });
       
-      console.log("[field-operatives] POST - created operative:", operative.id);
       res.status(201).json(operative);
     } catch (error: any) {
-      console.error("[field-operatives] POST - error:", error.message, error.stack);
+      console.error("[field-operatives] POST error:", error.message);
       res.status(400).json({ error: error.message });
     }
   });
@@ -2094,6 +2099,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         email: req.body.email || undefined,
         notes: req.body.notes || undefined,
       };
+      
+      // Validate BEFORE touching filesystem
       const validatedData = insertFieldOperativeSchema.partial().parse(normalizedBody);
       
       const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
@@ -2101,19 +2108,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let avatarUrl: string | undefined;
       let coverImageUrl: string | undefined;
       
+      // Setup directories with async operations (same pattern as working upload endpoint)
+      const uploadsDir = path.join(process.cwd(), 'uploads');
+      const avatarsDir = path.join(uploadsDir, 'avatars');
+      const backgroundsDir = path.join(uploadsDir, 'backgrounds');
+      
+      // Create directories if they don't exist (async, safe)
+      await fs.promises.mkdir(avatarsDir, { recursive: true });
+      await fs.promises.mkdir(backgroundsDir, { recursive: true });
+      
       if (files?.avatar?.[0]) {
         const avatarFile = files.avatar[0];
-        const avatarFilename = `cabo-avatar-${Date.now()}-${Math.random().toString(36).substring(7)}.${avatarFile.mimetype.split('/')[1]}`;
-        const avatarPath = path.join(process.cwd(), 'uploads', 'avatars', avatarFilename);
-        fs.writeFileSync(avatarPath, avatarFile.buffer);
+        // Use MIME type mapping for safe extension
+        const ext = MIME_TO_EXT[avatarFile.mimetype] || 'jpg';
+        const randomBytes = crypto.randomBytes(8).toString('hex');
+        const avatarFilename = `cabo-avatar-${Date.now()}-${randomBytes}.${ext}`;
+        const avatarPath = path.join(avatarsDir, avatarFilename);
+        // Use async write (won't crash on error)
+        await fs.promises.writeFile(avatarPath, avatarFile.buffer);
         avatarUrl = `/uploads/avatars/${avatarFilename}`;
       }
       
       if (files?.coverImage?.[0]) {
         const coverFile = files.coverImage[0];
-        const coverFilename = `cabo-cover-${Date.now()}-${Math.random().toString(36).substring(7)}.${coverFile.mimetype.split('/')[1]}`;
-        const coverPath = path.join(process.cwd(), 'uploads', 'backgrounds', coverFilename);
-        fs.writeFileSync(coverPath, coverFile.buffer);
+        // Use MIME type mapping for safe extension
+        const ext = MIME_TO_EXT[coverFile.mimetype] || 'jpg';
+        const randomBytes = crypto.randomBytes(8).toString('hex');
+        const coverFilename = `cabo-cover-${Date.now()}-${randomBytes}.${ext}`;
+        const coverPath = path.join(backgroundsDir, coverFilename);
+        // Use async write (won't crash on error)
+        await fs.promises.writeFile(coverPath, coverFile.buffer);
         coverImageUrl = `/uploads/backgrounds/${coverFilename}`;
       }
       
@@ -2129,6 +2153,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json(operative);
     } catch (error: any) {
+      console.error("[field-operatives] PATCH error:", error.message);
       res.status(400).json({ error: error.message });
     }
   });
