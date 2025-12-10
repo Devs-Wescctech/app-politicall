@@ -140,8 +140,7 @@ export default function CaboLanding() {
     },
     onSuccess: () => {
       toast({
-        title: "Cadastro realizado com sucesso!",
-        description: "Obrigado pelo seu apoio!",
+        title: "Cadastro realizado!",
       });
       setLocation("/thank-you");
     },
