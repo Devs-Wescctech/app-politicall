@@ -1,0 +1,101 @@
+sup_wescc@srvappsprod:~$ sudo -u postgres psql -d politicall -f /tmp/production_sync.sql
+psql:/tmp/production_sync.sql:13: NOTICE:  relation "accounts" already exists, skipping
+CREATE TABLE
+psql:/tmp/production_sync.sql:28: NOTICE:  relation "field_operatives" already exists, skipping
+CREATE TABLE
+CREATE TABLE
+psql:/tmp/production_sync.sql:54: NOTICE:  relation "api_keys" already exists, skipping
+CREATE TABLE
+psql:/tmp/production_sync.sql:66: NOTICE:  relation "api_key_usage" already exists, skipping
+CREATE TABLE
+psql:/tmp/production_sync.sql:88: NOTICE:  relation "google_calendar_integrations" already exists, skipping
+CREATE TABLE
+psql:/tmp/production_sync.sql:95: NOTICE:  column "account_id" of relation "users" already exists, skipping
+ALTER TABLE
+psql:/tmp/production_sync.sql:96: NOTICE:  column "landing_background" of relation "users" already exists, skipping
+ALTER TABLE
+psql:/tmp/production_sync.sql:97: NOTICE:  column "slug" of relation "users" already exists, skipping
+ALTER TABLE
+psql:/tmp/production_sync.sql:98: NOTICE:  column "volunteer_code" of relation "users" already exists, skipping
+ALTER TABLE
+psql:/tmp/production_sync.sql:99: NOTICE:  column "election_number" of relation "users" already exists, skipping
+ALTER TABLE
+psql:/tmp/production_sync.sql:100: NOTICE:  column "payment_status" of relation "users" already exists, skipping
+ALTER TABLE
+psql:/tmp/production_sync.sql:101: NOTICE:  column "last_payment_date" of relation "users" already exists, skipping
+ALTER TABLE
+psql:/tmp/production_sync.sql:104: NOTICE:  column "account_id" of relation "contacts" already exists, skipping
+ALTER TABLE
+psql:/tmp/production_sync.sql:105: NOTICE:  column "normalized_name" of relation "contacts" already exists, skipping
+ALTER TABLE
+psql:/tmp/production_sync.sql:106: NOTICE:  column "age" of relation "contacts" already exists, skipping
+ALTER TABLE
+psql:/tmp/production_sync.sql:107: NOTICE:  column "gender" of relation "contacts" already exists, skipping
+ALTER TABLE
+psql:/tmp/production_sync.sql:108: NOTICE:  column "source" of relation "contacts" already exists, skipping
+ALTER TABLE
+psql:/tmp/production_sync.sql:109: NOTICE:  column "field_operative_id" of relation "contacts" already exists, skipping
+ALTER TABLE
+psql:/tmp/production_sync.sql:112: NOTICE:  column "account_id" of relation "events" already exists, skipping
+ALTER TABLE
+psql:/tmp/production_sync.sql:113: NOTICE:  column "google_event_id" of relation "events" already exists, skipping
+ALTER TABLE
+psql:/tmp/production_sync.sql:114: NOTICE:  column "google_meet_link" of relation "events" already exists, skipping
+ALTER TABLE
+psql:/tmp/production_sync.sql:117: NOTICE:  column "account_id" of relation "demands" already exists, skipping
+ALTER TABLE
+psql:/tmp/production_sync.sql:120: NOTICE:  column "account_id" of relation "demand_comments" already exists, skipping
+ALTER TABLE
+psql:/tmp/production_sync.sql:123: NOTICE:  column "account_id" of relation "political_alliances" already exists, skipping
+ALTER TABLE
+psql:/tmp/production_sync.sql:126: NOTICE:  column "account_id" of relation "marketing_campaigns" already exists, skipping
+ALTER TABLE
+psql:/tmp/production_sync.sql:129: NOTICE:  column "account_id" of relation "notifications" already exists, skipping
+ALTER TABLE
+psql:/tmp/production_sync.sql:132: NOTICE:  column "account_id" of relation "integrations" already exists, skipping
+ALTER TABLE
+psql:/tmp/production_sync.sql:135: NOTICE:  column "account_id" of relation "ai_configurations" already exists, skipping
+ALTER TABLE
+psql:/tmp/production_sync.sql:136: NOTICE:  column "facebook_automation_enabled" of relation "ai_configurations" already exists, skipping
+ALTER TABLE
+psql:/tmp/production_sync.sql:137: NOTICE:  column "instagram_webhook_verify_token" of relation "ai_configurations" already exists, skipping
+ALTER TABLE
+psql:/tmp/production_sync.sql:138: NOTICE:  column "instagram_automation_enabled" of relation "ai_configurations" already exists, skipping
+ALTER TABLE
+psql:/tmp/production_sync.sql:141: NOTICE:  column "account_id" of relation "ai_conversations" already exists, skipping
+ALTER TABLE
+psql:/tmp/production_sync.sql:144: NOTICE:  column "account_id" of relation "ai_response_templates" already exists, skipping
+ALTER TABLE
+psql:/tmp/production_sync.sql:147: NOTICE:  column "account_id" of relation "ai_training_examples" already exists, skipping
+ALTER TABLE
+psql:/tmp/production_sync.sql:150: NOTICE:  column "account_id" of relation "survey_campaigns" already exists, skipping
+ALTER TABLE
+psql:/tmp/production_sync.sql:151: NOTICE:  column "custom_main_question" of relation "survey_campaigns" already exists, skipping
+ALTER TABLE
+psql:/tmp/production_sync.sql:152: NOTICE:  column "custom_main_question_type" of relation "survey_campaigns" already exists, skipping
+ALTER TABLE
+psql:/tmp/production_sync.sql:153: NOTICE:  column "custom_main_question_options" of relation "survey_campaigns" already exists, skipping
+ALTER TABLE
+psql:/tmp/production_sync.sql:154: NOTICE:  column "custom_questions" of relation "survey_campaigns" already exists, skipping
+ALTER TABLE
+psql:/tmp/production_sync.sql:157: NOTICE:  column "account_id" of relation "survey_landing_pages" already exists, skipping
+ALTER TABLE
+psql:/tmp/production_sync.sql:160: NOTICE:  column "account_id" of relation "survey_responses" already exists, skipping
+ALTER TABLE
+DO
+DO
+DO
+DO
+DO
+DO
+DO
+DO
+DO
+DO
+DO
+            resultado            
+---------------------------------
+ Migração concluída com sucesso!
+(1 row)
+
+sup_wescc@srvappsprod:~$ 
