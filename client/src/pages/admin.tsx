@@ -3,8 +3,7 @@ import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, ChevronDown, User, Copy, Check, DollarSign, Inbox, Mail, Phone, Trash2, Search, Sun, Moon, Eye, Calendar, MapPin, Users, FileText, MessageSquare, BarChart3, X, Key } from "lucide-react";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { User, Inbox, Mail, Phone, Trash2, Search, Sun, Moon, Users, X, Key } from "lucide-react";
 import { AdminBottomNav } from "@/components/admin-bottom-nav";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,67 +11,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
-import { queryClient, apiRequest } from "@/lib/queryClient";
+import { queryClient } from "@/lib/queryClient";
 import logoUrl from "@assets/logo pol_1763308638963.png";
 import type { Lead } from "@shared/schema";
-
-type SurveyCampaign = {
-  id: string;
-  userId: string;
-  templateId: string;
-  campaignName: string;
-  slug: string;
-  status: string;
-  campaignStage: string;
-  adminReviewerId: string | null;
-  adminNotes: string | null;
-  startDate: string | null;
-  endDate: string | null;
-  targetAudience: string | null;
-  createdAt: string;
-  updatedAt: string;
-};
-
-type SurveyTemplate = {
-  id: string;
-  name: string;
-  slug: string;
-  description: string | null;
-  questionText: string;
-  questionType: string;
-  options: string[] | null;
-  order: number;
-  createdAt: string;
-};
-
-type CustomQuestion = {
-  id: string;
-  questionText: string;
-  questionType: 'open_text' | 'single_choice' | 'multiple_choice';
-  options?: string[];
-  required: boolean;
-};
-
-type CampaignWithTemplate = SurveyCampaign & {
-  template?: SurveyTemplate;
-  user?: {
-    id: string;
-    name: string;
-    email: string;
-    avatar: string | null;
-  };
-  region?: string | null;
-  customMainQuestion?: string | null;
-  customMainQuestionType?: string | null;
-  customMainQuestionOptions?: string[] | null;
-  customQuestions?: CustomQuestion[] | null;
-  viewCount?: number;
-};
 
 export default function Admin() {
   const [, setLocation] = useLocation();
