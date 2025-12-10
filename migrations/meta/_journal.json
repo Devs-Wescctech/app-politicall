@@ -15,6 +15,13 @@
       "when": 1763491273272,
       "tag": "0001_unusual_mentor",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1765389570567,
+      "tag": "0002_tough_sharon_ventura",
+      "breakpoints": true
     }
   ]
 }
