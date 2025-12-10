@@ -231,126 +231,120 @@ export default function CaboLanding() {
           
           <div className="relative mb-6">
             <div 
-              className="relative rounded-3xl overflow-hidden shadow-2xl"
+              className="relative overflow-hidden shadow-2xl"
               style={{
-                background: `linear-gradient(135deg, ${partyColor} 0%, ${partyColor}DD 50%, ${partyColor}BB 100%)`,
+                borderRadius: '20px',
+                minHeight: '420px',
               }}
             >
-              <div className="absolute inset-0">
-                <div 
-                  className="absolute top-0 left-0 w-full h-full opacity-10"
-                  style={{
-                    backgroundImage: `repeating-linear-gradient(45deg, transparent, transparent 20px, white 20px, white 21px)`
-                  }}
-                ></div>
-              </div>
+              <div 
+                className="absolute inset-0"
+                style={{
+                  background: `linear-gradient(160deg, ${partyColor} 0%, ${partyColor} 45%, #1a1a2e 45%, #1a1a2e 100%)`,
+                }}
+              ></div>
               
-              <div className="relative p-5">
-                <div className="flex items-center justify-center gap-3 mb-4">
-                  <div className="relative flex-shrink-0">
-                    <div 
-                      className="w-32 h-32 md:w-36 md:h-36 rounded-full overflow-hidden border-4 border-white shadow-2xl bg-white"
-                    >
-                      {data.candidate.photo ? (
-                        <img 
-                          src={data.candidate.photo} 
-                          alt={data.candidate.name}
-                          className="w-full h-full object-cover"
-                          data-testid="img-candidate"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-gray-100 text-gray-400 text-4xl font-bold">
-                          {data.candidate.name?.charAt(0)}
-                        </div>
-                      )}
-                    </div>
-                    {data.candidate.electionNumber && (
-                      <div 
-                        className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-4 py-1.5 rounded-lg text-xl font-black text-white shadow-xl"
-                        style={{ 
-                          backgroundColor: '#000',
-                          border: '3px solid white'
-                        }}
-                        data-testid="text-election-number"
-                      >
-                        {data.candidate.electionNumber}
+              <div 
+                className="absolute left-0 top-0 bottom-0 flex items-center justify-center"
+                style={{ width: '70%' }}
+              >
+                {data.candidate.photo ? (
+                  <img 
+                    src={data.candidate.photo} 
+                    alt={data.candidate.name}
+                    className="h-full w-full object-cover object-top"
+                    style={{
+                      maskImage: 'linear-gradient(to right, black 70%, transparent 100%)',
+                      WebkitMaskImage: 'linear-gradient(to right, black 70%, transparent 100%)',
+                    }}
+                    data-testid="img-candidate"
+                  />
+                ) : (
+                  <div 
+                    className="w-32 h-32 rounded-full flex items-center justify-center bg-white/20 text-white text-5xl font-bold"
+                  >
+                    {data.candidate.name?.charAt(0)}
+                  </div>
+                )}
+              </div>
+
+              <div className="absolute right-4 top-4 z-10">
+                <div className="relative">
+                  <div 
+                    className="w-20 h-20 md:w-24 md:h-24 rounded-2xl overflow-hidden border-4 border-white shadow-2xl bg-white"
+                    style={{
+                      transform: 'rotate(5deg)',
+                    }}
+                  >
+                    {data.cabo.photo ? (
+                      <img 
+                        src={data.cabo.photo} 
+                        alt={data.cabo.name}
+                        className="w-full h-full object-cover"
+                        data-testid="img-cabo"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-gray-100 text-gray-400 text-2xl font-bold">
+                        {data.cabo.name?.charAt(0)}
                       </div>
                     )}
                   </div>
-
                   <div 
-                    className="w-1 h-24 rounded-full opacity-50"
-                    style={{ backgroundColor: 'white' }}
-                  ></div>
+                    className="absolute -bottom-2 left-1/2 -translate-x-1/2 px-2 py-0.5 text-[9px] font-black text-white shadow-lg whitespace-nowrap"
+                    style={{ 
+                      backgroundColor: partyColor,
+                      borderRadius: '4px',
+                      transform: 'rotate(5deg)',
+                    }}
+                  >
+                    {data.cabo.name.split(' ')[0].toUpperCase()}
+                  </div>
+                </div>
+              </div>
 
-                  <div className="relative flex-shrink-0">
+              <div className="absolute bottom-0 left-0 right-0 p-5 z-10">
+                <div 
+                  className="p-4 rounded-2xl"
+                  style={{
+                    background: 'rgba(0,0,0,0.7)',
+                    backdropFilter: 'blur(10px)',
+                  }}
+                >
+                  <div className="flex items-start gap-4">
                     <div 
-                      className="w-28 h-28 md:w-32 md:h-32 rounded-full overflow-hidden border-4 border-white shadow-2xl bg-white"
+                      className="flex-shrink-0 px-4 py-3 rounded-xl text-center"
+                      style={{ backgroundColor: partyColor }}
                     >
-                      {data.cabo.photo ? (
-                        <img 
-                          src={data.cabo.photo} 
-                          alt={data.cabo.name}
-                          className="w-full h-full object-cover"
-                          data-testid="img-cabo"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-gray-100 text-gray-400 text-3xl font-bold">
-                          {data.cabo.name?.charAt(0)}
+                      <div className="text-3xl md:text-4xl font-black text-white leading-none" data-testid="text-election-number">
+                        {data.candidate.electionNumber || '00'}
+                      </div>
+                      {data.candidate.party && (
+                        <div className="text-xs font-bold text-white/90 mt-1" data-testid="text-party">
+                          {data.candidate.party.acronym}
                         </div>
                       )}
                     </div>
-                    <div 
-                      className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-3 py-1 rounded-lg text-[10px] font-bold text-white shadow-lg whitespace-nowrap"
-                      style={{ 
-                        backgroundColor: '#000',
-                        border: '2px solid white'
-                      }}
-                    >
-                      APOIADOR
+                    
+                    <div className="flex-1 min-w-0">
+                      <h1 
+                        className="text-xl md:text-2xl font-black text-white leading-tight truncate"
+                        data-testid="text-candidate-name"
+                      >
+                        {data.candidate.name}
+                      </h1>
+                      {data.candidate.politicalPosition && (
+                        <p className="text-sm text-white/80 font-medium mt-0.5" data-testid="text-position">
+                          {data.candidate.politicalPosition}
+                        </p>
+                      )}
+                      <div className="flex items-center gap-2 mt-2">
+                        <Users className="w-3.5 h-3.5 text-white/60" />
+                        <span className="text-xs text-white/70">
+                          Indicação: <span className="font-semibold text-white/90">{data.cabo.name}</span>
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </div>
-
-                <div className="text-center space-y-2 mt-6">
-                  <div className="flex items-center justify-center gap-2 mb-2">
-                    <h1 
-                      className="text-2xl md:text-3xl font-black text-white tracking-tight"
-                      data-testid="text-candidate-name"
-                    >
-                      {data.candidate.name}
-                    </h1>
-                    <span className="text-white/60 text-xl font-light">&</span>
-                    <span className="text-xl md:text-2xl font-bold text-white/90">
-                      {data.cabo.name}
-                    </span>
-                  </div>
-                  
-                  <div className="flex items-center justify-center gap-2 flex-wrap">
-                    {data.candidate.politicalPosition && (
-                      <span 
-                        className="px-3 py-1 rounded-full text-xs font-bold bg-white/20 text-white backdrop-blur-sm"
-                        data-testid="text-position"
-                      >
-                        {data.candidate.politicalPosition}
-                      </span>
-                    )}
-                    
-                    {data.candidate.party && (
-                      <span 
-                        className="px-4 py-1 rounded-full text-sm font-black bg-white text-gray-900 shadow-lg"
-                        data-testid="text-party"
-                      >
-                        {data.candidate.party.acronym}
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                <div className="mt-4 pt-4 border-t border-white/20 text-center">
-                  <p className="text-white/80 text-sm">
-                    Juntos pela mudança que nossa cidade precisa!
-                  </p>
                 </div>
               </div>
             </div>
