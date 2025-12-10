@@ -2011,6 +2011,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     { name: 'coverImage', maxCount: 1 }
   ]), async (req: AuthRequest, res) => {
     try {
+      console.log("[field-operatives] POST - body:", JSON.stringify(req.body));
+      console.log("[field-operatives] POST - files:", req.files ? Object.keys(req.files) : 'none');
+      
       // Normalize multipart form data - convert string booleans and handle empty strings
       const normalizedBody = {
         ...req.body,
@@ -2022,7 +2025,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         email: req.body.email || undefined,
         notes: req.body.notes || undefined,
       };
+      
+      console.log("[field-operatives] POST - normalizedBody:", JSON.stringify(normalizedBody));
+      
       const validatedData = insertFieldOperativeSchema.parse(normalizedBody);
+      console.log("[field-operatives] POST - validation passed");
       
       const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
       
@@ -2031,18 +2038,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (files?.avatar?.[0]) {
         const avatarFile = files.avatar[0];
-        const avatarFilename = `cabo-avatar-${Date.now()}-${Math.random().toString(36).substring(7)}.${avatarFile.mimetype.split('/')[1]}`;
+        const ext = avatarFile.mimetype?.split('/')[1] || 'jpg';
+        const avatarFilename = `cabo-avatar-${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`;
         const avatarPath = path.join(process.cwd(), 'uploads', 'avatars', avatarFilename);
+        console.log("[field-operatives] POST - saving avatar to:", avatarPath);
         fs.writeFileSync(avatarPath, avatarFile.buffer);
         avatarUrl = `/uploads/avatars/${avatarFilename}`;
+        console.log("[field-operatives] POST - avatar saved:", avatarUrl);
       }
       
       if (files?.coverImage?.[0]) {
         const coverFile = files.coverImage[0];
-        const coverFilename = `cabo-cover-${Date.now()}-${Math.random().toString(36).substring(7)}.${coverFile.mimetype.split('/')[1]}`;
+        const ext = coverFile.mimetype?.split('/')[1] || 'jpg';
+        const coverFilename = `cabo-cover-${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`;
         const coverPath = path.join(process.cwd(), 'uploads', 'backgrounds', coverFilename);
+        console.log("[field-operatives] POST - saving cover to:", coverPath);
         fs.writeFileSync(coverPath, coverFile.buffer);
         coverImageUrl = `/uploads/backgrounds/${coverFilename}`;
+        console.log("[field-operatives] POST - cover saved:", coverImageUrl);
       }
       
       const operative = await storage.createFieldOperative({
@@ -2052,8 +2065,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         accountId: req.accountId!
       });
       
+      console.log("[field-operatives] POST - created operative:", operative.id);
       res.status(201).json(operative);
     } catch (error: any) {
+      console.error("[field-operatives] POST - error:", error.message, error.stack);
       res.status(400).json({ error: error.message });
     }
   });
