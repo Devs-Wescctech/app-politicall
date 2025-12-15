@@ -80,6 +80,9 @@ export default function Alliances() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [invitePhone, setInvitePhone] = useState("");
   
+  // Invite management modal
+  const [isInviteManagementOpen, setIsInviteManagementOpen] = useState(false);
+  
   // Bulk email with blocks
   const [isBulkEmailModalOpen, setIsBulkEmailModalOpen] = useState(false);
   const [sentEmailBlocks, setSentEmailBlocks] = useState<Set<number>>(() => {
@@ -208,6 +211,17 @@ export default function Alliances() {
     },
     onError: () => {
       toast({ title: "Erro ao criar convite", variant: "destructive" });
+    },
+  });
+
+  const deleteInviteMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/alliance-invites/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/alliance-invites"] });
+      toast({ title: "Convite excluído com sucesso!" });
+    },
+    onError: () => {
+      toast({ title: "Erro ao excluir convite", variant: "destructive" });
     },
   });
 
@@ -1320,6 +1334,16 @@ export default function Alliances() {
                 >
                   <Send className="w-4 h-4" />
                 </Button>
+                <Button
+                  size="icon"
+                  variant="outline"
+                  onClick={() => setIsInviteManagementOpen(true)}
+                  data-testid="button-manage-invites-party-modal"
+                  title="Gerenciar convites"
+                  className="rounded-full border-zinc-600 bg-transparent text-zinc-300 hover:bg-zinc-800 hover:text-white"
+                >
+                  <Users className="w-4 h-4" />
+                </Button>
               </div>
             </div>
           </DialogHeader>
@@ -2040,6 +2064,75 @@ export default function Alliances() {
               onClick={handleCloseInviteModal}
               className="w-full rounded-full"
               data-testid="button-close-invite-modal"
+            >
+              Fechar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* Invite Management Modal */}
+      <Dialog open={isInviteManagementOpen} onOpenChange={setIsInviteManagementOpen}>
+        <DialogContent className="max-w-lg max-h-[80vh] flex flex-col p-0">
+          <DialogHeader className="px-6 pt-6 pb-4 border-b">
+            <DialogTitle>Gerenciar Convites - {selectedParty?.acronym}</DialogTitle>
+          </DialogHeader>
+          <div className="overflow-y-auto px-6 py-4 flex-1">
+            {selectedParty && allianceInvites?.filter(i => i.partyId === selectedParty.id).length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                Nenhum convite enviado para este partido.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {selectedParty && allianceInvites?.filter(i => i.partyId === selectedParty.id).map((invite) => (
+                  <div
+                    key={invite.id}
+                    className="p-4 border rounded-lg flex items-center justify-between gap-4"
+                    data-testid={`invite-item-${invite.id}`}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-semibold truncate">{invite.inviteeName}</h4>
+                      {invite.inviteePhone && (
+                        <p className="text-sm text-muted-foreground truncate">{invite.inviteePhone}</p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge
+                        className={`rounded-full text-xs ${
+                          invite.status === 'pending'
+                            ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+                            : invite.status === 'accepted'
+                            ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                            : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                        }`}
+                      >
+                        {invite.status === 'pending' ? 'Pendente' : invite.status === 'accepted' ? 'Aceito' : 'Rejeitado'}
+                      </Badge>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => {
+                          if (confirm("Tem certeza que deseja excluir este convite?")) {
+                            deleteInviteMutation.mutate(invite.id);
+                          }
+                        }}
+                        disabled={deleteInviteMutation.isPending}
+                        data-testid={`button-delete-invite-${invite.id}`}
+                        className="rounded-full text-destructive hover:text-destructive"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <DialogFooter className="px-6 py-4 border-t">
+            <Button
+              variant="outline"
+              onClick={() => setIsInviteManagementOpen(false)}
+              className="w-full rounded-full"
+              data-testid="button-close-invite-management"
             >
               Fechar
             </Button>
