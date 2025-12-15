@@ -39,6 +39,7 @@ type SurveyData = {
     customMainQuestionType?: string | null;
     customMainQuestionOptions?: string[] | null;
     customQuestions?: CustomQuestion[] | null;
+    demographicFields?: string[] | null;
   };
   template: {
     questionText: string;
@@ -75,27 +76,45 @@ export default function SurveyLanding() {
   };
 
   const effectiveQuestion = getEffectiveQuestionData();
+  
+  // Get enabled demographic fields (default to all if not specified)
+  const enabledDemographicFields = surveyData?.campaign.demographicFields || 
+    ["gender", "ageRange", "employmentType", "housingType", "hasChildren", "politicalIdeology"];
+  
+  const isFieldEnabled = (field: string) => enabledDemographicFields.includes(field);
 
   const formSchema = z.object({
-    // Demographic fields (mandatory)
-    gender: z.enum(["masculino", "feminino", "outro", "prefiro_nao_dizer"], {
-      required_error: "Por favor, selecione seu sexo",
-    }),
-    ageRange: z.enum(["menos_35", "mais_35"], {
-      required_error: "Por favor, selecione sua faixa etária",
-    }),
-    employmentType: z.enum(["carteira_assinada", "autonomo", "desempregado", "aposentado", "outro"], {
-      required_error: "Por favor, selecione seu tipo de trabalho",
-    }),
-    housingType: z.enum(["casa_propria", "aluguel", "cedido", "outro"], {
-      required_error: "Por favor, selecione seu tipo de moradia",
-    }),
-    hasChildren: z.enum(["sim", "nao"], {
-      required_error: "Por favor, indique se tem filhos",
-    }),
-    politicalIdeology: z.enum(["direita", "centro", "esquerda", "prefiro_nao_comentar"], {
-      required_error: "Por favor, selecione sua ideologia política",
-    }),
+    // Demographic fields (conditional based on campaign settings)
+    gender: isFieldEnabled("gender") 
+      ? z.enum(["masculino", "feminino", "outro", "prefiro_nao_dizer"], {
+          required_error: "Por favor, selecione seu sexo",
+        })
+      : z.enum(["masculino", "feminino", "outro", "prefiro_nao_dizer"]).optional(),
+    ageRange: isFieldEnabled("ageRange")
+      ? z.enum(["menos_35", "mais_35"], {
+          required_error: "Por favor, selecione sua faixa etária",
+        })
+      : z.enum(["menos_35", "mais_35"]).optional(),
+    employmentType: isFieldEnabled("employmentType")
+      ? z.enum(["carteira_assinada", "autonomo", "desempregado", "aposentado", "outro"], {
+          required_error: "Por favor, selecione seu tipo de trabalho",
+        })
+      : z.enum(["carteira_assinada", "autonomo", "desempregado", "aposentado", "outro"]).optional(),
+    housingType: isFieldEnabled("housingType")
+      ? z.enum(["casa_propria", "aluguel", "cedido", "outro"], {
+          required_error: "Por favor, selecione seu tipo de moradia",
+        })
+      : z.enum(["casa_propria", "aluguel", "cedido", "outro"]).optional(),
+    hasChildren: isFieldEnabled("hasChildren")
+      ? z.enum(["sim", "nao"], {
+          required_error: "Por favor, indique se tem filhos",
+        })
+      : z.enum(["sim", "nao"]).optional(),
+    politicalIdeology: isFieldEnabled("politicalIdeology")
+      ? z.enum(["direita", "centro", "esquerda", "prefiro_nao_comentar"], {
+          required_error: "Por favor, selecione sua ideologia política",
+        })
+      : z.enum(["direita", "centro", "esquerda", "prefiro_nao_comentar"]).optional(),
     
     // Survey response fields (conditional based on question type)
     answer: z.string().optional(),
@@ -349,159 +368,177 @@ export default function SurveyLanding() {
 
         <Card className="shadow-lg">
           <CardHeader>
-            <CardTitle className="text-xl sm:text-2xl">Dados Demográficos</CardTitle>
+            <CardTitle className="text-xl sm:text-2xl">
+              {enabledDemographicFields.length > 0 ? "Dados Demográficos" : "Pesquisa de Opinião"}
+            </CardTitle>
             <CardDescription>
-              Para fins estatísticos, precisamos de algumas informações básicas. Suas respostas são anônimas.
+              {enabledDemographicFields.length > 0 
+                ? "Para fins estatísticos, precisamos de algumas informações básicas. Suas respostas são anônimas."
+                : "Por favor, responda a pesquisa abaixo. Suas respostas são anônimas."}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                {/* Demographic Fields Section */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="gender"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Sexo</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger data-testid="select-gender">
-                              <SelectValue placeholder="Selecione" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="masculino">Masculino</SelectItem>
-                            <SelectItem value="feminino">Feminino</SelectItem>
-                            <SelectItem value="outro">Outro</SelectItem>
-                            <SelectItem value="prefiro_nao_dizer">Prefiro não dizer</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
+                {/* Demographic Fields Section - Only show enabled fields */}
+                {enabledDemographicFields.length > 0 && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {isFieldEnabled("gender") && (
+                      <FormField
+                        control={form.control}
+                        name="gender"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Sexo</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl>
+                                <SelectTrigger data-testid="select-gender">
+                                  <SelectValue placeholder="Selecione" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="masculino">Masculino</SelectItem>
+                                <SelectItem value="feminino">Feminino</SelectItem>
+                                <SelectItem value="outro">Outro</SelectItem>
+                                <SelectItem value="prefiro_nao_dizer">Prefiro não dizer</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
                     )}
-                  />
 
-                  <FormField
-                    control={form.control}
-                    name="ageRange"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Faixa Etária</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger data-testid="select-age-range">
-                              <SelectValue placeholder="Selecione" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="menos_35">Menos de 35 anos</SelectItem>
-                            <SelectItem value="mais_35">35 anos ou mais</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
+                    {isFieldEnabled("ageRange") && (
+                      <FormField
+                        control={form.control}
+                        name="ageRange"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Faixa Etária</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl>
+                                <SelectTrigger data-testid="select-age-range">
+                                  <SelectValue placeholder="Selecione" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="menos_35">Menos de 35 anos</SelectItem>
+                                <SelectItem value="mais_35">35 anos ou mais</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
                     )}
-                  />
 
-                  <FormField
-                    control={form.control}
-                    name="employmentType"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Tipo de Trabalho</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger data-testid="select-employment-type">
-                              <SelectValue placeholder="Selecione" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="carteira_assinada">Carteira Assinada</SelectItem>
-                            <SelectItem value="autonomo">Autônomo</SelectItem>
-                            <SelectItem value="desempregado">Desempregado</SelectItem>
-                            <SelectItem value="aposentado">Aposentado</SelectItem>
-                            <SelectItem value="outro">Outro</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
+                    {isFieldEnabled("employmentType") && (
+                      <FormField
+                        control={form.control}
+                        name="employmentType"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Tipo de Trabalho</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl>
+                                <SelectTrigger data-testid="select-employment-type">
+                                  <SelectValue placeholder="Selecione" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="carteira_assinada">Carteira Assinada</SelectItem>
+                                <SelectItem value="autonomo">Autônomo</SelectItem>
+                                <SelectItem value="desempregado">Desempregado</SelectItem>
+                                <SelectItem value="aposentado">Aposentado</SelectItem>
+                                <SelectItem value="outro">Outro</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
                     )}
-                  />
 
-                  <FormField
-                    control={form.control}
-                    name="housingType"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Tipo de Moradia</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger data-testid="select-housing-type">
-                              <SelectValue placeholder="Selecione" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="casa_propria">Casa Própria</SelectItem>
-                            <SelectItem value="aluguel">Aluguel</SelectItem>
-                            <SelectItem value="cedido">Cedido</SelectItem>
-                            <SelectItem value="outro">Outro</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
+                    {isFieldEnabled("housingType") && (
+                      <FormField
+                        control={form.control}
+                        name="housingType"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Tipo de Moradia</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl>
+                                <SelectTrigger data-testid="select-housing-type">
+                                  <SelectValue placeholder="Selecione" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="casa_propria">Casa Própria</SelectItem>
+                                <SelectItem value="aluguel">Aluguel</SelectItem>
+                                <SelectItem value="cedido">Cedido</SelectItem>
+                                <SelectItem value="outro">Outro</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
                     )}
-                  />
 
-                  <FormField
-                    control={form.control}
-                    name="hasChildren"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Tem Filhos?</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger data-testid="select-has-children">
-                              <SelectValue placeholder="Selecione" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="sim">Sim</SelectItem>
-                            <SelectItem value="nao">Não</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
+                    {isFieldEnabled("hasChildren") && (
+                      <FormField
+                        control={form.control}
+                        name="hasChildren"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Tem Filhos?</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl>
+                                <SelectTrigger data-testid="select-has-children">
+                                  <SelectValue placeholder="Selecione" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="sim">Sim</SelectItem>
+                                <SelectItem value="nao">Não</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
                     )}
-                  />
 
-                  <FormField
-                    control={form.control}
-                    name="politicalIdeology"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Ideologia Política</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger data-testid="select-political-ideology">
-                              <SelectValue placeholder="Selecione" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="direita">Direita</SelectItem>
-                            <SelectItem value="centro">Centro</SelectItem>
-                            <SelectItem value="esquerda">Esquerda</SelectItem>
-                            <SelectItem value="prefiro_nao_comentar">Prefiro não comentar</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
+                    {isFieldEnabled("politicalIdeology") && (
+                      <FormField
+                        control={form.control}
+                        name="politicalIdeology"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Ideologia Política</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl>
+                                <SelectTrigger data-testid="select-political-ideology">
+                                  <SelectValue placeholder="Selecione" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="direita">Direita</SelectItem>
+                                <SelectItem value="centro">Centro</SelectItem>
+                                <SelectItem value="esquerda">Esquerda</SelectItem>
+                                <SelectItem value="prefiro_nao_comentar">Prefiro não comentar</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
                     )}
-                  />
-                </div>
+                  </div>
+                )}
 
-                <Separator className="my-8" />
+                {enabledDemographicFields.length > 0 && <Separator className="my-8" />}
 
                 {/* Survey Question Section */}
                 <div>

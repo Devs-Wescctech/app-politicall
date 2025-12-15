@@ -567,6 +567,7 @@ export const surveyCampaigns = pgTable("survey_campaigns", {
   region: text("region"), // Region where the survey will be conducted (city, state, etc)
   targetAudience: text("target_audience"), // Optional description of target
   distributionType: text("distribution_type").default("free"), // "free" (auto-approved) or "google_ads" (requires review)
+  demographicFields: jsonb("demographic_fields").$type<string[]>(), // Array of enabled demographic fields for "free" campaigns
   customMainQuestion: text("custom_main_question"), // Custom main question (overrides template if set)
   customMainQuestionType: text("custom_main_question_type"), // Custom main question type (open_text, single_choice, multiple_choice)
   customMainQuestionOptions: jsonb("custom_main_question_options").$type<string[]>(), // Custom main question options

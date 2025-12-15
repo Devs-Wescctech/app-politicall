@@ -19,6 +19,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Plus, Trash2, Edit, ExternalLink, Copy, CheckCircle, XCircle, Clock, BarChart3, ChevronDown, ChevronUp, Eye, FileText, Calendar, Lock, ClipboardList } from "lucide-react";
@@ -770,6 +771,9 @@ export default function Marketing() {
   // Distribution type state
   const [distributionType, setDistributionType] = useState<"free" | "google_ads">("free");
   
+  // Demographic fields state for free distribution
+  const [selectedDemographicFields, setSelectedDemographicFields] = useState<string[]>(["gender", "ageRange", "employmentType", "housingType", "hasChildren", "politicalIdeology"]);
+  
   // Custom questions states
   const [isEditingMainQuestion, setIsEditingMainQuestion] = useState(false);
   const [customMainQuestion, setCustomMainQuestion] = useState<string>("");
@@ -1055,6 +1059,7 @@ export default function Marketing() {
     const submitData = {
       ...data,
       distributionType,
+      demographicFields: distributionType === "free" ? selectedDemographicFields : ["gender", "ageRange", "employmentType", "housingType", "hasChildren", "politicalIdeology"],
       customMainQuestion: customMainQuestion !== selectedTemplate?.questionText ? customMainQuestion : null,
       customMainQuestionType: customMainQuestionType !== (selectedTemplate?.questionType || "open_text") ? customMainQuestionType : null,
       customMainQuestionOptions: customMainQuestionType !== "open_text" ? customMainQuestionOptions.filter(o => o.trim()) : null,
@@ -1521,35 +1526,76 @@ export default function Marketing() {
                       <CardTitle className="text-base">Dados Demográficos Coletados</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-2">
-                      <p className="text-sm text-muted-foreground mb-3">
-                        Além da pergunta principal, esta pesquisa coletará automaticamente os seguintes dados demográficos de todos os participantes:
-                      </p>
-                      <div className="grid grid-cols-2 gap-2 text-sm">
-                        <div className="flex items-start gap-2">
-                          <span className="text-[#40E0D0]">•</span>
-                          <span>Gênero</span>
-                        </div>
-                        <div className="flex items-start gap-2">
-                          <span className="text-[#40E0D0]">•</span>
-                          <span>Faixa etária</span>
-                        </div>
-                        <div className="flex items-start gap-2">
-                          <span className="text-[#40E0D0]">•</span>
-                          <span>Tipo de emprego</span>
-                        </div>
-                        <div className="flex items-start gap-2">
-                          <span className="text-[#40E0D0]">•</span>
-                          <span>Tipo de moradia</span>
-                        </div>
-                        <div className="flex items-start gap-2">
-                          <span className="text-[#40E0D0]">•</span>
-                          <span>Possui filhos</span>
-                        </div>
-                        <div className="flex items-start gap-2">
-                          <span className="text-[#40E0D0]">•</span>
-                          <span>Ideologia política</span>
-                        </div>
-                      </div>
+                      {distributionType === "free" ? (
+                        <>
+                          <p className="text-sm text-muted-foreground mb-3">
+                            Selecione quais dados demográficos deseja coletar dos participantes:
+                          </p>
+                          <div className="grid grid-cols-2 gap-3 text-sm">
+                            {[
+                              { key: "gender", label: "Gênero" },
+                              { key: "ageRange", label: "Faixa etária" },
+                              { key: "employmentType", label: "Tipo de emprego" },
+                              { key: "housingType", label: "Tipo de moradia" },
+                              { key: "hasChildren", label: "Possui filhos" },
+                              { key: "politicalIdeology", label: "Ideologia política" },
+                            ].map(({ key, label }) => (
+                              <div key={key} className="flex items-center gap-2">
+                                <Checkbox
+                                  id={`demographic-${key}`}
+                                  checked={selectedDemographicFields.includes(key)}
+                                  onCheckedChange={(checked) => {
+                                    if (checked) {
+                                      setSelectedDemographicFields([...selectedDemographicFields, key]);
+                                    } else {
+                                      setSelectedDemographicFields(selectedDemographicFields.filter(f => f !== key));
+                                    }
+                                  }}
+                                  data-testid={`checkbox-demographic-${key}`}
+                                />
+                                <Label htmlFor={`demographic-${key}`} className="cursor-pointer">{label}</Label>
+                              </div>
+                            ))}
+                          </div>
+                          {selectedDemographicFields.length === 0 && (
+                            <p className="text-xs text-amber-500 mt-2">
+                              Atenção: Nenhum dado demográfico será coletado nesta pesquisa.
+                            </p>
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          <p className="text-sm text-muted-foreground mb-3">
+                            Para campanhas com Google Ads, todos os dados demográficos são obrigatórios:
+                          </p>
+                          <div className="grid grid-cols-2 gap-2 text-sm">
+                            <div className="flex items-start gap-2">
+                              <span className="text-[#40E0D0]">•</span>
+                              <span>Gênero</span>
+                            </div>
+                            <div className="flex items-start gap-2">
+                              <span className="text-[#40E0D0]">•</span>
+                              <span>Faixa etária</span>
+                            </div>
+                            <div className="flex items-start gap-2">
+                              <span className="text-[#40E0D0]">•</span>
+                              <span>Tipo de emprego</span>
+                            </div>
+                            <div className="flex items-start gap-2">
+                              <span className="text-[#40E0D0]">•</span>
+                              <span>Tipo de moradia</span>
+                            </div>
+                            <div className="flex items-start gap-2">
+                              <span className="text-[#40E0D0]">•</span>
+                              <span>Possui filhos</span>
+                            </div>
+                            <div className="flex items-start gap-2">
+                              <span className="text-[#40E0D0]">•</span>
+                              <span>Ideologia política</span>
+                            </div>
+                          </div>
+                        </>
+                      )}
                     </CardContent>
                   </Card>
                 </div>
