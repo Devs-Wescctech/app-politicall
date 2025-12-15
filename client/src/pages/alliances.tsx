@@ -13,7 +13,7 @@ import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, Trash2, Mail, MessageCircle, Edit, UserPlus, Users, TrendingUp, Send, Copy, Download, FileText, Sheet, Lock, CheckCircle2, X } from "lucide-react";
+import { Plus, Trash2, Mail, MessageCircle, Edit, UserPlus, Users, TrendingUp, Send, Copy, Download, FileText, Sheet, Lock, CheckCircle2, X, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -1818,7 +1818,7 @@ export default function Alliances() {
                         >
                           {isSending ? (
                             <>
-                              <span className="animate-spin mr-1">⏳</span>
+                              <Loader2 className="w-4 h-4 animate-spin mr-1" />
                               Enviando...
                             </>
                           ) : (
@@ -1927,7 +1927,7 @@ export default function Alliances() {
                 >
                   {createInviteMutation.isPending ? (
                     <>
-                      <span className="animate-spin mr-2">⏳</span>
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
                       Criando convite...
                     </>
                   ) : (
