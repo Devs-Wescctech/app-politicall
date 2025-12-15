@@ -301,6 +301,10 @@ export default function Contacts() {
   const [bulkEmailSessionId, setBulkEmailSessionId] = useState<string>(() => {
     return localStorage.getItem('bulkEmailSessionId') || '';
   });
+  const [emailBlockSize, setEmailBlockSize] = useState<number>(() => {
+    const saved = localStorage.getItem('emailBlockSize');
+    return saved ? parseInt(saved) : 30;
+  });
   
   const { toast } = useToast();
 
@@ -566,22 +570,42 @@ export default function Contacts() {
     });
   }, [contacts, searchQuery, selectedCity, selectedState, selectedInterest, selectedSource]);
 
-  // Email blocks calculation - divide contacts with email into chunks of 30
+  // Email blocks calculation - divide contacts with email into chunks based on selected block size
   const emailBlocks = useMemo(() => {
     const contactsWithEmail = contacts?.filter(c => c.email) || [];
     const blocks: { emails: string[]; startIndex: number; endIndex: number }[] = [];
-    const blockSize = 30;
     
-    for (let i = 0; i < contactsWithEmail.length; i += blockSize) {
-      const chunk = contactsWithEmail.slice(i, i + blockSize);
+    // Se blockSize é 0, significa "sem limites" - todos em um único bloco
+    if (emailBlockSize === 0) {
+      if (contactsWithEmail.length > 0) {
+        blocks.push({
+          emails: contactsWithEmail.map(c => c.email!),
+          startIndex: 1,
+          endIndex: contactsWithEmail.length
+        });
+      }
+      return blocks;
+    }
+    
+    for (let i = 0; i < contactsWithEmail.length; i += emailBlockSize) {
+      const chunk = contactsWithEmail.slice(i, i + emailBlockSize);
       blocks.push({
         emails: chunk.map(c => c.email!),
         startIndex: i + 1,
-        endIndex: Math.min(i + blockSize, contactsWithEmail.length)
+        endIndex: Math.min(i + emailBlockSize, contactsWithEmail.length)
       });
     }
     return blocks;
-  }, [contacts]);
+  }, [contacts, emailBlockSize]);
+
+  // Handle block size change - reset sent blocks
+  const handleBlockSizeChange = (value: string) => {
+    const newSize = parseInt(value);
+    setEmailBlockSize(newSize);
+    localStorage.setItem('emailBlockSize', value);
+    setSentEmailBlocks(new Set());
+    localStorage.setItem('sentEmailBlocks', JSON.stringify([]));
+  };
 
   // Generate a unique session ID based on contacts for tracking
   const currentEmailSessionId = useMemo(() => {
@@ -3142,10 +3166,39 @@ export default function Contacts() {
               Envio de Email em Massa
             </DialogTitle>
             <p id="bulk-email-dialog-description" className="text-xs text-muted-foreground mt-1">
-              Os emails são divididos em blocos de 30 para evitar limites de envio. Clique em cada bloco para enviar.
+              Selecione o limite de envios por bloco e clique em cada bloco para enviar.
             </p>
           </DialogHeader>
           <div className="p-4 space-y-4">
+            <div className="flex items-center gap-3 bg-muted/50 rounded-lg p-3">
+              <span className="text-sm font-medium whitespace-nowrap">Limite por bloco:</span>
+              <Select value={emailBlockSize.toString()} onValueChange={handleBlockSizeChange}>
+                <SelectTrigger className="w-[220px]" data-testid="select-email-block-size">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="30">
+                    <span className="flex items-center gap-2">
+                      <Badge variant="outline" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 text-xs">Seguro</Badge>
+                      30 emails/bloco
+                    </span>
+                  </SelectItem>
+                  <SelectItem value="100">
+                    <span className="flex items-center gap-2">
+                      <Badge variant="outline" className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 text-xs">Risco Médio</Badge>
+                      100 emails/bloco
+                    </span>
+                  </SelectItem>
+                  <SelectItem value="0">
+                    <span className="flex items-center gap-2">
+                      <Badge variant="outline" className="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 text-xs">Risco Alto</Badge>
+                      Sem limite
+                    </span>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
             <div className="flex items-center justify-between bg-muted/50 rounded-lg p-3">
               <div className="flex items-center gap-2">
                 <TrendingUp className="w-4 h-4 text-primary" />
