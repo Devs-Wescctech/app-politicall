@@ -22,7 +22,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Label } from "@/components/ui/label";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Settings, CheckCircle2, XCircle, Plus, Edit, Trash2, Save, X, AlertCircle, HelpCircle, RefreshCw, MessageSquare, Info } from "lucide-react";
+import { Settings, CheckCircle2, XCircle, Plus, Edit, Trash2, Save, X, AlertCircle, RefreshCw, MessageSquare, Info } from "lucide-react";
 import { SiFacebook, SiInstagram, SiX, SiWhatsapp } from "react-icons/si";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -577,9 +577,7 @@ export default function AiAttendance() {
                               </TooltipContent>
                             </Tooltip>
                           </TooltipProvider>
-                        ) : (
-                          <HelpCircle className="w-4 h-4" />
-                        )}
+                        ) : null}
                         <Button
                           size="sm"
                           variant="ghost"
