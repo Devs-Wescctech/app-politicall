@@ -4,7 +4,7 @@ import { type PoliticalAlliance, type PoliticalParty, type InsertPoliticalAllian
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -13,7 +13,7 @@ import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, Trash2, Mail, MessageCircle, Edit, UserPlus, Users, TrendingUp, Send, Copy, Download, FileText, Sheet, Lock, CheckCircle2 } from "lucide-react";
+import { Plus, Trash2, Mail, MessageCircle, Edit, UserPlus, Users, TrendingUp, Send, Copy, Download, FileText, Sheet, Lock, CheckCircle2, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -1179,10 +1179,10 @@ export default function Alliances() {
         </div>
       )}
       <Dialog open={!!selectedParty} onOpenChange={(open) => !open && setSelectedParty(null)}>
-        <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col p-0 overflow-hidden">
-          <DialogHeader className="px-6 py-4 bg-zinc-900 dark:bg-zinc-950 border-b border-zinc-800">
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex-1 min-w-0">
+        <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col p-0 overflow-hidden [&>button]:hidden">
+          <DialogHeader className="bg-zinc-900 dark:bg-zinc-950 border-b border-zinc-800 p-0">
+            <div className="flex items-center">
+              <div className="flex-1 px-6 py-4">
                 <DialogTitle className="flex items-center gap-3 text-white">
                   <span className="text-xl font-bold">{selectedParty?.acronym}</span>
                   <Badge className={`rounded-full text-xs ${selectedParty ? IDEOLOGY_BADGES[selectedParty.ideology as keyof typeof IDEOLOGY_BADGES] : ""}`}>
@@ -1191,7 +1191,7 @@ export default function Alliances() {
                 </DialogTitle>
                 <p className="text-sm text-zinc-400 mt-1">{selectedParty?.name}</p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 px-4">
                 <Button
                   size="icon"
                   variant="outline"
@@ -1213,6 +1213,14 @@ export default function Alliances() {
                   <Send className="w-4 h-4" />
                 </Button>
               </div>
+              <DialogClose asChild>
+                <button
+                  className="h-full px-6 py-4 border-l border-zinc-700 bg-zinc-800 hover:bg-zinc-700 transition-colors flex items-center justify-center"
+                  data-testid="button-close-party-modal"
+                >
+                  <X className="w-6 h-6 text-white" />
+                </button>
+              </DialogClose>
             </div>
           </DialogHeader>
           <div className="overflow-y-auto px-6 py-4 flex-1">
