@@ -887,15 +887,6 @@ export default function Admin() {
           <img src={logoUrl} alt="Politicall Logo" className="h-10" data-testid="img-logo" />
           <div className="flex items-center gap-3">
             <Button 
-              variant="outline"
-              onClick={() => setSyncDialogOpen(true)}
-              className="rounded-full gap-2"
-              data-testid="button-sync-system"
-            >
-              <Server className="w-4 h-4" />
-              Atualizar Sistema
-            </Button>
-            <Button 
               size="icon"
               variant="ghost"
               onClick={toggleDarkMode}
@@ -903,6 +894,15 @@ export default function Admin() {
               data-testid="button-toggle-dark-mode"
             >
               {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+            </Button>
+            <Button 
+              variant="outline"
+              onClick={() => setSyncDialogOpen(true)}
+              className="rounded-full gap-2"
+              data-testid="button-sync-system"
+            >
+              <Server className="w-4 h-4" />
+              Atualizar Sistema
             </Button>
             <Button 
               onClick={handleLogout} 
