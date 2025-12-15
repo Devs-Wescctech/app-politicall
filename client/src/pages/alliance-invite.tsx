@@ -183,8 +183,28 @@ export default function AllianceInvitePage() {
     },
   });
 
+  const rejectMutation = useMutation({
+    mutationFn: () => {
+      return apiRequest("POST", `/api/alliance-invites/${params?.token}/reject`, {});
+    },
+    onSuccess: () => {
+      setIsRejected(true);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro ao rejeitar convite",
+        description: error.message || "Tente novamente mais tarde",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleSubmit = (data: AcceptInviteForm) => {
     acceptMutation.mutate(data);
+  };
+
+  const handleReject = () => {
+    rejectMutation.mutate();
   };
 
   if (isLoading) {
@@ -555,11 +575,21 @@ export default function AllianceInvitePage() {
                       variant="outline" 
                       size="lg"
                       className="flex-1"
-                      onClick={() => setIsRejected(true)}
+                      onClick={handleReject}
+                      disabled={rejectMutation.isPending}
                       data-testid="button-reject-alliance"
                     >
-                      <X className="w-5 h-5 mr-2" />
-                      Rejeitar
+                      {rejectMutation.isPending ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
+                          Processando...
+                        </>
+                      ) : (
+                        <>
+                          <X className="w-5 h-5 mr-2" />
+                          Rejeitar
+                        </>
+                      )}
                     </Button>
                     <Button 
                       type="submit" 

@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { type PoliticalAlliance, type PoliticalParty, type InsertPoliticalAlliance, insertPoliticalAllianceSchema, type Contact } from "@shared/schema";
+import { type PoliticalAlliance, type PoliticalParty, type InsertPoliticalAlliance, insertPoliticalAllianceSchema, type Contact, type AllianceInvite } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -113,6 +113,22 @@ export default function Alliances() {
   const { data: adminData } = useQuery<any>({
     queryKey: ["/api/account/admin"],
   });
+
+  // Buscar convites de aliança
+  const { data: allianceInvites } = useQuery<AllianceInvite[]>({
+    queryKey: ["/api/alliance-invites"],
+  });
+
+  // Função para obter contagens de convites por partido
+  const getPartyInviteCounts = (partyId: string) => {
+    if (!allianceInvites) return { pending: 0, accepted: 0, rejected: 0 };
+    const partyInvites = allianceInvites.filter(i => i.partyId === partyId);
+    return {
+      pending: partyInvites.filter(i => i.status === 'pending').length,
+      accepted: partyInvites.filter(i => i.status === 'accepted').length,
+      rejected: partyInvites.filter(i => i.status === 'rejected').length,
+    };
+  };
 
   const form = useForm<InsertPoliticalAlliance>({
     resolver: zodResolver(insertPoliticalAllianceSchema),
@@ -1217,7 +1233,9 @@ export default function Alliances() {
             })
             .map((party) => {
               const count = getPartyAllianceCount(party.id);
-              const isInactive = count === 0;
+              const inviteCounts = getPartyInviteCounts(party.id);
+              const hasInvites = inviteCounts.pending > 0 || inviteCounts.accepted > 0 || inviteCounts.rejected > 0;
+              const isInactive = count === 0 && !hasInvites;
               return (
                 <Card
                   key={party.id}
@@ -1230,7 +1248,7 @@ export default function Alliances() {
                     <div className="absolute top-2 right-2">
                       <div
                         className={`rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold ${
-                          isInactive 
+                          count === 0 
                             ? 'bg-muted text-muted-foreground' 
                             : 'bg-primary text-primary-foreground'
                         }`}
@@ -1243,6 +1261,25 @@ export default function Alliances() {
                       {party.acronym.length > 4 ? `${party.acronym.substring(0, 4)}...` : party.acronym}
                     </h3>
                     <p className="text-xs text-muted-foreground line-clamp-2">{party.name}</p>
+                    {hasInvites && (
+                      <div className="mt-2 pt-2 border-t w-full flex justify-center gap-2" data-testid={`party-invites-${party.acronym}`}>
+                        {inviteCounts.pending > 0 && (
+                          <span className="text-xs bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 px-1.5 py-0.5 rounded" title="Convites enviados (pendentes)">
+                            {inviteCounts.pending} env
+                          </span>
+                        )}
+                        {inviteCounts.accepted > 0 && (
+                          <span className="text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 px-1.5 py-0.5 rounded" title="Convites aceitos">
+                            {inviteCounts.accepted} ace
+                          </span>
+                        )}
+                        {inviteCounts.rejected > 0 && (
+                          <span className="text-xs bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 px-1.5 py-0.5 rounded" title="Convites rejeitados">
+                            {inviteCounts.rejected} rej
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               );

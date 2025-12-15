@@ -2004,6 +2004,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ==================== ALLIANCE INVITES ====================
 
+  app.get("/api/alliance-invites", authenticateToken, requirePermission("alliances"), async (req: AuthRequest, res) => {
+    try {
+      const invites = await storage.getAllianceInvites(req.accountId!);
+      res.json(invites);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.post("/api/alliance-invites", authenticateToken, requirePermission("alliances"), async (req: AuthRequest, res) => {
     try {
       const validatedData = insertAllianceInviteSchema.parse(req.body);
@@ -2094,6 +2103,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: error.message });
       }
       if (error.message === 'Convite já foi aceito' || error.message === 'Convite expirado') {
+        return res.status(410).json({ error: error.message });
+      }
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/alliance-invites/:token/reject", async (req: Request, res: Response) => {
+    try {
+      const { token } = req.params;
+      const updatedInvite = await storage.rejectAllianceInvite(token);
+      res.json({ success: true, invite: updatedInvite });
+    } catch (error: any) {
+      if (error.message === 'Convite não encontrado') {
+        return res.status(404).json({ error: error.message });
+      }
+      if (error.message === 'Convite já foi aceito' || error.message === 'Convite já foi rejeitado') {
         return res.status(410).json({ error: error.message });
       }
       res.status(500).json({ error: error.message });

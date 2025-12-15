@@ -67,9 +67,11 @@ export interface IStorage {
   deleteAlliance(id: string, accountId: string): Promise<void>;
 
   // Alliance Invites
+  getAllianceInvites(accountId: string): Promise<AllianceInvite[]>;
   createAllianceInvite(invite: InsertAllianceInvite & { userId: string; accountId: string; token: string }): Promise<AllianceInvite>;
   getAllianceInviteByToken(token: string): Promise<AllianceInvite | undefined>;
   acceptAllianceInvite(token: string, data: { inviteeName: string; inviteeEmail?: string; inviteePhone?: string; inviteePosition?: string; inviteeState?: string; inviteeCity?: string; inviteeNotes?: string }): Promise<AllianceInvite>;
+  rejectAllianceInvite(token: string): Promise<AllianceInvite>;
 
   // Demands
   getDemands(accountId: string): Promise<Demand[]>;
@@ -508,6 +510,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Alliance Invites
+  async getAllianceInvites(accountId: string): Promise<AllianceInvite[]> {
+    return await db.select().from(allianceInvites).where(eq(allianceInvites.accountId, accountId)).orderBy(desc(allianceInvites.createdAt));
+  }
+
   async createAllianceInvite(invite: InsertAllianceInvite & { userId: string; accountId: string; token: string }): Promise<AllianceInvite> {
     const [newInvite] = await db.insert(allianceInvites).values(invite).returning();
     return newInvite;
@@ -551,6 +557,20 @@ export class DatabaseStorage implements IStorage {
       email: data.inviteeEmail || invite.inviteeEmail || null,
       notes: data.inviteeNotes || null,
     });
+
+    return updated;
+  }
+
+  async rejectAllianceInvite(token: string): Promise<AllianceInvite> {
+    const invite = await this.getAllianceInviteByToken(token);
+    if (!invite) throw new Error('Convite não encontrado');
+    if (invite.status === 'accepted') throw new Error('Convite já foi aceito');
+    if (invite.status === 'rejected') throw new Error('Convite já foi rejeitado');
+
+    const [updated] = await db.update(allianceInvites)
+      .set({ status: 'rejected' })
+      .where(eq(allianceInvites.token, token))
+      .returning();
 
     return updated;
   }
