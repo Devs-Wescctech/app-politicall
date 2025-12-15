@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
@@ -87,6 +88,7 @@ export default function Admin() {
   const [selectedLeads, setSelectedLeads] = useState<Set<string>>(new Set());
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [leadToDelete, setLeadToDelete] = useState<string | null>(null);
+  const [selectedPolitician, setSelectedPolitician] = useState<string>("all");
   const [isDarkMode, setIsDarkMode] = useState(() => {
     if (typeof window !== 'undefined') {
       return document.documentElement.classList.contains('dark');
@@ -620,16 +622,32 @@ export default function Admin() {
   // Filter campaigns by stage and status
   const allCampaigns = campaigns || [];
   
-  // Filter by campaign stage for kanban
-  const aguardandoCampaigns = allCampaigns.filter(c => c.campaignStage === "aguardando");
-  const aprovadoCampaigns = allCampaigns.filter(c => c.campaignStage === "aprovado");
-  const emProducaoCampaigns = allCampaigns.filter(c => c.campaignStage === "em_producao");
-  const finalizadoCampaigns = allCampaigns.filter(c => c.campaignStage === "finalizado");
+  // Get unique politicians for filter
+  const uniquePoliticians = allCampaigns
+    .filter(c => c.user)
+    .reduce((acc, c) => {
+      if (c.user && !acc.find(p => p.id === c.user!.id)) {
+        acc.push({ id: c.user.id, name: c.user.name });
+      }
+      return acc;
+    }, [] as { id: string; name: string }[])
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  // Apply politician filter
+  const filteredCampaigns = selectedPolitician === "all" 
+    ? allCampaigns 
+    : allCampaigns.filter(c => c.user?.id === selectedPolitician);
   
-  // Filter by status for tabs
-  const pendingCampaigns = allCampaigns.filter(c => c.status === "under_review");
-  const approvedCampaigns = allCampaigns.filter(c => c.status === "approved");
-  const rejectedCampaigns = allCampaigns.filter(c => c.status === "rejected");
+  // Filter by campaign stage for kanban
+  const aguardandoCampaigns = filteredCampaigns.filter(c => c.campaignStage === "aguardando");
+  const aprovadoCampaigns = filteredCampaigns.filter(c => c.campaignStage === "aprovado");
+  const emProducaoCampaigns = filteredCampaigns.filter(c => c.campaignStage === "em_producao");
+  const finalizadoCampaigns = filteredCampaigns.filter(c => c.campaignStage === "finalizado");
+  
+  // Filter by status for tabs (also apply politician filter)
+  const pendingCampaigns = filteredCampaigns.filter(c => c.status === "under_review");
+  const approvedCampaigns = filteredCampaigns.filter(c => c.status === "approved");
+  const rejectedCampaigns = filteredCampaigns.filter(c => c.status === "rejected");
 
   const getStageBadge = (campaignStage: string) => {
     switch (campaignStage) {
@@ -851,18 +869,49 @@ export default function Admin() {
 
       {/* Main Content - Kanban Board */}
       <main className="flex-1 container mx-auto p-6 pb-24">
-        <div className="mb-6 flex items-start justify-between gap-4">
-          <div>
-            <h2 className="text-xl font-semibold mb-2" data-testid="text-kanban-title">Kanban de Estágios</h2>
-            <p className="text-sm text-muted-foreground" data-testid="text-kanban-subtitle">
-              Gerencie as campanhas de pesquisa através dos diferentes estágios
-            </p>
+        <div className="mb-6 flex flex-col gap-4">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-semibold mb-2" data-testid="text-kanban-title">Kanban de Estágios</h2>
+              <p className="text-sm text-muted-foreground" data-testid="text-kanban-subtitle">
+                Gerencie as campanhas de pesquisa através dos diferentes estágios
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="text-xs text-muted-foreground mb-1">Caixa Total</p>
+              <p className="text-2xl font-bold text-[#40E0D0]" data-testid="text-total-revenue">
+                R$ {(approvedCampaigns.length * 1250).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </p>
+            </div>
           </div>
-          <div className="text-right">
-            <p className="text-xs text-muted-foreground mb-1">Caixa Total</p>
-            <p className="text-2xl font-bold text-[#40E0D0]" data-testid="text-total-revenue">
-              R$ {(approvedCampaigns.length * 1250).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </p>
+          
+          {/* Filtro por Político */}
+          <div className="flex items-center gap-3">
+            <Users className="w-4 h-4 text-muted-foreground" />
+            <Select value={selectedPolitician} onValueChange={setSelectedPolitician}>
+              <SelectTrigger className="w-64" data-testid="select-politician-filter">
+                <SelectValue placeholder="Filtrar por político" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os políticos</SelectItem>
+                {uniquePoliticians.map((politician) => (
+                  <SelectItem key={politician.id} value={politician.id}>
+                    {politician.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {selectedPolitician !== "all" && (
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => setSelectedPolitician("all")}
+                data-testid="button-clear-filter"
+              >
+                <X className="w-4 h-4 mr-1" />
+                Limpar filtro
+              </Button>
+            )}
           </div>
         </div>
 
