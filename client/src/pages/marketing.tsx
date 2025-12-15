@@ -1418,8 +1418,8 @@ export default function Marketing() {
                                   </div>
                                 </label>
                                 
-                                {/* Database Templates */}
-                                {templates.map((template) => (
+                                {/* Database Templates (excluding custom-template which is shown above) */}
+                                {templates.filter(t => t.id !== CUSTOM_TEMPLATE_ID).map((template) => (
                                   <label
                                     key={template.id}
                                     className={`flex items-center gap-3 p-4 border rounded-lg cursor-pointer transition-all hover-elevate ${
