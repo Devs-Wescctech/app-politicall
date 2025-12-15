@@ -549,6 +549,15 @@ export interface CustomQuestion {
   required: boolean;
 }
 
+// Custom Demographic Field type for survey campaigns
+export interface CustomDemographicField {
+  id: string;
+  label: string;
+  fieldType: "text" | "single_choice" | "multiple_choice";
+  options?: string[];
+  required: boolean;
+}
+
 // Survey Campaigns - User-created survey instances
 export const surveyCampaigns = pgTable("survey_campaigns", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -568,6 +577,7 @@ export const surveyCampaigns = pgTable("survey_campaigns", {
   targetAudience: text("target_audience"), // Optional description of target
   distributionType: text("distribution_type").default("free"), // "free" (auto-approved) or "google_ads" (requires review)
   demographicFields: jsonb("demographic_fields").$type<string[]>(), // Array of enabled demographic fields for "free" campaigns
+  customDemographicFields: jsonb("custom_demographic_fields").$type<CustomDemographicField[]>(), // Custom demographic fields created by user
   customMainQuestion: text("custom_main_question"), // Custom main question (overrides template if set)
   customMainQuestionType: text("custom_main_question_type"), // Custom main question type (open_text, single_choice, multiple_choice)
   customMainQuestionOptions: jsonb("custom_main_question_options").$type<string[]>(), // Custom main question options
