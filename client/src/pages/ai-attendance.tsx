@@ -168,16 +168,12 @@ export default function AiAttendance() {
     },
   });
 
-  // Auto-check API status on page load if last check was > 15 minutes ago
+  // Auto-check API status on page load when custom key is configured
   useEffect(() => {
-    if (config?.openaiApiKey && apiStatus?.checkedAt) {
-      const lastCheck = new Date(apiStatus.checkedAt);
-      const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
-      if (lastCheck < fifteenMinutesAgo) {
-        testApiStatusMutation.mutate();
-      }
+    if (config?.hasCustomKey) {
+      testApiStatusMutation.mutate();
     }
-  }, [config?.openaiApiKey]);
+  }, [config?.hasCustomKey]);
 
   // Reset platform form when config is loaded
   useEffect(() => {
