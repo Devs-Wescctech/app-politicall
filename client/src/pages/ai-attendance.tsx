@@ -168,12 +168,6 @@ export default function AiAttendance() {
     },
   });
 
-  // Auto-check API status on page load when custom key is configured
-  useEffect(() => {
-    if (config?.hasCustomKey) {
-      testApiStatusMutation.mutate();
-    }
-  }, [config?.hasCustomKey]);
 
   // Reset platform form when config is loaded
   useEffect(() => {
