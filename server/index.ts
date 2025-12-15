@@ -13,6 +13,12 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { storage } from "./storage";
+import { db } from "./db";
+import { politicalParties, accounts } from "@shared/schema";
+import { eq } from "drizzle-orm";
+import * as fs from "fs";
+import * as path from "path";
 
 const app = express();
 
@@ -34,7 +40,7 @@ app.use('/assets', express.static('attached_assets'));
 
 app.use((req, res, next) => {
   const start = Date.now();
-  const path = req.path;
+  const reqPath = req.path;
   let capturedJsonResponse: Record<string, any> | undefined = undefined;
 
   const originalResJson = res.json;
@@ -45,8 +51,8 @@ app.use((req, res, next) => {
 
   res.on("finish", () => {
     const duration = Date.now() - start;
-    if (path.startsWith("/api")) {
-      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
+    if (reqPath.startsWith("/api")) {
+      let logLine = `${req.method} ${reqPath} ${res.statusCode} in ${duration}ms`;
       if (capturedJsonResponse) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }
@@ -60,6 +66,85 @@ app.use((req, res, next) => {
   });
 
   next();
+});
+
+// SSR route for alliance invite with dynamic Open Graph meta tags
+// Must be registered BEFORE Vite middleware to intercept crawler requests
+app.get("/convite-alianca/:token", async (req: Request, res: Response) => {
+  try {
+    const { token } = req.params;
+    const invite = await storage.getAllianceInviteByToken(token);
+    
+    // Default meta tags
+    let ogTitle = "Convite de Aliança Política";
+    let ogDescription = "Você foi convidado para fazer parte de uma aliança política.";
+    let ogImage = "https://www.politicall.com.br/favicon.png";
+    
+    if (invite) {
+      const inviter = await storage.getUser(invite.userId);
+      const [party] = await db.select().from(politicalParties).where(eq(politicalParties.id, invite.partyId));
+      const [account] = await db.select().from(accounts).where(eq(accounts.id, invite.accountId));
+      const admin = await storage.getAccountAdmin(invite.accountId);
+      
+      // Build personalized meta tags
+      if (account?.name) {
+        ogTitle = `Convite de Aliança - ${account.name}`;
+      } else if (admin?.name) {
+        ogTitle = `Convite de Aliança - ${admin.name}`;
+      }
+      
+      if (party) {
+        ogDescription = `Você foi convidado(a) para fazer parte da aliança política pelo partido ${party.acronym} - ${party.name}.`;
+      }
+      
+      // Use admin avatar as OG image if available
+      // Skip data URLs as they don't work well with OG image crawlers
+      if (admin?.avatar && !admin.avatar.startsWith('data:')) {
+        ogImage = admin.avatar.startsWith('http') ? admin.avatar : `https://www.politicall.com.br${admin.avatar}`;
+      } else if (inviter?.avatar && !inviter.avatar.startsWith('data:')) {
+        ogImage = inviter.avatar.startsWith('http') ? inviter.avatar : `https://www.politicall.com.br${inviter.avatar}`;
+      }
+    }
+    
+    // Read and modify index.html
+    const indexPath = path.resolve("client", "index.html");
+    
+    let html = fs.readFileSync(indexPath, "utf-8");
+    
+    // Inject Open Graph meta tags before </head>
+    const ogTags = `
+    <!-- Dynamic Open Graph Meta Tags -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://www.politicall.com.br/convite-alianca/${token}" />
+    <meta property="og:title" content="${ogTitle}" />
+    <meta property="og:description" content="${ogDescription}" />
+    <meta property="og:image" content="${ogImage}" />
+    <meta property="og:site_name" content="Politicall" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="${ogTitle}" />
+    <meta name="twitter:description" content="${ogDescription}" />
+    <meta name="twitter:image" content="${ogImage}" />
+    <link rel="icon" type="image/png" href="${ogImage}" />
+  `;
+    
+    // Replace title
+    html = html.replace(/<title>.*?<\/title>/, `<title>${ogTitle}</title>`);
+    
+    // Replace description
+    html = html.replace(
+      /<meta name="description" content=".*?" \/>/,
+      `<meta name="description" content="${ogDescription}" />`
+    );
+    
+    // Inject OG tags before </head>
+    html = html.replace('</head>', `${ogTags}</head>`);
+    
+    res.setHeader("Content-Type", "text/html");
+    return res.send(html);
+  } catch (error) {
+    log(`SSR error for /convite-alianca/:token: ${error}`);
+    return res.status(500).send("Erro ao carregar página de convite");
+  }
 });
 
 (async () => {
