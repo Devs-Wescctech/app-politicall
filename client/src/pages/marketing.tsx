@@ -1290,6 +1290,11 @@ export default function Marketing() {
                             Template: {campaign.template.name}
                           </CardDescription>
                         )}
+                        {campaign.region && (
+                          <CardDescription className="text-xs" data-testid={`text-region-${campaign.id}`}>
+                            Região: {campaign.region}
+                          </CardDescription>
+                        )}
                       </div>
                       <div className="flex gap-2">
                         <Button
