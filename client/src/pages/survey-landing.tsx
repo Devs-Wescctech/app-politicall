@@ -558,7 +558,7 @@ export default function SurveyLanding() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                     {surveyData.campaign.customDemographicFields.map((customField, fieldIndex) => (
                       <div key={customField.id} className="space-y-2">
-                        <Label className={customField.required ? "after:content-['*'] after:ml-0.5 after:text-red-500" : ""}>
+                        <Label>
                           {customField.label}
                         </Label>
                         
