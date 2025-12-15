@@ -1330,26 +1330,6 @@ export default function Marketing() {
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    {campaign.distributionType === "google_ads" && campaign.productionStartDate && (
-                      <div className="flex items-start gap-3">
-                        <Calendar className="w-5 h-5 text-[#40E0D0] mt-0.5" />
-                        <div className="flex-1 space-y-2">
-                          <div className="flex items-center justify-between">
-                            <Label className="text-xs text-muted-foreground">Data de Início:</Label>
-                            <p className="text-xs font-medium">
-                              {format(new Date(campaign.productionStartDate), "dd/MM/yyyy", { locale: ptBR })}
-                            </p>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <Label className="text-xs text-muted-foreground">Data de Término:</Label>
-                            <p className="text-xs font-bold text-[#40E0D0]">
-                              {format(addDays(new Date(campaign.productionStartDate), 7), "dd/MM/yyyy", { locale: ptBR })}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
                     {isApproved && (
                       <div className="space-y-2">
                         <Label className="text-xs font-medium">URL da Página de Pesquisa:</Label>
