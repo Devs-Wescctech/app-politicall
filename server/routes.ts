@@ -383,6 +383,13 @@ async function seedSurveyTemplates() {
     } else {
       console.log("✓ All survey templates already exist");
     }
+    
+    // Ensure custom template exists with fixed ID for "Personalizado" option
+    await db.execute(sql`
+      INSERT INTO survey_templates (id, name, slug, description, question_text, question_type, options, "order", created_at)
+      VALUES ('custom-template', 'Personalizado', 'personalizado', 'Crie sua própria pergunta personalizada', 'Sua pergunta personalizada aqui', 'open_text', NULL, 0, NOW())
+      ON CONFLICT (id) DO NOTHING
+    `);
   } catch (error) {
     console.error("Error seeding survey templates:", error);
   }
