@@ -1581,7 +1581,7 @@ export default function Marketing() {
                   </Card>
 
                   {selectedTemplate && (
-                    <Card className="border-[#40E0D0] bg-[#40E0D0]/5">
+                    <Card className="border-[#40E0D0]">
                       <CardHeader className="flex flex-row items-center justify-between">
                         <CardTitle className="text-base text-[#40E0D0]">Perguntas da Pesquisa</CardTitle>
                         <Button
