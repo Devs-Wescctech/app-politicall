@@ -417,11 +417,6 @@ export default function AllianceInvitePage() {
           </CardHeader>
 
           <CardContent className="space-y-6">
-            {inviteData?.account?.name && (
-              <div className="text-center text-sm text-muted-foreground -mt-2 mb-4">
-                <span className="font-medium">{inviteData.account.name}</span>
-              </div>
-            )}
             <div className="bg-primary/5 border border-primary/10 rounded-lg p-4 text-center">
               <div className="flex items-center justify-center gap-2 text-primary mb-2">
                 <Handshake className="w-5 h-5" />
