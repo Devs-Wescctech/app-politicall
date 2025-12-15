@@ -767,6 +767,9 @@ export default function Marketing() {
   const [isValidatingPassword, setIsValidatingPassword] = useState(false);
   const [pendingPdfCampaign, setPendingPdfCampaign] = useState<CampaignWithTemplate | null>(null);
   
+  // Distribution type state
+  const [distributionType, setDistributionType] = useState<"free" | "google_ads">("free");
+  
   // Custom questions states
   const [isEditingMainQuestion, setIsEditingMainQuestion] = useState(false);
   const [customMainQuestion, setCustomMainQuestion] = useState<string>("");
@@ -1888,25 +1891,70 @@ export default function Marketing() {
                     </CardContent>
                   </Card>
 
-                  <Card className="border-[#40E0D0] bg-[#40E0D0]/5">
+                  <Card className="border-[#40E0D0]">
                     <CardHeader>
                       <CardTitle className="text-base flex items-center gap-2">
                         <CheckCircle className="w-5 h-5 text-[#40E0D0]" />
-                        Detalhes da Pesquisa
+                        Tipo de Divulgação *
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-3">
-                      <div className="flex items-center justify-between">
+                      <div className="space-y-2">
+                        <label
+                          className={`flex items-center gap-3 p-4 border rounded-lg cursor-pointer transition-all hover-elevate ${
+                            distributionType === "free" ? "border-[#40E0D0] bg-[#40E0D0]/5" : "border-border"
+                          }`}
+                          onClick={() => setDistributionType("free")}
+                          data-testid="radio-distribution-free"
+                        >
+                          <input
+                            type="radio"
+                            className="w-4 h-4 text-[#40E0D0]"
+                            checked={distributionType === "free"}
+                            onChange={() => setDistributionType("free")}
+                          />
+                          <div className="flex-1">
+                            <p className="font-medium">Divulgação Livre</p>
+                            <p className="text-sm text-muted-foreground mt-0.5">
+                              Você compartilha o link da pesquisa por conta própria (sem custo adicional)
+                            </p>
+                          </div>
+                          <span className="text-sm font-semibold text-green-600">Grátis</span>
+                        </label>
+                        
+                        <label
+                          className={`flex items-center gap-3 p-4 border rounded-lg cursor-pointer transition-all hover-elevate ${
+                            distributionType === "google_ads" ? "border-[#40E0D0] bg-[#40E0D0]/5" : "border-border"
+                          }`}
+                          onClick={() => setDistributionType("google_ads")}
+                          data-testid="radio-distribution-google-ads"
+                        >
+                          <input
+                            type="radio"
+                            className="w-4 h-4 text-[#40E0D0]"
+                            checked={distributionType === "google_ads"}
+                            onChange={() => setDistributionType("google_ads")}
+                          />
+                          <div className="flex-1">
+                            <p className="font-medium">Impulsionar pelo Google ADS</p>
+                            <p className="text-sm text-muted-foreground mt-0.5">
+                              Alcance qualificado via tráfego pago com conformidade TSE
+                            </p>
+                          </div>
+                          <span className="text-lg font-bold text-[#40E0D0]">R$ 1.250,00</span>
+                        </label>
+                      </div>
+                      
+                      <div className="flex items-center justify-between pt-2 border-t">
                         <Label className="text-sm">Prazo de Coleta:</Label>
                         <p className="text-sm font-semibold">7 dias corridos</p>
                       </div>
-                      <div className="flex items-center justify-between">
-                        <Label className="text-sm">Investimento:</Label>
-                        <p className="text-lg font-bold text-[#40E0D0]">R$ 1.250,00</p>
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        Valor será cobrado na próxima fatura do seu plano
-                      </p>
+                      
+                      {distributionType === "google_ads" && (
+                        <p className="text-xs text-muted-foreground">
+                          Valor será cobrado na próxima fatura do seu plano
+                        </p>
+                      )}
                     </CardContent>
                   </Card>
 
@@ -1918,13 +1966,21 @@ export default function Marketing() {
                       <p>
                         ✓ Esta campanha está em <strong>conformidade com as diretrizes do TSE</strong> (Tribunal Superior Eleitoral)
                       </p>
-                      <p>
-                        ✓ Respeita as <strong>políticas de tráfego pago do Google Ads</strong>
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-3">
-                        As respostas serão coletadas através de distribuição paga no Google Ads, 
-                        garantindo alcance qualificado e conformidade com todas as regulamentações aplicáveis.
-                      </p>
+                      {distributionType === "google_ads" ? (
+                        <>
+                          <p>
+                            ✓ Respeita as <strong>políticas de tráfego pago do Google Ads</strong>
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-3">
+                            As respostas serão coletadas através de distribuição paga no Google Ads, 
+                            garantindo alcance qualificado e conformidade com todas as regulamentações aplicáveis.
+                          </p>
+                        </>
+                      ) : (
+                        <p className="text-xs text-muted-foreground mt-3">
+                          Você receberá um link para compartilhar a pesquisa por seus próprios canais (WhatsApp, redes sociais, email, etc).
+                        </p>
+                      )}
                     </CardContent>
                   </Card>
                 </div>
