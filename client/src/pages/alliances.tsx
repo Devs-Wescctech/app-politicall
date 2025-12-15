@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { type PoliticalAlliance, type PoliticalParty, type InsertPoliticalAlliance, insertPoliticalAllianceSchema, type Contact } from "@shared/schema";
 import { Button } from "@/components/ui/button";
@@ -9,9 +9,11 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { Separator } from "@/components/ui/separator";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, Trash2, Mail, MessageCircle, Edit, UserPlus, Users, TrendingUp, Send, Copy, Download, FileText, Sheet, Lock } from "lucide-react";
+import { Plus, Trash2, Mail, MessageCircle, Edit, UserPlus, Users, TrendingUp, Send, Copy, Download, FileText, Sheet, Lock, CheckCircle2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -70,6 +72,17 @@ export default function Alliances() {
   const [exportPassword, setExportPassword] = useState("");
   const [isValidatingPassword, setIsValidatingPassword] = useState(false);
   const [pendingProtectedAction, setPendingProtectedAction] = useState<"pdf" | "excel" | "copy-whatsapp" | "bulk-email" | null>(null);
+  
+  // Bulk email with blocks
+  const [isBulkEmailModalOpen, setIsBulkEmailModalOpen] = useState(false);
+  const [sentEmailBlocks, setSentEmailBlocks] = useState<Set<number>>(() => {
+    const saved = localStorage.getItem('sentAllianceEmailBlocks');
+    return saved ? new Set(JSON.parse(saved)) : new Set();
+  });
+  const [sendingBlock, setSendingBlock] = useState<number | null>(null);
+  const [bulkEmailSessionId, setBulkEmailSessionId] = useState<string>(() => {
+    return localStorage.getItem('bulkAllianceEmailSessionId') || '';
+  });
   
   const { toast } = useToast();
 
@@ -349,18 +362,93 @@ export default function Alliances() {
     requestProtectedAction("bulk-email");
   };
 
-  const executeBulkEmail = () => {
-    const emailAddresses = getFilteredAlliances()
-      .filter(a => a.email)
-      .map(a => a.email)
-      .join(',');
+  // Email blocks calculation - divide alliances with email into chunks of 30
+  const emailBlocks = useMemo(() => {
+    const alliancesWithEmail = getFilteredAlliances().filter(a => a.email);
+    const blocks: { emails: string[]; startIndex: number; endIndex: number }[] = [];
+    const blockSize = 30;
     
-    if (!emailAddresses) {
+    for (let i = 0; i < alliancesWithEmail.length; i += blockSize) {
+      const chunk = alliancesWithEmail.slice(i, i + blockSize);
+      blocks.push({
+        emails: chunk.map(a => a.email!),
+        startIndex: i + 1,
+        endIndex: Math.min(i + blockSize, alliancesWithEmail.length)
+      });
+    }
+    return blocks;
+  }, [alliances, stateFilter, cityFilter]);
+
+  // Generate a unique session ID based on alliances for tracking
+  const currentEmailSessionId = useMemo(() => {
+    const alliancesWithEmail = getFilteredAlliances().filter(a => a.email);
+    if (alliancesWithEmail.length === 0) return '';
+    const emailList = alliancesWithEmail.map(a => a.email).sort().join(',');
+    let hash = 0;
+    for (let i = 0; i < emailList.length; i++) {
+      const char = emailList.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash;
+    }
+    return `alliance_session_${Math.abs(hash)}`;
+  }, [alliances, stateFilter, cityFilter]);
+
+  // Reset sent blocks if session changed (different alliance list)
+  const checkAndResetSession = () => {
+    if (bulkEmailSessionId !== currentEmailSessionId) {
+      setSentEmailBlocks(new Set());
+      setBulkEmailSessionId(currentEmailSessionId);
+      localStorage.setItem('bulkAllianceEmailSessionId', currentEmailSessionId);
+      localStorage.setItem('sentAllianceEmailBlocks', JSON.stringify([]));
+    }
+  };
+
+  const executeBulkEmail = () => {
+    const alliancesWithEmail = getFilteredAlliances().filter(a => a.email);
+    if (alliancesWithEmail.length === 0) {
       toast({ title: "Nenhum aliado com email", variant: "destructive" });
       return;
     }
+    checkAndResetSession();
+    setIsBulkEmailModalOpen(true);
+  };
+
+  const sendEmailBlock = (blockIndex: number) => {
+    if (sentEmailBlocks.has(blockIndex)) {
+      toast({ title: "Este bloco já foi enviado", variant: "destructive" });
+      return;
+    }
+
+    const block = emailBlocks[blockIndex];
+    if (!block) return;
+
+    setSendingBlock(blockIndex);
     
+    // Open mailto with BCC for this block
+    const emailAddresses = block.emails.join(',');
     window.location.href = `mailto:?bcc=${emailAddresses}`;
+    
+    // Mark block as sent after a short delay - using functional update to avoid stale closure
+    setTimeout(() => {
+      setSentEmailBlocks(prevBlocks => {
+        const newSentBlocks = new Set(prevBlocks);
+        newSentBlocks.add(blockIndex);
+        localStorage.setItem('sentAllianceEmailBlocks', JSON.stringify(Array.from(newSentBlocks)));
+        return newSentBlocks;
+      });
+      setSendingBlock(null);
+      
+      toast({ 
+        title: "Bloco enviado!", 
+        description: `Bloco ${blockIndex + 1} de ${emailBlocks.length} marcado como enviado`
+      });
+    }, 1000);
+  };
+
+  const resetEmailBlocks = () => {
+    setSentEmailBlocks(new Set());
+    localStorage.setItem('sentAllianceEmailBlocks', JSON.stringify([]));
+    toast({ title: "Progresso resetado", description: "Todos os blocos foram marcados como pendentes" });
   };
 
   const handleCopyWhatsAppNumbers = () => {
@@ -1450,6 +1538,147 @@ export default function Alliances() {
               data-testid="button-confirm-export"
             >
               {isValidatingPassword ? "Validando..." : "Confirmar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Email Modal with Blocks */}
+      <Dialog open={isBulkEmailModalOpen} onOpenChange={setIsBulkEmailModalOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] p-0" aria-describedby="bulk-email-dialog-description">
+          <DialogHeader className="px-5 pt-5 pb-3 border-b">
+            <DialogTitle className="text-lg font-bold flex items-center gap-2">
+              <Mail className="w-5 h-5 text-primary" />
+              Envio de Email em Massa
+            </DialogTitle>
+            <p id="bulk-email-dialog-description" className="text-xs text-muted-foreground mt-1">
+              Os emails são divididos em blocos de 30 para evitar limites de envio. Clique em cada bloco para enviar.
+            </p>
+          </DialogHeader>
+          <div className="p-4 space-y-4">
+            <div className="flex items-center justify-between bg-muted/50 rounded-lg p-3">
+              <div className="flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-primary" />
+                <span className="text-sm font-medium">Progresso:</span>
+                <span className="text-sm text-muted-foreground">
+                  {sentEmailBlocks.size} de {emailBlocks.length} blocos enviados
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Progress 
+                  value={emailBlocks.length > 0 ? (sentEmailBlocks.size / emailBlocks.length) * 100 : 0} 
+                  className="w-24 h-2"
+                />
+                <span className="text-xs font-medium">
+                  {emailBlocks.length > 0 ? Math.round((sentEmailBlocks.size / emailBlocks.length) * 100) : 0}%
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">
+                Total: {getFilteredAlliances().filter(a => a.email).length} emails
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={resetEmailBlocks}
+                disabled={sentEmailBlocks.size === 0}
+                data-testid="button-reset-alliance-email-blocks"
+              >
+                Resetar Progresso
+              </Button>
+            </div>
+
+            <Separator />
+
+            <div className="max-h-[400px] overflow-y-auto space-y-2 pr-2">
+              {emailBlocks.map((block, index) => {
+                const isSent = sentEmailBlocks.has(index);
+                const isSending = sendingBlock === index;
+                
+                return (
+                  <div
+                    key={index}
+                    className="flex items-center justify-between p-3 rounded-lg border border-border transition-colors hover-elevate"
+                    data-testid={`alliance-email-block-${index}`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center border border-border text-muted-foreground">
+                        {isSent ? (
+                          <CheckCircle2 className="w-4 h-4" />
+                        ) : (
+                          <span className="text-xs font-medium">{index + 1}</span>
+                        )}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">
+                          Bloco {index + 1} de {emailBlocks.length}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Emails {block.startIndex} - {block.endIndex} ({block.emails.length} aliados)
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {isSent ? (
+                        <Badge variant="outline">
+                          <CheckCircle2 className="w-3 h-3 mr-1" />
+                          Enviado
+                        </Badge>
+                      ) : (
+                        <Button
+                          size="sm"
+                          onClick={() => sendEmailBlock(index)}
+                          disabled={isSending}
+                          data-testid={`button-send-alliance-block-${index}`}
+                        >
+                          {isSending ? (
+                            <>
+                              <span className="animate-spin mr-1">⏳</span>
+                              Enviando...
+                            </>
+                          ) : (
+                            <>
+                              <Send className="w-3 h-3 mr-1" />
+                              Enviar
+                            </>
+                          )}
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+              
+              {emailBlocks.length === 0 && (
+                <div className="text-center text-muted-foreground py-8">
+                  <Mail className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                  <p>Nenhum aliado com email cadastrado</p>
+                </div>
+              )}
+            </div>
+
+            {sentEmailBlocks.size === emailBlocks.length && emailBlocks.length > 0 && (
+              <div className="border border-border rounded-lg p-4 text-center">
+                <CheckCircle2 className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
+                <p className="font-medium">
+                  Todos os blocos foram enviados!
+                </p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {getFilteredAlliances().filter(a => a.email).length} emails disparados com sucesso
+                </p>
+              </div>
+            )}
+          </div>
+          <DialogFooter className="px-5 py-4 border-t">
+            <Button
+              variant="outline"
+              onClick={() => setIsBulkEmailModalOpen(false)}
+              className="w-full"
+              data-testid="button-close-alliance-bulk-email"
+            >
+              Fechar
             </Button>
           </DialogFooter>
         </DialogContent>
