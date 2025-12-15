@@ -1378,20 +1378,6 @@ export default function ContractsPage() {
                   onChange={(e) => setNewAdminPassword(e.target.value)}
                   data-testid="input-new-admin-password"
                 />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                  onClick={() => setShowNewPassword(!showNewPassword)}
-                  data-testid="button-toggle-new-password"
-                >
-                  {showNewPassword ? (
-                    <EyeOff className="h-4 w-4 text-muted-foreground" />
-                  ) : (
-                    <Eye className="h-4 w-4 text-muted-foreground" />
-                  )}
-                </Button>
               </div>
             </div>
             
