@@ -2111,6 +2111,21 @@ export default function Alliances() {
                         size="icon"
                         variant="ghost"
                         onClick={() => {
+                          const link = `https://www.politicall.com.br/convite-alianca/${invite.token}`;
+                          navigator.clipboard.writeText(link).then(() => {
+                            toast({ title: "Link copiado!" });
+                          });
+                        }}
+                        data-testid={`button-copy-invite-link-${invite.id}`}
+                        title="Copiar link do convite"
+                        className="rounded-full"
+                      >
+                        <Copy className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => {
                           if (confirm("Tem certeza que deseja excluir este convite?")) {
                             deleteInviteMutation.mutate(invite.id);
                           }
