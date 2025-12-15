@@ -91,19 +91,19 @@ export const DEFAULT_PERMISSIONS = {
 
 // Political positions available in Brazil
 export const POLITICAL_POSITIONS = [
-  "Vereador",
-  "Prefeito",
-  "Vice-Prefeito",
+  "Candidato",
   "Deputado Estadual",
   "Deputado Federal",
-  "Senador",
   "Governador",
-  "Vice-Governador",
-  "Presidente",
-  "Vice-Presidente",
-  "Candidato",
+  "Outro",
+  "Prefeito",
   "Pré-Candidato",
-  "Outro"
+  "Presidente",
+  "Senador",
+  "Vereador",
+  "Vice-Governador",
+  "Vice-Prefeito",
+  "Vice-Presidente"
 ] as const;
 
 // Users table - Custom authentication with email/password
