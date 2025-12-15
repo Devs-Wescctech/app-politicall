@@ -2052,6 +2052,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         },
         inviter: inviter ? {
           name: inviter.name,
+          avatar: inviter.avatar,
           politicalPosition: inviter.politicalPosition,
           city: inviter.city,
           state: inviter.state,

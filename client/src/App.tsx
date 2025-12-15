@@ -43,6 +43,7 @@ import UsersManagement from "@/pages/users";
 import Petitions from "@/pages/petitions";
 import SurveyLanding from "@/pages/survey-landing";
 import PublicSupport from "@/pages/public-support";
+import AllianceInvitePage from "@/pages/alliance-invite";
 import LandingPage from "@/pages/landing";
 import ThankYouPage from "@/pages/thank-you";
 
@@ -142,6 +143,7 @@ function App() {
             <Route path="/pesquisa/:slug" component={SurveyLanding} />
             <Route path="/apoio/:slug/:volunteerCode" component={PublicSupport} />
             <Route path="/apoio/:slug" component={PublicSupport} />
+            <Route path="/convite-alianca/:token" component={AllianceInvitePage} />
             <Route path="/thank-you" component={ThankYouPage} />
             <Route path="/" component={LandingPage} />
             <Route path="/:rest*">
