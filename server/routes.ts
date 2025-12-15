@@ -2051,6 +2051,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const inviter = await storage.getUser(invite.userId);
       const party = await db.select().from(politicalParties).where(eq(politicalParties.id, invite.partyId));
       
+      // Get account and admin info for personalization
+      const [account] = await db.select().from(accounts).where(eq(accounts.id, invite.accountId));
+      const admin = await storage.getAccountAdmin(invite.accountId);
+      
       res.json({
         invite: {
           id: invite.id,
@@ -2071,6 +2075,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           name: party[0].name,
           acronym: party[0].acronym,
           ideology: party[0].ideology,
+        } : null,
+        account: account ? {
+          name: account.name,
+        } : null,
+        admin: admin ? {
+          name: admin.name,
+          avatar: admin.avatar,
+          politicalPosition: admin.politicalPosition,
+          city: admin.city,
+          state: admin.state,
         } : null,
       });
     } catch (error: any) {
