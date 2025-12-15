@@ -1181,13 +1181,27 @@ export default function Alliances() {
       <Dialog open={!!selectedParty} onOpenChange={(open) => !open && setSelectedParty(null)}>
         <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col p-0">
           <DialogHeader className="px-6 pt-6 pb-4 border-b">
-            <DialogTitle className="flex items-center gap-2">
-              <span>{selectedParty?.acronym}</span>
-              <Badge className={`rounded-full ${selectedParty ? IDEOLOGY_BADGES[selectedParty.ideology as keyof typeof IDEOLOGY_BADGES] : ""}`}>
-                {selectedParty?.ideology}
-              </Badge>
-            </DialogTitle>
-            <p className="text-sm text-muted-foreground">{selectedParty?.name}</p>
+            <div className="flex items-center justify-between">
+              <div>
+                <DialogTitle className="flex items-center gap-2">
+                  <span>{selectedParty?.acronym}</span>
+                  <Badge className={`rounded-full ${selectedParty ? IDEOLOGY_BADGES[selectedParty.ideology as keyof typeof IDEOLOGY_BADGES] : ""}`}>
+                    {selectedParty?.ideology}
+                  </Badge>
+                </DialogTitle>
+                <p className="text-sm text-muted-foreground">{selectedParty?.name}</p>
+              </div>
+              <Button
+                size="icon"
+                variant="outline"
+                onClick={handleBulkEmail}
+                data-testid="button-bulk-email-party-modal"
+                title="Enviar email em massa"
+                className="rounded-full"
+              >
+                <Send className="w-4 h-4" />
+              </Button>
+            </div>
           </DialogHeader>
           <div className="overflow-y-auto px-6 py-4 flex-1">
             <div className="space-y-3">
