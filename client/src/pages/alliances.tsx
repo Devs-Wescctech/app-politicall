@@ -1213,7 +1213,7 @@ export default function Alliances() {
                   <Send className="w-4 h-4" />
                 </Button>
               </div>
-              </div>
+            </div>
           </DialogHeader>
           <div className="overflow-y-auto px-6 py-4 flex-1">
             <div className="space-y-3">
@@ -1272,6 +1272,17 @@ export default function Alliances() {
               )}
             </div>
           </div>
+          <DialogFooter className="p-4 border-t">
+            <DialogClose asChild>
+              <Button
+                variant="outline"
+                className="w-full rounded-full"
+                data-testid="button-close-party-modal"
+              >
+                Fechar
+              </Button>
+            </DialogClose>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
       <Dialog open={!!selectedAlliance && !isEditMode} onOpenChange={(open) => !open && setSelectedAlliance(null)}>
