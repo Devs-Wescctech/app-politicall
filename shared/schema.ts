@@ -301,6 +301,22 @@ export const politicalAlliances = pgTable("political_alliances", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Alliance invites - Invitation system for political alliances
+export const allianceInvites = pgTable("alliance_invites", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  accountId: varchar("account_id").notNull().references(() => accounts.id, { onDelete: 'cascade' }),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  partyId: varchar("party_id").notNull().references(() => politicalParties.id, { onDelete: "cascade" }),
+  token: text("token").notNull().unique(),
+  status: text("status").notNull().default("pending"), // pending, accepted, expired
+  inviteeEmail: text("invitee_email"),
+  inviteePhone: text("invitee_phone"),
+  inviteeName: text("invitee_name"),
+  inviteePosition: text("invitee_position"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  acceptedAt: timestamp("accepted_at"),
+});
+
 // Demands - CRM for office demands
 export const demands = pgTable("demands", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -646,6 +662,17 @@ export const politicalAlliancesRelations = relations(politicalAlliances, ({ one 
   }),
 }));
 
+export const allianceInvitesRelations = relations(allianceInvites, ({ one }) => ({
+  user: one(users, {
+    fields: [allianceInvites.userId],
+    references: [users.id],
+  }),
+  party: one(politicalParties, {
+    fields: [allianceInvites.partyId],
+    references: [politicalParties.id],
+  }),
+}));
+
 export const demandsRelations = relations(demands, ({ one, many }) => ({
   user: one(users, {
     fields: [demands.userId],
@@ -765,6 +792,16 @@ export const insertPoliticalAllianceSchema = createInsertSchema(politicalAllianc
   userId: true,
   accountId: true,
   createdAt: true,
+});
+
+export const insertAllianceInviteSchema = createInsertSchema(allianceInvites).omit({
+  id: true,
+  userId: true,
+  accountId: true,
+  token: true,
+  status: true,
+  createdAt: true,
+  acceptedAt: true,
 });
 
 export const insertDemandSchema = createInsertSchema(demands).omit({
@@ -988,6 +1025,9 @@ export type PoliticalParty = typeof politicalParties.$inferSelect;
 
 export type PoliticalAlliance = typeof politicalAlliances.$inferSelect;
 export type InsertPoliticalAlliance = z.infer<typeof insertPoliticalAllianceSchema>;
+
+export type AllianceInvite = typeof allianceInvites.$inferSelect;
+export type InsertAllianceInvite = z.infer<typeof insertAllianceInviteSchema>;
 
 export type Demand = typeof demands.$inferSelect;
 export type InsertDemand = z.infer<typeof insertDemandSchema>;
