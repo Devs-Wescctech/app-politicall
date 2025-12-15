@@ -13,7 +13,7 @@ import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, Trash2, Mail, MessageCircle, Edit, UserPlus, Users, TrendingUp, Send, Copy, Download, FileText, Sheet, Lock, CheckCircle2, X, Loader2 } from "lucide-react";
+import { Plus, Trash2, Mail, MessageCircle, Edit, UserPlus, Users, TrendingUp, Send, Copy, Download, FileText, Sheet, Lock, CheckCircle2, X, Loader2, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -1278,18 +1278,21 @@ export default function Alliances() {
                     {hasInvites && (
                       <div className="mt-2 pt-2 border-t w-full flex justify-center gap-3" data-testid={`party-invites-${party.acronym}`}>
                         {inviteCounts.pending > 0 && (
-                          <span className="text-xs text-yellow-600 dark:text-yellow-400" title="Convites enviados (pendentes)">
-                            {inviteCounts.pending} env
+                          <span className="flex items-center gap-1 text-xs text-yellow-600 dark:text-yellow-400" title="Convites enviados (pendentes)">
+                            <Clock className="w-3 h-3" />
+                            {inviteCounts.pending}
                           </span>
                         )}
                         {inviteCounts.accepted > 0 && (
-                          <span className="text-xs text-green-600 dark:text-green-400" title="Convites aceitos">
-                            {inviteCounts.accepted} ace
+                          <span className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400" title="Convites aceitos">
+                            <CheckCircle2 className="w-3 h-3" />
+                            {inviteCounts.accepted}
                           </span>
                         )}
                         {inviteCounts.rejected > 0 && (
-                          <span className="text-xs text-red-600 dark:text-red-400" title="Convites rejeitados">
-                            {inviteCounts.rejected} rej
+                          <span className="flex items-center gap-1 text-xs text-red-600 dark:text-red-400" title="Convites rejeitados">
+                            <X className="w-3 h-3" />
+                            {inviteCounts.rejected}
                           </span>
                         )}
                       </div>
