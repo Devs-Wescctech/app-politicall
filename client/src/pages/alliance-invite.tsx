@@ -112,6 +112,7 @@ export default function AllianceInvitePage() {
   const [, params] = useRoute("/convite-alianca/:token");
   const { toast } = useToast();
   const [isAccepted, setIsAccepted] = useState(false);
+  const [isRejected, setIsRejected] = useState(false);
 
   const getPartyColor = (partyAcronym?: string) => {
     if (!partyAcronym) return "#40E0D0";
@@ -270,6 +271,33 @@ export default function AllianceInvitePage() {
               <div className="flex items-center justify-center gap-2 text-primary">
                 <Handshake className="w-5 h-5" />
                 <span className="font-medium">Unidos pelo futuro!</span>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  if (isRejected) {
+    return (
+      <div className="min-h-screen flex flex-col bg-gradient-to-b from-muted/30 to-background">
+        <header className="flex items-center justify-center p-4 border-b bg-background/80 backdrop-blur-sm">
+          <img src={logoUrl} alt="Politicall" className="h-8" data-testid="img-logo" />
+        </header>
+        <div className="flex-1 flex items-center justify-center p-4">
+          <Card className="max-w-md w-full" data-testid="card-rejected">
+            <CardContent className="p-8 text-center space-y-6">
+              <div className="w-20 h-20 mx-auto bg-muted rounded-full flex items-center justify-center">
+                <X className="w-10 h-10 text-muted-foreground" />
+              </div>
+              <div className="space-y-2">
+                <h2 className="text-2xl font-bold" data-testid="text-rejected-title">
+                  Convite Recusado
+                </h2>
+                <p className="text-muted-foreground" data-testid="text-rejected-message">
+                  Você optou por não aceitar este convite de aliança. Obrigado pelo seu tempo.
+                </p>
               </div>
             </CardContent>
           </Card>
@@ -526,25 +554,38 @@ export default function AllianceInvitePage() {
                     </div>
                   )}
 
-                  <Button 
-                    type="submit" 
-                    size="lg"
-                    className="w-full mt-6"
-                    disabled={acceptMutation.isPending}
-                    data-testid="button-accept-alliance"
-                  >
-                    {acceptMutation.isPending ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                        Processando...
-                      </>
-                    ) : (
-                      <>
-                        <Handshake className="w-5 h-5 mr-2" />
-                        Aceitar Aliança
-                      </>
-                    )}
-                  </Button>
+                  <div className="flex gap-3 mt-6">
+                    <Button 
+                      type="button"
+                      variant="outline" 
+                      size="lg"
+                      className="flex-1"
+                      onClick={() => setIsRejected(true)}
+                      data-testid="button-reject-alliance"
+                    >
+                      <X className="w-5 h-5 mr-2" />
+                      Rejeitar
+                    </Button>
+                    <Button 
+                      type="submit" 
+                      size="lg"
+                      className="flex-1"
+                      disabled={acceptMutation.isPending}
+                      data-testid="button-accept-alliance"
+                    >
+                      {acceptMutation.isPending ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                          Processando...
+                        </>
+                      ) : (
+                        <>
+                          <Handshake className="w-5 h-5 mr-2" />
+                          Aceitar Aliança
+                        </>
+                      )}
+                    </Button>
+                  </div>
                 </form>
               </Form>
             </div>
