@@ -1295,6 +1295,17 @@ export default function Marketing() {
                             Região: {campaign.region}
                           </CardDescription>
                         )}
+                        {campaign.distributionType === "google_ads" && (
+                          <div className="flex items-center gap-2 mt-2">
+                            <Calendar className="w-3 h-3 text-[#40E0D0]" />
+                            <span className="text-xs text-muted-foreground">
+                              {campaign.productionStartDate 
+                                ? `${format(new Date(campaign.productionStartDate), "dd/MM/yyyy", { locale: ptBR })} - ${format(addDays(new Date(campaign.productionStartDate), 7), "dd/MM/yyyy", { locale: ptBR })}`
+                                : "Datas a definir"
+                              }
+                            </span>
+                          </div>
+                        )}
                       </div>
                       <div className="flex gap-2">
                         <Button
