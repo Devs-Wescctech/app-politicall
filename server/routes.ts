@@ -19,7 +19,7 @@ import multer from "multer";
 import { google } from "googleapis";
 import crypto from "crypto";
 import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
-import { insertUserSchema, loginSchema, insertContactSchema, insertContactActivitySchema, insertPoliticalAllianceSchema, insertDemandSchema, insertDemandCommentSchema, insertEventSchema, insertAiConfigurationSchema, insertAiTrainingExampleSchema, insertAiResponseTemplateSchema, insertMarketingCampaignSchema, insertNotificationSchema, insertIntegrationSchema, insertSurveyCampaignSchema, insertSurveyLandingPageSchema, insertSurveyResponseSchema, insertLeadSchema, insertFieldOperativeSchema, DEFAULT_PERMISSIONS } from "@shared/schema";
+import { insertUserSchema, loginSchema, insertContactSchema, insertPoliticalAllianceSchema, insertDemandSchema, insertDemandCommentSchema, insertEventSchema, insertAiConfigurationSchema, insertAiTrainingExampleSchema, insertAiResponseTemplateSchema, insertMarketingCampaignSchema, insertNotificationSchema, insertIntegrationSchema, insertSurveyCampaignSchema, insertSurveyLandingPageSchema, insertSurveyResponseSchema, insertLeadSchema, DEFAULT_PERMISSIONS } from "@shared/schema";
 
 // Configure multer for file uploads
 const upload = multer({ 
@@ -27,7 +27,7 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 } // 10MB max
 });
 import { db } from "./db";
-import { politicalParties, politicalAlliances, surveyTemplates, surveyCampaigns, surveyLandingPages, surveyResponses, users, events, demands, demandComments, contacts, aiConfigurations, fieldOperatives, type SurveyTemplate, type SurveyCampaign, type InsertSurveyCampaign, type SurveyLandingPage, type InsertSurveyLandingPage, type SurveyResponse, type InsertSurveyResponse } from "@shared/schema";
+import { politicalParties, politicalAlliances, surveyTemplates, surveyCampaigns, surveyLandingPages, surveyResponses, users, events, demands, demandComments, contacts, aiConfigurations, type SurveyTemplate, type SurveyCampaign, type InsertSurveyCampaign, type SurveyLandingPage, type InsertSurveyLandingPage, type SurveyResponse, type InsertSurveyResponse } from "@shared/schema";
 import { sql, eq, desc, and } from "drizzle-orm";
 import { generateAiResponse, testOpenAiApiKey } from "./openai";
 import { requireRole } from "./authorization";
@@ -519,17 +519,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Seed test campaign on startup
   await seedTestCampaign();
 
-  // ==================== HEALTH CHECK ====================
-  
-  // Health check endpoint for Docker/Kubernetes health probes
-  app.get("/api/health", (_req, res) => {
-    res.status(200).json({ 
-      status: "healthy", 
-      timestamp: new Date().toISOString(),
-      version: process.env.npm_package_version || "1.0.0"
-    });
-  });
-
   // ==================== AUTHENTICATION ====================
   
   // Register
@@ -704,58 +693,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
-    }
-  });
-
-  // Upload image endpoint - returns URL path instead of base64
-  // MIME type to safe extension mapping (ignore client extension)
-  const MIME_TO_EXT: Record<string, string> = {
-    'image/jpeg': 'jpg',
-    'image/png': 'png',
-    'image/webp': 'webp',
-    'image/gif': 'gif'
-  };
-
-  app.post("/api/upload/image", authenticateToken, upload.single('file'), async (req: AuthRequest, res) => {
-    try {
-      if (!req.file) {
-        return res.status(400).json({ error: "Nenhum arquivo enviado" });
-      }
-
-      // Validate file type - use strict MIME mapping (ignore client extension)
-      const safeExt = MIME_TO_EXT[req.file.mimetype];
-      if (!safeExt) {
-        return res.status(400).json({ error: "Tipo de arquivo não permitido. Use JPEG, PNG, WebP ou GIF." });
-      }
-
-      // Setup directories with async operations
-      const uploadsDir = path.join(process.cwd(), 'uploads');
-      const avatarsDir = path.join(uploadsDir, 'avatars');
-      const backgroundsDir = path.join(uploadsDir, 'backgrounds');
-      
-      // Create directories if they don't exist (async)
-      await fs.promises.mkdir(avatarsDir, { recursive: true });
-      await fs.promises.mkdir(backgroundsDir, { recursive: true });
-
-      // Determine subdirectory based on type query param
-      const imageType = req.query.type as string || 'avatars';
-      const targetDir = imageType === 'background' ? backgroundsDir : avatarsDir;
-
-      // Generate secure random filename (not based on userId to prevent enumeration)
-      const randomBytes = crypto.randomBytes(16).toString('hex');
-      const filename = `${randomBytes}.${safeExt}`;
-      const filepath = path.join(targetDir, filename);
-
-      // Save file to disk asynchronously
-      await fs.promises.writeFile(filepath, req.file.buffer);
-
-      // Return the URL path (not base64)
-      const urlPath = `/uploads/${imageType === 'background' ? 'backgrounds' : 'avatars'}/${filename}`;
-      
-      res.json({ url: urlPath, filename });
-    } catch (error: any) {
-      console.error('Erro ao fazer upload:', error);
-      res.status(500).json({ error: "Erro ao fazer upload da imagem" });
     }
   });
 
@@ -1223,6 +1160,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           agenda: z.boolean(),
           ai: z.boolean(),
           marketing: z.boolean(),
+          petitions: z.boolean(),
           users: z.boolean(),
           settings: z.boolean(),
         }).optional(),
@@ -1287,6 +1225,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           agenda: z.boolean(),
           ai: z.boolean(),
           marketing: z.boolean(),
+          petitions: z.boolean(),
           users: z.boolean(),
           settings: z.boolean(),
         }).optional(),
@@ -1301,32 +1240,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const updated = await storage.updateUser(req.params.id, user.accountId, validatedData);
-      const { password, ...sanitizedUser } = updated;
-      res.json(sanitizedUser);
-    } catch (error: any) {
-      res.status(400).json({ error: error.message });
-    }
-  });
-
-  // Reset user password (admin panel only)
-  app.patch("/api/admin/users/:id/password", authenticateAdminToken, async (req: AuthRequest, res) => {
-    try {
-      const schema = z.object({
-        password: z.string().min(6, "Senha deve ter pelo menos 6 caracteres"),
-      });
-
-      const validatedData = schema.parse(req.body);
-      
-      // Get user to find their accountId
-      const user = await storage.getUser(req.params.id);
-      if (!user) {
-        return res.status(404).json({ error: "Usuário não encontrado" });
-      }
-      
-      // Hash the new password
-      const hashedPassword = await bcrypt.hash(validatedData.password, 10);
-      
-      const updated = await storage.updateUser(req.params.id, user.accountId, { password: hashedPassword });
       const { password, ...sanitizedUser } = updated;
       res.json(sanitizedUser);
     } catch (error: any) {
@@ -1616,6 +1529,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           agenda: z.boolean(),
           ai: z.boolean(),
           marketing: z.boolean(),
+          petitions: z.boolean(),
           users: z.boolean(),
           settings: z.boolean(),
         }).optional(),
@@ -1677,6 +1591,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           agenda: z.boolean(),
           ai: z.boolean(),
           marketing: z.boolean(),
+          petitions: z.boolean(),
           users: z.boolean(),
           settings: z.boolean(),
         }).optional(),
@@ -1795,31 +1710,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       await storage.deleteContact(req.params.id, req.accountId!);
       res.json({ success: true });
-    } catch (error: any) {
-      res.status(400).json({ error: error.message });
-    }
-  });
-
-  // Contact Activities (Timeline)
-  app.get("/api/contacts/:id/activities", authenticateToken, requirePermission("contacts"), async (req: AuthRequest, res) => {
-    try {
-      const activities = await storage.getContactActivities(req.params.id, req.accountId!);
-      res.json(activities);
-    } catch (error: any) {
-      res.status(400).json({ error: error.message });
-    }
-  });
-
-  app.post("/api/contacts/:id/activities", authenticateToken, requirePermission("contacts"), async (req: AuthRequest, res) => {
-    try {
-      const validatedData = insertContactActivitySchema.parse({
-        ...req.body,
-        contactId: req.params.id,
-        accountId: req.accountId!,
-        userId: req.userId!,
-      });
-      const activity = await storage.createContactActivity(validatedData);
-      res.json(activity);
     } catch (error: any) {
       res.status(400).json({ error: error.message });
     }
@@ -1978,273 +1868,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         topSources,
         genderDistribution,
       });
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  // ==================== FIELD OPERATIVES (CABOS ELEITORAIS) ====================
-  
-  app.get("/api/field-operatives", authenticateToken, requirePermission("contacts"), async (req: AuthRequest, res) => {
-    try {
-      const operatives = await storage.getFieldOperatives(req.accountId!);
-      res.json(operatives);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  app.get("/api/field-operatives/:id", authenticateToken, requirePermission("contacts"), async (req: AuthRequest, res) => {
-    try {
-      const operative = await storage.getFieldOperative(req.params.id, req.accountId!);
-      if (!operative) {
-        return res.status(404).json({ error: "Cabo eleitoral não encontrado" });
-      }
-      res.json(operative);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  app.post("/api/field-operatives", authenticateToken, requirePermission("contacts"), upload.fields([
-    { name: 'avatar', maxCount: 1 },
-    { name: 'coverImage', maxCount: 1 }
-  ]), async (req: AuthRequest, res) => {
-    try {
-      // Normalize multipart form data - convert string booleans and handle empty strings
-      const normalizedBody = {
-        ...req.body,
-        isActive: req.body.isActive === 'true' || req.body.isActive === true ? true : 
-                  req.body.isActive === 'false' || req.body.isActive === false ? false : undefined,
-        name: req.body.name || undefined,
-        slug: req.body.slug || undefined,
-        phone: req.body.phone || undefined,
-        email: req.body.email || undefined,
-        notes: req.body.notes || undefined,
-      };
-      
-      // Validate BEFORE touching filesystem
-      const validatedData = insertFieldOperativeSchema.parse(normalizedBody);
-      
-      const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
-      
-      let avatarUrl: string | undefined;
-      let coverImageUrl: string | undefined;
-      
-      // Setup directories with async operations (same pattern as working upload endpoint)
-      const uploadsDir = path.join(process.cwd(), 'uploads');
-      const avatarsDir = path.join(uploadsDir, 'avatars');
-      const backgroundsDir = path.join(uploadsDir, 'backgrounds');
-      
-      // Create directories if they don't exist (async, safe)
-      await fs.promises.mkdir(avatarsDir, { recursive: true });
-      await fs.promises.mkdir(backgroundsDir, { recursive: true });
-      
-      if (files?.avatar?.[0]) {
-        const avatarFile = files.avatar[0];
-        // Use MIME type mapping for safe extension
-        const ext = MIME_TO_EXT[avatarFile.mimetype] || 'jpg';
-        const randomBytes = crypto.randomBytes(8).toString('hex');
-        const avatarFilename = `cabo-avatar-${Date.now()}-${randomBytes}.${ext}`;
-        const avatarPath = path.join(avatarsDir, avatarFilename);
-        // Use async write (won't crash on error)
-        await fs.promises.writeFile(avatarPath, avatarFile.buffer);
-        avatarUrl = `/uploads/avatars/${avatarFilename}`;
-      }
-      
-      if (files?.coverImage?.[0]) {
-        const coverFile = files.coverImage[0];
-        // Use MIME type mapping for safe extension
-        const ext = MIME_TO_EXT[coverFile.mimetype] || 'jpg';
-        const randomBytes = crypto.randomBytes(8).toString('hex');
-        const coverFilename = `cabo-cover-${Date.now()}-${randomBytes}.${ext}`;
-        const coverPath = path.join(backgroundsDir, coverFilename);
-        // Use async write (won't crash on error)
-        await fs.promises.writeFile(coverPath, coverFile.buffer);
-        coverImageUrl = `/uploads/backgrounds/${coverFilename}`;
-      }
-      
-      const operative = await storage.createFieldOperative({
-        ...validatedData,
-        avatarUrl,
-        coverImageUrl,
-        accountId: req.accountId!
-      });
-      
-      res.status(201).json(operative);
-    } catch (error: any) {
-      console.error("[field-operatives] POST error:", error.message);
-      res.status(400).json({ error: error.message });
-    }
-  });
-
-  app.patch("/api/field-operatives/:id", authenticateToken, requirePermission("contacts"), upload.fields([
-    { name: 'avatar', maxCount: 1 },
-    { name: 'coverImage', maxCount: 1 }
-  ]), async (req: AuthRequest, res) => {
-    try {
-      const existing = await storage.getFieldOperative(req.params.id, req.accountId!);
-      if (!existing) {
-        return res.status(404).json({ error: "Cabo eleitoral não encontrado" });
-      }
-      
-      // Normalize multipart form data - convert string booleans and handle empty strings
-      const normalizedBody = {
-        ...req.body,
-        isActive: req.body.isActive === 'true' || req.body.isActive === true ? true : 
-                  req.body.isActive === 'false' || req.body.isActive === false ? false : undefined,
-        name: req.body.name || undefined,
-        slug: req.body.slug || undefined,
-        phone: req.body.phone || undefined,
-        email: req.body.email || undefined,
-        notes: req.body.notes || undefined,
-      };
-      
-      // Validate BEFORE touching filesystem
-      const validatedData = insertFieldOperativeSchema.partial().parse(normalizedBody);
-      
-      const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
-      
-      let avatarUrl: string | undefined;
-      let coverImageUrl: string | undefined;
-      
-      // Setup directories with async operations (same pattern as working upload endpoint)
-      const uploadsDir = path.join(process.cwd(), 'uploads');
-      const avatarsDir = path.join(uploadsDir, 'avatars');
-      const backgroundsDir = path.join(uploadsDir, 'backgrounds');
-      
-      // Create directories if they don't exist (async, safe)
-      await fs.promises.mkdir(avatarsDir, { recursive: true });
-      await fs.promises.mkdir(backgroundsDir, { recursive: true });
-      
-      if (files?.avatar?.[0]) {
-        const avatarFile = files.avatar[0];
-        // Use MIME type mapping for safe extension
-        const ext = MIME_TO_EXT[avatarFile.mimetype] || 'jpg';
-        const randomBytes = crypto.randomBytes(8).toString('hex');
-        const avatarFilename = `cabo-avatar-${Date.now()}-${randomBytes}.${ext}`;
-        const avatarPath = path.join(avatarsDir, avatarFilename);
-        // Use async write (won't crash on error)
-        await fs.promises.writeFile(avatarPath, avatarFile.buffer);
-        avatarUrl = `/uploads/avatars/${avatarFilename}`;
-      }
-      
-      if (files?.coverImage?.[0]) {
-        const coverFile = files.coverImage[0];
-        // Use MIME type mapping for safe extension
-        const ext = MIME_TO_EXT[coverFile.mimetype] || 'jpg';
-        const randomBytes = crypto.randomBytes(8).toString('hex');
-        const coverFilename = `cabo-cover-${Date.now()}-${randomBytes}.${ext}`;
-        const coverPath = path.join(backgroundsDir, coverFilename);
-        // Use async write (won't crash on error)
-        await fs.promises.writeFile(coverPath, coverFile.buffer);
-        coverImageUrl = `/uploads/backgrounds/${coverFilename}`;
-      }
-      
-      const operative = await storage.updateFieldOperative(req.params.id, req.accountId!, {
-        ...validatedData,
-        ...(avatarUrl && { avatarUrl }),
-        ...(coverImageUrl && { coverImageUrl })
-      });
-      
-      if (!operative) {
-        return res.status(404).json({ error: "Cabo eleitoral não encontrado" });
-      }
-      
-      res.json(operative);
-    } catch (error: any) {
-      console.error("[field-operatives] PATCH error:", error.message);
-      res.status(400).json({ error: error.message });
-    }
-  });
-
-  app.delete("/api/field-operatives/:id", authenticateToken, requirePermission("contacts"), async (req: AuthRequest, res) => {
-    try {
-      const deleted = await storage.deleteFieldOperative(req.params.id, req.accountId!);
-      if (!deleted) {
-        return res.status(404).json({ error: "Cabo eleitoral não encontrado" });
-      }
-      res.status(204).send();
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  app.get("/api/field-operatives/:id/stats", authenticateToken, requirePermission("contacts"), async (req: AuthRequest, res) => {
-    try {
-      const operative = await storage.getFieldOperative(req.params.id, req.accountId!);
-      if (!operative) {
-        return res.status(404).json({ error: "Cabo eleitoral não encontrado" });
-      }
-      
-      const stats = await storage.getFieldOperativeStats(req.params.id, req.accountId!);
-      res.json(stats);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  app.get("/api/field-operatives/:id/contacts", authenticateToken, requirePermission("contacts"), async (req: AuthRequest, res) => {
-    try {
-      const operative = await storage.getFieldOperative(req.params.id, req.accountId!);
-      if (!operative) {
-        return res.status(404).json({ error: "Cabo eleitoral não encontrado" });
-      }
-      
-      const allContacts = await storage.getContacts(req.accountId!);
-      const operativeContacts = allContacts.filter(c => c.fieldOperativeId === req.params.id);
-      res.json(operativeContacts);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  app.get("/api/field-operatives-stats", authenticateToken, requirePermission("contacts"), async (req: AuthRequest, res) => {
-    try {
-      const allContacts = await storage.getContacts(req.accountId!);
-      const caboContacts = allContacts.filter(c => c.fieldOperativeId);
-      
-      const now = new Date();
-      const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      
-      const recentContacts = caboContacts.filter(c => {
-        const createdAt = c.createdAt ? new Date(c.createdAt) : null;
-        return createdAt && createdAt >= sevenDaysAgo;
-      });
-      
-      res.json({
-        totalContacts: caboContacts.length,
-        recentContacts: recentContacts.length,
-      });
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  app.get("/api/field-operatives-all-stats", authenticateToken, requirePermission("contacts"), async (req: AuthRequest, res) => {
-    try {
-      const allContacts = await storage.getContacts(req.accountId!);
-      const operatives = await storage.getFieldOperatives(req.accountId!);
-      
-      const now = new Date();
-      const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      
-      const statsById: Record<string, { totalContacts: number; recentContacts: number }> = {};
-      
-      for (const operative of operatives) {
-        const operativeContacts = allContacts.filter(c => c.fieldOperativeId === operative.id);
-        const recentContacts = operativeContacts.filter(c => {
-          const createdAt = c.createdAt ? new Date(c.createdAt) : null;
-          return createdAt && createdAt >= sevenDaysAgo;
-        });
-        
-        statsById[operative.id] = {
-          totalContacts: operativeContacts.length,
-          recentContacts: recentContacts.length,
-        };
-      }
-      
-      res.json(statsById);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -3271,8 +2894,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ...validatedData,
         userId: req.userId!,
         accountId: req.accountId!,
-        status: "approved",
-        campaignStage: "aprovado",
       });
       
       res.json(campaign);
@@ -4665,75 +4286,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Candidato não encontrado" });
       }
       res.status(500).json({ error: error.message });
-    }
-  });
-
-  // ==================== PUBLIC CABOS ELEITORAIS ROUTES ====================
-  
-  app.get("/api/public/cabos/:adminSlug/:caboSlug", async (req, res) => {
-    try {
-      const { adminSlug, caboSlug } = req.params;
-      
-      const candidate = await storage.getCandidateBySlug(adminSlug);
-      if (!candidate) {
-        return res.status(404).json({ error: "Candidato não encontrado" });
-      }
-      
-      const operative = await storage.getFieldOperativeBySlug(caboSlug, candidate.accountId);
-      if (!operative || !operative.isActive) {
-        return res.status(404).json({ error: "Cabo eleitoral não encontrado" });
-      }
-      
-      res.json({
-        candidate: {
-          name: candidate.name,
-          party: candidate.party,
-          photo: candidate.avatar,
-          politicalPosition: candidate.politicalPosition,
-          electionNumber: candidate.electionNumber
-        },
-        cabo: {
-          name: operative.name,
-          photo: operative.avatarUrl,
-          coverImage: operative.coverImageUrl
-        }
-      });
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  app.post("/api/public/cabos/:adminSlug/:caboSlug/register", async (req, res) => {
-    try {
-      const { adminSlug, caboSlug } = req.params;
-      
-      const candidate = await storage.getCandidateBySlug(adminSlug);
-      if (!candidate) {
-        return res.status(404).json({ error: "Candidato não encontrado" });
-      }
-      
-      const operative = await storage.getFieldOperativeBySlug(caboSlug, candidate.accountId);
-      if (!operative || !operative.isActive) {
-        return res.status(404).json({ error: "Cabo eleitoral não encontrado" });
-      }
-      
-      const validatedData = insertContactSchema.parse(req.body);
-      
-      const contact = await storage.createContact({
-        ...validatedData,
-        source: `Cabo ${operative.name}`,
-        fieldOperativeId: operative.id,
-        userId: candidate.id,
-        accountId: candidate.accountId
-      });
-      
-      res.status(201).json({ 
-        success: true, 
-        message: "Contato registrado com sucesso!",
-        contact 
-      });
-    } catch (error: any) {
-      res.status(400).json({ error: error.message });
     }
   });
 

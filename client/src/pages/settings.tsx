@@ -13,7 +13,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
-import { User, Edit, Camera, Key, Copy, Trash2, Calendar, Clock, CheckCircle2, XCircle, Plus, Code2, AlertCircle, Terminal, Globe, ChevronDown, ExternalLink, RefreshCw, Settings2, Link, Lock, Users, Handshake, ClipboardList, Bot, BarChart3 } from "lucide-react";
+import { User, Edit, Camera, Key, Copy, Trash2, Calendar, Clock, CheckCircle2, XCircle, Plus, Code2, AlertCircle, Terminal, Globe, ChevronDown, ExternalLink, RefreshCw, Settings2, Link, Lock, Users, Handshake, ClipboardList, FileCheck, Bot, BarChart3 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { getAuthUser } from "@/lib/auth";
 import { useForm } from "react-hook-form";
@@ -487,19 +487,12 @@ export default function Settings() {
       return;
     }
 
-    (async () => {
-      try {
-        const { uploadImage } = await import("@/lib/queryClient");
-        const avatarUrl = await uploadImage(file, 'avatar');
-        uploadAvatarMutation.mutate(avatarUrl);
-      } catch (error: any) {
-        toast({
-          variant: "destructive",
-          title: "Erro",
-          description: error.message || "Erro ao fazer upload da imagem",
-        });
-      }
-    })();
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const base64 = e.target?.result as string;
+      uploadAvatarMutation.mutate(base64);
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleBackgroundClick = () => {
@@ -529,19 +522,12 @@ export default function Settings() {
       return;
     }
 
-    (async () => {
-      try {
-        const { uploadImage } = await import("@/lib/queryClient");
-        const backgroundUrl = await uploadImage(file, 'background');
-        uploadBackgroundMutation.mutate(backgroundUrl);
-      } catch (error: any) {
-        toast({
-          variant: "destructive",
-          title: "Erro",
-          description: error.message || "Erro ao fazer upload da imagem",
-        });
-      }
-    })();
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const base64 = e.target?.result as string;
+      uploadBackgroundMutation.mutate(base64);
+    };
+    reader.readAsDataURL(file);
   };
 
   const onSubmitProfile = (data: ProfileForm) => {
@@ -831,6 +817,7 @@ export default function Settings() {
                       { key: 'contacts', label: 'Eleitores', icon: Users },
                       { key: 'alliances', label: 'Alianças', icon: Handshake },
                       { key: 'demands', label: 'Demandas', icon: ClipboardList },
+                      { key: 'petitions', label: 'Petições', icon: FileCheck },
                       { key: 'agenda', label: 'Agenda', icon: Calendar },
                       { key: 'ai', label: 'Atendimento IA', icon: Bot },
                       { key: 'marketing', label: 'Pesquisas', icon: BarChart3 },
@@ -1025,7 +1012,7 @@ export default function Settings() {
                   
                   <div className="space-y-4">
                     <div>
-                      <p className="text-xs font-medium mb-2">Listar Eleitores</p>
+                      <p className="text-xs font-medium mb-2">Listar Contatos</p>
                       <div className="bg-muted p-3 rounded-md">
                         <pre className="text-xs font-mono overflow-x-auto">
 {`curl -X GET ${baseUrl}/api/v1/contacts \\

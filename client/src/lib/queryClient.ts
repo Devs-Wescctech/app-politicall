@@ -69,31 +69,6 @@ export const getQueryFn: <T>(options: {
     return await res.json();
   };
 
-export async function uploadImage(
-  file: File,
-  type: 'avatar' | 'background' = 'avatar'
-): Promise<string> {
-  const formData = new FormData();
-  formData.append('file', file);
-
-  const token = getAuthToken();
-  const headers: Record<string, string> = {};
-  if (token) {
-    headers["Authorization"] = `Bearer ${token}`;
-  }
-
-  const res = await fetch(`/api/upload/image?type=${type}`, {
-    method: 'POST',
-    headers,
-    body: formData,
-    credentials: 'include',
-  });
-
-  await throwIfResNotOk(res);
-  const data = await res.json();
-  return data.url;
-}
-
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {

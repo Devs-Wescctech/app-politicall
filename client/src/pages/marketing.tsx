@@ -21,7 +21,7 @@ import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, Trash2, Edit, ExternalLink, Copy, CheckCircle, BarChart3, ChevronDown, ChevronUp, Eye, FileText, Calendar, Lock, ClipboardList } from "lucide-react";
+import { Plus, Trash2, Edit, ExternalLink, Copy, CheckCircle, XCircle, Clock, BarChart3, ChevronDown, ChevronUp, Eye, FileText, Calendar, Lock, ClipboardList } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useCurrentUser } from "@/hooks/use-current-user";
@@ -38,6 +38,11 @@ if (typeof window !== 'undefined') {
 }
 
 const CAMPAIGN_STAGE_CONFIG = {
+  aguardando: { 
+    label: "Aguardando", 
+    iconColor: "text-gray-500 dark:text-gray-400",
+    icon: Clock
+  },
   aprovado: { 
     label: "Aprovado", 
     iconColor: "text-[#40E0D0]",
@@ -780,10 +785,12 @@ export default function Marketing() {
       templateId: "",
       campaignName: "",
       slug: "",
-      status: "approved",
+      status: "under_review",
       startDate: new Date().toISOString(),
       endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
       targetAudience: null,
+      adminReviewerId: null,
+      adminNotes: null,
     },
   });
 
@@ -799,7 +806,7 @@ export default function Marketing() {
     mutationFn: (data: InsertSurveyCampaign) => apiRequest("POST", "/api/survey-campaigns", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/survey-campaigns"] });
-      toast({ title: "Campanha criada com sucesso!" });
+      toast({ title: "Campanha criada com sucesso e enviada para aprovação!" });
       setShowWizard(false);
       setWizardStep(1);
       setSelectedTemplate(null);
@@ -946,11 +953,13 @@ export default function Marketing() {
       templateId: "",
       campaignName: "",
       slug: "",
-      status: "approved",
+      status: "under_review",
       startDate: new Date().toISOString(),
       endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
       region: null,
       targetAudience: null,
+      adminReviewerId: null,
+      adminNotes: null,
     });
     setShowWizard(true);
   };
@@ -979,6 +988,8 @@ export default function Marketing() {
       endDate: campaign.endDate ? campaign.endDate.toString() : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
       region: campaign.region,
       targetAudience: campaign.targetAudience,
+      adminReviewerId: campaign.adminReviewerId,
+      adminNotes: campaign.adminNotes,
     });
     setShowWizard(true);
   };
@@ -1131,7 +1142,7 @@ export default function Marketing() {
         ) : campaigns && campaigns.length > 0 ? (
           <div className="space-y-4">
             {campaigns.map((campaign) => {
-              const stageConfig = CAMPAIGN_STAGE_CONFIG[campaign.campaignStage as keyof typeof CAMPAIGN_STAGE_CONFIG] || CAMPAIGN_STAGE_CONFIG.aprovado;
+              const stageConfig = CAMPAIGN_STAGE_CONFIG[campaign.campaignStage as keyof typeof CAMPAIGN_STAGE_CONFIG] || CAMPAIGN_STAGE_CONFIG.aguardando;
               const StageIcon = stageConfig.icon;
               const isApproved = campaign.status === "approved" || campaign.status === "active";
               const landingUrl = getLandingPageUrl(campaign.slug);
@@ -1245,6 +1256,15 @@ export default function Marketing() {
                         <Label className="text-xs font-medium">Público-Alvo:</Label>
                         <p className="text-xs text-muted-foreground" data-testid={`text-target-audience-${campaign.id}`}>
                           {campaign.targetAudience}
+                        </p>
+                      </div>
+                    )}
+
+                    {campaign.adminNotes && (
+                      <div className="space-y-2">
+                        <Label className="text-xs font-medium">Notas do Administrador:</Label>
+                        <p className="text-xs text-muted-foreground" data-testid={`text-admin-notes-${campaign.id}`}>
+                          {campaign.adminNotes}
                         </p>
                       </div>
                     )}
@@ -1811,6 +1831,13 @@ export default function Marketing() {
                         <Label className="text-sm">Prazo de Coleta:</Label>
                         <p className="text-sm font-semibold">7 dias corridos</p>
                       </div>
+                      <div className="flex items-center justify-between">
+                        <Label className="text-sm">Investimento:</Label>
+                        <p className="text-lg font-bold text-[#40E0D0]">R$ 1.250,00</p>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Valor será cobrado na próxima fatura do seu plano
+                      </p>
                     </CardContent>
                   </Card>
 
@@ -1889,7 +1916,7 @@ export default function Marketing() {
                     ? "Criando..."
                     : editingCampaign
                     ? "Atualizar Campanha"
-                    : "Criar Campanha"
+                    : "Criar e Enviar para Aprovação"
                   : "Próximo"}
               </Button>
             </div>

@@ -9,7 +9,7 @@ import {
   Settings,
   LogOut,
   Shield,
-  UserCheck
+  ScrollText
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
@@ -61,6 +61,7 @@ export function AppSidebar() {
     agenda: false,
     ai: false,
     marketing: false,
+    petitions: false,
     users: false,
     settings: false,
   };
@@ -74,15 +75,9 @@ export function AppSidebar() {
       alwaysVisible: true,
     },
     {
-      title: "Eleitores/Pessoas",
+      title: "Eleitores",
       url: "/contacts",
       icon: Users,
-      permissionKey: "contacts",
-    },
-    {
-      title: "Cabo Eleitoral",
-      url: "/field-operatives",
-      icon: UserCheck,
       permissionKey: "contacts",
     },
     {
@@ -114,6 +109,12 @@ export function AppSidebar() {
       url: "/ai-attendance",
       icon: Bot,
       permissionKey: "ai",
+    },
+    {
+      title: "Petições",
+      url: "/petitions",
+      icon: ScrollText,
+      permissionKey: "petitions",
     },
     {
       title: "Usuários",

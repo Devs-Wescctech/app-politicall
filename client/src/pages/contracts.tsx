@@ -148,6 +148,7 @@ export default function ContractsPage() {
     agenda: true,
     ai: true,
     marketing: true,
+    petitions: true,
     users: true,
     settings: true,
   });
@@ -300,6 +301,7 @@ export default function ContractsPage() {
       agenda: user.permissions?.agenda ?? true,
       ai: user.permissions?.ai ?? true,
       marketing: user.permissions?.marketing ?? true,
+      petitions: user.permissions?.petitions ?? true,
       users: user.permissions?.users ?? true,
       settings: user.permissions?.settings ?? true,
     });
@@ -325,6 +327,7 @@ export default function ContractsPage() {
         agenda: selectedUser.permissions?.agenda ?? true,
         ai: selectedUser.permissions?.ai ?? true,
         marketing: selectedUser.permissions?.marketing ?? true,
+        petitions: selectedUser.permissions?.petitions ?? true,
         users: selectedUser.permissions?.users ?? true,
         settings: selectedUser.permissions?.settings ?? true,
       });
@@ -345,6 +348,7 @@ export default function ContractsPage() {
         agenda: boolean;
         ai: boolean;
         marketing: boolean;
+        petitions: boolean;
         users: boolean;
         settings: boolean;
       };
@@ -824,6 +828,12 @@ export default function ContractsPage() {
                     </CardHeader>
                   <CardContent className="space-y-2">
                     <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Valor do plano</span>
+                      <span className="font-semibold" data-testid={`user-plan-value-${user.id}`}>
+                        {user.planValue ? `R$ ${user.planValue}` : 'Não informado'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
                       <span className="text-muted-foreground">Vencimento</span>
                       <span className="font-semibold" data-testid={`user-expiry-${user.id}`}>
                         {user.expiryDate || 'Não informado'}
@@ -929,6 +939,30 @@ export default function ContractsPage() {
             {/* Plan Details */}
             <div className="space-y-3">
               <div className="space-y-2">
+                <label className="text-sm font-medium">Valor do plano</label>
+                {isEditingUser ? (
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                      R$
+                    </span>
+                    <Input
+                      value={editPlanValue}
+                      onChange={handlePlanValueChange}
+                      placeholder="0,00"
+                      className="pl-10"
+                      data-testid="input-edit-plan-value"
+                    />
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                    <span className="text-sm font-semibold">
+                      {editPlanValue ? `R$ ${editPlanValue}` : 'Não informado'}
+                    </span>
+                  </div>
+                )}
+              </div>
+              
+              <div className="space-y-2">
                 <label className="text-sm font-medium">Vencimento</label>
                 {isEditingUser ? (
                   <Input
@@ -961,7 +995,7 @@ export default function ContractsPage() {
                     data-testid="checkbox-module-contacts"
                   />
                   <label htmlFor="module-contacts" className={`text-sm ${!isEditingUser ? 'text-muted-foreground' : ''}`}>
-                    Eleitores
+                    Contatos
                   </label>
                 </div>
                 <div className="flex items-center space-x-2">
@@ -1021,6 +1055,18 @@ export default function ContractsPage() {
                     data-testid="checkbox-module-marketing"
                   />
                   <label htmlFor="module-marketing" className={`text-sm ${!isEditingUser ? 'text-muted-foreground' : ''}`}>Pesquisas</label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="module-petitions"
+                    checked={editPermissions.petitions}
+                    onCheckedChange={(checked) => setEditPermissions(prev => ({ ...prev, petitions: checked === true }))}
+                    disabled={!isEditingUser}
+                    data-testid="checkbox-module-petitions"
+                  />
+                  <label htmlFor="module-petitions" className={`text-sm ${!isEditingUser ? 'text-muted-foreground' : ''}`}>
+                    Petições
+                  </label>
                 </div>
               </div>
             </div>
@@ -1102,6 +1148,11 @@ export default function ContractsPage() {
             <p className="text-sm text-muted-foreground">
               Ao confirmar, o status do usuário será atualizado para "Pago" e o vencimento será atualizado para o próximo mês.
             </p>
+            <div className="bg-green-50 dark:bg-green-950/20 p-4 rounded-lg border border-green-200 dark:border-green-800">
+              <p className="text-sm font-medium text-green-700 dark:text-green-300">
+                Valor do plano: R$ {selectedUser?.planValue || '0,00'}
+              </p>
+            </div>
           </div>
 
           <DialogFooter className="flex gap-2">
