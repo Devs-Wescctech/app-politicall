@@ -854,6 +854,641 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Platform Manual PDF Download (PROTECTED)
+  app.get("/api/admin/platform-manual", authenticateAdminToken, async (req: AuthRequest, res) => {
+    try {
+      const PdfPrinter = require('pdfmake');
+
+      const fonts = {
+        Roboto: {
+          normal: 'node_modules/pdfmake/build/vfs_fonts.js',
+          bold: 'node_modules/pdfmake/build/vfs_fonts.js',
+          italics: 'node_modules/pdfmake/build/vfs_fonts.js',
+          bolditalics: 'node_modules/pdfmake/build/vfs_fonts.js'
+        }
+      };
+
+      const printer = new PdfPrinter(fonts);
+
+      const docDefinition = {
+        pageSize: 'A4',
+        pageMargins: [40, 60, 40, 60],
+        defaultStyle: {
+          font: 'Roboto',
+          fontSize: 11,
+          lineHeight: 1.4
+        },
+        styles: {
+          header: { fontSize: 28, bold: true, alignment: 'center', margin: [0, 0, 0, 20], color: '#40E0D0' },
+          subheader: { fontSize: 18, bold: true, margin: [0, 20, 0, 10], color: '#333' },
+          moduleTitle: { fontSize: 16, bold: true, margin: [0, 15, 0, 8], color: '#40E0D0' },
+          sectionTitle: { fontSize: 13, bold: true, margin: [0, 10, 0, 5], color: '#555' },
+          paragraph: { fontSize: 11, margin: [0, 0, 0, 8], alignment: 'justify' },
+          listItem: { fontSize: 11, margin: [10, 2, 0, 2] },
+          footer: { fontSize: 9, alignment: 'center', color: '#888', margin: [0, 20, 0, 0] },
+          tip: { fontSize: 10, italics: true, color: '#666', margin: [15, 5, 15, 5], fillColor: '#f5f5f5' },
+          warning: { fontSize: 10, bold: true, color: '#d32f2f', margin: [15, 5, 15, 5] }
+        },
+        content: [
+          { text: 'MANUAL COMPLETO', style: 'header' },
+          { text: 'Plataforma Politicall', style: 'subheader', alignment: 'center' },
+          { text: 'Sistema de Gestão Política Integrada', alignment: 'center', margin: [0, 0, 0, 10] },
+          { text: `Versão 2.0 - ${new Date().toLocaleDateString('pt-BR')}`, alignment: 'center', fontSize: 10, color: '#888', margin: [0, 0, 0, 30] },
+          
+          { text: 'Bem-vindo ao Politicall!', style: 'subheader' },
+          { text: 'O Politicall é uma plataforma completa de gestão política desenvolvida para gabinetes parlamentares, candidatos e equipes políticas. Este manual irá guiá-lo através de todas as funcionalidades disponíveis na plataforma.', style: 'paragraph' },
+          
+          { text: '═══════════════════════════════════════════════════════════', alignment: 'center', color: '#40E0D0', margin: [0, 20, 0, 20] },
+          
+          { text: '1. DASHBOARD - VISÃO GERAL', style: 'moduleTitle', pageBreak: 'before' },
+          { text: 'O Dashboard é sua central de comando, oferecendo uma visão consolidada de todas as atividades do gabinete.', style: 'paragraph' },
+          
+          { text: '1.1 Métricas Principais', style: 'sectionTitle' },
+          { ul: [
+            'Total de Contatos: Número total de cidadãos cadastrados no CRM',
+            'Demandas Abertas: Quantidade de solicitações pendentes de resolução',
+            'Eventos do Mês: Agenda de compromissos para o período',
+            'Campanhas Ativas: Número de ações de marketing em andamento',
+            'Pesquisas em Curso: Pesquisas de opinião ativas'
+          ], style: 'listItem' },
+          
+          { text: '1.2 Gráficos e Análises', style: 'sectionTitle' },
+          { text: 'O Dashboard apresenta gráficos interativos que mostram:', style: 'paragraph' },
+          { ul: [
+            'Evolução do número de contatos ao longo do tempo',
+            'Distribuição de demandas por categoria e status',
+            'Mapa de calor com localização geográfica dos apoiadores',
+            'Taxa de resolução de demandas',
+            'Engajamento nas campanhas de marketing'
+          ], style: 'listItem' },
+          
+          { text: '1.3 Acesso Rápido', style: 'sectionTitle' },
+          { text: 'Utilize os cards de atalho para navegar rapidamente entre os módulos mais utilizados. Os widgets são personalizáveis de acordo com suas preferências.', style: 'paragraph' },
+          
+          { text: '═══════════════════════════════════════════════════════════', alignment: 'center', color: '#40E0D0', margin: [0, 20, 0, 20] },
+          
+          { text: '2. CRM / CONTATOS', style: 'moduleTitle', pageBreak: 'before' },
+          { text: 'O módulo de Contatos é o coração do Politicall, permitindo gerenciar todos os cidadãos, apoiadores e eleitores.', style: 'paragraph' },
+          
+          { text: '2.1 Cadastro de Contatos', style: 'sectionTitle' },
+          { text: 'Para adicionar um novo contato:', style: 'paragraph' },
+          { ol: [
+            'Clique no botão "Novo Contato" no canto superior direito',
+            'Preencha os dados pessoais: Nome, CPF, Data de Nascimento, Gênero',
+            'Adicione informações de contato: Telefone, WhatsApp, E-mail',
+            'Informe o endereço completo: CEP, Rua, Número, Bairro, Cidade, Estado',
+            'Selecione a categoria do contato: Apoiador, Eleitor, Liderança, etc.',
+            'Adicione tags para facilitar a segmentação',
+            'Clique em "Salvar" para confirmar'
+          ], style: 'listItem' },
+          
+          { text: '2.2 Campos Disponíveis', style: 'sectionTitle' },
+          { ul: [
+            'Dados Pessoais: Nome completo, CPF, RG, Data de nascimento, Gênero',
+            'Contato: Telefone fixo, Celular/WhatsApp, E-mail, Redes sociais',
+            'Endereço: CEP (preenchimento automático), Logradouro, Número, Complemento, Bairro, Cidade, Estado',
+            'Político: Zona eleitoral, Seção, Partido, Cargo pretendido',
+            'Classificação: Categoria, Tags, Nível de engajamento, Origem do cadastro',
+            'Observações: Campo livre para anotações importantes'
+          ], style: 'listItem' },
+          
+          { text: '2.3 Busca e Filtros', style: 'sectionTitle' },
+          { text: 'Utilize a barra de pesquisa para encontrar contatos por nome, telefone, e-mail ou qualquer outro campo. Os filtros avançados permitem segmentar por:', style: 'paragraph' },
+          { ul: [
+            'Cidade ou bairro específico',
+            'Categoria de contato',
+            'Tags atribuídas',
+            'Data de cadastro',
+            'Origem do contato'
+          ], style: 'listItem' },
+          
+          { text: '2.4 Exportação de Dados', style: 'sectionTitle' },
+          { text: 'Para exportar contatos:', style: 'paragraph' },
+          { ol: [
+            'Aplique os filtros desejados (opcional)',
+            'Clique no botão "Exportar"',
+            'Selecione o formato: Excel (.xlsx) ou CSV',
+            'Escolha os campos a serem exportados',
+            'O download será iniciado automaticamente'
+          ], style: 'listItem' },
+          
+          { text: '2.5 Importação em Massa', style: 'sectionTitle' },
+          { text: 'Para importar contatos de uma planilha:', style: 'paragraph' },
+          { ol: [
+            'Baixe o modelo de importação clicando em "Baixar Modelo"',
+            'Preencha a planilha com os dados dos contatos',
+            'Clique em "Importar" e selecione o arquivo',
+            'Revise os dados na tela de preview',
+            'Confirme a importação'
+          ], style: 'listItem' },
+          
+          { text: '═══════════════════════════════════════════════════════════', alignment: 'center', color: '#40E0D0', margin: [0, 20, 0, 20] },
+          
+          { text: '3. ALIANÇAS POLÍTICAS', style: 'moduleTitle', pageBreak: 'before' },
+          { text: 'Gerencie suas alianças partidárias e convites para colaboração política.', style: 'paragraph' },
+          
+          { text: '3.1 Visão Geral das Alianças', style: 'sectionTitle' },
+          { text: 'O painel de Alianças mostra todas as parcerias políticas ativas, pendentes e encerradas. Cada aliança exibe:', style: 'paragraph' },
+          { ul: [
+            'Partido aliado e sua sigla',
+            'Data de início da aliança',
+            'Status atual (Ativa, Pendente, Encerrada)',
+            'Nível de colaboração',
+            'Histórico de atividades conjuntas'
+          ], style: 'listItem' },
+          
+          { text: '3.2 Criar Nova Aliança', style: 'sectionTitle' },
+          { ol: [
+            'Acesse o módulo "Alianças Políticas"',
+            'Clique em "Nova Aliança"',
+            'Selecione o partido da lista',
+            'Defina o tipo de aliança: Eleitoral, Parlamentar ou Institucional',
+            'Adicione observações sobre os termos acordados',
+            'Envie o convite para o representante do partido'
+          ], style: 'listItem' },
+          
+          { text: '3.3 Gerenciamento de Convites', style: 'sectionTitle' },
+          { text: 'Os convites de aliança funcionam da seguinte forma:', style: 'paragraph' },
+          { ul: [
+            'Convites Enviados: Aguardando resposta do partido convidado',
+            'Convites Recebidos: Propostas de outros partidos para aliança',
+            'Aceitar ou Recusar: Utilize os botões de ação em cada convite',
+            'Notificações: Receba alertas sobre mudanças no status dos convites'
+          ], style: 'listItem' },
+          
+          { text: '3.4 Distribuição Ideológica', style: 'sectionTitle' },
+          { text: 'O gráfico de pizza mostra a distribuição ideológica das suas alianças, categorizadas em: Esquerda, Centro-Esquerda, Centro, Centro-Direita e Direita.', style: 'paragraph' },
+          
+          { text: '═══════════════════════════════════════════════════════════', alignment: 'center', color: '#40E0D0', margin: [0, 20, 0, 20] },
+          
+          { text: '4. DEMANDAS', style: 'moduleTitle', pageBreak: 'before' },
+          { text: 'Sistema completo para gerenciar solicitações de cidadãos, desde o registro até a resolução.', style: 'paragraph' },
+          
+          { text: '4.1 Tipos de Demandas', style: 'sectionTitle' },
+          { ul: [
+            'Infraestrutura: Problemas com ruas, iluminação, saneamento',
+            'Saúde: Solicitações de medicamentos, consultas, internações',
+            'Educação: Vagas em escolas, bolsas de estudo, transporte escolar',
+            'Assistência Social: Benefícios, cestas básicas, moradia',
+            'Emprego: Indicações, cursos profissionalizantes',
+            'Segurança: Policiamento, iluminação, câmeras',
+            'Outros: Demandas diversas não categorizadas'
+          ], style: 'listItem' },
+          
+          { text: '4.2 Fluxo de Status', style: 'sectionTitle' },
+          { text: 'Cada demanda passa pelos seguintes status:', style: 'paragraph' },
+          { ol: [
+            'NOVA: Demanda recém-cadastrada, aguardando triagem',
+            'EM ANÁLISE: Demanda está sendo avaliada pela equipe',
+            'EM ANDAMENTO: Providências estão sendo tomadas',
+            'AGUARDANDO: Aguardando ação externa ou documento',
+            'RESOLVIDA: Demanda atendida com sucesso',
+            'CANCELADA: Demanda cancelada pelo solicitante ou gabinete'
+          ], style: 'listItem' },
+          
+          { text: '4.3 Cadastrar Nova Demanda', style: 'sectionTitle' },
+          { ol: [
+            'Clique em "Nova Demanda"',
+            'Vincule a um contato existente ou cadastre um novo',
+            'Selecione a categoria da demanda',
+            'Defina a prioridade: Baixa, Normal, Alta ou Urgente',
+            'Descreva detalhadamente a solicitação',
+            'Anexe documentos relevantes (fotos, ofícios, etc.)',
+            'Atribua a um membro da equipe (opcional)',
+            'Salve a demanda'
+          ], style: 'listItem' },
+          
+          { text: '4.4 Sistema de Comentários', style: 'sectionTitle' },
+          { text: 'Cada demanda possui um histórico de comentários onde a equipe pode:', style: 'paragraph' },
+          { ul: [
+            'Registrar todas as ações tomadas',
+            'Adicionar observações e atualizações',
+            'Anexar documentos de acompanhamento',
+            'Mencionar outros membros da equipe',
+            'Marcar comentários como internos (não visíveis ao cidadão)'
+          ], style: 'listItem' },
+          
+          { text: '4.5 Prioridades e Prazos', style: 'sectionTitle' },
+          { ul: [
+            'URGENTE (Vermelho): Prazo de 24 horas para primeira resposta',
+            'ALTA (Laranja): Prazo de 3 dias úteis',
+            'NORMAL (Azul): Prazo de 7 dias úteis',
+            'BAIXA (Verde): Prazo de 15 dias úteis'
+          ], style: 'listItem' },
+          
+          { text: '═══════════════════════════════════════════════════════════', alignment: 'center', color: '#40E0D0', margin: [0, 20, 0, 20] },
+          
+          { text: '5. AGENDA / EVENTOS', style: 'moduleTitle', pageBreak: 'before' },
+          { text: 'Gerencie todos os compromissos do gabinete com calendário integrado.', style: 'paragraph' },
+          
+          { text: '5.1 Visualizações Disponíveis', style: 'sectionTitle' },
+          { ul: [
+            'Lista: Todos os eventos em formato de lista cronológica',
+            'Calendário Mensal: Visão do mês completo com eventos destacados',
+            'Calendário Semanal: Detalhamento da semana com horários',
+            'Timeline: Visualização em linha do tempo'
+          ], style: 'listItem' },
+          
+          { text: '5.2 Criar Novo Evento', style: 'sectionTitle' },
+          { ol: [
+            'Clique em "Novo Evento" ou diretamente no calendário',
+            'Defina título e descrição do evento',
+            'Selecione data e horário de início e término',
+            'Escolha a categoria: Reunião, Audiência, Visita, Evento Público, etc.',
+            'Adicione localização (endereço ou link de videoconferência)',
+            'Convide participantes (membros da equipe)',
+            'Configure lembretes automáticos',
+            'Defina se é evento recorrente'
+          ], style: 'listItem' },
+          
+          { text: '5.3 Eventos Recorrentes', style: 'sectionTitle' },
+          { text: 'Para eventos que se repetem regularmente:', style: 'paragraph' },
+          { ul: [
+            'Diário: Todo dia no mesmo horário',
+            'Semanal: Mesmo dia da semana (ex: toda segunda-feira)',
+            'Quinzenal: A cada duas semanas',
+            'Mensal: Mesmo dia do mês',
+            'Personalizado: Defina sua própria regra de recorrência'
+          ], style: 'listItem' },
+          
+          { text: '5.4 Integração com Google Calendar', style: 'sectionTitle' },
+          { text: 'Sincronize seus eventos com o Google Calendar:', style: 'paragraph' },
+          { ol: [
+            'Acesse Configurações > Integrações',
+            'Clique em "Conectar Google Calendar"',
+            'Autorize o acesso à sua conta Google',
+            'Selecione qual calendário sincronizar',
+            'Os eventos serão sincronizados automaticamente'
+          ], style: 'listItem' },
+          
+          { text: '5.5 Lembretes e Notificações', style: 'sectionTitle' },
+          { ul: [
+            'Notificação 1 dia antes do evento',
+            'Notificação 1 hora antes do evento',
+            'Notificação 15 minutos antes do evento',
+            'E-mail de lembrete (configurável)',
+            'Notificação push no navegador'
+          ], style: 'listItem' },
+          
+          { text: '═══════════════════════════════════════════════════════════', alignment: 'center', color: '#40E0D0', margin: [0, 20, 0, 20] },
+          
+          { text: '6. CAMPANHAS DE MARKETING', style: 'moduleTitle', pageBreak: 'before' },
+          { text: 'Crie e gerencie campanhas de comunicação com seus contatos.', style: 'paragraph' },
+          
+          { text: '6.1 Tipos de Campanhas', style: 'sectionTitle' },
+          { ul: [
+            'E-mail Marketing: Envio de e-mails em massa',
+            'WhatsApp: Mensagens via WhatsApp Business API',
+            'SMS: Mensagens de texto para celular',
+            'Redes Sociais: Publicações agendadas'
+          ], style: 'listItem' },
+          
+          { text: '6.2 Criar Nova Campanha', style: 'sectionTitle' },
+          { ol: [
+            'Clique em "Nova Campanha"',
+            'Escolha o tipo de campanha',
+            'Defina o nome e objetivo da campanha',
+            'Selecione os destinatários (por tags, categorias ou lista personalizada)',
+            'Crie ou selecione um template de mensagem',
+            'Personalize o conteúdo com variáveis dinâmicas',
+            'Agende a data e horário de envio',
+            'Revise e confirme'
+          ], style: 'listItem' },
+          
+          { text: '6.3 Status das Campanhas', style: 'sectionTitle' },
+          { ul: [
+            'RASCUNHO: Campanha em criação',
+            'PENDENTE APROVAÇÃO: Aguardando aprovação do Admin Master',
+            'APROVADA: Campanha aprovada e agendada',
+            'EM EXECUÇÃO: Campanha sendo enviada',
+            'CONCLUÍDA: Campanha finalizada',
+            'PAUSADA: Campanha pausada temporariamente',
+            'REJEITADA: Campanha não aprovada (com justificativa)'
+          ], style: 'listItem' },
+          
+          { text: '6.4 Fluxo de Aprovação', style: 'sectionTitle' },
+          { text: 'As campanhas de marketing passam por aprovação do Admin Master:', style: 'paragraph' },
+          { ol: [
+            'Usuário cria e envia campanha para aprovação',
+            'Admin Master recebe notificação',
+            'Admin avalia conteúdo e destinatários',
+            'Admin aprova ou rejeita (com justificativa)',
+            'Usuário recebe notificação do resultado'
+          ], style: 'listItem' },
+          
+          { text: '6.5 Relatórios de Campanha', style: 'sectionTitle' },
+          { text: 'Após a execução, analise os resultados:', style: 'paragraph' },
+          { ul: [
+            'Taxa de entrega',
+            'Taxa de abertura (e-mails)',
+            'Taxa de cliques',
+            'Erros de envio',
+            'Lista de bounces (e-mails inválidos)'
+          ], style: 'listItem' },
+          
+          { text: '═══════════════════════════════════════════════════════════', alignment: 'center', color: '#40E0D0', margin: [0, 20, 0, 20] },
+          
+          { text: '7. PESQUISAS DE OPINIÃO', style: 'moduleTitle', pageBreak: 'before' },
+          { text: 'Crie pesquisas para conhecer a opinião dos eleitores sobre diversos temas.', style: 'paragraph' },
+          
+          { text: '7.1 Templates de Pesquisa', style: 'sectionTitle' },
+          { text: 'O Politicall oferece templates prontos:', style: 'paragraph' },
+          { ul: [
+            'Intenção de Voto: Recall espontâneo de candidatos',
+            'Temas Prioritários: O que importa para o eleitor',
+            'Avaliação de Gestão: Nota para administração atual',
+            'Problemas Locais: Principais demandas da região',
+            'Perfil de Liderança: Características desejadas',
+            'Personalizado: Crie sua própria pergunta'
+          ], style: 'listItem' },
+          
+          { text: '7.2 Tipos de Perguntas', style: 'sectionTitle' },
+          { ul: [
+            'Resposta Aberta: Texto livre',
+            'Escolha Única: Selecionar uma opção',
+            'Múltipla Escolha: Selecionar várias opções',
+            'Escala de Avaliação: Notas de 1 a 5 ou 1 a 10',
+            'Sim/Não: Resposta binária'
+          ], style: 'listItem' },
+          
+          { text: '7.3 Landing Pages de Pesquisa', style: 'sectionTitle' },
+          { text: 'Cada pesquisa gera uma página pública personalizada:', style: 'paragraph' },
+          { ul: [
+            'URL única e compartilhável',
+            'Design responsivo (funciona em celular)',
+            'Coleta de dados demográficos',
+            'Prevenção de respostas duplicadas por IP',
+            'Página de agradecimento personalizada'
+          ], style: 'listItem' },
+          
+          { text: '7.4 Criar Nova Pesquisa', style: 'sectionTitle' },
+          { ol: [
+            'Acesse o módulo "Pesquisas"',
+            'Clique em "Nova Pesquisa"',
+            'Escolha um template ou crie do zero',
+            'Configure o texto da pergunta',
+            'Defina as opções de resposta (se aplicável)',
+            'Personalize a landing page',
+            'Publique e compartilhe o link'
+          ], style: 'listItem' },
+          
+          { text: '7.5 Análise de Resultados', style: 'sectionTitle' },
+          { text: 'Visualize os resultados em tempo real:', style: 'paragraph' },
+          { ul: [
+            'Gráficos de distribuição de respostas',
+            'Nuvem de palavras para respostas abertas',
+            'Filtros por cidade, gênero, idade',
+            'Exportação de dados para Excel',
+            'Relatório PDF automático'
+          ], style: 'listItem' },
+          
+          { text: '═══════════════════════════════════════════════════════════', alignment: 'center', color: '#40E0D0', margin: [0, 20, 0, 20] },
+          
+          { text: '8. ATENDIMENTO IA', style: 'moduleTitle', pageBreak: 'before' },
+          { text: 'Configure inteligência artificial para responder automaticamente nas redes sociais.', style: 'paragraph' },
+          
+          { text: '8.1 Plataformas Suportadas', style: 'sectionTitle' },
+          { ul: [
+            'Facebook Messenger: Mensagens diretas e comentários',
+            'Instagram Direct: Mensagens privadas',
+            'WhatsApp Business: Integração via API oficial'
+          ], style: 'listItem' },
+          
+          { text: '8.2 Configuração Inicial', style: 'sectionTitle' },
+          { ol: [
+            'Acesse o módulo "Atendimento IA"',
+            'Selecione a plataforma desejada',
+            'Clique em "Conectar" e autorize o acesso',
+            'Configure o perfil da IA (tom de voz, informações)',
+            'Defina horários de funcionamento',
+            'Ative o atendimento automático'
+          ], style: 'listItem' },
+          
+          { text: '8.3 Personalização da IA', style: 'sectionTitle' },
+          { text: 'Configure o comportamento da IA:', style: 'paragraph' },
+          { ul: [
+            'Nome do Político: Como a IA deve se referir',
+            'Cargo: Vereador, Deputado, Senador, etc.',
+            'Tom de Voz: Formal, Informal, Técnico',
+            'Informações do Gabinete: Endereço, telefone, horários',
+            'Temas Prioritários: Saúde, educação, segurança, etc.',
+            'Modo TSE: Ativar durante período eleitoral'
+          ], style: 'listItem' },
+          
+          { text: '8.4 Exemplos de Treinamento', style: 'sectionTitle' },
+          { text: 'Ensine a IA a responder corretamente:', style: 'paragraph' },
+          { ol: [
+            'Acesse "Exemplos de Treinamento"',
+            'Clique em "Adicionar Exemplo"',
+            'Digite uma pergunta comum',
+            'Escreva a resposta ideal',
+            'Salve e a IA aprenderá o padrão'
+          ], style: 'listItem' },
+          
+          { text: '8.5 Monitoramento de Conversas', style: 'sectionTitle' },
+          { text: 'Acompanhe todas as interações em tempo real:', style: 'paragraph' },
+          { ul: [
+            'Histórico completo de conversas',
+            'Filtro por plataforma e data',
+            'Intervenção manual quando necessário',
+            'Relatórios de atendimento',
+            'Métricas de satisfação'
+          ], style: 'listItem' },
+          
+          { text: '8.6 Modo TSE (Período Eleitoral)', style: 'sectionTitle' },
+          { text: 'Durante o período eleitoral, ative o Modo TSE para:', style: 'paragraph' },
+          { ul: [
+            'Evitar pedidos explícitos de voto',
+            'Não fazer promessas de campanha',
+            'Responder de forma neutra e informativa',
+            'Cumprir as regras da legislação eleitoral'
+          ], style: 'listItem' },
+          
+          { text: '═══════════════════════════════════════════════════════════', alignment: 'center', color: '#40E0D0', margin: [0, 20, 0, 20] },
+          
+          { text: '9. INTEGRAÇÕES', style: 'moduleTitle', pageBreak: 'before' },
+          { text: 'Conecte o Politicall com outros serviços e ferramentas.', style: 'paragraph' },
+          
+          { text: '9.1 Integrações Disponíveis', style: 'sectionTitle' },
+          { ul: [
+            'WhatsApp Business API: Envio de mensagens automatizadas',
+            'Facebook: Gerenciamento de página e Messenger',
+            'Instagram: Direct Messages e comentários',
+            'Google Calendar: Sincronização de agenda',
+            'SendGrid: Envio de e-mails',
+            'Twilio: SMS e voz'
+          ], style: 'listItem' },
+          
+          { text: '9.2 API Externa', style: 'sectionTitle' },
+          { text: 'O Politicall oferece uma API REST para integrações customizadas:', style: 'paragraph' },
+          { ul: [
+            'Autenticação via API Key',
+            'Endpoints para leitura e criação de contatos',
+            'Endpoints para gerenciamento de demandas',
+            'Webhooks para notificações em tempo real',
+            'Rate limiting de 100 requisições por minuto',
+            'Documentação completa disponível'
+          ], style: 'listItem' },
+          
+          { text: '9.3 Gerenciar API Keys', style: 'sectionTitle' },
+          { ol: [
+            'Acesse Configurações > Integrações > API',
+            'Clique em "Gerar Nova Chave"',
+            'Defina um nome para identificação',
+            'Copie a chave gerada (exibida apenas uma vez)',
+            'Use a chave no header Authorization: Bearer {API_KEY}'
+          ], style: 'listItem' },
+          
+          { text: '9.4 Webhooks', style: 'sectionTitle' },
+          { text: 'Configure webhooks para receber notificações:', style: 'paragraph' },
+          { ul: [
+            'Novo contato cadastrado',
+            'Nova demanda criada',
+            'Status de demanda alterado',
+            'Nova resposta de pesquisa',
+            'Evento criado ou atualizado'
+          ], style: 'listItem' },
+          
+          { text: '═══════════════════════════════════════════════════════════', alignment: 'center', color: '#40E0D0', margin: [0, 20, 0, 20] },
+          
+          { text: '10. USUÁRIOS E PERMISSÕES', style: 'moduleTitle', pageBreak: 'before' },
+          { text: 'Gerencie sua equipe com controle granular de acesso.', style: 'paragraph' },
+          
+          { text: '10.1 Papéis de Usuário', style: 'sectionTitle' },
+          { ul: [
+            'ADMIN: Acesso total ao sistema, pode gerenciar outros usuários',
+            'COORDENADOR: Acesso amplo, pode gerenciar demandas e contatos',
+            'ASSESSOR: Acesso limitado, focado em atendimento e cadastro'
+          ], style: 'listItem' },
+          
+          { text: '10.2 Permissões por Módulo', style: 'sectionTitle' },
+          { text: 'Cada papel tem permissões específicas:', style: 'paragraph' },
+          { ul: [
+            'Dashboard: Visualizar métricas e gráficos',
+            'Contatos: Criar, editar, excluir, exportar',
+            'Demandas: Criar, editar, atribuir, resolver',
+            'Agenda: Criar, editar, excluir eventos',
+            'Marketing: Criar campanhas, enviar para aprovação',
+            'Pesquisas: Criar, publicar, visualizar resultados',
+            'IA: Configurar, treinar, monitorar',
+            'Usuários: Criar, editar, gerenciar permissões',
+            'Configurações: Alterar configurações do gabinete'
+          ], style: 'listItem' },
+          
+          { text: '10.3 Convidar Novo Usuário', style: 'sectionTitle' },
+          { ol: [
+            'Acesse Usuários > Equipe',
+            'Clique em "Convidar Usuário"',
+            'Preencha nome e e-mail',
+            'Selecione o papel (Admin, Coordenador ou Assessor)',
+            'Personalize as permissões se necessário',
+            'O usuário receberá um e-mail de convite'
+          ], style: 'listItem' },
+          
+          { text: '10.4 Gerenciar Permissões', style: 'sectionTitle' },
+          { text: 'Para alterar permissões de um usuário:', style: 'paragraph' },
+          { ol: [
+            'Acesse Usuários > Equipe',
+            'Clique no usuário desejado',
+            'Vá para a aba "Permissões"',
+            'Marque ou desmarque as permissões desejadas',
+            'Salve as alterações'
+          ], style: 'listItem' },
+          
+          { text: '═══════════════════════════════════════════════════════════', alignment: 'center', color: '#40E0D0', margin: [0, 20, 0, 20] },
+          
+          { text: '11. CONFIGURAÇÕES', style: 'moduleTitle', pageBreak: 'before' },
+          { text: 'Personalize o sistema de acordo com suas necessidades.', style: 'paragraph' },
+          
+          { text: '11.1 Perfil do Político', style: 'sectionTitle' },
+          { ul: [
+            'Nome completo e nome de urna',
+            'Cargo atual e partido',
+            'Foto de perfil e banner',
+            'Biografia e histórico político',
+            'Redes sociais'
+          ], style: 'listItem' },
+          
+          { text: '11.2 Dados do Gabinete', style: 'sectionTitle' },
+          { ul: [
+            'Nome oficial do gabinete',
+            'Endereço completo',
+            'Telefones de contato',
+            'E-mail oficial',
+            'Horário de funcionamento'
+          ], style: 'listItem' },
+          
+          { text: '11.3 Preferências do Sistema', style: 'sectionTitle' },
+          { ul: [
+            'Tema: Claro ou Escuro',
+            'Idioma: Português Brasil',
+            'Fuso horário',
+            'Formato de data e hora',
+            'Notificações por e-mail',
+            'Notificações push'
+          ], style: 'listItem' },
+          
+          { text: '11.4 Segurança', style: 'sectionTitle' },
+          { ul: [
+            'Alterar senha',
+            'Autenticação de dois fatores (2FA)',
+            'Histórico de acessos',
+            'Dispositivos conectados',
+            'Sessões ativas'
+          ], style: 'listItem' },
+          
+          { text: '11.5 Conta e Assinatura', style: 'sectionTitle' },
+          { ul: [
+            'Plano atual e recursos',
+            'Data de renovação',
+            'Histórico de pagamentos',
+            'Dados de faturamento',
+            'Upgrade de plano'
+          ], style: 'listItem' },
+          
+          { text: '═══════════════════════════════════════════════════════════', alignment: 'center', color: '#40E0D0', margin: [0, 20, 0, 20] },
+          
+          { text: 'SUPORTE TÉCNICO', style: 'subheader', pageBreak: 'before' },
+          { text: 'Precisa de ajuda? Entre em contato conosco:', style: 'paragraph' },
+          { ul: [
+            'E-mail: suporte@politicall.com.br',
+            'WhatsApp: (XX) XXXXX-XXXX',
+            'Central de Ajuda: help.politicall.com.br'
+          ], style: 'listItem', margin: [0, 0, 0, 20] },
+          
+          { text: '═══════════════════════════════════════════════════════════', alignment: 'center', color: '#40E0D0', margin: [0, 20, 0, 20] },
+          
+          { text: 'POLITICALL', alignment: 'center', fontSize: 16, bold: true, color: '#40E0D0' },
+          { text: 'Sistema de Gestão Política Integrada', alignment: 'center', fontSize: 11, margin: [0, 5, 0, 5] },
+          { text: 'www.politicall.com.br', alignment: 'center', fontSize: 10, color: '#40E0D0' },
+          { text: '© 2024-2025 Politicall. Todos os direitos reservados.', alignment: 'center', fontSize: 9, color: '#888', margin: [0, 10, 0, 0] },
+          { text: 'Desenvolvido por David Flores Andrade', alignment: 'center', fontSize: 9, color: '#888' }
+        ],
+        footer: function(currentPage: number, pageCount: number) {
+          return {
+            columns: [
+              { text: 'Manual Politicall', alignment: 'left', fontSize: 8, color: '#888', margin: [40, 0, 0, 0] },
+              { text: `Página ${currentPage} de ${pageCount}`, alignment: 'right', fontSize: 8, color: '#888', margin: [0, 0, 40, 0] }
+            ],
+            margin: [0, 0, 0, 20]
+          };
+        }
+      };
+
+      const pdfDoc = printer.createPdfKitDocument(docDefinition);
+      
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', 'attachment; filename="Manual-Politicall.pdf"');
+      
+      pdfDoc.pipe(res);
+      pdfDoc.end();
+      
+    } catch (error: any) {
+      console.error('Erro ao gerar PDF do manual:', error);
+      res.status(500).json({ error: 'Erro ao gerar o manual em PDF' });
+    }
+  });
+
   // Admin token verification endpoint (PUBLIC)
   app.get("/api/admin/verify", async (req, res) => {
     try {

@@ -1,6 +1,7 @@
 import { useLocation } from "wouter";
-import { Inbox, FileText, Search, Megaphone } from "lucide-react";
+import { Inbox, FileText, Search, Megaphone, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
 
 interface AdminBottomNavProps {
   activePage: "dashboard" | "contracts";
@@ -42,6 +43,7 @@ function NavItem({ icon, label, isActive, onClick, testId }: NavItemProps) {
 
 export function AdminBottomNav({ activePage, onInboxClick, onSearchClick }: AdminBottomNavProps) {
   const [, setLocation] = useLocation();
+  const { toast } = useToast();
 
   const handleDashboardClick = () => {
     setLocation("/admin");
@@ -57,6 +59,47 @@ export function AdminBottomNav({ activePage, onInboxClick, onSearchClick }: Admi
 
   const handleSearchClick = () => {
     onSearchClick?.();
+  };
+
+  const handleInfoClick = async () => {
+    try {
+      toast({
+        title: "Gerando manual...",
+        description: "Aguarde enquanto o PDF é gerado.",
+      });
+      
+      const token = localStorage.getItem("admin_token");
+      const response = await fetch("/api/admin/platform-manual", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error("Erro ao gerar o manual");
+      }
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "Manual-Politicall.pdf";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      
+      toast({
+        title: "Download concluído",
+        description: "O manual foi baixado com sucesso.",
+      });
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Não foi possível gerar o manual. Tente novamente.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -92,6 +135,14 @@ export function AdminBottomNav({ activePage, onInboxClick, onSearchClick }: Admi
           isActive={false}
           onClick={handleSearchClick}
           testId="nav-search"
+        />
+        <div className="h-8 w-px bg-border" />
+        <NavItem
+          icon={<Info className="w-5 h-5" />}
+          label="Informações"
+          isActive={false}
+          onClick={handleInfoClick}
+          testId="nav-info"
         />
       </nav>
     </footer>
