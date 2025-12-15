@@ -1248,7 +1248,7 @@ export default function Marketing() {
             value={selectedTemplateFilter}
             onValueChange={setSelectedTemplateFilter}
           >
-            <SelectTrigger className="w-[200px]" data-testid="select-template-filter">
+            <SelectTrigger className="w-[200px] rounded-full" data-testid="select-template-filter">
               <SelectValue placeholder="Filtrar por tema" />
             </SelectTrigger>
             <SelectContent>
