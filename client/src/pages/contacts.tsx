@@ -3170,33 +3170,46 @@ export default function Contacts() {
             </p>
           </DialogHeader>
           <div className="p-4 space-y-4">
-            <div className="flex items-center gap-3 bg-muted/50 rounded-lg p-3">
+            <div className="flex items-center justify-center gap-2">
               <span className="text-sm font-medium whitespace-nowrap">Limite por bloco:</span>
-              <Select value={emailBlockSize.toString()} onValueChange={handleBlockSizeChange}>
-                <SelectTrigger className="w-[220px]" data-testid="select-email-block-size">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="30">
-                    <span className="flex items-center gap-2">
-                      <Badge variant="outline" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 text-xs">Seguro</Badge>
-                      30 emails/bloco
-                    </span>
-                  </SelectItem>
-                  <SelectItem value="100">
-                    <span className="flex items-center gap-2">
-                      <Badge variant="outline" className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 text-xs">Risco Médio</Badge>
-                      100 emails/bloco
-                    </span>
-                  </SelectItem>
-                  <SelectItem value="0">
-                    <span className="flex items-center gap-2">
-                      <Badge variant="outline" className="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 text-xs">Risco Alto</Badge>
-                      Sem limite
-                    </span>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="flex items-center rounded-full border border-border p-1 gap-1">
+                <button
+                  type="button"
+                  onClick={() => handleBlockSizeChange("30")}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
+                    emailBlockSize === 30
+                      ? "border-2 border-green-500 text-green-700 dark:text-green-400"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                  data-testid="button-block-size-30"
+                >
+                  30 - Seguro
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleBlockSizeChange("100")}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
+                    emailBlockSize === 100
+                      ? "border-2 border-yellow-500 text-yellow-700 dark:text-yellow-400"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                  data-testid="button-block-size-100"
+                >
+                  100 - Risco Médio
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleBlockSizeChange("0")}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
+                    emailBlockSize === 0
+                      ? "border-2 border-red-500 text-red-700 dark:text-red-400"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                  data-testid="button-block-size-unlimited"
+                >
+                  Sem limite - Risco Alto
+                </button>
+              </div>
             </div>
 
             <div className="flex items-center justify-between bg-muted/50 rounded-lg p-3">
