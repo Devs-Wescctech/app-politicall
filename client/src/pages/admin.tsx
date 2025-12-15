@@ -96,6 +96,8 @@ export default function Admin() {
     return true;
   });
   const [syncDialogOpen, setSyncDialogOpen] = useState(false);
+  const [syncTargetUrl, setSyncTargetUrl] = useState("");
+  const [syncApiKey, setSyncApiKey] = useState("");
   const { toast } = useToast();
 
   const toggleDarkMode = () => {
@@ -550,7 +552,7 @@ export default function Admin() {
 
   // System sync mutation
   const systemSyncMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async ({ targetUrl, apiKey }: { targetUrl: string; apiKey: string }) => {
       const token = localStorage.getItem("admin_token");
       const response = await fetch("/api/admin/system-sync", {
         method: "POST",
@@ -558,6 +560,7 @@ export default function Admin() {
           "Authorization": `Bearer ${token}`,
           "Content-Type": "application/json",
         },
+        body: JSON.stringify({ targetUrl, apiKey }),
       });
       
       const data = await response.json();
@@ -1886,10 +1889,35 @@ export default function Admin() {
               </ul>
             </div>
             
-            <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-4">
-              <p className="text-sm text-amber-600 dark:text-amber-400">
-                <strong>Atenção:</strong> Certifique-se de que as variáveis SYNC_TARGET_URL e SYNC_API_KEY estão configuradas corretamente antes de prosseguir.
-              </p>
+            <div className="space-y-3">
+              <div className="space-y-2">
+                <label htmlFor="sync-target-url" className="text-sm font-medium">
+                  URL do Servidor Destino
+                </label>
+                <input
+                  id="sync-target-url"
+                  type="url"
+                  placeholder="https://seuservidor.com/api/sync"
+                  value={syncTargetUrl}
+                  onChange={(e) => setSyncTargetUrl(e.target.value)}
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  data-testid="input-sync-target-url"
+                />
+              </div>
+              <div className="space-y-2">
+                <label htmlFor="sync-api-key" className="text-sm font-medium">
+                  Chave de API
+                </label>
+                <input
+                  id="sync-api-key"
+                  type="password"
+                  placeholder="Digite a chave de API do servidor"
+                  value={syncApiKey}
+                  onChange={(e) => setSyncApiKey(e.target.value)}
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  data-testid="input-sync-api-key"
+                />
+              </div>
             </div>
           </div>
 
@@ -1904,8 +1932,8 @@ export default function Admin() {
               Cancelar
             </Button>
             <Button
-              onClick={() => systemSyncMutation.mutate()}
-              disabled={systemSyncMutation.isPending}
+              onClick={() => systemSyncMutation.mutate({ targetUrl: syncTargetUrl, apiKey: syncApiKey })}
+              disabled={systemSyncMutation.isPending || !syncTargetUrl || !syncApiKey}
               className="flex-1 bg-[#40E0D0] hover:bg-[#40E0D0]/90 text-white"
               data-testid="button-confirm-sync"
             >

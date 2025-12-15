@@ -1372,15 +1372,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Execute system sync
   app.post("/api/admin/system-sync", authenticateAdminToken, async (req: AuthRequest, res) => {
     try {
-      const validation = validateSyncConfig();
-      if (!validation.valid) {
+      const { targetUrl, apiKey } = req.body;
+      
+      // Validar campos obrigatórios
+      if (!targetUrl || !apiKey) {
         return res.status(400).json({ 
-          error: "Configuração inválida", 
-          details: validation.errors 
+          error: "URL do servidor destino e chave de API são obrigatórios" 
         });
       }
       
-      const config = getSyncConfig();
+      // Validar formato da URL
+      try {
+        new URL(targetUrl);
+      } catch {
+        return res.status(400).json({ 
+          error: "URL do servidor destino inválida" 
+        });
+      }
+      
+      const config = {
+        targetUrl,
+        apiKey,
+        includeCode: true,
+        includeDatabaseDump: true,
+      };
+      
       const result = await executeSystemSync(config);
       
       if (result.success) {
