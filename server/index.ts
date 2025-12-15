@@ -69,8 +69,34 @@ app.use((req, res, next) => {
 });
 
 // SSR route for alliance invite with dynamic Open Graph meta tags
-// Must be registered BEFORE Vite middleware to intercept crawler requests
-app.get("/convite-alianca/:token", async (req: Request, res: Response) => {
+// Only serves static HTML with OG tags for crawlers (WhatsApp, Facebook, Twitter, etc.)
+// Regular browsers get the normal SPA experience via Vite
+app.get("/convite-alianca/:token", async (req: Request, res: Response, next: NextFunction) => {
+  const userAgent = req.headers['user-agent'] || '';
+  const crawlerPatterns = [
+    'facebookexternalhit',
+    'Facebot',
+    'WhatsApp',
+    'Twitterbot',
+    'LinkedInBot',
+    'Pinterest',
+    'Slackbot',
+    'TelegramBot',
+    'Discordbot',
+    'Googlebot',
+    'bingbot',
+    'Applebot'
+  ];
+  
+  const isCrawler = crawlerPatterns.some(pattern => 
+    userAgent.toLowerCase().includes(pattern.toLowerCase())
+  );
+  
+  // Let regular browsers use the normal SPA via Vite
+  if (!isCrawler) {
+    return next();
+  }
+  
   try {
     const { token } = req.params;
     const invite = await storage.getAllianceInviteByToken(token);
