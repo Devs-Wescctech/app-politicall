@@ -1330,7 +1330,7 @@ export default function Marketing() {
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    {campaign.productionStartDate && (
+                    {campaign.distributionType === "google_ads" && campaign.productionStartDate && (
                       <div className="flex items-start gap-3">
                         <Calendar className="w-5 h-5 text-[#40E0D0] mt-0.5" />
                         <div className="flex-1 space-y-2">
