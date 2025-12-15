@@ -76,6 +76,7 @@ export default function Alliances() {
   // Invite modal
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [inviteLink, setInviteLink] = useState<string | null>(null);
+  const [inviteName, setInviteName] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
   const [invitePhone, setInvitePhone] = useState("");
   
@@ -180,7 +181,7 @@ export default function Alliances() {
   });
 
   const createInviteMutation = useMutation({
-    mutationFn: async (data: { partyId: string; inviteeEmail?: string; inviteePhone?: string }) => {
+    mutationFn: async (data: { partyId: string; inviteeName: string; inviteeEmail?: string; inviteePhone: string }) => {
       const response = await apiRequest("POST", "/api/alliance-invites", data);
       return response.json();
     },
@@ -196,10 +197,19 @@ export default function Alliances() {
 
   const handleCreateInvite = () => {
     if (!selectedParty) return;
+    if (!inviteName.trim()) {
+      toast({ title: "Nome é obrigatório", variant: "destructive" });
+      return;
+    }
+    if (!invitePhone.trim()) {
+      toast({ title: "WhatsApp é obrigatório", variant: "destructive" });
+      return;
+    }
     createInviteMutation.mutate({
       partyId: selectedParty.id,
+      inviteeName: inviteName.trim(),
       inviteeEmail: inviteEmail || undefined,
-      inviteePhone: invitePhone || undefined,
+      inviteePhone: invitePhone.trim(),
     });
   };
 
@@ -229,6 +239,7 @@ export default function Alliances() {
   const handleCloseInviteModal = () => {
     setIsInviteModalOpen(false);
     setInviteLink(null);
+    setInviteName("");
     setInviteEmail("");
     setInvitePhone("");
   };
@@ -1875,6 +1886,28 @@ export default function Alliances() {
                 </p>
                 <div className="space-y-3">
                   <div>
+                    <label className="text-sm font-medium">Nome do convidado <span className="text-destructive">*</span></label>
+                    <Input
+                      type="text"
+                      placeholder="Nome completo"
+                      value={inviteName}
+                      onChange={(e) => setInviteName(e.target.value)}
+                      data-testid="input-invite-name"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">WhatsApp do convidado <span className="text-destructive">*</span></label>
+                    <Input
+                      type="tel"
+                      placeholder="(11) 99999-9999"
+                      value={invitePhone}
+                      onChange={(e) => setInvitePhone(e.target.value)}
+                      data-testid="input-invite-phone"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
                     <label className="text-sm font-medium">Email do convidado (opcional)</label>
                     <Input
                       type="email"
@@ -1882,17 +1915,6 @@ export default function Alliances() {
                       value={inviteEmail}
                       onChange={(e) => setInviteEmail(e.target.value)}
                       data-testid="input-invite-email"
-                      className="mt-1"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium">WhatsApp do convidado (opcional)</label>
-                    <Input
-                      type="tel"
-                      placeholder="(11) 99999-9999"
-                      value={invitePhone}
-                      onChange={(e) => setInvitePhone(e.target.value)}
-                      data-testid="input-invite-phone"
                       className="mt-1"
                     />
                   </div>
@@ -1962,6 +1984,7 @@ export default function Alliances() {
                   variant="default"
                   onClick={() => {
                     setInviteLink(null);
+                    setInviteName("");
                     setInviteEmail("");
                     setInvitePhone("");
                   }}
