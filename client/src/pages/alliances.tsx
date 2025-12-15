@@ -1262,19 +1262,19 @@ export default function Alliances() {
                     </h3>
                     <p className="text-xs text-muted-foreground line-clamp-2">{party.name}</p>
                     {hasInvites && (
-                      <div className="mt-2 pt-2 border-t w-full flex justify-center gap-2" data-testid={`party-invites-${party.acronym}`}>
+                      <div className="mt-2 pt-2 border-t w-full flex justify-center gap-3" data-testid={`party-invites-${party.acronym}`}>
                         {inviteCounts.pending > 0 && (
-                          <span className="text-xs bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 px-1.5 py-0.5 rounded" title="Convites enviados (pendentes)">
+                          <span className="text-xs text-yellow-600 dark:text-yellow-400" title="Convites enviados (pendentes)">
                             {inviteCounts.pending} env
                           </span>
                         )}
                         {inviteCounts.accepted > 0 && (
-                          <span className="text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 px-1.5 py-0.5 rounded" title="Convites aceitos">
+                          <span className="text-xs text-green-600 dark:text-green-400" title="Convites aceitos">
                             {inviteCounts.accepted} ace
                           </span>
                         )}
                         {inviteCounts.rejected > 0 && (
-                          <span className="text-xs bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 px-1.5 py-0.5 rounded" title="Convites rejeitados">
+                          <span className="text-xs text-red-600 dark:text-red-400" title="Convites rejeitados">
                             {inviteCounts.rejected} rej
                           </span>
                         )}
