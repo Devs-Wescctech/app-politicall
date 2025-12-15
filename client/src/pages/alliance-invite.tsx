@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRoute } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -106,6 +106,16 @@ interface InviteData {
     acronym: string;
     ideology: string;
   } | null;
+  account: {
+    name: string;
+  } | null;
+  admin: {
+    name: string;
+    avatar?: string;
+    politicalPosition?: string;
+    city?: string;
+    state?: string;
+  } | null;
 }
 
 export default function AllianceInvitePage() {
@@ -149,6 +159,25 @@ export default function AllianceInvitePage() {
     enabled: !!params?.token,
     retry: 1,
   });
+
+  // Dynamic favicon and title based on admin data
+  useEffect(() => {
+    if (inviteData?.admin?.avatar) {
+      const link = document.querySelector("link[rel~='icon']") as HTMLLinkElement;
+      if (link) {
+        link.href = inviteData.admin.avatar;
+      } else {
+        const newLink = document.createElement('link');
+        newLink.rel = 'icon';
+        newLink.href = inviteData.admin.avatar;
+        document.head.appendChild(newLink);
+      }
+    }
+    
+    if (inviteData?.account?.name || inviteData?.admin?.name) {
+      document.title = `Convite de Aliança - ${inviteData.account?.name || inviteData.admin?.name}`;
+    }
+  }, [inviteData?.admin?.avatar, inviteData?.account?.name, inviteData?.admin?.name]);
 
   const form = useForm<AcceptInviteForm>({
     resolver: zodResolver(acceptInviteSchema),
@@ -388,14 +417,21 @@ export default function AllianceInvitePage() {
           </CardHeader>
 
           <CardContent className="space-y-6">
+            {inviteData?.account?.name && (
+              <div className="text-center text-sm text-muted-foreground -mt-2 mb-4">
+                <span className="font-medium">{inviteData.account.name}</span>
+              </div>
+            )}
             <div className="bg-primary/5 border border-primary/10 rounded-lg p-4 text-center">
               <div className="flex items-center justify-center gap-2 text-primary mb-2">
                 <Handshake className="w-5 h-5" />
                 <span className="font-semibold">Convite de Aliança Política</span>
               </div>
               <p className="text-sm text-muted-foreground leading-relaxed" data-testid="text-invite-message">
-                Prezado(a) colega, é com grande satisfação que convido você para fortalecer nossa aliança política. 
-                Juntos, podemos construir uma força política sólida e eficiente para o bem da nossa comunidade.
+                Você foi convidado(a) para fazer parte da nossa aliança política
+                {inviteData?.party && (
+                  <> pelo partido <strong>{inviteData.party.acronym} - {inviteData.party.name}</strong></>
+                )}. Preencha seus dados abaixo para aceitar o convite.
               </p>
             </div>
 
