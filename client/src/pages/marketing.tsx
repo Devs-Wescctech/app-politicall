@@ -1238,7 +1238,14 @@ export default function Marketing() {
     <div className="container mx-auto p-6 max-w-7xl">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-3xl font-bold">Campanhas de Pesquisa</h1>
+          <h1 className="text-3xl font-bold flex items-center gap-3">
+            Campanhas de Pesquisa
+            {campaigns && campaigns.length > 0 && (
+              <Badge variant="secondary" className="text-sm font-normal">
+                {campaigns.length}
+              </Badge>
+            )}
+          </h1>
           <p className="text-muted-foreground mt-2">
             Crie e gerencie pesquisas de opinião pública
           </p>
