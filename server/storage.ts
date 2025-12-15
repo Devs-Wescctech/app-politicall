@@ -1,11 +1,12 @@
 // Storage implementation using blueprint javascript_database
 import { 
-  accounts, users, contacts, politicalParties, politicalAlliances, demands, demandComments, events,
+  accounts, users, contacts, politicalParties, politicalAlliances, allianceInvites, demands, demandComments, events,
   aiConfigurations, aiConversations, aiTrainingExamples, aiResponseTemplates, 
   marketingCampaigns, notifications, integrations, googleCalendarIntegrations, surveyTemplates, surveyCampaigns, surveyLandingPages, surveyResponses, leads,
   apiKeys, apiKeyUsage,
   type Account, type User, type InsertUser, type Contact, type InsertContact,
   type PoliticalParty, type PoliticalAlliance, type InsertPoliticalAlliance,
+  type AllianceInvite, type InsertAllianceInvite,
   type Demand, type InsertDemand, type DemandComment, type InsertDemandComment,
   type Event, type InsertEvent, type AiConfiguration, type InsertAiConfiguration,
   type AiConversation, type AiTrainingExample, type InsertAiTrainingExample,
@@ -64,6 +65,11 @@ export interface IStorage {
   createAlliance(alliance: InsertPoliticalAlliance & { userId: string; accountId: string }): Promise<PoliticalAlliance>;
   updateAlliance(id: string, accountId: string, alliance: Partial<InsertPoliticalAlliance>): Promise<PoliticalAlliance>;
   deleteAlliance(id: string, accountId: string): Promise<void>;
+
+  // Alliance Invites
+  createAllianceInvite(invite: InsertAllianceInvite & { userId: string; accountId: string; token: string }): Promise<AllianceInvite>;
+  getAllianceInviteByToken(token: string): Promise<AllianceInvite | undefined>;
+  acceptAllianceInvite(token: string, data: { inviteeName: string; inviteeEmail?: string; inviteePhone?: string; inviteePosition?: string }): Promise<AllianceInvite>;
 
   // Demands
   getDemands(accountId: string): Promise<Demand[]>;
@@ -499,6 +505,48 @@ export class DatabaseStorage implements IStorage {
       ))
       .returning();
     if (result.length === 0) throw new Error('Alliance not found or access denied');
+  }
+
+  // Alliance Invites
+  async createAllianceInvite(invite: InsertAllianceInvite & { userId: string; accountId: string; token: string }): Promise<AllianceInvite> {
+    const [newInvite] = await db.insert(allianceInvites).values(invite).returning();
+    return newInvite;
+  }
+
+  async getAllianceInviteByToken(token: string): Promise<AllianceInvite | undefined> {
+    const [invite] = await db.select().from(allianceInvites).where(eq(allianceInvites.token, token));
+    return invite || undefined;
+  }
+
+  async acceptAllianceInvite(token: string, data: { inviteeName: string; inviteeEmail?: string; inviteePhone?: string; inviteePosition?: string }): Promise<AllianceInvite> {
+    const invite = await this.getAllianceInviteByToken(token);
+    if (!invite) throw new Error('Convite não encontrado');
+    if (invite.status === 'accepted') throw new Error('Convite já foi aceito');
+    if (invite.status === 'expired') throw new Error('Convite expirado');
+
+    const [updated] = await db.update(allianceInvites)
+      .set({
+        status: 'accepted',
+        inviteeName: data.inviteeName,
+        inviteeEmail: data.inviteeEmail || invite.inviteeEmail,
+        inviteePhone: data.inviteePhone || invite.inviteePhone,
+        inviteePosition: data.inviteePosition,
+        acceptedAt: new Date()
+      })
+      .where(eq(allianceInvites.token, token))
+      .returning();
+
+    await db.insert(politicalAlliances).values({
+      accountId: invite.accountId,
+      userId: invite.userId,
+      partyId: invite.partyId,
+      allyName: data.inviteeName,
+      position: data.inviteePosition || null,
+      phone: data.inviteePhone || invite.inviteePhone || null,
+      email: data.inviteeEmail || invite.inviteeEmail || null,
+    });
+
+    return updated;
   }
 
   // Demands

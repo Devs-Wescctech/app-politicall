@@ -19,7 +19,7 @@ import multer from "multer";
 import { google } from "googleapis";
 import crypto from "crypto";
 import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
-import { insertUserSchema, loginSchema, insertContactSchema, insertPoliticalAllianceSchema, insertDemandSchema, insertDemandCommentSchema, insertEventSchema, insertAiConfigurationSchema, insertAiTrainingExampleSchema, insertAiResponseTemplateSchema, insertMarketingCampaignSchema, insertNotificationSchema, insertIntegrationSchema, insertSurveyCampaignSchema, insertSurveyLandingPageSchema, insertSurveyResponseSchema, insertLeadSchema, DEFAULT_PERMISSIONS } from "@shared/schema";
+import { insertUserSchema, loginSchema, insertContactSchema, insertPoliticalAllianceSchema, insertAllianceInviteSchema, insertDemandSchema, insertDemandCommentSchema, insertEventSchema, insertAiConfigurationSchema, insertAiTrainingExampleSchema, insertAiResponseTemplateSchema, insertMarketingCampaignSchema, insertNotificationSchema, insertIntegrationSchema, insertSurveyCampaignSchema, insertSurveyLandingPageSchema, insertSurveyResponseSchema, insertLeadSchema, DEFAULT_PERMISSIONS } from "@shared/schema";
 
 // Configure multer for file uploads
 const upload = multer({ 
@@ -1999,6 +1999,100 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true });
     } catch (error: any) {
       res.status(400).json({ error: error.message });
+    }
+  });
+
+  // ==================== ALLIANCE INVITES ====================
+
+  app.post("/api/alliance-invites", authenticateToken, requirePermission("alliances"), async (req: AuthRequest, res) => {
+    try {
+      const validatedData = insertAllianceInviteSchema.parse(req.body);
+      const token = crypto.randomBytes(32).toString('hex');
+      
+      const invite = await storage.createAllianceInvite({
+        ...validatedData,
+        userId: req.userId!,
+        accountId: req.accountId!,
+        token,
+      });
+      
+      res.json(invite);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/alliance-invites/:token/public", async (req: Request, res: Response) => {
+    try {
+      const { token } = req.params;
+      const invite = await storage.getAllianceInviteByToken(token);
+      
+      if (!invite) {
+        return res.status(404).json({ error: "Convite não encontrado" });
+      }
+      
+      if (invite.status === 'expired') {
+        return res.status(410).json({ error: "Convite expirado" });
+      }
+      
+      if (invite.status === 'accepted') {
+        return res.status(410).json({ error: "Convite já foi aceito" });
+      }
+
+      const inviter = await storage.getUser(invite.userId);
+      const party = await db.select().from(politicalParties).where(eq(politicalParties.id, invite.partyId));
+      
+      res.json({
+        invite: {
+          id: invite.id,
+          status: invite.status,
+          inviteeEmail: invite.inviteeEmail,
+          inviteePhone: invite.inviteePhone,
+          createdAt: invite.createdAt,
+        },
+        inviter: inviter ? {
+          name: inviter.name,
+          politicalPosition: inviter.politicalPosition,
+          city: inviter.city,
+          state: inviter.state,
+        } : null,
+        party: party.length > 0 ? {
+          id: party[0].id,
+          name: party[0].name,
+          acronym: party[0].acronym,
+          ideology: party[0].ideology,
+        } : null,
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/alliance-invites/:token/accept", async (req: Request, res: Response) => {
+    try {
+      const { token } = req.params;
+      const { inviteeName, inviteeEmail, inviteePhone, inviteePosition } = req.body;
+      
+      if (!inviteeName || inviteeName.trim().length < 2) {
+        return res.status(400).json({ error: "Nome é obrigatório" });
+      }
+      
+      const updatedInvite = await storage.acceptAllianceInvite(token, {
+        inviteeName: inviteeName.trim(),
+        inviteeEmail: inviteeEmail?.trim() || undefined,
+        inviteePhone: inviteePhone?.trim() || undefined,
+        inviteePosition: inviteePosition?.trim() || undefined,
+      });
+      
+      res.json({ success: true, invite: updatedInvite });
+    } catch (error: any) {
+      if (error.message === 'Convite não encontrado') {
+        return res.status(404).json({ error: error.message });
+      }
+      if (error.message === 'Convite já foi aceito' || error.message === 'Convite expirado') {
+        return res.status(410).json({ error: error.message });
+      }
+      res.status(500).json({ error: error.message });
     }
   });
 

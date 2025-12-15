@@ -73,6 +73,12 @@ export default function Alliances() {
   const [isValidatingPassword, setIsValidatingPassword] = useState(false);
   const [pendingProtectedAction, setPendingProtectedAction] = useState<"pdf" | "excel" | "copy-whatsapp" | "bulk-email" | null>(null);
   
+  // Invite modal
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+  const [inviteLink, setInviteLink] = useState<string | null>(null);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [invitePhone, setInvitePhone] = useState("");
+  
   // Bulk email with blocks
   const [isBulkEmailModalOpen, setIsBulkEmailModalOpen] = useState(false);
   const [sentEmailBlocks, setSentEmailBlocks] = useState<Set<number>>(() => {
@@ -172,6 +178,60 @@ export default function Alliances() {
       toast({ title: "Erro ao excluir aliado", variant: "destructive" });
     },
   });
+
+  const createInviteMutation = useMutation({
+    mutationFn: async (data: { partyId: string; inviteeEmail?: string; inviteePhone?: string }) => {
+      const response = await apiRequest("POST", "/api/alliance-invites", data);
+      return response.json();
+    },
+    onSuccess: (invite: any) => {
+      const link = `${window.location.origin}/convite/${invite.token}`;
+      setInviteLink(link);
+      toast({ title: "Convite criado com sucesso!" });
+    },
+    onError: () => {
+      toast({ title: "Erro ao criar convite", variant: "destructive" });
+    },
+  });
+
+  const handleCreateInvite = () => {
+    if (!selectedParty) return;
+    createInviteMutation.mutate({
+      partyId: selectedParty.id,
+      inviteeEmail: inviteEmail || undefined,
+      inviteePhone: invitePhone || undefined,
+    });
+  };
+
+  const handleCopyInviteLink = () => {
+    if (inviteLink) {
+      navigator.clipboard.writeText(inviteLink).then(() => {
+        toast({ title: "Link copiado!" });
+      });
+    }
+  };
+
+  const handleSendInviteByEmail = () => {
+    if (!inviteLink || !selectedParty) return;
+    const subject = encodeURIComponent(`Convite para Aliança Política - ${selectedParty.acronym}`);
+    const body = encodeURIComponent(`Olá!\n\nVocê foi convidado(a) para fazer parte da nossa aliança política pelo partido ${selectedParty.acronym} - ${selectedParty.name}.\n\nClique no link abaixo para aceitar o convite:\n${inviteLink}\n\nAtenciosamente,\nEquipe Politicall`);
+    window.location.href = `mailto:${inviteEmail}?subject=${subject}&body=${body}`;
+  };
+
+  const handleSendInviteByWhatsApp = () => {
+    if (!inviteLink || !selectedParty) return;
+    const cleanPhone = invitePhone.replace(/\D/g, "");
+    const internationalPhone = cleanPhone.startsWith("55") ? cleanPhone : `55${cleanPhone}`;
+    const message = encodeURIComponent(`Olá! Você foi convidado(a) para fazer parte da nossa aliança política pelo partido ${selectedParty.acronym} - ${selectedParty.name}.\n\nClique no link para aceitar o convite:\n${inviteLink}`);
+    window.open(`https://wa.me/${internationalPhone}?text=${message}`, "_blank");
+  };
+
+  const handleCloseInviteModal = () => {
+    setIsInviteModalOpen(false);
+    setInviteLink(null);
+    setInviteEmail("");
+    setInvitePhone("");
+  };
 
   const handleSubmit = (data: InsertPoliticalAlliance) => {
     if (isEditMode && selectedAlliance) {
@@ -1272,11 +1332,20 @@ export default function Alliances() {
               )}
             </div>
           </div>
-          <DialogFooter className="p-4 border-t">
+          <DialogFooter className="p-4 border-t flex flex-col gap-2 sm:flex-row">
+            <Button
+              variant="default"
+              className="rounded-full flex-1"
+              onClick={() => setIsInviteModalOpen(true)}
+              data-testid="button-send-invite"
+            >
+              <Send className="w-4 h-4 mr-2" />
+              Enviar Convite
+            </Button>
             <DialogClose asChild>
               <Button
                 variant="outline"
-                className="w-full rounded-full"
+                className="rounded-full flex-1"
                 data-testid="button-close-party-modal"
               >
                 Fechar
@@ -1780,6 +1849,137 @@ export default function Alliances() {
               onClick={() => setIsBulkEmailModalOpen(false)}
               className="w-full"
               data-testid="button-close-alliance-bulk-email"
+            >
+              Fechar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isInviteModalOpen} onOpenChange={(open) => !open && handleCloseInviteModal()}>
+        <DialogContent className="max-w-md max-h-[90vh] flex flex-col p-0">
+          <DialogHeader className="px-6 pt-6 pb-4 border-b">
+            <DialogTitle>Enviar Convite para Aliança</DialogTitle>
+            {selectedParty && (
+              <p className="text-sm text-muted-foreground">
+                Partido: {selectedParty.acronym} - {selectedParty.name}
+              </p>
+            )}
+          </DialogHeader>
+          <div className="overflow-y-auto px-6 py-4 flex-1">
+            {!inviteLink ? (
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  Crie um convite único para convidar novos aliados políticos. 
+                  O link gerado pode ser enviado por email ou WhatsApp.
+                </p>
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-sm font-medium">Email do convidado (opcional)</label>
+                    <Input
+                      type="email"
+                      placeholder="email@exemplo.com"
+                      value={inviteEmail}
+                      onChange={(e) => setInviteEmail(e.target.value)}
+                      data-testid="input-invite-email"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">WhatsApp do convidado (opcional)</label>
+                    <Input
+                      type="tel"
+                      placeholder="(11) 99999-9999"
+                      value={invitePhone}
+                      onChange={(e) => setInvitePhone(e.target.value)}
+                      data-testid="input-invite-phone"
+                      className="mt-1"
+                    />
+                  </div>
+                </div>
+                <Button
+                  onClick={handleCreateInvite}
+                  disabled={createInviteMutation.isPending}
+                  className="w-full rounded-full"
+                  data-testid="button-create-invite"
+                >
+                  {createInviteMutation.isPending ? (
+                    <>
+                      <span className="animate-spin mr-2">⏳</span>
+                      Criando convite...
+                    </>
+                  ) : (
+                    <>
+                      <UserPlus className="w-4 h-4 mr-2" />
+                      Criar Convite
+                    </>
+                  )}
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="p-4 bg-muted rounded-lg">
+                  <label className="text-sm font-medium text-muted-foreground">Link do convite</label>
+                  <p className="text-sm mt-1 break-all font-mono" data-testid="text-invite-link">
+                    {inviteLink}
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={handleCopyInviteLink}
+                    className="rounded-full"
+                    data-testid="button-copy-invite-link"
+                  >
+                    <Copy className="w-4 h-4 mr-2" />
+                    Copiar Link
+                  </Button>
+                  {inviteEmail && (
+                    <Button
+                      variant="outline"
+                      onClick={handleSendInviteByEmail}
+                      className="rounded-full"
+                      data-testid="button-send-invite-email"
+                    >
+                      <Mail className="w-4 h-4 mr-2" />
+                      Enviar por Email
+                    </Button>
+                  )}
+                  {invitePhone && (
+                    <Button
+                      variant="outline"
+                      onClick={handleSendInviteByWhatsApp}
+                      className="rounded-full"
+                      data-testid="button-send-invite-whatsapp"
+                    >
+                      <MessageCircle className="w-4 h-4 mr-2" />
+                      Enviar por WhatsApp
+                    </Button>
+                  )}
+                </div>
+                <Separator />
+                <Button
+                  variant="default"
+                  onClick={() => {
+                    setInviteLink(null);
+                    setInviteEmail("");
+                    setInvitePhone("");
+                  }}
+                  className="w-full rounded-full"
+                  data-testid="button-create-new-invite"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Criar Novo Convite
+                </Button>
+              </div>
+            )}
+          </div>
+          <DialogFooter className="px-6 py-4 border-t">
+            <Button
+              variant="outline"
+              onClick={handleCloseInviteModal}
+              className="w-full rounded-full"
+              data-testid="button-close-invite-modal"
             >
               Fechar
             </Button>
