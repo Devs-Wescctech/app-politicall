@@ -1194,6 +1194,16 @@ export default function Alliances() {
               <Button
                 size="icon"
                 variant="outline"
+                onClick={handleCopyWhatsAppNumbers}
+                data-testid="button-copy-whatsapp-party-modal"
+                title="Copiar números WhatsApp"
+                className="rounded-full"
+              >
+                <Copy className="w-4 h-4" />
+              </Button>
+              <Button
+                size="icon"
+                variant="outline"
                 onClick={handleBulkEmail}
                 data-testid="button-bulk-email-party-modal"
                 title="Enviar email em massa"
