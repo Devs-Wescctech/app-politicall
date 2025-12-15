@@ -1354,6 +1354,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ==================== SYSTEM SYNC (Admin Master Only) ====================
+  
+  // Import system sync service dynamically to avoid circular dependencies
+  const { executeSystemSync, validateSyncConfig, getSyncConfig } = await import("./services/systemSync");
+  
+  // Validate sync configuration
+  app.get("/api/admin/system-sync/validate", authenticateAdminToken, async (req: AuthRequest, res) => {
+    try {
+      const validation = validateSyncConfig();
+      res.json(validation);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Execute system sync
+  app.post("/api/admin/system-sync", authenticateAdminToken, async (req: AuthRequest, res) => {
+    try {
+      const validation = validateSyncConfig();
+      if (!validation.valid) {
+        return res.status(400).json({ 
+          error: "Configuração inválida", 
+          details: validation.errors 
+        });
+      }
+      
+      const config = getSyncConfig();
+      const result = await executeSystemSync(config);
+      
+      if (result.success) {
+        res.json(result);
+      } else {
+        res.status(500).json(result);
+      }
+    } catch (error: any) {
+      res.status(500).json({ 
+        success: false,
+        error: error.message,
+        timestamp: new Date().toISOString()
+      });
+    }
+  });
+
   // ==================== USER MANAGEMENT (Admin Only) ====================
   
   // Get user activity ranking with period filter

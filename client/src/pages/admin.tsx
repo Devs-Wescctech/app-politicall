@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { CheckCircle2, XCircle, ChevronLeft, ChevronRight, ChevronDown, User, Copy, Check, DollarSign, Inbox, Mail, Phone, Trash2, Search, Sun, Moon, Eye, Calendar, MapPin, Users, FileText, MessageSquare, BarChart3, X } from "lucide-react";
+import { CheckCircle2, XCircle, ChevronLeft, ChevronRight, ChevronDown, User, Copy, Check, DollarSign, Inbox, Mail, Phone, Trash2, Search, Sun, Moon, Eye, Calendar, MapPin, Users, FileText, MessageSquare, BarChart3, X, RefreshCw, Server, Loader2 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { AdminBottomNav } from "@/components/admin-bottom-nav";
 import { Button } from "@/components/ui/button";
@@ -95,6 +95,7 @@ export default function Admin() {
     }
     return true;
   });
+  const [syncDialogOpen, setSyncDialogOpen] = useState(false);
   const { toast } = useToast();
 
   const toggleDarkMode = () => {
@@ -547,6 +548,42 @@ export default function Admin() {
     },
   });
 
+  // System sync mutation
+  const systemSyncMutation = useMutation({
+    mutationFn: async () => {
+      const token = localStorage.getItem("admin_token");
+      const response = await fetch("/api/admin/system-sync", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || "Erro ao sincronizar sistema");
+      }
+      
+      return data;
+    },
+    onSuccess: (data) => {
+      setSyncDialogOpen(false);
+      toast({
+        title: "Sincronização concluída",
+        description: data.message || "O sistema foi atualizado com sucesso no servidor de destino.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erro na sincronização",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleLogout = () => {
     localStorage.removeItem("admin_token");
     setLocation("/login");
@@ -846,6 +883,15 @@ export default function Admin() {
         <div className="flex items-center justify-between px-6 py-4">
           <img src={logoUrl} alt="Politicall Logo" className="h-10" data-testid="img-logo" />
           <div className="flex items-center gap-3">
+            <Button 
+              variant="outline"
+              onClick={() => setSyncDialogOpen(true)}
+              className="rounded-full gap-2"
+              data-testid="button-sync-system"
+            >
+              <Server className="w-4 h-4" />
+              Atualizar Sistema
+            </Button>
             <Button 
               size="icon"
               variant="ghost"
@@ -1811,6 +1857,71 @@ export default function Admin() {
               )}
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* System Sync Dialog */}
+      <Dialog open={syncDialogOpen} onOpenChange={setSyncDialogOpen}>
+        <DialogContent data-testid="dialog-sync-system">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2" data-testid="text-sync-title">
+              <Server className="w-5 h-5 text-[#40E0D0]" />
+              Atualizar Sistema Geral
+            </DialogTitle>
+            <DialogDescription data-testid="text-sync-description">
+              Esta ação enviará todo o código e banco de dados para o servidor de destino configurado.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="bg-muted/50 rounded-lg p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <RefreshCw className="w-4 h-4 text-[#40E0D0]" />
+                <span className="text-sm font-medium">O que será sincronizado:</span>
+              </div>
+              <ul className="text-sm text-muted-foreground space-y-1 ml-6 list-disc">
+                <li>Código-fonte completo (exceto node_modules)</li>
+                <li>Banco de dados PostgreSQL (dump completo)</li>
+                <li>Configurações e arquivos de configuração</li>
+              </ul>
+            </div>
+            
+            <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-4">
+              <p className="text-sm text-amber-600 dark:text-amber-400">
+                <strong>Atenção:</strong> Certifique-se de que as variáveis SYNC_TARGET_URL e SYNC_API_KEY estão configuradas corretamente antes de prosseguir.
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setSyncDialogOpen(false)}
+              disabled={systemSyncMutation.isPending}
+              className="flex-1"
+              data-testid="button-cancel-sync"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={() => systemSyncMutation.mutate()}
+              disabled={systemSyncMutation.isPending}
+              className="flex-1 bg-[#40E0D0] hover:bg-[#40E0D0]/90 text-white"
+              data-testid="button-confirm-sync"
+            >
+              {systemSyncMutation.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Sincronizando...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Confirmar Sincronização
+                </>
+              )}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
