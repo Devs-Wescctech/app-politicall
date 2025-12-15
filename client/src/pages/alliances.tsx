@@ -1213,15 +1213,7 @@ export default function Alliances() {
                   <Send className="w-4 h-4" />
                 </Button>
               </div>
-              <DialogClose asChild>
-                <button
-                  className="h-full px-6 py-4 border-l border-zinc-700 bg-zinc-800 hover:bg-zinc-700 transition-colors flex items-center justify-center"
-                  data-testid="button-close-party-modal"
-                >
-                  <X className="w-6 h-6 text-white" />
-                </button>
-              </DialogClose>
-            </div>
+              </div>
           </DialogHeader>
           <div className="overflow-y-auto px-6 py-4 flex-1">
             <div className="space-y-3">
