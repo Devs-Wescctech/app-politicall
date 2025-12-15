@@ -39,6 +39,8 @@ import { groupTextResponses } from "@shared/text-normalization";
 import { calculateGenderDistribution } from "./utils/gender-detector";
 import fs from "fs";
 import path from "path";
+import { createRequire } from "module";
+const require = createRequire(import.meta.url);
 
 // Admin master password management
 const ADMIN_CONFIG_FILE = path.join(process.cwd(), '.admin-config.json');
@@ -859,12 +861,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const PdfPrinter = require('pdfmake');
 
+      // Use Roboto fonts from local fonts folder
+      const fontsDir = path.join(process.cwd(), 'server/fonts');
       const fonts = {
         Roboto: {
-          normal: 'node_modules/pdfmake/build/vfs_fonts.js',
-          bold: 'node_modules/pdfmake/build/vfs_fonts.js',
-          italics: 'node_modules/pdfmake/build/vfs_fonts.js',
-          bolditalics: 'node_modules/pdfmake/build/vfs_fonts.js'
+          normal: path.join(fontsDir, 'Roboto-Regular.ttf'),
+          bold: path.join(fontsDir, 'Roboto-Medium.ttf'),
+          italics: path.join(fontsDir, 'Roboto-Italic.ttf'),
+          bolditalics: path.join(fontsDir, 'Roboto-MediumItalic.ttf')
         }
       };
 
