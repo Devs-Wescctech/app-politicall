@@ -69,7 +69,7 @@ export interface IStorage {
   // Alliance Invites
   createAllianceInvite(invite: InsertAllianceInvite & { userId: string; accountId: string; token: string }): Promise<AllianceInvite>;
   getAllianceInviteByToken(token: string): Promise<AllianceInvite | undefined>;
-  acceptAllianceInvite(token: string, data: { inviteeName: string; inviteeEmail?: string; inviteePhone?: string; inviteePosition?: string }): Promise<AllianceInvite>;
+  acceptAllianceInvite(token: string, data: { inviteeName: string; inviteeEmail?: string; inviteePhone?: string; inviteePosition?: string; inviteeState?: string; inviteeCity?: string; inviteeNotes?: string }): Promise<AllianceInvite>;
 
   // Demands
   getDemands(accountId: string): Promise<Demand[]>;
@@ -518,7 +518,7 @@ export class DatabaseStorage implements IStorage {
     return invite || undefined;
   }
 
-  async acceptAllianceInvite(token: string, data: { inviteeName: string; inviteeEmail?: string; inviteePhone?: string; inviteePosition?: string }): Promise<AllianceInvite> {
+  async acceptAllianceInvite(token: string, data: { inviteeName: string; inviteeEmail?: string; inviteePhone?: string; inviteePosition?: string; inviteeState?: string; inviteeCity?: string; inviteeNotes?: string }): Promise<AllianceInvite> {
     const invite = await this.getAllianceInviteByToken(token);
     if (!invite) throw new Error('Convite não encontrado');
     if (invite.status === 'accepted') throw new Error('Convite já foi aceito');
@@ -531,6 +531,9 @@ export class DatabaseStorage implements IStorage {
         inviteeEmail: data.inviteeEmail || invite.inviteeEmail,
         inviteePhone: data.inviteePhone || invite.inviteePhone,
         inviteePosition: data.inviteePosition,
+        inviteeState: data.inviteeState,
+        inviteeCity: data.inviteeCity,
+        inviteeNotes: data.inviteeNotes,
         acceptedAt: new Date()
       })
       .where(eq(allianceInvites.token, token))
@@ -542,8 +545,11 @@ export class DatabaseStorage implements IStorage {
       partyId: invite.partyId,
       allyName: data.inviteeName,
       position: data.inviteePosition || null,
+      state: data.inviteeState || null,
+      city: data.inviteeCity || null,
       phone: data.inviteePhone || invite.inviteePhone || null,
       email: data.inviteeEmail || invite.inviteeEmail || null,
+      notes: data.inviteeNotes || null,
     });
 
     return updated;

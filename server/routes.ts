@@ -2072,7 +2072,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/alliance-invites/:token/accept", async (req: Request, res: Response) => {
     try {
       const { token } = req.params;
-      const { inviteeName, inviteeEmail, inviteePhone, inviteePosition } = req.body;
+      const { inviteeName, inviteeEmail, inviteePhone, inviteePosition, inviteeState, inviteeCity, inviteeNotes } = req.body;
       
       if (!inviteeName || inviteeName.trim().length < 2) {
         return res.status(400).json({ error: "Nome é obrigatório" });
@@ -2083,6 +2083,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         inviteeEmail: inviteeEmail?.trim() || undefined,
         inviteePhone: inviteePhone?.trim() || undefined,
         inviteePosition: inviteePosition?.trim() || undefined,
+        inviteeState: inviteeState?.trim() || undefined,
+        inviteeCity: inviteeCity?.trim() || undefined,
+        inviteeNotes: inviteeNotes?.trim() || undefined,
       });
       
       res.json({ success: true, invite: updatedInvite });

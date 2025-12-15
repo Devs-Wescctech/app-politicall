@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -42,11 +43,44 @@ const PARTY_COLORS: Record<string, string> = {
   "UNIÃO": "#0047AB",
 };
 
+const BRAZILIAN_STATES = [
+  { value: "AC", label: "Acre" },
+  { value: "AL", label: "Alagoas" },
+  { value: "AP", label: "Amapá" },
+  { value: "AM", label: "Amazonas" },
+  { value: "BA", label: "Bahia" },
+  { value: "CE", label: "Ceará" },
+  { value: "DF", label: "Distrito Federal" },
+  { value: "ES", label: "Espírito Santo" },
+  { value: "GO", label: "Goiás" },
+  { value: "MA", label: "Maranhão" },
+  { value: "MT", label: "Mato Grosso" },
+  { value: "MS", label: "Mato Grosso do Sul" },
+  { value: "MG", label: "Minas Gerais" },
+  { value: "PA", label: "Pará" },
+  { value: "PB", label: "Paraíba" },
+  { value: "PR", label: "Paraná" },
+  { value: "PE", label: "Pernambuco" },
+  { value: "PI", label: "Piauí" },
+  { value: "RJ", label: "Rio de Janeiro" },
+  { value: "RN", label: "Rio Grande do Norte" },
+  { value: "RS", label: "Rio Grande do Sul" },
+  { value: "RO", label: "Rondônia" },
+  { value: "RR", label: "Roraima" },
+  { value: "SC", label: "Santa Catarina" },
+  { value: "SP", label: "São Paulo" },
+  { value: "SE", label: "Sergipe" },
+  { value: "TO", label: "Tocantins" },
+];
+
 const acceptInviteSchema = z.object({
   inviteeName: z.string().min(2, "Nome é obrigatório"),
-  inviteeEmail: z.string().email("Email inválido"),
+  inviteeEmail: z.string().email("Email inválido").optional().or(z.literal("")),
   inviteePhone: z.string().min(10, "WhatsApp é obrigatório"),
   inviteePosition: z.string().optional(),
+  inviteeState: z.string().optional(),
+  inviteeCity: z.string().optional(),
+  inviteeNotes: z.string().optional(),
 });
 
 type AcceptInviteForm = z.infer<typeof acceptInviteSchema>;
@@ -122,6 +156,9 @@ export default function AllianceInvitePage() {
       inviteeEmail: inviteData?.invite?.inviteeEmail || "",
       inviteePhone: inviteData?.invite?.inviteePhone || "",
       inviteePosition: "",
+      inviteeState: "",
+      inviteeCity: "",
+      inviteeNotes: "",
     },
   });
 
@@ -405,6 +442,70 @@ export default function AllianceInvitePage() {
                             ))}
                           </SelectContent>
                         </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <FormField
+                      control={form.control}
+                      name="inviteeState"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Estado (opcional)</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger data-testid="select-state">
+                                <SelectValue placeholder="UF" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {BRAZILIAN_STATES.map((state) => (
+                                <SelectItem key={state.value} value={state.value}>
+                                  {state.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="inviteeCity"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Cidade (opcional)</FormLabel>
+                          <FormControl>
+                            <Input 
+                              placeholder="Sua cidade" 
+                              {...field} 
+                              data-testid="input-city"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <FormField
+                    control={form.control}
+                    name="inviteeNotes"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Observações (opcional)</FormLabel>
+                        <FormControl>
+                          <Textarea 
+                            placeholder="Informações adicionais..." 
+                            {...field} 
+                            rows={3}
+                            data-testid="textarea-notes"
+                          />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}

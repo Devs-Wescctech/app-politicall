@@ -313,6 +313,9 @@ export const allianceInvites = pgTable("alliance_invites", {
   inviteePhone: text("invitee_phone"),
   inviteeName: text("invitee_name"),
   inviteePosition: text("invitee_position"),
+  inviteeState: text("invitee_state"),
+  inviteeCity: text("invitee_city"),
+  inviteeNotes: text("invitee_notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   acceptedAt: timestamp("accepted_at"),
 });
