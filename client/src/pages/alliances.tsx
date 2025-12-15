@@ -186,7 +186,7 @@ export default function Alliances() {
       return response.json();
     },
     onSuccess: (invite: any) => {
-      const link = `https://www.politicall.com.br/convite/${invite.token}`;
+      const link = `https://www.politicall.com.br/convite-alianca/${invite.token}`;
       setInviteLink(link);
       toast({ title: "Convite criado com sucesso!" });
     },

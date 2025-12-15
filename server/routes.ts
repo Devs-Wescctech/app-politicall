@@ -2007,7 +2007,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/alliance-invites", authenticateToken, requirePermission("alliances"), async (req: AuthRequest, res) => {
     try {
       const validatedData = insertAllianceInviteSchema.parse(req.body);
-      const token = crypto.randomBytes(32).toString('hex');
+      const token = Math.random().toString(36).substring(2, 8).toUpperCase();
       
       const invite = await storage.createAllianceInvite({
         ...validatedData,
