@@ -1253,12 +1253,15 @@ export default function Marketing() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos os temas</SelectItem>
-              {templates?.filter(t => t.id !== "custom-template").map((template) => (
-                <SelectItem key={template.id} value={template.id}>
-                  {template.name}
-                </SelectItem>
-              ))}
-              <SelectItem value="custom-template">Personalizado</SelectItem>
+              {(() => {
+                const activeTemplateIds = new Set(campaigns?.map(c => c.templateId) || []);
+                const activeTemplates = templates?.filter(t => activeTemplateIds.has(t.id)) || [];
+                return activeTemplates.map((template) => (
+                  <SelectItem key={template.id} value={template.id}>
+                    {template.name}
+                  </SelectItem>
+                ));
+              })()}
             </SelectContent>
           </Select>
           <Button
