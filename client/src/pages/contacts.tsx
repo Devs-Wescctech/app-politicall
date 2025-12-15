@@ -3190,19 +3190,11 @@ export default function Contacts() {
                 return (
                   <div
                     key={index}
-                    className={`flex items-center justify-between p-3 rounded-lg border transition-colors ${
-                      isSent 
-                        ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' 
-                        : 'bg-card border-border hover-elevate'
-                    }`}
+                    className="flex items-center justify-between p-3 rounded-lg border border-border transition-colors hover-elevate"
                     data-testid={`email-block-${index}`}
                   >
                     <div className="flex items-center gap-3">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                        isSent 
-                          ? 'bg-green-500 text-white' 
-                          : 'bg-muted text-muted-foreground'
-                      }`}>
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center border border-border text-muted-foreground">
                         {isSent ? (
                           <CheckCircle2 className="w-4 h-4" />
                         ) : (
@@ -3220,7 +3212,7 @@ export default function Contacts() {
                     </div>
                     <div className="flex items-center gap-2">
                       {isSent ? (
-                        <Badge variant="outline" className="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-300">
+                        <Badge variant="outline">
                           <CheckCircle2 className="w-3 h-3 mr-1" />
                           Enviado
                         </Badge>
@@ -3258,12 +3250,12 @@ export default function Contacts() {
             </div>
 
             {sentEmailBlocks.size === emailBlocks.length && emailBlocks.length > 0 && (
-              <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 text-center">
-                <CheckCircle2 className="w-8 h-8 mx-auto mb-2 text-green-500" />
-                <p className="font-medium text-green-700 dark:text-green-400">
+              <div className="border border-border rounded-lg p-4 text-center">
+                <CheckCircle2 className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
+                <p className="font-medium">
                   Todos os blocos foram enviados!
                 </p>
-                <p className="text-sm text-green-600 dark:text-green-500 mt-1">
+                <p className="text-sm text-muted-foreground mt-1">
                   {contacts?.filter(c => c.email).length || 0} emails disparados com sucesso
                 </p>
               </div>
