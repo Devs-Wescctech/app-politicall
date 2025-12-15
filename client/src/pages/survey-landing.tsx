@@ -29,6 +29,14 @@ type CustomQuestion = {
   required: boolean;
 };
 
+type CustomDemographicField = {
+  id: string;
+  label: string;
+  fieldType: 'text' | 'single_choice' | 'multiple_choice';
+  options?: string[];
+  required: boolean;
+};
+
 type SurveyData = {
   campaign: {
     id: string;
@@ -40,6 +48,7 @@ type SurveyData = {
     customMainQuestionOptions?: string[] | null;
     customQuestions?: CustomQuestion[] | null;
     demographicFields?: string[] | null;
+    customDemographicFields?: CustomDemographicField[] | null;
   };
   template: {
     questionText: string;
@@ -53,6 +62,7 @@ export default function SurveyLanding() {
   const { toast } = useToast();
   const [submitted, setSubmitted] = useState(false);
   const [selectedRatings, setSelectedRatings] = useState<Record<string, number>>({});
+  const [customDemographicValues, setCustomDemographicValues] = useState<Record<string, string | string[]>>({});
 
   const { data: surveyData, isLoading, error } = useQuery<SurveyData>({
     queryKey: ["/api/pesquisa", slug],
@@ -176,6 +186,11 @@ export default function SurveyLanding() {
         payload.responseData = { answers: data.answers };
       } else if (questionType === "rating") {
         payload.responseData = { ratings: data.ratings };
+      }
+
+      // Include custom demographic field values if any
+      if (Object.keys(customDemographicValues).length > 0) {
+        payload.customDemographicData = customDemographicValues;
       }
 
       const res = await apiRequest("POST", `/api/pesquisa/${slug}/submit`, payload);
@@ -538,7 +553,80 @@ export default function SurveyLanding() {
                   </div>
                 )}
 
-                {enabledDemographicFields.length > 0 && <Separator className="my-8" />}
+                {/* Custom Demographic Fields Section */}
+                {surveyData.campaign.customDemographicFields && surveyData.campaign.customDemographicFields.length > 0 && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                    {surveyData.campaign.customDemographicFields.map((customField, fieldIndex) => (
+                      <div key={customField.id} className="space-y-2">
+                        <Label className={customField.required ? "after:content-['*'] after:ml-0.5 after:text-red-500" : ""}>
+                          {customField.label}
+                        </Label>
+                        
+                        {customField.fieldType === "text" && (
+                          <Input
+                            placeholder={`Digite ${customField.label.toLowerCase()}...`}
+                            value={(customDemographicValues[customField.id] as string) || ""}
+                            onChange={(e) => setCustomDemographicValues(prev => ({
+                              ...prev,
+                              [customField.id]: e.target.value
+                            }))}
+                            data-testid={`input-custom-demographic-${fieldIndex}`}
+                          />
+                        )}
+                        
+                        {customField.fieldType === "single_choice" && customField.options && (
+                          <Select
+                            value={(customDemographicValues[customField.id] as string) || ""}
+                            onValueChange={(value) => setCustomDemographicValues(prev => ({
+                              ...prev,
+                              [customField.id]: value
+                            }))}
+                          >
+                            <SelectTrigger data-testid={`select-custom-demographic-${fieldIndex}`}>
+                              <SelectValue placeholder="Selecione" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {customField.options.map((option, optIndex) => (
+                                <SelectItem key={optIndex} value={option}>{option}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                        
+                        {customField.fieldType === "multiple_choice" && customField.options && (
+                          <div className="space-y-2">
+                            {customField.options.map((option, optIndex) => {
+                              const currentValues = (customDemographicValues[customField.id] as string[]) || [];
+                              return (
+                                <div key={optIndex} className="flex items-center gap-2">
+                                  <Checkbox
+                                    id={`custom-demo-${customField.id}-${optIndex}`}
+                                    checked={currentValues.includes(option)}
+                                    onCheckedChange={(checked) => {
+                                      const newValues = checked
+                                        ? [...currentValues, option]
+                                        : currentValues.filter(v => v !== option);
+                                      setCustomDemographicValues(prev => ({
+                                        ...prev,
+                                        [customField.id]: newValues
+                                      }));
+                                    }}
+                                    data-testid={`checkbox-custom-demographic-${fieldIndex}-${optIndex}`}
+                                  />
+                                  <Label htmlFor={`custom-demo-${customField.id}-${optIndex}`} className="cursor-pointer">
+                                    {option}
+                                  </Label>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {(enabledDemographicFields.length > 0 || (surveyData.campaign.customDemographicFields && surveyData.campaign.customDemographicFields.length > 0)) && <Separator className="my-8" />}
 
                 {/* Survey Question Section */}
                 <div>

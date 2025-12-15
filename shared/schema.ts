@@ -864,6 +864,15 @@ export const customQuestionSchema = z.object({
   required: z.boolean()
 });
 
+// Zod schema for custom demographic fields
+export const customDemographicFieldSchema = z.object({
+  id: z.string(),
+  label: z.string().min(3, "Nome do campo deve ter no mínimo 3 caracteres"),
+  fieldType: z.enum(["text", "single_choice", "multiple_choice"]),
+  options: z.array(z.string()).optional(),
+  required: z.boolean()
+});
+
 export const insertSurveyCampaignSchema = createInsertSchema(surveyCampaigns).omit({
   id: true,
   userId: true,
@@ -881,6 +890,7 @@ export const insertSurveyCampaignSchema = createInsertSchema(surveyCampaigns).om
   customMainQuestionType: z.string().nullable().optional(),
   customMainQuestionOptions: z.array(z.string()).nullable().optional(),
   customQuestions: z.array(customQuestionSchema).nullable().optional(),
+  customDemographicFields: z.array(customDemographicFieldSchema).nullable().optional(),
 });
 
 export const insertSurveyLandingPageSchema = createInsertSchema(surveyLandingPages).omit({

@@ -5,6 +5,7 @@ import {
   type SurveyCampaign,
   type InsertSurveyCampaign,
   type CustomQuestion,
+  type CustomDemographicField,
   insertSurveyCampaignSchema
 } from "@shared/schema";
 import { Button } from "@/components/ui/button";
@@ -786,6 +787,15 @@ export default function Marketing() {
   const [newQuestionOptions, setNewQuestionOptions] = useState<string[]>([""]);
   const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null);
 
+  // Custom demographic fields states
+  const [customDemographicFields, setCustomDemographicFields] = useState<CustomDemographicField[]>([]);
+  const [showAddDemographicFieldDialog, setShowAddDemographicFieldDialog] = useState(false);
+  const [newDemographicFieldLabel, setNewDemographicFieldLabel] = useState("");
+  const [newDemographicFieldType, setNewDemographicFieldType] = useState<"text" | "single_choice" | "multiple_choice">("text");
+  const [newDemographicFieldOptions, setNewDemographicFieldOptions] = useState<string[]>(["", ""]);
+  const [newDemographicFieldRequired, setNewDemographicFieldRequired] = useState(true);
+  const [editingDemographicFieldId, setEditingDemographicFieldId] = useState<string | null>(null);
+
   const form = useForm<InsertSurveyCampaign>({
     resolver: zodResolver(insertSurveyCampaignSchema),
     defaultValues: {
@@ -978,6 +988,72 @@ export default function Marketing() {
     setCustomMainQuestionOptions(prev => prev.map((opt, i) => i === index ? value : opt));
   };
 
+  // Custom demographic field helper functions
+  const resetDemographicFieldDialog = () => {
+    setNewDemographicFieldLabel("");
+    setNewDemographicFieldType("text");
+    setNewDemographicFieldOptions(["", ""]);
+    setNewDemographicFieldRequired(true);
+    setEditingDemographicFieldId(null);
+  };
+
+  const handleAddDemographicField = () => {
+    if (!newDemographicFieldLabel.trim()) {
+      toast({ title: "O nome do campo é obrigatório", variant: "destructive" });
+      return;
+    }
+    
+    if (newDemographicFieldType !== "text") {
+      const validOptions = newDemographicFieldOptions.filter(o => o.trim());
+      if (validOptions.length < 2) {
+        toast({ title: "Campos de escolha precisam de pelo menos 2 opções", variant: "destructive" });
+        return;
+      }
+    }
+
+    const newField: CustomDemographicField = {
+      id: editingDemographicFieldId || `demo-field-${Date.now()}`,
+      label: newDemographicFieldLabel.trim(),
+      fieldType: newDemographicFieldType,
+      options: newDemographicFieldType !== "text" ? newDemographicFieldOptions.filter(o => o.trim()) : undefined,
+      required: newDemographicFieldRequired,
+    };
+
+    if (editingDemographicFieldId) {
+      setCustomDemographicFields(prev => prev.map(f => f.id === editingDemographicFieldId ? newField : f));
+    } else {
+      setCustomDemographicFields(prev => [...prev, newField]);
+    }
+
+    setShowAddDemographicFieldDialog(false);
+    resetDemographicFieldDialog();
+  };
+
+  const handleEditDemographicField = (field: CustomDemographicField) => {
+    setEditingDemographicFieldId(field.id);
+    setNewDemographicFieldLabel(field.label);
+    setNewDemographicFieldType(field.fieldType);
+    setNewDemographicFieldOptions(field.options || ["", ""]);
+    setNewDemographicFieldRequired(field.required);
+    setShowAddDemographicFieldDialog(true);
+  };
+
+  const handleDeleteDemographicField = (fieldId: string) => {
+    setCustomDemographicFields(prev => prev.filter(f => f.id !== fieldId));
+  };
+
+  const addDemographicFieldOption = () => {
+    setNewDemographicFieldOptions(prev => [...prev, ""]);
+  };
+
+  const removeDemographicFieldOption = (index: number) => {
+    setNewDemographicFieldOptions(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const updateDemographicFieldOption = (index: number, value: string) => {
+    setNewDemographicFieldOptions(prev => prev.map((opt, i) => i === index ? value : opt));
+  };
+
   const handleCreateClick = () => {
     setEditingCampaign(null);
     setSelectedTemplate(null);
@@ -986,6 +1062,7 @@ export default function Marketing() {
     setCustomMainQuestionType("open_text");
     setCustomMainQuestionOptions([""]);
     setCustomQuestions([]);
+    setCustomDemographicFields([]);
     setIsEditingMainQuestion(false);
     form.reset({
       templateId: "",
@@ -1015,6 +1092,7 @@ export default function Marketing() {
     setCustomMainQuestionType(mainQuestionType);
     setCustomMainQuestionOptions((campaign as any).customMainQuestionOptions || [""]);
     setCustomQuestions((campaign.customQuestions as CustomQuestion[]) || []);
+    setCustomDemographicFields((campaign.customDemographicFields as CustomDemographicField[]) || []);
     setIsEditingMainQuestion(false);
     
     form.reset({
@@ -1064,6 +1142,7 @@ export default function Marketing() {
       customMainQuestionType: customMainQuestionType !== (selectedTemplate?.questionType || "open_text") ? customMainQuestionType : null,
       customMainQuestionOptions: customMainQuestionType !== "open_text" ? customMainQuestionOptions.filter(o => o.trim()) : null,
       customQuestions: customQuestions.length > 0 ? customQuestions : null,
+      customDemographicFields: customDemographicFields.length > 0 ? customDemographicFields : undefined,
     };
     
     if (editingCampaign) {
@@ -1598,6 +1677,83 @@ export default function Marketing() {
                       )}
                     </CardContent>
                   </Card>
+
+                  {/* Custom Demographic Fields Section - Only for free distribution */}
+                  {distributionType === "free" && (
+                    <>
+                      <Separator />
+                      <Card className="border-[#40E0D0]">
+                        <CardHeader className="flex flex-row items-center justify-between gap-2">
+                          <CardTitle className="text-base text-[#40E0D0]">Campos Demográficos Personalizados</CardTitle>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="rounded-full"
+                            onClick={() => {
+                              resetDemographicFieldDialog();
+                              setShowAddDemographicFieldDialog(true);
+                            }}
+                            data-testid="button-add-demographic-field"
+                          >
+                            <Plus className="w-4 h-4 mr-1" />
+                            Adicionar Campo
+                          </Button>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                          <p className="text-sm text-muted-foreground">
+                            Adicione campos personalizados para coletar informações adicionais dos participantes além dos campos predefinidos acima.
+                          </p>
+                          {customDemographicFields.length > 0 ? (
+                            <div className="space-y-2">
+                              {customDemographicFields.map((field, index) => (
+                                <div
+                                  key={field.id}
+                                  className="flex items-center justify-between p-3 border rounded-lg bg-muted/30"
+                                  data-testid={`custom-demographic-field-${index}`}
+                                >
+                                  <div className="flex-1">
+                                    <p className="font-medium text-sm">{field.label}</p>
+                                    <p className="text-xs text-muted-foreground">
+                                      {field.fieldType === "text" ? "Texto livre" : 
+                                       field.fieldType === "single_choice" ? "Escolha única" : "Múltipla escolha"}
+                                      {field.required ? " • Obrigatório" : " • Opcional"}
+                                    </p>
+                                  </div>
+                                  <div className="flex items-center gap-1">
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-8 w-8"
+                                      onClick={() => handleEditDemographicField(field)}
+                                      data-testid={`button-edit-demographic-field-${index}`}
+                                    >
+                                      <Edit className="w-4 h-4" />
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-8 w-8 text-red-500"
+                                      onClick={() => handleDeleteDemographicField(field.id)}
+                                      data-testid={`button-delete-demographic-field-${index}`}
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </Button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-xs text-muted-foreground italic">
+                              Nenhum campo personalizado adicionado.
+                            </p>
+                          )}
+                        </CardContent>
+                      </Card>
+                    </>
+                  )}
                 </div>
               )}
 
@@ -2287,6 +2443,129 @@ export default function Marketing() {
               data-testid="button-save-question"
             >
               {editingQuestionId ? "Salvar Alterações" : "Adicionar Pergunta"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add/Edit Custom Demographic Field Dialog */}
+      <Dialog open={showAddDemographicFieldDialog} onOpenChange={(open) => {
+        setShowAddDemographicFieldDialog(open);
+        if (!open) resetDemographicFieldDialog();
+      }}>
+        <DialogContent className="max-w-lg" aria-describedby="add-demographic-field-description">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold">
+              {editingDemographicFieldId ? "Editar Campo Demográfico" : "Adicionar Campo Demográfico"}
+            </DialogTitle>
+            <p id="add-demographic-field-description" className="text-sm text-muted-foreground">
+              Configure os detalhes do campo demográfico personalizado
+            </p>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Nome do Campo *</Label>
+              <Input
+                value={newDemographicFieldLabel}
+                onChange={(e) => setNewDemographicFieldLabel(e.target.value)}
+                placeholder="Ex: Bairro, Profissão, Escolaridade..."
+                data-testid="input-demographic-field-label"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Tipo de Resposta *</Label>
+              <Select 
+                value={newDemographicFieldType} 
+                onValueChange={(value: 'text' | 'single_choice' | 'multiple_choice') => setNewDemographicFieldType(value)}
+              >
+                <SelectTrigger data-testid="select-demographic-field-type">
+                  <SelectValue placeholder="Selecione o tipo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="text">Texto Livre</SelectItem>
+                  <SelectItem value="single_choice">Escolha Única</SelectItem>
+                  <SelectItem value="multiple_choice">Múltipla Escolha</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {(newDemographicFieldType === "single_choice" || newDemographicFieldType === "multiple_choice") && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label>Opções de Resposta *</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={addDemographicFieldOption}
+                    className="h-7 text-xs"
+                    data-testid="button-add-demographic-option"
+                  >
+                    <Plus className="w-3 h-3 mr-1" />
+                    Adicionar Opção
+                  </Button>
+                </div>
+                <div className="space-y-2">
+                  {newDemographicFieldOptions.map((option, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <Input
+                        value={option}
+                        onChange={(e) => updateDemographicFieldOption(index, e.target.value)}
+                        placeholder={`Opção ${index + 1}`}
+                        data-testid={`input-demographic-option-${index}`}
+                      />
+                      {newDemographicFieldOptions.length > 2 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-red-500"
+                          onClick={() => removeDemographicFieldOption(index)}
+                          data-testid={`button-remove-demographic-option-${index}`}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Mínimo de 2 opções para campos de escolha
+                </p>
+              </div>
+            )}
+
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="demographic-field-required"
+                checked={newDemographicFieldRequired}
+                onCheckedChange={(checked) => setNewDemographicFieldRequired(checked === true)}
+                data-testid="checkbox-demographic-field-required"
+              />
+              <Label htmlFor="demographic-field-required" className="cursor-pointer">
+                Campo obrigatório
+              </Label>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowAddDemographicFieldDialog(false);
+                resetDemographicFieldDialog();
+              }}
+              className="rounded-full"
+              data-testid="button-cancel-demographic-field"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleAddDemographicField}
+              className="rounded-full bg-[#40E0D0] hover:bg-[#48D1CC] text-white"
+              data-testid="button-save-demographic-field"
+            >
+              {editingDemographicFieldId ? "Salvar Alterações" : "Adicionar Campo"}
             </Button>
           </DialogFooter>
         </DialogContent>
