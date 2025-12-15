@@ -844,7 +844,38 @@ export default function Marketing() {
     },
   });
 
+  const CUSTOM_TEMPLATE_ID = "custom-template";
+  
   const handleTemplateSelect = (templateId: string) => {
+    if (templateId === CUSTOM_TEMPLATE_ID) {
+      // Custom template - user creates from scratch
+      const customTemplate: SurveyTemplate = {
+        id: CUSTOM_TEMPLATE_ID,
+        name: "Personalizado",
+        description: "Crie sua própria pergunta personalizada",
+        slug: "personalizado",
+        questionText: "",
+        questionType: "open_text",
+        options: null,
+      };
+      setSelectedTemplate(customTemplate);
+      form.setValue("templateId", CUSTOM_TEMPLATE_ID);
+      
+      const campaignName = "Pesquisa: Personalizada";
+      const generatedSlug = slugify("pesquisa-personalizada-" + Date.now().toString().slice(-6));
+      
+      form.setValue("campaignName", campaignName);
+      form.setValue("slug", generatedSlug);
+      
+      // Start with empty custom question in edit mode
+      setCustomMainQuestion("");
+      setCustomMainQuestionType("open_text");
+      setCustomMainQuestionOptions([""]);
+      setCustomQuestions([]);
+      setIsEditingMainQuestion(true);
+      return;
+    }
+    
     const template = templates?.find(t => t.id === templateId);
     if (template) {
       setSelectedTemplate(template);
@@ -1354,29 +1385,55 @@ export default function Marketing() {
                                 ))}
                               </div>
                             ) : templates && templates.length > 0 ? (
-                              templates.map((template) => (
+                              <>
+                                {/* Custom Template Option - First */}
                                 <label
-                                  key={template.id}
                                   className={`flex items-center gap-3 p-4 border rounded-lg cursor-pointer transition-all hover-elevate ${
-                                    field.value === template.id ? "border-[#40E0D0] bg-[#40E0D0]/5" : "border-border"
+                                    field.value === CUSTOM_TEMPLATE_ID ? "border-[#40E0D0] bg-[#40E0D0]/5" : "border-border border-dashed"
                                   }`}
-                                  onClick={() => handleTemplateSelect(template.id)}
-                                  data-testid={`radio-template-${template.id}`}
+                                  onClick={() => handleTemplateSelect(CUSTOM_TEMPLATE_ID)}
+                                  data-testid="radio-template-custom"
                                 >
                                   <input
                                     type="radio"
                                     className="w-4 h-4 text-[#40E0D0]"
-                                    checked={field.value === template.id}
-                                    onChange={() => handleTemplateSelect(template.id)}
+                                    checked={field.value === CUSTOM_TEMPLATE_ID}
+                                    onChange={() => handleTemplateSelect(CUSTOM_TEMPLATE_ID)}
                                   />
                                   <div className="flex-1">
-                                    <p className="font-medium">{template.name}</p>
-                                    {template.description && (
-                                      <p className="text-sm text-muted-foreground mt-0.5">{template.description}</p>
-                                    )}
+                                    <p className="font-medium flex items-center gap-2">
+                                      <Edit className="w-4 h-4 text-[#40E0D0]" />
+                                      Personalizado
+                                    </p>
+                                    <p className="text-sm text-muted-foreground mt-0.5">Crie sua própria pesquisa com perguntas livres</p>
                                   </div>
                                 </label>
-                              ))
+                                
+                                {/* Database Templates */}
+                                {templates.map((template) => (
+                                  <label
+                                    key={template.id}
+                                    className={`flex items-center gap-3 p-4 border rounded-lg cursor-pointer transition-all hover-elevate ${
+                                      field.value === template.id ? "border-[#40E0D0] bg-[#40E0D0]/5" : "border-border"
+                                    }`}
+                                    onClick={() => handleTemplateSelect(template.id)}
+                                    data-testid={`radio-template-${template.id}`}
+                                  >
+                                    <input
+                                      type="radio"
+                                      className="w-4 h-4 text-[#40E0D0]"
+                                      checked={field.value === template.id}
+                                      onChange={() => handleTemplateSelect(template.id)}
+                                    />
+                                    <div className="flex-1">
+                                      <p className="font-medium">{template.name}</p>
+                                      {template.description && (
+                                        <p className="text-sm text-muted-foreground mt-0.5">{template.description}</p>
+                                      )}
+                                    </div>
+                                  </label>
+                                ))}
+                              </>
                             ) : (
                               <p className="text-center text-muted-foreground py-8">Nenhum template disponível</p>
                             )}
@@ -1393,19 +1450,31 @@ export default function Marketing() {
                         <CardTitle className="text-base">Preview do Template</CardTitle>
                       </CardHeader>
                       <CardContent className="space-y-2">
-                        <div>
-                          <Label className="text-xs text-muted-foreground">Pergunta Principal:</Label>
-                          <p className="text-sm mt-1">{selectedTemplate.questionText}</p>
-                        </div>
-                        {selectedTemplate.options && selectedTemplate.options.length > 0 && (
-                          <div>
-                            <Label className="text-xs text-muted-foreground">Opções de Resposta:</Label>
-                            <ul className="list-disc list-inside text-sm mt-1 space-y-0.5">
-                              {selectedTemplate.options.map((option, idx) => (
-                                <li key={idx}>{option}</li>
-                              ))}
-                            </ul>
+                        {selectedTemplate.id === CUSTOM_TEMPLATE_ID ? (
+                          <div className="text-center py-4">
+                            <Edit className="w-8 h-8 mx-auto text-[#40E0D0] mb-2" />
+                            <p className="text-sm font-medium">Pesquisa Personalizada</p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Você poderá criar suas perguntas na próxima etapa
+                            </p>
                           </div>
+                        ) : (
+                          <>
+                            <div>
+                              <Label className="text-xs text-muted-foreground">Pergunta Principal:</Label>
+                              <p className="text-sm mt-1">{selectedTemplate.questionText}</p>
+                            </div>
+                            {selectedTemplate.options && selectedTemplate.options.length > 0 && (
+                              <div>
+                                <Label className="text-xs text-muted-foreground">Opções de Resposta:</Label>
+                                <ul className="list-disc list-inside text-sm mt-1 space-y-0.5">
+                                  {selectedTemplate.options.map((option, idx) => (
+                                    <li key={idx}>{option}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                          </>
                         )}
                       </CardContent>
                     </Card>
