@@ -1179,38 +1179,40 @@ export default function Alliances() {
         </div>
       )}
       <Dialog open={!!selectedParty} onOpenChange={(open) => !open && setSelectedParty(null)}>
-        <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col p-0">
-          <DialogHeader className="px-6 pt-6 pb-4 border-b">
-            <div className="flex items-center justify-between">
-              <div>
-                <DialogTitle className="flex items-center gap-2">
-                  <span>{selectedParty?.acronym}</span>
-                  <Badge className={`rounded-full ${selectedParty ? IDEOLOGY_BADGES[selectedParty.ideology as keyof typeof IDEOLOGY_BADGES] : ""}`}>
+        <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col p-0 overflow-hidden">
+          <DialogHeader className="px-6 py-4 bg-zinc-900 dark:bg-zinc-950 border-b border-zinc-800">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex-1 min-w-0">
+                <DialogTitle className="flex items-center gap-3 text-white">
+                  <span className="text-xl font-bold">{selectedParty?.acronym}</span>
+                  <Badge className={`rounded-full text-xs ${selectedParty ? IDEOLOGY_BADGES[selectedParty.ideology as keyof typeof IDEOLOGY_BADGES] : ""}`}>
                     {selectedParty?.ideology}
                   </Badge>
                 </DialogTitle>
-                <p className="text-sm text-muted-foreground">{selectedParty?.name}</p>
+                <p className="text-sm text-zinc-400 mt-1">{selectedParty?.name}</p>
               </div>
-              <Button
-                size="icon"
-                variant="outline"
-                onClick={handleCopyWhatsAppNumbers}
-                data-testid="button-copy-whatsapp-party-modal"
-                title="Copiar números WhatsApp"
-                className="rounded-full"
-              >
-                <Copy className="w-4 h-4" />
-              </Button>
-              <Button
-                size="icon"
-                variant="outline"
-                onClick={handleBulkEmail}
-                data-testid="button-bulk-email-party-modal"
-                title="Enviar email em massa"
-                className="rounded-full"
-              >
-                <Send className="w-4 h-4" />
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="icon"
+                  variant="outline"
+                  onClick={handleCopyWhatsAppNumbers}
+                  data-testid="button-copy-whatsapp-party-modal"
+                  title="Copiar números WhatsApp"
+                  className="rounded-full border-zinc-600 bg-transparent text-zinc-300 hover:bg-zinc-800 hover:text-white"
+                >
+                  <Copy className="w-4 h-4" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant="outline"
+                  onClick={handleBulkEmail}
+                  data-testid="button-bulk-email-party-modal"
+                  title="Enviar email em massa"
+                  className="rounded-full border-zinc-600 bg-transparent text-zinc-300 hover:bg-zinc-800 hover:text-white"
+                >
+                  <Send className="w-4 h-4" />
+                </Button>
+              </div>
             </div>
           </DialogHeader>
           <div className="overflow-y-auto px-6 py-4 flex-1">
