@@ -1051,9 +1051,10 @@ export default function Marketing() {
       }
     }
     
-    // Add custom questions data
+    // Add custom questions data and distribution type
     const submitData = {
       ...data,
+      distributionType,
       customMainQuestion: customMainQuestion !== selectedTemplate?.questionText ? customMainQuestion : null,
       customMainQuestionType: customMainQuestionType !== (selectedTemplate?.questionType || "open_text") ? customMainQuestionType : null,
       customMainQuestionOptions: customMainQuestionType !== "open_text" ? customMainQuestionOptions.filter(o => o.trim()) : null,

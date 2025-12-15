@@ -2890,10 +2890,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const validatedData = insertSurveyCampaignSchema.parse(req.body);
       
+      // Auto-approve campaigns with "free" distribution type (Divulgação Livre)
+      const isAutoApproved = validatedData.distributionType === "free";
+      
       const campaign = await storage.createSurveyCampaign({
         ...validatedData,
         userId: req.userId!,
         accountId: req.accountId!,
+        // Auto-approve free campaigns, keep under_review for google_ads
+        status: isAutoApproved ? "approved" : "under_review",
+        campaignStage: isAutoApproved ? "aprovado" : "aguardando",
+        // Set start/end dates for auto-approved campaigns (7 days)
+        startDate: isAutoApproved ? new Date() : validatedData.startDate,
+        endDate: isAutoApproved ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) : validatedData.endDate,
       });
       
       res.json(campaign);
