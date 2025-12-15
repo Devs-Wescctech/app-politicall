@@ -340,20 +340,15 @@ export default function AllianceInvitePage() {
                 <CardTitle className="text-2xl" data-testid="text-inviter-name">
                   {inviteData?.inviter?.name || "Político"}
                 </CardTitle>
-                
-                {inviteData?.party && (
-                  <div 
-                    className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium text-white"
-                    style={{ backgroundColor: getPartyColor(inviteData.party.acronym) }}
-                    data-testid="badge-party"
-                  >
-                    <Building2 className="w-3 h-3" />
-                    {inviteData.party.acronym}
-                  </div>
-                )}
               </div>
 
               <div className="flex flex-wrap items-center justify-center gap-3 text-sm text-muted-foreground">
+                {inviteData?.party && (
+                  <div className="flex items-center gap-1" data-testid="badge-party">
+                    <Building2 className="w-4 h-4" />
+                    <span>{inviteData.party.acronym}</span>
+                  </div>
+                )}
                 {inviteData?.inviter?.politicalPosition && (
                   <div className="flex items-center gap-1" data-testid="text-inviter-position">
                     <Briefcase className="w-4 h-4" />
