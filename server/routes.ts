@@ -3006,6 +3006,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           customMainQuestionType: campaign.customMainQuestionType,
           customMainQuestionOptions: campaign.customMainQuestionOptions,
           customQuestions: campaign.customQuestions,
+          demographicFields: campaign.demographicFields,
+          customDemographicFields: campaign.customDemographicFields,
         },
         template: {
           questionText: template.questionText,

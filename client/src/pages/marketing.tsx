@@ -879,7 +879,7 @@ export default function Marketing() {
       form.setValue("templateId", CUSTOM_TEMPLATE_ID);
       
       const campaignName = "Pesquisa: Personalizada";
-      const generatedSlug = slugify("pesquisa-personalizada-" + Date.now().toString().slice(-6));
+      const generatedSlug = Date.now().toString().slice(-6);
       
       form.setValue("campaignName", campaignName);
       form.setValue("slug", generatedSlug);
@@ -900,7 +900,7 @@ export default function Marketing() {
       
       // Auto-generate campaign name and slug based on template
       const campaignName = `Pesquisa: ${template.name}`;
-      const generatedSlug = slugify(template.slug + "-" + Date.now().toString().slice(-6));
+      const generatedSlug = Date.now().toString().slice(-6);
       
       form.setValue("campaignName", campaignName);
       form.setValue("slug", generatedSlug);
