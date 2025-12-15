@@ -72,6 +72,7 @@ export interface IStorage {
   getAllianceInviteByToken(token: string): Promise<AllianceInvite | undefined>;
   acceptAllianceInvite(token: string, data: { inviteeName: string; inviteeEmail?: string; inviteePhone?: string; inviteePosition?: string; inviteeState?: string; inviteeCity?: string; inviteeNotes?: string }): Promise<AllianceInvite>;
   rejectAllianceInvite(token: string): Promise<AllianceInvite>;
+  deleteAllianceInvite(id: string, accountId: string): Promise<void>;
 
   // Demands
   getDemands(accountId: string): Promise<Demand[]>;
@@ -573,6 +574,16 @@ export class DatabaseStorage implements IStorage {
       .returning();
 
     return updated;
+  }
+
+  async deleteAllianceInvite(id: string, accountId: string): Promise<void> {
+    const result = await db.delete(allianceInvites)
+      .where(and(
+        eq(allianceInvites.id, id),
+        eq(allianceInvites.accountId, accountId)
+      ))
+      .returning();
+    if (result.length === 0) throw new Error('Convite não encontrado ou acesso negado');
   }
 
   // Demands

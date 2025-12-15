@@ -2125,6 +2125,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.delete("/api/alliance-invites/:id", authenticateToken, requirePermission("alliances"), async (req: AuthRequest, res) => {
+    try {
+      const { id } = req.params;
+      await storage.deleteAllianceInvite(id, req.accountId!);
+      res.json({ success: true });
+    } catch (error: any) {
+      if (error.message === 'Convite não encontrado ou acesso negado') {
+        return res.status(404).json({ error: error.message });
+      }
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // ==================== DEMANDS ====================
   
   app.get("/api/demands", authenticateToken, requirePermission("demands"), async (req: AuthRequest, res) => {
