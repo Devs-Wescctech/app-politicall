@@ -752,6 +752,7 @@ export default function Marketing() {
   const [campaignToDelete, setCampaignToDelete] = useState<string | null>(null);
   const [editingCampaign, setEditingCampaign] = useState<CampaignWithTemplate | null>(null);
   const [expandedResults, setExpandedResults] = useState<Set<string>>(new Set());
+  const [selectedTemplateFilter, setSelectedTemplateFilter] = useState<string>("all");
   
   // Ref for scrollable content
   const wizardScrollRef = useRef<HTMLDivElement>(null);
@@ -1242,14 +1243,33 @@ export default function Marketing() {
             Crie e gerencie pesquisas de opinião pública
           </p>
         </div>
-        <Button
-          onClick={handleCreateClick}
-          className="rounded-full"
-          data-testid="button-create-campaign"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Nova Campanha
-        </Button>
+        <div className="flex items-center gap-3">
+          <Select
+            value={selectedTemplateFilter}
+            onValueChange={setSelectedTemplateFilter}
+          >
+            <SelectTrigger className="w-[200px]" data-testid="select-template-filter">
+              <SelectValue placeholder="Filtrar por tema" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os temas</SelectItem>
+              {templates?.filter(t => t.id !== "custom-template").map((template) => (
+                <SelectItem key={template.id} value={template.id}>
+                  {template.name}
+                </SelectItem>
+              ))}
+              <SelectItem value="custom-template">Personalizado</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button
+            onClick={handleCreateClick}
+            className="rounded-full"
+            data-testid="button-create-campaign"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Nova Campanha
+          </Button>
+        </div>
       </div>
       <div className="grid lg:grid-cols-1 gap-6">
         {campaignsLoading ? (
@@ -1259,15 +1279,41 @@ export default function Marketing() {
             ))}
           </div>
         ) : campaigns && campaigns.length > 0 ? (
-          <div className="space-y-4">
-            {campaigns.map((campaign) => {
-              const stageConfig = CAMPAIGN_STAGE_CONFIG[campaign.campaignStage as keyof typeof CAMPAIGN_STAGE_CONFIG] || CAMPAIGN_STAGE_CONFIG.aguardando;
-              const StageIcon = stageConfig.icon;
-              const isApproved = campaign.status === "approved" || campaign.status === "active";
-              const landingUrl = getLandingPageUrl(campaign.slug);
-
+          (() => {
+            const filteredCampaigns = campaigns.filter((campaign) => {
+              if (selectedTemplateFilter === "all") return true;
+              return campaign.templateId === selectedTemplateFilter;
+            });
+            
+            if (filteredCampaigns.length === 0) {
               return (
-                <Card key={campaign.id} className="hover-elevate" data-testid={`card-campaign-${campaign.id}`}>
+                <Card className="text-center py-16">
+                  <CardContent className="flex flex-col items-center justify-center">
+                    <div className="w-24 h-24 rounded-full bg-muted/50 flex items-center justify-center mb-6">
+                      <ClipboardList className="w-12 h-12 text-muted-foreground" />
+                    </div>
+                    <h3 className="text-lg font-semibold mb-2">Nenhuma campanha encontrada</h3>
+                    <p className="text-muted-foreground mb-6 max-w-md text-[12px]">
+                      Não há campanhas para o tema selecionado. Selecione outro tema ou crie uma nova campanha.
+                    </p>
+                    <Button variant="outline" onClick={() => setSelectedTemplateFilter("all")} data-testid="button-clear-filter">
+                      Limpar filtro
+                    </Button>
+                  </CardContent>
+                </Card>
+              );
+            }
+            
+            return (
+              <div className="space-y-4">
+                {filteredCampaigns.map((campaign) => {
+                  const stageConfig = CAMPAIGN_STAGE_CONFIG[campaign.campaignStage as keyof typeof CAMPAIGN_STAGE_CONFIG] || CAMPAIGN_STAGE_CONFIG.aguardando;
+                  const StageIcon = stageConfig.icon;
+                  const isApproved = campaign.status === "approved" || campaign.status === "active";
+                  const landingUrl = getLandingPageUrl(campaign.slug);
+
+                  return (
+                    <Card key={campaign.id} className="hover-elevate" data-testid={`card-campaign-${campaign.id}`}>
                   <CardHeader>
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1">
@@ -1403,8 +1449,10 @@ export default function Marketing() {
                   </CardContent>
                 </Card>
               );
-            })}
-          </div>
+                })}
+              </div>
+            );
+          })()
         ) : (
           <Card className="text-center py-16">
             <CardContent className="flex flex-col items-center justify-center">
