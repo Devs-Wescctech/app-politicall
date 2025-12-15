@@ -889,7 +889,7 @@ export default function Admin() {
           <div className="flex items-center gap-3">
             <Users className="w-4 h-4 text-muted-foreground" />
             <Select value={selectedPolitician} onValueChange={setSelectedPolitician}>
-              <SelectTrigger className="w-64" data-testid="select-politician-filter">
+              <SelectTrigger className="w-64 rounded-full" data-testid="select-politician-filter">
                 <SelectValue placeholder="Filtrar por político" />
               </SelectTrigger>
               <SelectContent>
