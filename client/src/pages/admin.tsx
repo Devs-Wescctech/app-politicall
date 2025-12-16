@@ -860,17 +860,6 @@ export default function Admin() {
                   )}
                 </div>
               )}
-              {campaign.status === "rejected" && (
-                <Button
-                  onClick={() => handleDeleteCampaignClick(campaign)}
-                  size="sm"
-                  variant="ghost"
-                  className="h-8 w-8 p-0 flex-shrink-0"
-                  data-testid={`button-delete-rejected-${campaign.id}`}
-                >
-                  <Trash2 className="w-4 h-4 text-destructive hover:text-destructive/80" />
-                </Button>
-              )}
             </div>
 
             {campaign.targetAudience && (
