@@ -83,7 +83,6 @@ export default function AdminManual() {
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <div>
-            <h1 className="text-xl font-bold text-primary">POLITICALL</h1>
             <p className="text-sm text-muted-foreground">Manual Oficial do Usuario</p>
           </div>
         </div>
@@ -126,7 +125,7 @@ export default function AdminManual() {
         {/* Sections */}
         <div className="space-y-6">
           {sections.map((section, index) => (
-            <Card key={section.id} id={section.id}>
+            <Card key={section.id} id={section.id} className="scroll-mt-20 target:ring-2 target:ring-primary target:ring-offset-2 transition-all duration-300">
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-3 text-base">
                   <div className="p-2 rounded-lg bg-primary/10 text-primary">
