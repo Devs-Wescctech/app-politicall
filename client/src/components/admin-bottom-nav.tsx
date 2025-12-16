@@ -80,20 +80,33 @@ export function AdminBottomNav({ activePage, onInboxClick, onSearchClick }: Admi
       }
       
       const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "Manual-Politicall.pdf";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
+      
+      // Criar URL e link para download
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.style.display = "none";
+      link.href = downloadUrl;
+      link.download = "Manual-Politicall.pdf";
+      link.target = "_blank";
+      
+      // Adicionar ao DOM, clicar e remover
+      document.body.appendChild(link);
+      
+      // Usar timeout para garantir que o navegador processe
+      setTimeout(() => {
+        link.click();
+        setTimeout(() => {
+          document.body.removeChild(link);
+          window.URL.revokeObjectURL(downloadUrl);
+        }, 100);
+      }, 0);
       
       toast({
-        title: "Download concluído",
-        description: "O manual foi baixado com sucesso.",
+        title: "Download iniciado",
+        description: "O manual está sendo baixado.",
       });
     } catch (error) {
+      console.error("Erro ao baixar manual:", error);
       toast({
         title: "Erro",
         description: "Não foi possível gerar o manual. Tente novamente.",
