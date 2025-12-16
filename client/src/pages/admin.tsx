@@ -2264,7 +2264,8 @@ export default function Admin() {
                   <AlertTriangle className="w-4 h-4 text-yellow-500 mt-0.5 flex-shrink-0" />
                   <div>
                     <span className="font-medium">SYNC_API_KEY</span>
-                    <p className="text-sm text-muted-foreground">Mesma chave configurada no Replit (deve ser idêntica)</p>
+                    <p className="text-sm text-muted-foreground">Use exatamente esta chave:</p>
+                    <code className="text-xs bg-muted px-2 py-1 rounded font-bold">WesccTech@2025</code>
                   </div>
                 </div>
                 <div className="flex items-start gap-2">
