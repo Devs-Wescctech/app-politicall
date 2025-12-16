@@ -1866,8 +1866,8 @@ export default function Admin() {
                         )}
                       </div>
                       <span className="text-xs text-muted-foreground">
-                        {field.type === 'text' ? 'Texto Livre' :
-                         field.type === 'single_choice' ? 'Escolha Única' : 'Múltipla Escolha'}
+                        {field.fieldType === 'text' ? 'Texto Livre' :
+                         field.fieldType === 'single_choice' ? 'Escolha Única' : 'Múltipla Escolha'}
                       </span>
                       
                       {field.options && field.options.length > 0 && (
