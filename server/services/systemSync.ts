@@ -362,25 +362,25 @@ export async function generateExportPackage(): Promise<ExportPackage> {
       console.log(`📎 Anexos incluídos: ${(attachmentsSize / 1024 / 1024).toFixed(2)} MB`);
     }
     
-    const envVarsToExport = [
-      "SESSION_SECRET",
-      "DATABASE_URL",
-      "PGHOST",
-      "PGPORT",
-      "PGUSER",
-      "PGPASSWORD",
-      "PGDATABASE",
-      "GOOGLE_CLIENT_ID",
-      "GOOGLE_CLIENT_SECRET",
-      "SENDGRID_API_KEY",
-      "TWILIO_ACCOUNT_SID",
-      "TWILIO_AUTH_TOKEN",
+    // Exportar TODAS as variáveis de ambiente relevantes (exceto variáveis do sistema)
+    const systemVarsToExclude = [
+      "PATH", "HOME", "USER", "SHELL", "PWD", "OLDPWD", "TERM", "LANG", "LC_ALL",
+      "HOSTNAME", "SHLVL", "_", "NODE_ENV", "npm_config_", "npm_package_", "npm_lifecycle_",
+      "REPLIT", "REPL_", "NIX_", "XDG_", "DBUS_", "SSH_", "GPG_", "DISPLAY",
     ];
     
     const envVars: Record<string, string | undefined> = {};
-    for (const key of envVarsToExport) {
-      envVars[key] = process.env[key];
+    for (const [key, value] of Object.entries(process.env)) {
+      // Pular variáveis do sistema
+      const isSystemVar = systemVarsToExclude.some(prefix => 
+        key === prefix || key.startsWith(prefix)
+      );
+      if (!isSystemVar && value) {
+        envVars[key] = value;
+      }
     }
+    
+    console.log(`🔑 Exportando ${Object.keys(envVars).length} variáveis de ambiente`);
     
     let adminConfig: string | null = null;
     if (fs.existsSync(ADMIN_CONFIG_FILE)) {
@@ -484,6 +484,27 @@ export async function importFromSource(sourceUrl: string, apiKey: string): Promi
         }
       } else {
         console.log("⚠️ DATABASE_URL não configurada, pulando restauração do banco");
+      }
+    }
+    
+    // Extrair código-fonte - ATUALIZA TODOS OS ARQUIVOS DO PROJETO
+    if (exportPackage.code) {
+      console.log("📦 Extraindo código-fonte atualizado...");
+      try {
+        const codeBuffer = Buffer.from(exportPackage.code, "base64");
+        const codeZipPath = path.join(tempDir, "code_archive.zip");
+        fs.writeFileSync(codeZipPath, codeBuffer);
+        
+        // Extrair o código para o diretório do projeto, sobrescrevendo arquivos existentes
+        await execAsync(`unzip -o "${codeZipPath}" -d "${process.cwd()}"`, {
+          timeout: 300000,
+        });
+        
+        result.details.codeExtracted = true;
+        console.log("✅ Código-fonte atualizado com sucesso");
+      } catch (codeError: any) {
+        console.error("⚠️ Erro ao extrair código-fonte:", codeError.message);
+        result.details.codeExtracted = false;
       }
     }
     
