@@ -976,7 +976,6 @@ export default function Admin() {
           </div>
         </div>
       </header>
-
       {/* Main Content - Kanban Board */}
       <main className="flex-1 container mx-auto p-6 pb-24">
         <div className="mb-6 flex flex-col gap-4">
@@ -1181,7 +1180,6 @@ export default function Admin() {
           </div>
         )}
       </main>
-
       {/* Bottom Navigation */}
       <AdminBottomNav 
         activePage="dashboard" 
@@ -1194,7 +1192,6 @@ export default function Admin() {
           }
         }}
       />
-
       {/* Reject Dialog */}
       <Dialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
         <DialogContent data-testid="dialog-reject">
@@ -1250,7 +1247,6 @@ export default function Admin() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
       {/* Paid Dialog */}
       <Dialog open={paidDialogOpen} onOpenChange={setPaidDialogOpen}>
         <DialogContent data-testid="dialog-paid">
@@ -1301,7 +1297,6 @@ export default function Admin() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
       {/* Delete Campaign Dialog */}
       <Dialog open={deleteCampaignDialogOpen} onOpenChange={setDeleteCampaignDialogOpen}>
         <DialogContent data-testid="dialog-delete-campaign">
@@ -1348,7 +1343,6 @@ export default function Admin() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
       {/* Inbox Dialog - Leads from Landing Page */}
       <Dialog open={inboxDialogOpen} onOpenChange={setInboxDialogOpen}>
         <DialogContent className="max-w-4xl h-[80vh] flex flex-col p-0 [&>button]:hidden" data-testid="dialog-inbox">
@@ -1555,7 +1549,6 @@ export default function Admin() {
           </div>
         </DialogContent>
       </Dialog>
-
       {/* Delete Confirmation Dialog */}
       <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
         <DialogContent data-testid="dialog-delete-confirm">
@@ -1593,7 +1586,6 @@ export default function Admin() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
       {/* Survey Details Dialog */}
       <Dialog open={detailsDialogOpen} onOpenChange={setDetailsDialogOpen}>
         <DialogContent className="max-w-2xl h-[85vh] flex flex-col p-0 [&>button]:hidden" data-testid="dialog-survey-details">
@@ -1696,7 +1688,7 @@ export default function Admin() {
                   <div className="space-y-1">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Users className="w-4 h-4" />
-                      <span>Público-Alvo</span>
+                      <span>Obs:</span>
                     </div>
                     <p className="text-sm font-medium" data-testid="text-details-audience">
                       {selectedCampaign.targetAudience}
@@ -1998,7 +1990,6 @@ export default function Admin() {
           </div>
         </DialogContent>
       </Dialog>
-
       {/* Budget ADS Dialog */}
       <Dialog open={budgetDialogOpen} onOpenChange={setBudgetDialogOpen}>
         <DialogContent data-testid="dialog-budget-ads">
@@ -2065,7 +2056,6 @@ export default function Admin() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
       {/* System Sync Dialog */}
       <Dialog open={syncDialogOpen} onOpenChange={setSyncDialogOpen}>
         <DialogContent data-testid="dialog-sync-system">
