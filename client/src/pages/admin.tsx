@@ -1741,7 +1741,7 @@ export default function Admin() {
                   <span>Valor da Pesquisa</span>
                 </div>
                 <p className="text-lg font-bold text-[#40E0D0]" data-testid="text-details-budget">
-                  R$ {parseFloat(selectedCampaign?.budgetValue || "1250").toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  R$ {parseFloat(selectedCampaign?.budgetValue || budgetSetting?.value || "1250").toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </p>
               </div>
             </div>
