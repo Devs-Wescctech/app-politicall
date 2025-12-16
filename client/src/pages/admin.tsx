@@ -2272,8 +2272,7 @@ export default function Admin() {
                   <AlertTriangle className="w-4 h-4 text-yellow-500 mt-0.5 flex-shrink-0" />
                   <div>
                     <span className="font-medium">DATABASE_URL</span>
-                    <p className="text-sm text-muted-foreground">URL de conexão PostgreSQL local para receber os dados</p>
-                    <code className="text-xs bg-muted px-2 py-1 rounded">postgresql://user:pass@localhost:5432/db</code>
+                    <p className="text-sm text-muted-foreground">URL do seu banco PostgreSQL no servidor externo (já deve existir)</p>
                   </div>
                 </div>
               </div>
