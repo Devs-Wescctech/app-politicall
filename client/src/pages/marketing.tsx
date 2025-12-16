@@ -1300,7 +1300,7 @@ export default function Marketing() {
                 if (selectedTemplateFilter === "all") return true;
                 return campaign.templateId === selectedTemplateFilter;
               })
-              .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+              .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
             
             if (filteredCampaigns.length === 0) {
               return (
