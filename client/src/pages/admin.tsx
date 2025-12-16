@@ -2070,7 +2070,7 @@ export default function Admin() {
       </Dialog>
       {/* System Sync Dialog - PULL from source server */}
       <Dialog open={syncDialogOpen} onOpenChange={setSyncDialogOpen}>
-        <DialogContent className="max-w-lg max-h-[90vh] flex flex-col p-0 overflow-hidden" data-testid="dialog-sync-system">
+        <DialogContent className="max-w-lg max-h-[90vh] flex flex-col p-0 overflow-hidden [&>button]:hidden" data-testid="dialog-sync-system">
           {/* Fixed Header */}
           <div className="flex-shrink-0 bg-background border-b px-6 pt-6 pb-4">
             <DialogHeader>
