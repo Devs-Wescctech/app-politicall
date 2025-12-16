@@ -26,7 +26,7 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 } // 10MB max
 });
 import { db } from "./db";
-import { accounts, politicalParties, politicalAlliances, surveyTemplates, surveyCampaigns, surveyLandingPages, surveyResponses, users, events, demands, demandComments, contacts, aiConfigurations, type SurveyTemplate, type SurveyCampaign, type InsertSurveyCampaign, type SurveyLandingPage, type InsertSurveyLandingPage, type SurveyResponse, type InsertSurveyResponse } from "@shared/schema";
+import { accounts, politicalParties, politicalAlliances, surveyTemplates, surveyCampaigns, surveyLandingPages, surveyResponses, users, events, demands, demandComments, contacts, aiConfigurations, systemSettings, type SurveyTemplate, type SurveyCampaign, type InsertSurveyCampaign, type SurveyLandingPage, type InsertSurveyLandingPage, type SurveyResponse, type InsertSurveyResponse } from "@shared/schema";
 import { sql, eq, desc, and } from "drizzle-orm";
 import { generateAiResponse, testOpenAiApiKey } from "./openai";
 import { requireRole } from "./authorization";
@@ -1265,6 +1265,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     } catch (error: any) {
       res.status(401).json({ valid: false });
+    }
+  });
+
+  // ==================== SYSTEM SETTINGS (Admin Master) ====================
+  
+  // Get a system setting by key
+  app.get("/api/admin/settings/:key", authenticateAdminToken, async (req: AuthRequest, res) => {
+    try {
+      const { key } = req.params;
+      const [setting] = await db.select()
+        .from(systemSettings)
+        .where(eq(systemSettings.key, key));
+      
+      if (!setting) {
+        return res.json({ key, value: null });
+      }
+      
+      res.json(setting);
+    } catch (error: any) {
+      console.error('Erro ao buscar configuração:', error);
+      res.status(500).json({ error: error.message || 'Erro ao buscar configuração' });
+    }
+  });
+  
+  // Update or create a system setting
+  app.put("/api/admin/settings/:key", authenticateAdminToken, async (req: AuthRequest, res) => {
+    try {
+      const { key } = req.params;
+      const { value, description } = req.body;
+      
+      if (value === undefined || value === null) {
+        return res.status(400).json({ error: 'Valor é obrigatório' });
+      }
+      
+      // Check if setting exists
+      const [existing] = await db.select()
+        .from(systemSettings)
+        .where(eq(systemSettings.key, key));
+      
+      let result;
+      if (existing) {
+        // Update
+        [result] = await db.update(systemSettings)
+          .set({ 
+            value: String(value), 
+            description: description || existing.description,
+            updatedAt: new Date() 
+          })
+          .where(eq(systemSettings.key, key))
+          .returning();
+      } else {
+        // Insert
+        [result] = await db.insert(systemSettings)
+          .values({ 
+            key, 
+            value: String(value),
+            description: description || null
+          })
+          .returning();
+      }
+      
+      res.json(result);
+    } catch (error: any) {
+      console.error('Erro ao salvar configuração:', error);
+      res.status(500).json({ error: error.message || 'Erro ao salvar configuração' });
     }
   });
 

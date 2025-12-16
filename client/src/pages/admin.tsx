@@ -98,6 +98,8 @@ export default function Admin() {
   const [syncDialogOpen, setSyncDialogOpen] = useState(false);
   const [syncTargetUrl, setSyncTargetUrl] = useState("");
   const [syncApiKey, setSyncApiKey] = useState("");
+  const [budgetDialogOpen, setBudgetDialogOpen] = useState(false);
+  const [budgetValue, setBudgetValue] = useState("");
   const { toast } = useToast();
 
   const toggleDarkMode = () => {
@@ -175,6 +177,61 @@ export default function Admin() {
       }));
     },
     enabled: !isVerifying,
+  });
+
+  // Fetch budget ADS setting
+  const { data: budgetSetting } = useQuery<{ key: string; value: string | null }>({
+    queryKey: ["/api/admin/settings/budget_ads"],
+    queryFn: async () => {
+      const token = localStorage.getItem("admin_token");
+      const response = await fetch("/api/admin/settings/budget_ads", {
+        headers: {
+          "Authorization": `Bearer ${token}`,
+        },
+      });
+      if (!response.ok) {
+        throw new Error("Erro ao buscar configuração");
+      }
+      return response.json();
+    },
+    enabled: !isVerifying,
+  });
+
+  // Update budget ADS mutation
+  const updateBudgetMutation = useMutation({
+    mutationFn: async (value: string) => {
+      const token = localStorage.getItem("admin_token");
+      const response = await fetch("/api/admin/settings/budget_ads", {
+        method: "PUT",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ 
+          value, 
+          description: "Valor cobrado por pesquisa com ADS" 
+        }),
+      });
+      if (!response.ok) {
+        throw new Error("Erro ao salvar configuração");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/settings/budget_ads"] });
+      toast({
+        title: "Configuração salva",
+        description: "O valor do Budget ADS foi atualizado com sucesso.",
+      });
+      setBudgetDialogOpen(false);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erro ao salvar",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
   });
 
   // Fetch leads from inbox
@@ -929,13 +986,13 @@ export default function Admin() {
             <div className="text-right">
               <p className="text-xs text-muted-foreground mb-1">Caixa Total</p>
               <p className="text-2xl font-bold text-[#40E0D0]" data-testid="text-total-revenue">
-                R$ {(approvedCampaigns.length * 1250).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                R$ {(approvedCampaigns.length * (budgetSetting?.value ? parseFloat(budgetSetting.value) : 1250)).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </p>
             </div>
           </div>
           
           {/* Filtro por Político */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <Users className="w-4 h-4 text-muted-foreground" />
             <Select value={selectedPolitician} onValueChange={setSelectedPolitician}>
               <SelectTrigger className="w-64 rounded-full" data-testid="select-politician-filter">
@@ -961,6 +1018,24 @@ export default function Admin() {
                 Limpar filtro
               </Button>
             )}
+            <Button 
+              variant="outline" 
+              size="sm"
+              className="rounded-full ml-auto"
+              onClick={() => {
+                setBudgetValue(budgetSetting?.value || "1250");
+                setBudgetDialogOpen(true);
+              }}
+              data-testid="button-budget-ads"
+            >
+              <DollarSign className="w-4 h-4 mr-1" />
+              Budget ADS
+              {budgetSetting?.value && (
+                <Badge variant="secondary" className="ml-2">
+                  R$ {parseFloat(budgetSetting.value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </Badge>
+              )}
+            </Button>
           </div>
         </div>
 
@@ -1860,6 +1935,73 @@ export default function Admin() {
               )}
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Budget ADS Dialog */}
+      <Dialog open={budgetDialogOpen} onOpenChange={setBudgetDialogOpen}>
+        <DialogContent data-testid="dialog-budget-ads">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2" data-testid="text-budget-title">
+              <DollarSign className="w-5 h-5 text-[#40E0D0]" />
+              Budget ADS
+            </DialogTitle>
+            <DialogDescription data-testid="text-budget-description">
+              Defina o valor cobrado por cada pesquisa que inclui campanha de ADS.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label htmlFor="budget-value" className="text-sm font-medium">
+                Valor por Pesquisa (R$)
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">R$</span>
+                <input
+                  id="budget-value"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="1250.00"
+                  value={budgetValue}
+                  onChange={(e) => setBudgetValue(e.target.value)}
+                  className="flex h-10 w-full rounded-md border border-input bg-transparent pl-10 pr-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  data-testid="input-budget-value"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Este valor será utilizado para calcular o total da caixa de pesquisas.
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setBudgetDialogOpen(false)}
+              disabled={updateBudgetMutation.isPending}
+              className="flex-1"
+              data-testid="button-cancel-budget"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={() => updateBudgetMutation.mutate(budgetValue)}
+              disabled={updateBudgetMutation.isPending || !budgetValue}
+              className="flex-1 bg-[#40E0D0] hover:bg-[#40E0D0]/90 text-white"
+              data-testid="button-save-budget"
+            >
+              {updateBudgetMutation.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Salvando...
+                </>
+              ) : (
+                "Salvar"
+              )}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

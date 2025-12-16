@@ -3,7 +3,6 @@
  * POLITICALL - Plataforma de Gestão Política
  * ============================================================================
  * 
- * Desenvolvido por: David Flores Andrade
  * Website: www.politicall.com.br
  * 
  * Todos os direitos reservados © 2024-2025
@@ -1084,3 +1083,20 @@ export type InsertApiKeyUsage = z.infer<typeof insertApiKeyUsageSchema>;
 
 export type Lead = typeof leads.$inferSelect;
 export type InsertLead = z.infer<typeof insertLeadSchema>;
+
+// System Settings table - Global admin settings
+export const systemSettings = pgTable("system_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  key: text("key").notNull().unique(),
+  value: text("value").notNull(),
+  description: text("description"),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertSystemSettingSchema = createInsertSchema(systemSettings).omit({
+  id: true,
+  updatedAt: true,
+});
+
+export type SystemSetting = typeof systemSettings.$inferSelect;
+export type InsertSystemSetting = z.infer<typeof insertSystemSettingSchema>;
