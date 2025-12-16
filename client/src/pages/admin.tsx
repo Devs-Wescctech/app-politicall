@@ -2101,11 +2101,11 @@ export default function Admin() {
                 <span className="text-sm font-medium">O que será importado:</span>
               </div>
               <ul className="text-sm text-muted-foreground space-y-1 ml-6 list-disc">
-                <li>Código-fonte completo (exceto node_modules)</li>
-                <li>Banco de dados PostgreSQL (dump completo)</li>
-                <li>Variáveis de ambiente (SESSION_SECRET, DATABASE_URL, etc.)</li>
+                <li>Código-fonte completo (exceto node_modules, .git)</li>
+                <li>Banco de dados PostgreSQL (dump completo com todos os dados)</li>
+                <li>TODAS as variáveis de ambiente do projeto</li>
                 <li>Configuração do Admin Master (.admin-config.json)</li>
-                <li>Arquivos anexos locais</li>
+                <li>Arquivos anexos (attached_assets/)</li>
               </ul>
             </div>
             
