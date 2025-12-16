@@ -61,55 +61,40 @@ export function AdminBottomNav({ activePage, onInboxClick, onSearchClick }: Admi
     onSearchClick?.();
   };
 
-  const handleInfoClick = async () => {
-    try {
-      toast({
-        title: "Gerando manual...",
-        description: "Aguarde enquanto o PDF é gerado.",
-      });
+  const handleInfoClick = () => {
+    // Abrir PDF diretamente em nova aba - funciona melhor em ambientes com restricoes
+    const token = localStorage.getItem("admin_token");
+    
+    toast({
+      title: "Abrindo manual...",
+      description: "O PDF sera aberto em uma nova aba.",
+    });
+    
+    // Criar uma janela com o PDF
+    const newWindow = window.open("", "_blank");
+    if (newWindow) {
+      newWindow.document.write("<html><head><title>Manual Politicall</title></head><body style='margin:0;padding:20px;font-family:Arial;text-align:center;'><h2>Carregando Manual...</h2><p>Aguarde enquanto o PDF e gerado.</p></body></html>");
       
-      const token = localStorage.getItem("admin_token");
-      const response = await fetch("/api/admin/platform-manual", {
+      fetch("/api/admin/platform-manual", {
         headers: {
           Authorization: `Bearer ${token}`,
         },
+      })
+      .then(response => {
+        if (!response.ok) throw new Error("Erro");
+        return response.blob();
+      })
+      .then(blob => {
+        const url = URL.createObjectURL(blob);
+        newWindow.location.href = url;
+      })
+      .catch(() => {
+        newWindow.document.body.innerHTML = "<h2>Erro ao carregar o manual</h2><p>Por favor, feche esta aba e tente novamente.</p>";
       });
-      
-      if (!response.ok) {
-        throw new Error("Erro ao gerar o manual");
-      }
-      
-      const blob = await response.blob();
-      
-      // Criar URL e link para download
-      const downloadUrl = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.style.display = "none";
-      link.href = downloadUrl;
-      link.download = "Manual-Politicall.pdf";
-      link.target = "_blank";
-      
-      // Adicionar ao DOM, clicar e remover
-      document.body.appendChild(link);
-      
-      // Usar timeout para garantir que o navegador processe
-      setTimeout(() => {
-        link.click();
-        setTimeout(() => {
-          document.body.removeChild(link);
-          window.URL.revokeObjectURL(downloadUrl);
-        }, 100);
-      }, 0);
-      
+    } else {
       toast({
-        title: "Download iniciado",
-        description: "O manual está sendo baixado.",
-      });
-    } catch (error) {
-      console.error("Erro ao baixar manual:", error);
-      toast({
-        title: "Erro",
-        description: "Não foi possível gerar o manual. Tente novamente.",
+        title: "Popup bloqueado",
+        description: "Permita popups para baixar o manual.",
         variant: "destructive",
       });
     }
