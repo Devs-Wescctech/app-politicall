@@ -47,6 +47,7 @@ import AllianceInvitePage from "@/pages/alliance-invite";
 import LandingPage from "@/pages/landing";
 import ThankYouPage from "@/pages/thank-you";
 import AdminManual from "@/pages/admin-manual";
+import Manual from "@/pages/manual";
 
 function AuthenticatedLayout() {
   const style = {
@@ -119,6 +120,11 @@ function AuthenticatedLayout() {
                   <AdminRoute>
                     <UsersManagement />
                   </AdminRoute>
+                </ProtectedRoute>
+              </Route>
+              <Route path="/manual">
+                <ProtectedRoute>
+                  <Manual />
                 </ProtectedRoute>
               </Route>
               <Route component={NotFound} />

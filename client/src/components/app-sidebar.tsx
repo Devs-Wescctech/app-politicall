@@ -9,7 +9,8 @@ import {
   Settings,
   LogOut,
   Shield,
-  ScrollText
+  ScrollText,
+  Info
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
@@ -229,7 +230,16 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter className="p-4">
+      <SidebarFooter className="p-4 space-y-2">
+        <Button 
+          variant="ghost" 
+          className="w-full justify-start" 
+          onClick={() => setLocation("/manual")}
+          data-testid="button-info"
+        >
+          <Info className="w-4 h-4 mr-2" />
+          Informacoes
+        </Button>
         <Button 
           variant="outline" 
           className="w-full rounded-full" 
