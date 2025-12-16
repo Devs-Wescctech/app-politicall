@@ -602,6 +602,7 @@ export const surveyCampaigns = pgTable("survey_campaigns", {
   customQuestions: jsonb("custom_questions").$type<CustomQuestion[]>(), // Additional custom questions
   viewCount: integer("view_count").default(0).notNull(), // Track landing page views
   budgetValue: numeric("budget_value"), // Budget value at the time of approval (stored per campaign)
+  hiddenFromAdminMaster: boolean("hidden_from_admin_master").default(false).notNull(), // Flag to hide from admin master kanban without deleting
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
