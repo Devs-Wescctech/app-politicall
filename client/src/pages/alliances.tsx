@@ -1305,14 +1305,14 @@ export default function Alliances() {
       )}
       <Dialog open={!!selectedParty} onOpenChange={(open) => !open && setSelectedParty(null)}>
         <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col p-0 overflow-hidden [&>button]:hidden">
-          <DialogHeader className="p-0">
+          <DialogHeader className="border-b p-0">
             <div className="flex items-center">
               <div className="flex-1 px-6 py-4">
                 <DialogTitle className="flex items-center gap-3">
                   <span className="text-xl font-bold">{selectedParty?.acronym}</span>
-                  <Badge className={`rounded-full text-xs ${selectedParty ? IDEOLOGY_BADGES[selectedParty.ideology as keyof typeof IDEOLOGY_BADGES] : ""}`}>
+                  <span className="text-xs text-muted-foreground">
                     {selectedParty?.ideology}
-                  </Badge>
+                  </span>
                 </DialogTitle>
                 <p className="text-sm text-muted-foreground mt-1">{selectedParty?.name}</p>
               </div>
