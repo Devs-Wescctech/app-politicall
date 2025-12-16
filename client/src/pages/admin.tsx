@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { CheckCircle2, XCircle, ChevronLeft, ChevronRight, ChevronDown, User, Copy, Check, DollarSign, Inbox, Mail, Phone, Trash2, Search, Sun, Moon, Eye, Calendar, MapPin, Users, FileText, MessageSquare, BarChart3, X, RefreshCw, Server, Loader2, Info, AlertTriangle, Terminal, Database, FolderOpen, Key, HardDrive } from "lucide-react";
+import { CheckCircle2, XCircle, ChevronLeft, ChevronRight, ChevronDown, User, Copy, Check, DollarSign, Inbox, Mail, Phone, Trash2, Search, Sun, Moon, Eye, Calendar, MapPin, Users, FileText, MessageSquare, BarChart3, X, RefreshCw, Server, Loader2, Info, AlertTriangle, Terminal, Database, FolderOpen, Key, HardDrive, Wand2 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { AdminBottomNav } from "@/components/admin-bottom-nav";
 import { Button } from "@/components/ui/button";
@@ -2117,9 +2117,20 @@ export default function Admin() {
             
             <div className="space-y-3">
               <div className="space-y-2">
-                <label htmlFor="sync-source-url" className="text-sm font-medium">
-                  URL do Servidor Fonte (Replit)
-                </label>
+                <div className="flex items-center gap-2">
+                  <label htmlFor="sync-source-url" className="text-sm font-medium">
+                    URL do Servidor Fonte (Replit)
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setSyncTargetUrl("https://politicall.replit.app")}
+                    className="p-1 rounded hover:bg-muted transition-colors"
+                    title="Preencher automaticamente com URL do Replit"
+                    data-testid="button-autofill-url"
+                  >
+                    <Wand2 className="w-4 h-4 text-[#40E0D0]" />
+                  </button>
+                </div>
                 <input
                   id="sync-source-url"
                   type="url"
@@ -2131,9 +2142,27 @@ export default function Admin() {
                 />
               </div>
               <div className="space-y-2">
-                <label htmlFor="sync-api-key" className="text-sm font-medium">
-                  Chave de API (SYNC_API_KEY do Replit)
-                </label>
+                <div className="flex items-center gap-2">
+                  <label htmlFor="sync-api-key" className="text-sm font-medium">
+                    Chave de API (SYNC_API_KEY do Replit)
+                  </label>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        const text = await navigator.clipboard.readText();
+                        if (text) setSyncApiKey(text);
+                      } catch {
+                        // Clipboard access denied - ignore silently
+                      }
+                    }}
+                    className="p-1 rounded hover:bg-muted transition-colors"
+                    title="Colar da área de transferência"
+                    data-testid="button-paste-api-key"
+                  >
+                    <Wand2 className="w-4 h-4 text-[#40E0D0]" />
+                  </button>
+                </div>
                 <input
                   id="sync-api-key"
                   type="password"
