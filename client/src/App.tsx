@@ -46,6 +46,7 @@ import PublicSupport from "@/pages/public-support";
 import AllianceInvitePage from "@/pages/alliance-invite";
 import LandingPage from "@/pages/landing";
 import ThankYouPage from "@/pages/thank-you";
+import AdminManual from "@/pages/admin-manual";
 
 function AuthenticatedLayout() {
   const style = {
@@ -139,6 +140,7 @@ function App() {
             <Route path="/register" component={Register} />
             <Route path="/admin-login" component={AdminLogin} />
             <Route path="/admin" component={Admin} />
+            <Route path="/admin/manual" component={AdminManual} />
             <Route path="/contracts" component={Contracts} />
             <Route path="/pesquisa/:slug" component={SurveyLanding} />
             <Route path="/apoio/:slug/:volunteerCode" component={PublicSupport} />

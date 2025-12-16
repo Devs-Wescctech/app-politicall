@@ -1,0 +1,48 @@
+POLITICALL
+Plataforma de Gestão Política Completa
+Manual Oficial do Usuário
+Gestão estratégica de campanhas, mandatos e articulações políticas
+Sumário
+1 Visão Geral da Plataforma Politicall
+2 Dashboard e Indicadores Estratégicos
+3 Módulo Eleitores
+4 Módulo Alianças Políticas
+5 Módulo Demandas do Gabinete
+6 Módulo Agenda Integrada
+7 Pesquisas de Intenção de Voto
+8 Atendimento por Inteligência Artificial
+9 Gerenciamento de Usuários e Voluntários
+10 Configurações Administrativas
+Visão Geral da Plataforma Politicall
+A Politicall é uma plataforma de gestão política desenvolvida para centralizar dados, automatizar
+processos e transformar informações em inteligência estratégica. Ela atende campanhas
+eleitorais, mandatos e articulações políticas com total conformidade legal.
+Dashboard e Indicadores Estratégicos
+O Dashboard oferece uma visão consolidada da operação política, com metas eleitorais,
+progresso de eleitores, alianças, demandas, eventos, demografia e pesquisas. É o centro de
+decisão estratégica da plataforma.
+Módulo Eleitores
+Permite cadastro manual ou via página pública de apoiadores com QR Code. Consolida dados
+demográficos, interesses, localização e fontes de cadastro, além de permitir comunicação por
+e-mail e exportação de contatos.
+Módulo Alianças Políticas
+Organiza aliados por partido, estado e cidade. Oferece páginas públicas de convite e
+acompanhamento de status das alianças, fortalecendo articulações estratégicas.
+Módulo Demandas do Gabinete
+Centraliza demandas políticas e administrativas em fluxos claros de pendente, em andamento e
+concluído, garantindo eficiência e transparência.
+Módulo Agenda Integrada
+Integração total com Google Calendar, com visualização tradicional e em timeline, permitindo
+sincronização automática de compromissos.
+Pesquisas de Intenção de Voto
+Criação e gestão de pesquisas em conformidade com o TSE. Divulgação manual ou via tráfego
+pago gerenciado pela equipe Politicall, sem necessidade de configuração técnica.
+Atendimento por Inteligência Artificial
+Automação de atendimento no Facebook e Instagram, com modos Compliance TSE e Formal,
+garantindo segurança, padronização e escala.
+Gerenciamento de Usuários e Voluntários
+Criação de perfis com permissões específicas, acompanhamento por ranking de atividades e
+gestão completa de voluntários de campanha.
+Configurações Administrativas
+Gestão do perfil político, integrações, ativação de módulos, identidade visual e informações da
+conta.

@@ -1,7 +1,6 @@
 import { useLocation } from "wouter";
 import { Inbox, FileText, Search, Megaphone, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useToast } from "@/hooks/use-toast";
 
 interface AdminBottomNavProps {
   activePage: "dashboard" | "contracts";
@@ -43,7 +42,6 @@ function NavItem({ icon, label, isActive, onClick, testId }: NavItemProps) {
 
 export function AdminBottomNav({ activePage, onInboxClick, onSearchClick }: AdminBottomNavProps) {
   const [, setLocation] = useLocation();
-  const { toast } = useToast();
 
   const handleDashboardClick = () => {
     setLocation("/admin");
@@ -62,42 +60,7 @@ export function AdminBottomNav({ activePage, onInboxClick, onSearchClick }: Admi
   };
 
   const handleInfoClick = () => {
-    // Abrir PDF diretamente em nova aba - funciona melhor em ambientes com restricoes
-    const token = localStorage.getItem("admin_token");
-    
-    toast({
-      title: "Abrindo manual...",
-      description: "O PDF sera aberto em uma nova aba.",
-    });
-    
-    // Criar uma janela com o PDF
-    const newWindow = window.open("", "_blank");
-    if (newWindow) {
-      newWindow.document.write("<html><head><title>Manual Politicall</title></head><body style='margin:0;padding:20px;font-family:Arial;text-align:center;'><h2>Carregando Manual...</h2><p>Aguarde enquanto o PDF e gerado.</p></body></html>");
-      
-      fetch("/api/admin/platform-manual", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
-      .then(response => {
-        if (!response.ok) throw new Error("Erro");
-        return response.blob();
-      })
-      .then(blob => {
-        const url = URL.createObjectURL(blob);
-        newWindow.location.href = url;
-      })
-      .catch(() => {
-        newWindow.document.body.innerHTML = "<h2>Erro ao carregar o manual</h2><p>Por favor, feche esta aba e tente novamente.</p>";
-      });
-    } else {
-      toast({
-        title: "Popup bloqueado",
-        description: "Permita popups para baixar o manual.",
-        variant: "destructive",
-      });
-    }
+    setLocation("/admin/manual");
   };
 
   return (
