@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, LayoutDashboard, Users, Handshake, FileText, Calendar, BarChart3, Bot, UserCog, Settings } from "lucide-react";
@@ -5,6 +6,21 @@ import { useLocation } from "wouter";
 
 export default function Manual() {
   const [, setLocation] = useLocation();
+  const [highlightedId, setHighlightedId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash.slice(1);
+      if (hash) {
+        setHighlightedId(hash);
+        setTimeout(() => setHighlightedId(null), 1500);
+      }
+    };
+    
+    handleHashChange();
+    window.addEventListener("hashchange", handleHashChange);
+    return () => window.removeEventListener("hashchange", handleHashChange);
+  }, []);
 
   const sections = [
     {
@@ -125,7 +141,7 @@ export default function Manual() {
         {/* Sections */}
         <div className="space-y-6">
           {sections.map((section, index) => (
-            <Card key={section.id} id={section.id} className="scroll-mt-20 target:ring-2 target:ring-primary target:ring-offset-2 transition-all duration-300">
+            <Card key={section.id} id={section.id} className={`scroll-mt-20 transition-all duration-700 ${highlightedId === section.id ? "bg-primary/5" : ""}`}>
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-3 text-base">
                   <div className="p-2 rounded-lg bg-primary/10 text-primary">
