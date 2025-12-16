@@ -608,17 +608,17 @@ export default function Admin() {
     },
   });
 
-  // System sync mutation
+  // System sync mutation - PULL data from source server (Replit)
   const systemSyncMutation = useMutation({
-    mutationFn: async ({ targetUrl, apiKey }: { targetUrl: string; apiKey: string }) => {
+    mutationFn: async ({ sourceUrl, apiKey }: { sourceUrl: string; apiKey: string }) => {
       const token = localStorage.getItem("admin_token");
-      const response = await fetch("/api/admin/system-sync", {
+      const response = await fetch("/api/admin/system-sync/pull", {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ targetUrl, apiKey }),
+        body: JSON.stringify({ sourceUrl, apiKey }),
       });
       
       const data = await response.json();
@@ -633,7 +633,7 @@ export default function Admin() {
       setSyncDialogOpen(false);
       toast({
         title: "Sincronização concluída",
-        description: data.message || "O sistema foi atualizado com sucesso no servidor de destino.",
+        description: data.message || "Os dados foram importados com sucesso do servidor fonte.",
       });
     },
     onError: (error: Error) => {
@@ -2067,16 +2067,16 @@ export default function Admin() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      {/* System Sync Dialog */}
+      {/* System Sync Dialog - PULL from source server */}
       <Dialog open={syncDialogOpen} onOpenChange={setSyncDialogOpen}>
         <DialogContent data-testid="dialog-sync-system">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2" data-testid="text-sync-title">
               <Server className="w-5 h-5 text-[#40E0D0]" />
-              Atualizar Sistema Geral
+              Atualizar Sistema
             </DialogTitle>
             <DialogDescription data-testid="text-sync-description">
-              Esta ação enviará todo o código e banco de dados para o servidor de destino configurado.
+              Esta ação irá PUXAR todos os dados do servidor fonte (Replit) para este servidor.
             </DialogDescription>
           </DialogHeader>
 
@@ -2084,38 +2084,46 @@ export default function Admin() {
             <div className="bg-muted/50 rounded-lg p-4 space-y-3">
               <div className="flex items-center gap-2">
                 <RefreshCw className="w-4 h-4 text-[#40E0D0]" />
-                <span className="text-sm font-medium">O que será sincronizado:</span>
+                <span className="text-sm font-medium">O que será importado:</span>
               </div>
               <ul className="text-sm text-muted-foreground space-y-1 ml-6 list-disc">
                 <li>Código-fonte completo (exceto node_modules)</li>
                 <li>Banco de dados PostgreSQL (dump completo)</li>
-                <li>Configurações e arquivos de configuração</li>
+                <li>Variáveis de ambiente (SESSION_SECRET, DATABASE_URL, etc.)</li>
+                <li>Configuração do Admin Master (.admin-config.json)</li>
+                <li>Arquivos anexos locais</li>
               </ul>
+            </div>
+            
+            <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4">
+              <p className="text-sm text-yellow-600 dark:text-yellow-400">
+                <strong>Atenção:</strong> Os dados locais serão substituídos pelos dados do servidor fonte.
+              </p>
             </div>
             
             <div className="space-y-3">
               <div className="space-y-2">
-                <label htmlFor="sync-target-url" className="text-sm font-medium">
-                  URL do Servidor Destino
+                <label htmlFor="sync-source-url" className="text-sm font-medium">
+                  URL do Servidor Fonte (Replit)
                 </label>
                 <input
-                  id="sync-target-url"
+                  id="sync-source-url"
                   type="url"
-                  placeholder="https://seuservidor.com/api/sync"
+                  placeholder="https://seu-replit-app.replit.app"
                   value={syncTargetUrl}
                   onChange={(e) => setSyncTargetUrl(e.target.value)}
                   className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                  data-testid="input-sync-target-url"
+                  data-testid="input-sync-source-url"
                 />
               </div>
               <div className="space-y-2">
                 <label htmlFor="sync-api-key" className="text-sm font-medium">
-                  Chave de API
+                  Chave de API (SYNC_API_KEY do Replit)
                 </label>
                 <input
                   id="sync-api-key"
                   type="password"
-                  placeholder="Digite a chave de API do servidor"
+                  placeholder="Digite a SYNC_API_KEY configurada no Replit"
                   value={syncApiKey}
                   onChange={(e) => setSyncApiKey(e.target.value)}
                   className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
@@ -2136,7 +2144,7 @@ export default function Admin() {
               Cancelar
             </Button>
             <Button
-              onClick={() => systemSyncMutation.mutate({ targetUrl: syncTargetUrl, apiKey: syncApiKey })}
+              onClick={() => systemSyncMutation.mutate({ sourceUrl: syncTargetUrl, apiKey: syncApiKey })}
               disabled={systemSyncMutation.isPending || !syncTargetUrl || !syncApiKey}
               className="flex-1 bg-[#40E0D0] hover:bg-[#40E0D0]/90 text-white"
               data-testid="button-confirm-sync"
@@ -2144,12 +2152,12 @@ export default function Admin() {
               {systemSyncMutation.isPending ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Sincronizando...
+                  Importando...
                 </>
               ) : (
                 <>
                   <RefreshCw className="w-4 h-4 mr-2" />
-                  Confirmar Sincronização
+                  Importar do Replit
                 </>
               )}
             </Button>
