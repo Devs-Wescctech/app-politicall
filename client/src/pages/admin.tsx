@@ -2070,9 +2070,9 @@ export default function Admin() {
       </Dialog>
       {/* System Sync Dialog - PULL from source server */}
       <Dialog open={syncDialogOpen} onOpenChange={setSyncDialogOpen}>
-        <DialogContent className="max-w-lg max-h-[90vh] flex flex-col p-0" data-testid="dialog-sync-system">
+        <DialogContent className="max-w-lg max-h-[90vh] flex flex-col p-0 overflow-hidden" data-testid="dialog-sync-system">
           {/* Fixed Header */}
-          <div className="sticky top-0 z-10 bg-background border-b px-6 pt-6 pb-4">
+          <div className="flex-shrink-0 bg-background border-b px-6 pt-6 pb-4">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2" data-testid="text-sync-title">
                 <Server className="w-5 h-5 text-[#40E0D0]" />
@@ -2094,7 +2094,7 @@ export default function Admin() {
           </div>
 
           {/* Scrollable Content */}
-          <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+          <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4 space-y-4">
             <div className="bg-muted/50 rounded-lg p-4 space-y-3">
               <div className="flex items-center gap-2">
                 <RefreshCw className="w-4 h-4 text-[#40E0D0]" />
@@ -2148,7 +2148,7 @@ export default function Admin() {
           </div>
 
           {/* Fixed Footer */}
-          <div className="sticky bottom-0 z-10 bg-background border-t px-6 py-4">
+          <div className="flex-shrink-0 bg-background border-t px-6 py-4">
             <DialogFooter className="flex gap-2">
               <Button
                 variant="outline"
@@ -2184,9 +2184,9 @@ export default function Admin() {
 
       {/* Server Requirements Info Dialog */}
       <Dialog open={syncRequirementsOpen} onOpenChange={setSyncRequirementsOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col p-0" data-testid="dialog-sync-requirements">
+        <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col p-0 overflow-hidden" data-testid="dialog-sync-requirements">
           {/* Fixed Header */}
-          <div className="sticky top-0 z-10 bg-background border-b px-6 pt-6 pb-4">
+          <div className="flex-shrink-0 bg-background border-b px-6 pt-6 pb-4">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2" data-testid="text-requirements-title">
                 <Info className="w-5 h-5 text-blue-500" />
@@ -2199,7 +2199,7 @@ export default function Admin() {
           </div>
 
           {/* Scrollable Content */}
-          <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+          <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4 space-y-4">
             {/* Ferramentas Necessárias */}
             <div className="bg-muted/50 rounded-lg p-4 space-y-3">
               <div className="flex items-center gap-2">
@@ -2316,7 +2316,7 @@ export default function Admin() {
           </div>
 
           {/* Fixed Footer */}
-          <div className="sticky bottom-0 z-10 bg-background border-t px-6 py-4">
+          <div className="flex-shrink-0 bg-background border-t px-6 py-4">
             <DialogFooter>
               <Button
                 variant="outline"
