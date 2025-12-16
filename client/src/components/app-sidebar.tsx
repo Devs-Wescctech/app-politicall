@@ -233,7 +233,7 @@ export function AppSidebar() {
       <SidebarFooter className="p-4 space-y-2">
         <Button 
           variant="ghost" 
-          className="w-full justify-start opacity-50" 
+          className="w-full justify-start opacity-50 text-[12px]" 
           onClick={() => setLocation("/manual")}
           data-testid="button-info"
         >
