@@ -1443,7 +1443,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ==================== SYSTEM SYNC (Admin Master Only) ====================
   
   // Import system sync service dynamically to avoid circular dependencies
-  const { executeSystemSync, validateSyncConfig, getSyncConfig } = await import("./services/systemSync");
+  const { executeSystemSync, validateSyncConfig, getSyncConfig, generateExportPackage, importFromSource } = await import("./services/systemSync");
+  
+  // Export endpoint for pull-based sync (external servers call this to get data)
+  // Authenticated with Bearer token (apiKey)
+  app.get("/api/admin/system-sync/export", async (req: Request, res: Response) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return res.status(401).json({ error: "Token de autorização não fornecido" });
+      }
+      
+      const providedToken = authHeader.substring(7);
+      const expectedToken = process.env.SYNC_API_KEY;
+      
+      if (!expectedToken) {
+        return res.status(500).json({ error: "SYNC_API_KEY não configurada no servidor" });
+      }
+      
+      if (providedToken !== expectedToken) {
+        return res.status(403).json({ error: "Token de API inválido" });
+      }
+      
+      console.log("📤 Exportando dados para sincronização pull-based...");
+      
+      const exportPackage = await generateExportPackage();
+      
+      res.json(exportPackage);
+    } catch (error: any) {
+      console.error("❌ Erro ao gerar pacote de exportação:", error.message);
+      res.status(500).json({ 
+        error: "Erro ao gerar pacote de exportação",
+        message: error.message,
+        timestamp: new Date().toISOString()
+      });
+    }
+  });
+  
+  // Pull endpoint - pulls data from a source server
+  // Authenticated with admin token
+  app.post("/api/admin/system-sync/pull", authenticateAdminToken, async (req: AuthRequest, res) => {
+    try {
+      const { sourceUrl, apiKey } = req.body;
+      
+      if (!sourceUrl || !apiKey) {
+        return res.status(400).json({ 
+          error: "URL do servidor fonte e chave de API são obrigatórios" 
+        });
+      }
+      
+      try {
+        new URL(sourceUrl);
+      } catch {
+        return res.status(400).json({ 
+          error: "URL do servidor fonte inválida" 
+        });
+      }
+      
+      console.log(`📥 Iniciando pull de: ${sourceUrl}`);
+      
+      const result = await importFromSource(sourceUrl, apiKey);
+      
+      if (result.success) {
+        res.json(result);
+      } else {
+        res.status(500).json(result);
+      }
+    } catch (error: any) {
+      console.error("❌ Erro no pull:", error.message);
+      res.status(500).json({ 
+        success: false,
+        error: error.message,
+        timestamp: new Date().toISOString()
+      });
+    }
+  });
   
   // Validate sync configuration
   app.get("/api/admin/system-sync/validate", authenticateAdminToken, async (req: AuthRequest, res) => {

@@ -39,6 +39,36 @@ interface SyncConfig {
   includeDatabaseDump?: boolean;
 }
 
+interface ExportPackage {
+  database: string;
+  code: string;
+  envVars: Record<string, string | undefined>;
+  adminConfig: string | null;
+  metadata: {
+    version: string;
+    timestamp: string;
+    source: string;
+    databaseSize: number;
+    codeSize: number;
+  };
+}
+
+interface ImportResult {
+  success: boolean;
+  message: string;
+  timestamp: string;
+  details: {
+    databaseRestored: boolean;
+    codeExtracted: boolean;
+    adminConfigUpdated: boolean;
+    envVarsToUpdate: string[];
+    duration: number;
+  };
+  error?: string;
+}
+
+const ADMIN_CONFIG_FILE = path.join(process.cwd(), '.admin-config.json');
+
 /**
  * Executa pg_dump e retorna o caminho do arquivo
  */
@@ -51,9 +81,8 @@ async function createDatabaseDump(tempDir: string): Promise<string> {
   }
 
   try {
-    // Usar pg_dump com a URL do banco
     await execAsync(`pg_dump "${databaseUrl}" --no-owner --no-acl > "${dumpPath}"`, {
-      timeout: 300000, // 5 minutos
+      timeout: 300000,
     });
     
     return dumpPath;
@@ -80,8 +109,7 @@ async function createCodeArchive(tempDir: string): Promise<string> {
     
     archive.pipe(output);
     
-    // Adicionar diretórios relevantes
-    const includeDirs = ["client", "server", "shared"];
+    const includeDirs = ["client", "server", "shared", "migrations"];
     const includeFiles = [
       "package.json",
       "package-lock.json",
@@ -90,6 +118,7 @@ async function createCodeArchive(tempDir: string): Promise<string> {
       "postcss.config.js",
       "drizzle.config.ts",
       "vite.config.ts",
+      "components.json",
     ];
     
     for (const dir of includeDirs) {
@@ -127,19 +156,16 @@ async function createSyncPackage(tempDir: string, config: SyncConfig): Promise<s
       
       archive.pipe(output);
       
-      // Adicionar dump do banco se solicitado
       if (config.includeDatabaseDump !== false) {
         const dumpPath = await createDatabaseDump(tempDir);
         archive.file(dumpPath, { name: "database_dump.sql" });
       }
       
-      // Adicionar código se solicitado
       if (config.includeCode !== false) {
         const codePath = await createCodeArchive(tempDir);
         archive.file(codePath, { name: "code_archive.zip" });
       }
       
-      // Adicionar metadados
       const metadata = {
         version: "1.0.0",
         timestamp: new Date().toISOString(),
@@ -149,21 +175,18 @@ async function createSyncPackage(tempDir: string, config: SyncConfig): Promise<s
       };
       archive.append(JSON.stringify(metadata, null, 2), { name: "metadata.json" });
       
-      // Script de instalação
       const installScript = `#!/bin/bash
 # Script de instalação do pacote Politicall
 # Desenvolvido por David Flores Andrade - www.politicall.com.br
 
 echo "🚀 Iniciando instalação do pacote Politicall..."
 
-# Extrair código se existir
 if [ -f "code_archive.zip" ]; then
   echo "📦 Extraindo código-fonte..."
   unzip -o code_archive.zip -d ./
   rm code_archive.zip
 fi
 
-# Restaurar banco se existir
 if [ -f "database_dump.sql" ]; then
   echo "💾 Restaurando banco de dados..."
   if [ -n "$DATABASE_URL" ]; then
@@ -215,14 +238,13 @@ async function sendPackageToTarget(packagePath: string, config: SyncConfig): Pro
 }
 
 /**
- * Executa a sincronização completa
+ * Executa a sincronização completa (push-based - mantido para compatibilidade)
  */
 export async function executeSystemSync(config: SyncConfig): Promise<SyncResult> {
   const startTime = Date.now();
   let tempDir: string | null = null;
   
   try {
-    // Validar configuração
     if (!config.targetUrl) {
       throw new Error("URL do servidor destino não configurada");
     }
@@ -230,18 +252,15 @@ export async function executeSystemSync(config: SyncConfig): Promise<SyncResult>
       throw new Error("Chave de API não configurada");
     }
     
-    // Criar diretório temporário
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "politicall-sync-"));
     
     console.log("📦 Criando pacote de sincronização...");
     
-    // Criar pacote de sincronização
     const packagePath = await createSyncPackage(tempDir, config);
     const packageStats = fs.statSync(packagePath);
     
     console.log(`📤 Enviando pacote (${(packageStats.size / 1024 / 1024).toFixed(2)} MB)...`);
     
-    // Enviar para servidor destino
     await sendPackageToTarget(packagePath, config);
     
     const duration = Date.now() - startTime;
@@ -253,7 +272,7 @@ export async function executeSystemSync(config: SyncConfig): Promise<SyncResult>
       details: {
         databaseSize: config.includeDatabaseDump !== false ? "incluído" : "não incluído",
         codeSize: `${(packageStats.size / 1024 / 1024).toFixed(2)} MB`,
-        targetUrl: config.targetUrl.replace(/\/[^/]*$/, "/***"), // Ocultar parte da URL
+        targetUrl: config.targetUrl.replace(/\/[^/]*$/, "/***"),
         duration,
       },
     };
@@ -265,7 +284,198 @@ export async function executeSystemSync(config: SyncConfig): Promise<SyncResult>
       error: error.message,
     };
   } finally {
-    // Limpar arquivos temporários
+    if (tempDir && fs.existsSync(tempDir)) {
+      try {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      } catch (e) {
+        console.error("Erro ao limpar arquivos temporários:", e);
+      }
+    }
+  }
+}
+
+/**
+ * Gera o pacote de exportação para pull-based sync
+ */
+export async function generateExportPackage(): Promise<ExportPackage> {
+  let tempDir: string | null = null;
+  
+  try {
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "politicall-export-"));
+    
+    console.log("📦 Gerando pacote de exportação...");
+    
+    const dumpPath = await createDatabaseDump(tempDir);
+    const dumpBuffer = fs.readFileSync(dumpPath);
+    const databaseBase64 = dumpBuffer.toString("base64");
+    
+    const codePath = await createCodeArchive(tempDir);
+    const codeBuffer = fs.readFileSync(codePath);
+    const codeBase64 = codeBuffer.toString("base64");
+    
+    const envVarsToExport = [
+      "SESSION_SECRET",
+      "DATABASE_URL",
+      "PGHOST",
+      "PGPORT",
+      "PGUSER",
+      "PGPASSWORD",
+      "PGDATABASE",
+      "GOOGLE_CLIENT_ID",
+      "GOOGLE_CLIENT_SECRET",
+      "SENDGRID_API_KEY",
+      "TWILIO_ACCOUNT_SID",
+      "TWILIO_AUTH_TOKEN",
+    ];
+    
+    const envVars: Record<string, string | undefined> = {};
+    for (const key of envVarsToExport) {
+      envVars[key] = process.env[key];
+    }
+    
+    let adminConfig: string | null = null;
+    if (fs.existsSync(ADMIN_CONFIG_FILE)) {
+      adminConfig = fs.readFileSync(ADMIN_CONFIG_FILE, "utf-8");
+    }
+    
+    const exportPackage: ExportPackage = {
+      database: databaseBase64,
+      code: codeBase64,
+      envVars,
+      adminConfig,
+      metadata: {
+        version: "2.0.0",
+        timestamp: new Date().toISOString(),
+        source: "politicall-replit",
+        databaseSize: dumpBuffer.length,
+        codeSize: codeBuffer.length,
+      },
+    };
+    
+    console.log(`✅ Pacote de exportação gerado: DB ${(dumpBuffer.length / 1024 / 1024).toFixed(2)} MB, Code ${(codeBuffer.length / 1024 / 1024).toFixed(2)} MB`);
+    
+    return exportPackage;
+  } finally {
+    if (tempDir && fs.existsSync(tempDir)) {
+      try {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      } catch (e) {
+        console.error("Erro ao limpar arquivos temporários:", e);
+      }
+    }
+  }
+}
+
+/**
+ * Importa dados de um servidor fonte (pull-based sync)
+ */
+export async function importFromSource(sourceUrl: string, apiKey: string): Promise<ImportResult> {
+  const startTime = Date.now();
+  let tempDir: string | null = null;
+  
+  const result: ImportResult = {
+    success: false,
+    message: "",
+    timestamp: new Date().toISOString(),
+    details: {
+      databaseRestored: false,
+      codeExtracted: false,
+      adminConfigUpdated: false,
+      envVarsToUpdate: [],
+      duration: 0,
+    },
+  };
+  
+  try {
+    console.log(`📥 Buscando dados de: ${sourceUrl}`);
+    
+    const exportUrl = `${sourceUrl}/api/admin/system-sync/export`;
+    
+    const response = await fetch(exportUrl, {
+      method: "GET",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Servidor fonte retornou erro ${response.status}: ${errorText}`);
+    }
+    
+    const exportPackage: ExportPackage = await response.json();
+    
+    console.log("📦 Dados recebidos, processando...");
+    
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "politicall-import-"));
+    
+    if (exportPackage.database) {
+      console.log("💾 Restaurando banco de dados...");
+      
+      const dumpBuffer = Buffer.from(exportPackage.database, "base64");
+      const dumpPath = path.join(tempDir, "database_dump.sql");
+      fs.writeFileSync(dumpPath, dumpBuffer);
+      
+      const databaseUrl = process.env.DATABASE_URL;
+      if (databaseUrl) {
+        try {
+          await execAsync(`psql "${databaseUrl}" < "${dumpPath}"`, {
+            timeout: 600000,
+          });
+          result.details.databaseRestored = true;
+          console.log("✅ Banco de dados restaurado");
+        } catch (dbError: any) {
+          console.error("⚠️ Erro ao restaurar banco:", dbError.message);
+          result.details.databaseRestored = false;
+        }
+      } else {
+        console.log("⚠️ DATABASE_URL não configurada, pulando restauração do banco");
+      }
+    }
+    
+    if (exportPackage.adminConfig) {
+      console.log("📋 Atualizando configuração do admin...");
+      try {
+        fs.writeFileSync(ADMIN_CONFIG_FILE, exportPackage.adminConfig);
+        result.details.adminConfigUpdated = true;
+        console.log("✅ Configuração do admin atualizada");
+      } catch (configError: any) {
+        console.error("⚠️ Erro ao atualizar config:", configError.message);
+      }
+    }
+    
+    if (exportPackage.envVars) {
+      const requiredEnvVars: string[] = [];
+      for (const [key, value] of Object.entries(exportPackage.envVars)) {
+        if (value && !process.env[key]) {
+          requiredEnvVars.push(key);
+        }
+      }
+      result.details.envVarsToUpdate = requiredEnvVars;
+      if (requiredEnvVars.length > 0) {
+        console.log(`📝 Variáveis de ambiente que precisam ser configuradas: ${requiredEnvVars.join(", ")}`);
+      }
+    }
+    
+    const duration = Date.now() - startTime;
+    result.details.duration = duration;
+    result.success = true;
+    result.message = "Importação concluída com sucesso";
+    
+    console.log(`✅ Importação concluída em ${duration}ms`);
+    
+    return result;
+  } catch (error: any) {
+    result.success = false;
+    result.message = "Erro durante a importação";
+    result.error = error.message;
+    result.details.duration = Date.now() - startTime;
+    
+    console.error("❌ Erro na importação:", error.message);
+    
+    return result;
+  } finally {
     if (tempDir && fs.existsSync(tempDir)) {
       try {
         fs.rmSync(tempDir, { recursive: true, force: true });
