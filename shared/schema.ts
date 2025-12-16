@@ -601,6 +601,7 @@ export const surveyCampaigns = pgTable("survey_campaigns", {
   customMainQuestionOptions: jsonb("custom_main_question_options").$type<string[]>(), // Custom main question options
   customQuestions: jsonb("custom_questions").$type<CustomQuestion[]>(), // Additional custom questions
   viewCount: integer("view_count").default(0).notNull(), // Track landing page views
+  budgetValue: numeric("budget_value"), // Budget value at the time of approval (stored per campaign)
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

@@ -1388,10 +1388,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Campanha não encontrada" });
       }
       
-      // When approving, automatically move to "aprovado" stage in kanban
+      // Get current budget value from system settings
+      const [budgetSetting] = await db.select()
+        .from(systemSettings)
+        .where(eq(systemSettings.key, "budget_ads"));
+      const currentBudget = budgetSetting?.value || "1250";
+      
+      // When approving, automatically move to "aprovado" stage in kanban and save budget
       const updated = await storage.updateSurveyCampaign(id, campaign.accountId, { 
         status: "approved",
-        campaignStage: "aprovado"
+        campaignStage: "aprovado",
+        budgetValue: currentBudget
       });
       
       // Create notification for the user

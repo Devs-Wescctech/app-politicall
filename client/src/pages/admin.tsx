@@ -72,6 +72,7 @@ type CampaignWithTemplate = SurveyCampaign & {
   customMainQuestionOptions?: string[] | null;
   customQuestions?: CustomQuestion[] | null;
   viewCount?: number;
+  budgetValue?: string | null;
 };
 
 export default function Admin() {
@@ -986,7 +987,10 @@ export default function Admin() {
             <div className="text-right">
               <p className="text-xs text-muted-foreground mb-1">Caixa Total</p>
               <p className="text-2xl font-bold text-[#40E0D0]" data-testid="text-total-revenue">
-                R$ {(approvedCampaigns.length * (budgetSetting?.value ? parseFloat(budgetSetting.value) : 1250)).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                R$ {approvedCampaigns.reduce((total, campaign) => {
+                  const value = campaign.budgetValue ? parseFloat(campaign.budgetValue) : 1250;
+                  return total + value;
+                }, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </p>
             </div>
           </div>
