@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { CheckCircle2, XCircle, ChevronLeft, ChevronRight, ChevronDown, User, Copy, Check, DollarSign, Inbox, Mail, Phone, Trash2, Search, Sun, Moon, Eye, Calendar, MapPin, Users, FileText, MessageSquare, BarChart3, X, RefreshCw, Server, Loader2 } from "lucide-react";
+import { CheckCircle2, XCircle, ChevronLeft, ChevronRight, ChevronDown, User, Copy, Check, DollarSign, Inbox, Mail, Phone, Trash2, Search, Sun, Moon, Eye, Calendar, MapPin, Users, FileText, MessageSquare, BarChart3, X, RefreshCw, Server, Loader2, Info, AlertTriangle, Terminal, Database, FolderOpen, Key, HardDrive } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { AdminBottomNav } from "@/components/admin-bottom-nav";
 import { Button } from "@/components/ui/button";
@@ -97,6 +97,7 @@ export default function Admin() {
     return true;
   });
   const [syncDialogOpen, setSyncDialogOpen] = useState(false);
+  const [syncRequirementsOpen, setSyncRequirementsOpen] = useState(false);
   const [syncTargetUrl, setSyncTargetUrl] = useState("");
   const [syncApiKey, setSyncApiKey] = useState("");
   const [budgetDialogOpen, setBudgetDialogOpen] = useState(false);
@@ -2074,6 +2075,15 @@ export default function Admin() {
             <DialogTitle className="flex items-center gap-2" data-testid="text-sync-title">
               <Server className="w-5 h-5 text-[#40E0D0]" />
               Atualizar Sistema
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setSyncRequirementsOpen(true)}
+                className="ml-auto"
+                data-testid="button-sync-requirements-info"
+              >
+                <Info className="w-5 h-5 text-blue-500" />
+              </Button>
             </DialogTitle>
             <DialogDescription data-testid="text-sync-description">
               Esta ação irá PUXAR todos os dados do servidor fonte (Replit) para este servidor.
@@ -2160,6 +2170,148 @@ export default function Admin() {
                   Importar do Replit
                 </>
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Server Requirements Info Dialog */}
+      <Dialog open={syncRequirementsOpen} onOpenChange={setSyncRequirementsOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" data-testid="dialog-sync-requirements">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2" data-testid="text-requirements-title">
+              <Info className="w-5 h-5 text-blue-500" />
+              Requisitos do Servidor para Sincronização
+            </DialogTitle>
+            <DialogDescription>
+              Para que a sincronização funcione corretamente, o servidor de destino precisa atender aos seguintes requisitos.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            {/* Ferramentas Necessárias */}
+            <div className="bg-muted/50 rounded-lg p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <Terminal className="w-5 h-5 text-[#40E0D0]" />
+                <span className="font-semibold">Ferramentas de Linha de Comando</span>
+              </div>
+              <div className="space-y-2 ml-7">
+                <div className="flex items-start gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <span className="font-medium">unzip</span>
+                    <p className="text-sm text-muted-foreground">Para extrair código-fonte e arquivos anexos</p>
+                    <code className="text-xs bg-muted px-2 py-1 rounded">sudo apt install unzip</code>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <span className="font-medium">psql (PostgreSQL Client)</span>
+                    <p className="text-sm text-muted-foreground">Para restaurar o banco de dados</p>
+                    <code className="text-xs bg-muted px-2 py-1 rounded">sudo apt install postgresql-client</code>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <span className="font-medium">Node.js 18+</span>
+                    <p className="text-sm text-muted-foreground">Para executar a aplicação</p>
+                    <code className="text-xs bg-muted px-2 py-1 rounded">node --version</code>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Variáveis de Ambiente */}
+            <div className="bg-muted/50 rounded-lg p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <Key className="w-5 h-5 text-yellow-500" />
+                <span className="font-semibold">Variáveis de Ambiente Obrigatórias</span>
+              </div>
+              <div className="space-y-2 ml-7">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 text-yellow-500 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <span className="font-medium">SYNC_API_KEY</span>
+                    <p className="text-sm text-muted-foreground">Mesma chave configurada no Replit (deve ser idêntica)</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 text-yellow-500 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <span className="font-medium">DATABASE_URL</span>
+                    <p className="text-sm text-muted-foreground">URL de conexão PostgreSQL local para receber os dados</p>
+                    <code className="text-xs bg-muted px-2 py-1 rounded">postgresql://user:pass@localhost:5432/db</code>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Banco de Dados */}
+            <div className="bg-muted/50 rounded-lg p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <Database className="w-5 h-5 text-purple-500" />
+                <span className="font-semibold">Banco de Dados PostgreSQL</span>
+              </div>
+              <div className="space-y-2 ml-7 text-sm text-muted-foreground">
+                <p>• PostgreSQL 14+ instalado e rodando</p>
+                <p>• Banco de dados criado e acessível via DATABASE_URL</p>
+                <p>• Usuário com permissões de CREATE, DROP, INSERT, UPDATE, DELETE</p>
+                <p>• Conexão liberada (firewall, pg_hba.conf)</p>
+              </div>
+            </div>
+
+            {/* Permissões de Arquivo */}
+            <div className="bg-muted/50 rounded-lg p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <FolderOpen className="w-5 h-5 text-orange-500" />
+                <span className="font-semibold">Permissões de Sistema de Arquivos</span>
+              </div>
+              <div className="space-y-2 ml-7 text-sm text-muted-foreground">
+                <p>• Permissão de escrita no diretório do projeto</p>
+                <p>• Permissão de escrita em <code className="bg-muted px-1 rounded">.env</code></p>
+                <p>• Permissão de escrita em <code className="bg-muted px-1 rounded">attached_assets/</code></p>
+                <p>• Permissão de escrita em <code className="bg-muted px-1 rounded">.admin-config.json</code></p>
+              </div>
+            </div>
+
+            {/* Espaço em Disco */}
+            <div className="bg-muted/50 rounded-lg p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <HardDrive className="w-5 h-5 text-gray-500" />
+                <span className="font-semibold">Recursos do Sistema</span>
+              </div>
+              <div className="space-y-2 ml-7 text-sm text-muted-foreground">
+                <p>• Mínimo 2GB de espaço em disco livre</p>
+                <p>• Mínimo 1GB de RAM disponível</p>
+                <p>• Conexão de rede estável com o servidor Replit</p>
+              </div>
+            </div>
+
+            {/* Aviso Importante */}
+            <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0" />
+                <div>
+                  <p className="font-semibold text-red-600 dark:text-red-400">Aviso Importante</p>
+                  <p className="text-sm text-red-600/80 dark:text-red-400/80 mt-1">
+                    A sincronização irá SOBRESCREVER todos os dados locais. Faça backup antes de prosseguir!
+                    Certifique-se de que todas as ferramentas estão instaladas e permissões configuradas.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setSyncRequirementsOpen(false)}
+              className="w-full"
+              data-testid="button-close-requirements"
+            >
+              Entendi
             </Button>
           </DialogFooter>
         </DialogContent>
