@@ -44,12 +44,14 @@ interface ExportPackage {
   code: string;
   envVars: Record<string, string | undefined>;
   adminConfig: string | null;
+  attachments?: string; // ZIP dos arquivos anexos em base64
   metadata: {
     version: string;
     timestamp: string;
     source: string;
     databaseSize: number;
     codeSize: number;
+    attachmentsSize?: number;
   };
 }
 
@@ -62,12 +64,48 @@ interface ImportResult {
     codeExtracted: boolean;
     adminConfigUpdated: boolean;
     envVarsToUpdate: string[];
+    envVarsUpdated: boolean;
+    attachmentsExtracted: boolean;
     duration: number;
   };
   error?: string;
 }
 
 const ADMIN_CONFIG_FILE = path.join(process.cwd(), '.admin-config.json');
+const ATTACHED_ASSETS_DIR = path.join(process.cwd(), 'attached_assets');
+const ENV_FILE_PATH = path.join(process.cwd(), '.env');
+
+/**
+ * Cria um ZIP com os arquivos anexos (attached_assets/)
+ */
+async function createAttachmentsArchive(tempDir: string): Promise<string | null> {
+  if (!fs.existsSync(ATTACHED_ASSETS_DIR)) {
+    console.log("📎 Pasta attached_assets/ não encontrada, pulando...");
+    return null;
+  }
+  
+  const archivePath = path.join(tempDir, "attachments_archive.zip");
+  
+  return new Promise((resolve, reject) => {
+    const output = fs.createWriteStream(archivePath);
+    const archive = archiver("zip", { zlib: { level: 9 } });
+    
+    output.on("close", () => {
+      if (archive.pointer() > 0) {
+        console.log(`📎 Arquivo de anexos criado: ${(archive.pointer() / 1024 / 1024).toFixed(2)} MB`);
+        resolve(archivePath);
+      } else {
+        resolve(null);
+      }
+    });
+    output.on("error", reject);
+    archive.on("error", reject);
+    
+    archive.pipe(output);
+    archive.directory(ATTACHED_ASSETS_DIR, "attached_assets");
+    archive.finalize();
+  });
+}
 
 /**
  * Executa pg_dump e retorna o caminho do arquivo
@@ -313,6 +351,17 @@ export async function generateExportPackage(): Promise<ExportPackage> {
     const codeBuffer = fs.readFileSync(codePath);
     const codeBase64 = codeBuffer.toString("base64");
     
+    // Criar arquivo de anexos se existir
+    let attachmentsBase64: string | undefined = undefined;
+    let attachmentsSize: number | undefined = undefined;
+    const attachmentsPath = await createAttachmentsArchive(tempDir);
+    if (attachmentsPath) {
+      const attachmentsBuffer = fs.readFileSync(attachmentsPath);
+      attachmentsBase64 = attachmentsBuffer.toString("base64");
+      attachmentsSize = attachmentsBuffer.length;
+      console.log(`📎 Anexos incluídos: ${(attachmentsSize / 1024 / 1024).toFixed(2)} MB`);
+    }
+    
     const envVarsToExport = [
       "SESSION_SECRET",
       "DATABASE_URL",
@@ -343,16 +392,18 @@ export async function generateExportPackage(): Promise<ExportPackage> {
       code: codeBase64,
       envVars,
       adminConfig,
+      attachments: attachmentsBase64,
       metadata: {
         version: "2.0.0",
         timestamp: new Date().toISOString(),
         source: "politicall-replit",
         databaseSize: dumpBuffer.length,
         codeSize: codeBuffer.length,
+        attachmentsSize,
       },
     };
     
-    console.log(`✅ Pacote de exportação gerado: DB ${(dumpBuffer.length / 1024 / 1024).toFixed(2)} MB, Code ${(codeBuffer.length / 1024 / 1024).toFixed(2)} MB`);
+    console.log(`✅ Pacote de exportação gerado: DB ${(dumpBuffer.length / 1024 / 1024).toFixed(2)} MB, Code ${(codeBuffer.length / 1024 / 1024).toFixed(2)} MB${attachmentsSize ? `, Anexos ${(attachmentsSize / 1024 / 1024).toFixed(2)} MB` : ''}`);
     
     return exportPackage;
   } finally {
@@ -382,6 +433,8 @@ export async function importFromSource(sourceUrl: string, apiKey: string): Promi
       codeExtracted: false,
       adminConfigUpdated: false,
       envVarsToUpdate: [],
+      envVarsUpdated: false,
+      attachmentsExtracted: false,
       duration: 0,
     },
   };
@@ -445,17 +498,61 @@ export async function importFromSource(sourceUrl: string, apiKey: string): Promi
       }
     }
     
+    // Escrever variáveis de ambiente automaticamente no arquivo .env
     if (exportPackage.envVars) {
-      const requiredEnvVars: string[] = [];
-      for (const [key, value] of Object.entries(exportPackage.envVars)) {
-        if (value && !process.env[key]) {
-          requiredEnvVars.push(key);
+      console.log("📝 Escrevendo variáveis de ambiente no arquivo .env...");
+      try {
+        const envLines: string[] = [];
+        const writtenVars: string[] = [];
+        
+        for (const [key, value] of Object.entries(exportPackage.envVars)) {
+          if (value) {
+            envLines.push(`${key}=${value}`);
+            writtenVars.push(key);
+          }
         }
+        
+        if (envLines.length > 0) {
+          const envContent = envLines.join("\n") + "\n";
+          fs.writeFileSync(ENV_FILE_PATH, envContent);
+          result.details.envVarsUpdated = true;
+          result.details.envVarsToUpdate = writtenVars;
+          console.log(`✅ Arquivo .env atualizado com ${writtenVars.length} variáveis: ${writtenVars.join(", ")}`);
+        } else {
+          console.log("⚠️ Nenhuma variável de ambiente para escrever");
+        }
+      } catch (envError: any) {
+        console.error("⚠️ Erro ao escrever arquivo .env:", envError.message);
+        result.details.envVarsUpdated = false;
       }
-      result.details.envVarsToUpdate = requiredEnvVars;
-      if (requiredEnvVars.length > 0) {
-        console.log(`📝 Variáveis de ambiente que precisam ser configuradas: ${requiredEnvVars.join(", ")}`);
+    }
+    
+    // Extrair arquivos anexos (attachments) se existirem
+    if (exportPackage.attachments) {
+      console.log("📎 Extraindo arquivos anexos...");
+      try {
+        const attachmentsBuffer = Buffer.from(exportPackage.attachments, "base64");
+        const attachmentsZipPath = path.join(tempDir, "attachments_archive.zip");
+        fs.writeFileSync(attachmentsZipPath, attachmentsBuffer);
+        
+        // Criar diretório attached_assets se não existir
+        if (!fs.existsSync(ATTACHED_ASSETS_DIR)) {
+          fs.mkdirSync(ATTACHED_ASSETS_DIR, { recursive: true });
+        }
+        
+        // Extrair o ZIP para o diretório do projeto
+        await execAsync(`unzip -o "${attachmentsZipPath}" -d "${process.cwd()}"`, {
+          timeout: 300000,
+        });
+        
+        result.details.attachmentsExtracted = true;
+        console.log(`✅ Arquivos anexos extraídos para attached_assets/`);
+      } catch (attachError: any) {
+        console.error("⚠️ Erro ao extrair arquivos anexos:", attachError.message);
+        result.details.attachmentsExtracted = false;
       }
+    } else {
+      console.log("📎 Nenhum arquivo anexo no pacote (compatível com versões anteriores)");
     }
     
     const duration = Date.now() - startTime;
