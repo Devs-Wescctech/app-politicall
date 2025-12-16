@@ -2151,7 +2151,7 @@ export default function Admin() {
                     onClick={async () => {
                       try {
                         const text = await navigator.clipboard.readText();
-                        if (text) setSyncApiKey(text);
+                        if (text) setSyncApiKey(text.trim());
                       } catch {
                         // Clipboard access denied - ignore silently
                       }
