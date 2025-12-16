@@ -1295,10 +1295,12 @@ export default function Marketing() {
           </div>
         ) : campaigns && campaigns.length > 0 ? (
           (() => {
-            const filteredCampaigns = campaigns.filter((campaign) => {
-              if (selectedTemplateFilter === "all") return true;
-              return campaign.templateId === selectedTemplateFilter;
-            });
+            const filteredCampaigns = campaigns
+              .filter((campaign) => {
+                if (selectedTemplateFilter === "all") return true;
+                return campaign.templateId === selectedTemplateFilter;
+              })
+              .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
             
             if (filteredCampaigns.length === 0) {
               return (
