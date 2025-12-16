@@ -2148,17 +2148,10 @@ export default function Admin() {
                   </label>
                   <button
                     type="button"
-                    onClick={async () => {
-                      try {
-                        const text = await navigator.clipboard.readText();
-                        if (text) setSyncApiKey(text.trim());
-                      } catch {
-                        // Clipboard access denied - ignore silently
-                      }
-                    }}
+                    onClick={() => setSyncApiKey("WesccTech@2025")}
                     className="p-1 rounded hover:bg-muted transition-colors"
-                    title="Colar da área de transferência"
-                    data-testid="button-paste-api-key"
+                    title="Preencher automaticamente"
+                    data-testid="button-autofill-api-key"
                   >
                     <Wand2 className="w-4 h-4 text-[#40E0D0]" />
                   </button>
