@@ -2070,27 +2070,31 @@ export default function Admin() {
       </Dialog>
       {/* System Sync Dialog - PULL from source server */}
       <Dialog open={syncDialogOpen} onOpenChange={setSyncDialogOpen}>
-        <DialogContent data-testid="dialog-sync-system">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2" data-testid="text-sync-title">
-              <Server className="w-5 h-5 text-[#40E0D0]" />
-              Atualizar Sistema
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setSyncRequirementsOpen(true)}
-                className="ml-auto"
-                data-testid="button-sync-requirements-info"
-              >
-                <Info className="w-5 h-5 text-blue-500" />
-              </Button>
-            </DialogTitle>
-            <DialogDescription data-testid="text-sync-description">
-              Esta ação irá PUXAR todos os dados do servidor fonte (Replit) para este servidor.
-            </DialogDescription>
-          </DialogHeader>
+        <DialogContent className="max-w-lg max-h-[90vh] flex flex-col p-0" data-testid="dialog-sync-system">
+          {/* Fixed Header */}
+          <div className="sticky top-0 z-10 bg-background border-b px-6 pt-6 pb-4">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2" data-testid="text-sync-title">
+                <Server className="w-5 h-5 text-[#40E0D0]" />
+                Atualizar Sistema
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setSyncRequirementsOpen(true)}
+                  className="ml-auto"
+                  data-testid="button-sync-requirements-info"
+                >
+                  <Info className="w-5 h-5 text-blue-500" />
+                </Button>
+              </DialogTitle>
+              <DialogDescription data-testid="text-sync-description">
+                Esta ação irá PUXAR todos os dados do servidor fonte (Replit) para este servidor.
+              </DialogDescription>
+            </DialogHeader>
+          </div>
 
-          <div className="space-y-4 py-4">
+          {/* Scrollable Content */}
+          <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
             <div className="bg-muted/50 rounded-lg p-4 space-y-3">
               <div className="flex items-center gap-2">
                 <RefreshCw className="w-4 h-4 text-[#40E0D0]" />
@@ -2143,35 +2147,38 @@ export default function Admin() {
             </div>
           </div>
 
-          <DialogFooter className="flex gap-2">
-            <Button
-              variant="outline"
-              onClick={() => setSyncDialogOpen(false)}
-              disabled={systemSyncMutation.isPending}
-              className="flex-1"
-              data-testid="button-cancel-sync"
-            >
-              Cancelar
-            </Button>
-            <Button
-              onClick={() => systemSyncMutation.mutate({ sourceUrl: syncTargetUrl, apiKey: syncApiKey })}
-              disabled={systemSyncMutation.isPending || !syncTargetUrl || !syncApiKey}
-              className="flex-1 bg-[#40E0D0] hover:bg-[#40E0D0]/90 text-white"
-              data-testid="button-confirm-sync"
-            >
-              {systemSyncMutation.isPending ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Importando...
-                </>
-              ) : (
-                <>
-                  <RefreshCw className="w-4 h-4 mr-2" />
-                  Importar do Replit
-                </>
-              )}
-            </Button>
-          </DialogFooter>
+          {/* Fixed Footer */}
+          <div className="sticky bottom-0 z-10 bg-background border-t px-6 py-4">
+            <DialogFooter className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setSyncDialogOpen(false)}
+                disabled={systemSyncMutation.isPending}
+                className="flex-1"
+                data-testid="button-cancel-sync"
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={() => systemSyncMutation.mutate({ sourceUrl: syncTargetUrl, apiKey: syncApiKey })}
+                disabled={systemSyncMutation.isPending || !syncTargetUrl || !syncApiKey}
+                className="flex-1 bg-[#40E0D0] hover:bg-[#40E0D0]/90 text-white"
+                data-testid="button-confirm-sync"
+              >
+                {systemSyncMutation.isPending ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Importando...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Importar do Replit
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
 
