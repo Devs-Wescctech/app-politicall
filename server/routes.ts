@@ -902,741 +902,102 @@ export async function registerRoutes(app: Express): Promise<Server> {
           color: '#333333'
         },
         styles: {
-          coverTitle: { fontSize: 32, bold: true, alignment: 'center', color: '#20B2AA', margin: [0, 100, 0, 20] },
-          coverSubtitle: { fontSize: 16, alignment: 'center', color: '#666666', margin: [0, 0, 0, 10] },
+          coverTitle: { fontSize: 28, bold: true, alignment: 'center', color: '#20B2AA', margin: [0, 80, 0, 20] },
+          coverSubtitle: { fontSize: 14, alignment: 'center', color: '#666666', margin: [0, 0, 0, 10] },
           coverVersion: { fontSize: 11, alignment: 'center', color: '#999999', margin: [0, 30, 0, 0] },
-          tocTitle: { fontSize: 22, bold: true, color: '#20B2AA', margin: [0, 0, 0, 25] },
-          tocItem: { fontSize: 12, margin: [0, 6, 0, 6], color: '#444444' },
-          tocSubItem: { fontSize: 11, margin: [15, 3, 0, 3], color: '#666666' },
-          introTitle: { fontSize: 20, bold: true, color: '#20B2AA', margin: [0, 0, 0, 15] },
-          moduleTitle: { fontSize: 18, bold: true, color: '#20B2AA', margin: [0, 0, 0, 8] },
+          tocTitle: { fontSize: 20, bold: true, color: '#20B2AA', margin: [0, 0, 0, 20] },
+          tocItem: { fontSize: 11, margin: [0, 5, 0, 5], color: '#444444' },
+          introTitle: { fontSize: 18, bold: true, color: '#20B2AA', margin: [0, 0, 0, 15] },
+          moduleTitle: { fontSize: 16, bold: true, color: '#20B2AA', margin: [0, 0, 0, 10] },
           moduleDesc: { fontSize: 11, italics: true, color: '#666666' },
-          subModuleTitle: { fontSize: 14, bold: true, color: '#40E0D0', margin: [0, 20, 0, 10] },
-          sectionTitle: { fontSize: 13, bold: true, color: '#444444', margin: [0, 15, 0, 8] },
-          paragraph: { fontSize: 11, margin: [0, 0, 0, 10], alignment: 'justify' },
-          listItem: { fontSize: 11, margin: [0, 3, 0, 3] },
-          tipList: { fontSize: 10, color: '#555555', margin: [0, 3, 0, 3] },
-          highlight: { fontSize: 11, bold: true, color: '#20B2AA' },
-          warning: { fontSize: 10, italics: true, color: '#E67E22', margin: [0, 5, 0, 10] },
+          subModuleTitle: { fontSize: 13, bold: true, color: '#40E0D0', margin: [0, 15, 0, 8] },
+          sectionTitle: { fontSize: 12, bold: true, color: '#444444', margin: [0, 12, 0, 6] },
+          paragraph: { fontSize: 11, margin: [0, 0, 0, 8], alignment: 'justify' },
+          listItem: { fontSize: 10, margin: [0, 2, 0, 2] },
+          warning: { fontSize: 10, italics: true, color: '#E67E22', margin: [0, 5, 0, 8] },
           footerText: { fontSize: 9, alignment: 'center', color: '#999999' }
         },
         content: [
           // ========== CAPA ==========
-          { text: 'MANUAL DE TREINAMENTO', style: 'coverTitle' },
-          { text: 'Plataforma Politicall', style: 'coverSubtitle' },
-          { text: 'Guia completo para utilizar todas as funcionalidades do sistema', fontSize: 12, alignment: 'center', color: '#888888', margin: [0, 0, 0, 50] },
+          { text: 'Manual Completo da Plataforma Politicall', style: 'coverTitle' },
+          { text: 'Este manual tem como objetivo apresentar de forma clara, didatica e estrategica todas as funcionalidades da plataforma Politicall, explicando a importancia de cada modulo para a gestao politica moderna, profissional e orientada por dados.', fontSize: 11, alignment: 'center', color: '#666666', margin: [20, 20, 20, 50] },
           { text: 'www.politicall.com.br', alignment: 'center', fontSize: 12, color: '#20B2AA', margin: [0, 20, 0, 10] },
           { text: `Atualizado em ${new Date().toLocaleDateString('pt-BR')}`, style: 'coverVersion' },
           
           // ========== SUMÁRIO ==========
           { text: 'Sumario', style: 'tocTitle', pageBreak: 'before' },
-          { text: 'PARTE I - PAINEL DO POLITICO (Admin da Conta)', fontSize: 14, bold: true, color: '#20B2AA', margin: [0, 10, 0, 15] },
-          { text: '1. Dashboard - Central de Controle e Metas', style: 'tocItem' },
-          { text: '2. Eleitores - Gestao de Apoiadores e Voluntarios', style: 'tocItem' },
-          { text: '   2.1 Cadastro de Eleitores', style: 'tocSubItem' },
-          { text: '   2.2 Pagina Publica de Apoiadores', style: 'tocSubItem' },
-          { text: '   2.3 Voluntarios de Campanha', style: 'tocSubItem' },
-          { text: '   2.4 Ranking de Atividades', style: 'tocSubItem' },
-          { text: '   2.5 QR Codes e Compartilhamento', style: 'tocSubItem' },
-          { text: '3. Aliancas Politicas - Parcerias Partidarias', style: 'tocItem' },
-          { text: '   3.1 Pagina Publica de Convites', style: 'tocSubItem' },
-          { text: '4. Demandas - Atendimento ao Cidadao', style: 'tocItem' },
-          { text: '5. Agenda - Eventos e Compromissos', style: 'tocItem' },
-          { text: '6. Pesquisas Mercadologicas - Opiniao Publica', style: 'tocItem' },
-          { text: '   6.1 Pagina Publica de Pesquisa', style: 'tocSubItem' },
-          { text: '7. Atendimento IA - Automacao nas Redes Sociais', style: 'tocItem' },
-          { text: '8. Usuarios e Permissoes', style: 'tocItem' },
-          { text: '9. Configuracoes do Sistema', style: 'tocItem' },
-          { text: '', margin: [0, 15, 0, 0] },
-          { text: 'PARTE II - PAINEL ADMIN MASTER', fontSize: 14, bold: true, color: '#20B2AA', margin: [0, 0, 0, 15] },
-          { text: '10. Visao Geral do Admin Master', style: 'tocItem' },
-          { text: '11. Kanban de Pesquisas', style: 'tocItem' },
-          { text: '12. Gerenciamento de Contas', style: 'tocItem' },
-          { text: '13. Configuracoes do Budget ADS', style: 'tocItem' },
+          { text: '1. Visao Geral da Plataforma Politicall', style: 'tocItem' },
+          { text: '2. Dashboard (Visao Geral da Plataforma)', style: 'tocItem' },
+          { text: '3. Modulo Eleitores', style: 'tocItem' },
+          { text: '4. Modulo Aliancas Politicas', style: 'tocItem' },
+          { text: '5. Modulo Demandas do Gabinete', style: 'tocItem' },
+          { text: '6. Modulo Agenda', style: 'tocItem' },
+          { text: '7. Modulo de Pesquisas de Intencao de Voto', style: 'tocItem' },
+          { text: '8. Modulo de Atendimento por Inteligencia Artificial', style: 'tocItem' },
+          { text: '9. Gerenciamento de Usuarios', style: 'tocItem' },
+          { text: '10. Configuracoes da Plataforma', style: 'tocItem' },
           
-          // ========== INTRODUÇÃO ==========
-          { text: 'Bem-vindo ao Politicall!', style: 'introTitle', pageBreak: 'before' },
-          { text: 'O Politicall e um sistema completo de gestao politica desenvolvido para ajudar gabinetes parlamentares, candidatos e suas equipes a organizar o trabalho do dia a dia. O sistema oferece ferramentas para gestao de eleitores, demandas, eventos, pesquisas de opiniao e muito mais.', style: 'paragraph' },
-          { text: 'O sistema possui dois niveis de acesso principais:', style: 'paragraph' },
+          // ========== 1. VISÃO GERAL ==========
+          { text: '1. Visao Geral da Plataforma Politicall', style: 'moduleTitle', pageBreak: 'before' },
+          { text: 'A Politicall e uma plataforma completa de gestao politica, desenvolvida para centralizar, organizar e potencializar campanhas eleitorais, mandatos e articulacoes politicas. Ela integra dados de eleitores, aliancas politicas, demandas do gabinete, agenda, pesquisas de opiniao, atendimento automatizado por IA e gestao de equipes em um unico ambiente seguro e estrategico.', style: 'paragraph' },
+          { text: 'A plataforma foi criada para oferecer controle total, visao estrategica em tempo real e conformidade com as normas legais e eleitorais brasileiras, especialmente as diretrizes do TSE.', style: 'paragraph' },
+          
+          // ========== 2. DASHBOARD ==========
+          { text: '2. Dashboard (Visao Geral da Plataforma)', style: 'moduleTitle', pageBreak: 'before' },
+          { text: 'O Dashboard e a tela principal da plataforma e nao configura um modulo independente. Ele reune indicadores estrategicos em tempo real, permitindo uma visao clara da evolucao da campanha ou do mandato.', style: 'paragraph' },
+          
           { ul: [
-            'PAINEL DO POLITICO (Admin da Conta): Onde o politico e sua equipe gerenciam todas as atividades do gabinete',
-            'PAINEL ADMIN MASTER: Onde o administrador do Politicall gerencia todas as contas e aprova pesquisas pagas'
-          ], margin: [15, 0, 0, 20] },
-          { text: 'Este manual cobre TODAS as funcionalidades de ambos os paineis de forma detalhada.', style: 'paragraph', bold: true },
-          
-          // ========== PARTE I - PAINEL DO POLÍTICO ==========
-          { text: 'PARTE I', fontSize: 24, bold: true, alignment: 'center', color: '#20B2AA', pageBreak: 'before', margin: [0, 100, 0, 20] },
-          { text: 'PAINEL DO POLITICO', fontSize: 18, alignment: 'center', color: '#666666', margin: [0, 0, 0, 20] },
-          { text: '(Admin da Conta)', fontSize: 14, alignment: 'center', color: '#888888' },
-          
-          // ========== MÓDULO 1 - DASHBOARD ==========
-          { text: '1. DASHBOARD', style: 'moduleTitle', pageBreak: 'before' },
-          { text: 'Sua central de controle com todas as informacoes importantes em um so lugar.', style: 'moduleDesc', margin: [0, 0, 0, 15] },
-          
-          { text: 'O que e o Dashboard?', style: 'sectionTitle' },
-          { text: 'O Dashboard e a primeira tela que voce ve ao entrar no sistema. Ele mostra um resumo completo de tudo que esta acontecendo no seu gabinete: quantos eleitores voce tem, demandas pendentes, proximos eventos, metas de campanha e muito mais.', style: 'paragraph' },
-          
-          { text: 'Cards de Estatisticas', style: 'subModuleTitle' },
-          { text: 'Na parte superior do Dashboard, voce encontra cards com numeros importantes:', style: 'paragraph' },
-          { ul: [
-            'Total de Eleitores: Quantidade total de pessoas cadastradas no sistema',
-            'Novos Eleitores (mes): Quantidade de eleitores cadastrados no mes atual',
-            'Demandas Abertas: Quantidade de demandas ainda nao resolvidas',
-            'Eventos Proximos: Quantidade de eventos agendados para os proximos dias',
-            'Taxa de Resolucao: Porcentagem de demandas resolvidas'
-          ], margin: [15, 0, 0, 10] },
-          { text: 'Clique em qualquer card para acessar o modulo correspondente rapidamente.', style: 'warning' },
-          
-          { text: 'Sistema de Metas', style: 'subModuleTitle' },
-          { text: 'O Dashboard possui um sistema de metas que ajuda voce a acompanhar o progresso da campanha:', style: 'paragraph' },
-          { ul: [
-            'Meta de Eleitores: Defina quantos eleitores voce quer cadastrar ate determinada data',
-            'Barra de Progresso: Mostra visualmente quanto falta para atingir a meta',
-            'Projecao: O sistema calcula se voce esta no ritmo certo para atingir a meta',
-            'Historico: Veja a evolucao das suas metas ao longo do tempo'
-          ], margin: [15, 0, 0, 10] },
-          { text: 'Para configurar suas metas, acesse Configuracoes > Metas.', style: 'paragraph' },
-          
-          { text: 'Graficos e Analises', style: 'subModuleTitle' },
-          { text: 'O Dashboard apresenta graficos que ajudam a entender tendencias:', style: 'paragraph' },
-          { ul: [
-            'Grafico de Eleitores por Periodo: Mostra a evolucao do cadastro de eleitores',
-            'Grafico de Demandas por Categoria: Identifica quais areas mais demandam atencao',
-            'Grafico de Demandas por Status: Mostra quantas estao abertas, em andamento ou resolvidas',
-            'Ranking de Voluntarios: Mostra quais voluntarios mais angariam eleitores'
-          ], margin: [15, 0, 0, 10] },
-          
-          { text: 'Ranking de Atividades', style: 'subModuleTitle' },
-          { text: 'O Dashboard mostra um ranking dos usuarios mais ativos no sistema:', style: 'paragraph' },
-          { ul: [
-            'Mostra quantos eleitores cada usuario cadastrou',
-            'Voluntarios aparecem com destaque quando angariam muitos apoiadores',
-            'O ranking incentiva a equipe a manter o sistema atualizado',
-            'Voce pode filtrar por periodo (semana, mes, ano)'
-          ], margin: [15, 0, 0, 10] },
-          
-          // ========== MÓDULO 2 - ELEITORES ==========
-          { text: '2. ELEITORES', style: 'moduleTitle', pageBreak: 'before' },
-          { text: 'Cadastre e organize todos os eleitores, apoiadores e voluntarios da campanha.', style: 'moduleDesc', margin: [0, 0, 0, 15] },
-          
-          { text: 'O que e o modulo Eleitores?', style: 'sectionTitle' },
-          { text: 'O modulo Eleitores (tambem conhecido como CRM) e onde voce cadastra todas as pessoas que apoiam sua campanha ou que entraram em contato com o gabinete. Pode ser um eleitor, um apoiador, uma lideranca comunitaria ou qualquer cidadao. Este modulo e fundamental para construir sua base de apoio.', style: 'paragraph' },
-          
-          { text: '2.1 Cadastro de Eleitores', style: 'subModuleTitle' },
-          { text: 'Para cadastrar um novo eleitor:', style: 'paragraph' },
-          { ol: [
-            'Clique em "Eleitores" no menu lateral',
-            'Clique no botao "Novo Eleitor" (botao verde no canto superior direito)',
-            'Preencha o nome completo da pessoa',
-            'Adicione telefone e/ou e-mail (pelo menos um e obrigatorio)',
-            'Informe a cidade e bairro onde mora',
-            'Adicione o endereco completo se desejar',
-            'Selecione os interesses/hobbies da pessoa (religiao, esportes, etc.)',
-            'Escolha uma categoria: Eleitor, Apoiador, Lideranca, Empresario, etc.',
-            'Adicione observacoes importantes sobre a pessoa',
-            'Clique em "Salvar"'
-          ], margin: [15, 0, 0, 10] },
-          
-          { text: 'Campos do Cadastro:', style: 'sectionTitle' },
-          { ul: [
-            'Nome Completo: Nome da pessoa (obrigatorio)',
-            'Telefone: Numero de telefone com DDD',
-            'E-mail: Endereco de e-mail',
-            'Cidade: Cidade onde a pessoa mora',
-            'Bairro: Bairro onde a pessoa mora',
-            'Endereco: Endereco completo',
-            'CEP: Codigo postal',
-            'Interesses: Hobbies e interesses (religiao, esporte, etc.)',
-            'Categoria: Tipo de contato (Eleitor, Apoiador, Lideranca, etc.)',
-            'Observacoes: Anotacoes livres sobre a pessoa',
-            'Referenciado por: Quem indicou esta pessoa (voluntario, etc.)'
-          ], margin: [15, 0, 0, 10] },
-          
-          { text: 'Importacao de Planilhas', style: 'sectionTitle' },
-          { text: 'Voce pode importar eleitores de uma planilha Excel:', style: 'paragraph' },
-          { ol: [
-            'Clique no botao "Importar" na tela de Eleitores',
-            'Baixe o modelo de planilha disponibilizado',
-            'Preencha a planilha com os dados dos eleitores',
-            'Faca upload da planilha preenchida',
-            'Revise os dados importados',
-            'Confirme a importacao'
-          ], margin: [15, 0, 0, 10] },
-          
-          { text: 'Exportacao de Dados', style: 'sectionTitle' },
-          { text: 'Voce tambem pode exportar seus eleitores para Excel:', style: 'paragraph' },
-          { ol: [
-            'Aplique os filtros desejados (cidade, categoria, etc.)',
-            'Clique no botao "Exportar"',
-            'Escolha o formato (Excel ou CSV)',
-            'O arquivo sera baixado automaticamente'
-          ], margin: [15, 0, 0, 10] },
-          
-          { text: '2.2 Pagina Publica de Apoiadores', style: 'subModuleTitle' },
-          { text: 'Cada politico possui uma pagina publica exclusiva para captar apoiadores. Esta e uma das funcionalidades mais importantes do sistema!', style: 'paragraph' },
-          
-          { text: 'O que e a Pagina Publica?', style: 'sectionTitle' },
-          { text: 'A Pagina Publica de Apoiadores e um site personalizado com a foto do politico, suas informacoes e um formulario para que pessoas interessadas se cadastrem como apoiadoras. Quando alguem preenche o formulario, um novo eleitor e criado automaticamente no sistema.', style: 'paragraph' },
-          
-          { text: 'Como acessar a Pagina Publica:', style: 'sectionTitle' },
-          { text: 'A URL da pagina publica segue o formato: www.politicall.com.br/apoiar/[slug-do-politico]', style: 'paragraph' },
-          { text: 'Por exemplo: www.politicall.com.br/apoiar/joao-silva', style: 'paragraph' },
-          { text: 'O slug e definido automaticamente com base no nome do politico, mas pode ser personalizado nas Configuracoes.', style: 'warning' },
-          
-          { text: 'O que aparece na Pagina Publica:', style: 'sectionTitle' },
-          { ul: [
-            'Foto do politico (configurada no perfil)',
-            'Nome e cargo do politico',
-            'Partido politico e numero de urna',
-            'Imagem de fundo personalizada',
-            'Formulario de cadastro com campos: Nome, Telefone, E-mail, Cidade, Bairro',
-            'Botao para enviar o cadastro'
-          ], margin: [15, 0, 0, 10] },
-          
-          { text: 'Personalizando a Pagina Publica:', style: 'sectionTitle' },
-          { text: 'Acesse Configuracoes > Perfil para personalizar:', style: 'paragraph' },
-          { ul: [
-            'Foto de perfil (aparece na pagina publica)',
-            'Imagem de fundo da pagina',
-            'Slug personalizado da URL',
-            'Informacoes exibidas (cargo, partido, numero)'
-          ], margin: [15, 0, 0, 10] },
-          
-          { text: 'QR Code e Compartilhamento:', style: 'sectionTitle' },
-          { text: 'O sistema gera automaticamente um QR Code da sua pagina publica:', style: 'paragraph' },
-          { ul: [
-            'Acesse Configuracoes > Perfil',
-            'O QR Code aparece ao lado das suas informacoes',
-            'Clique para baixar o QR Code em alta resolucao',
-            'Use em materiais impressos, cartoes, banners, etc.',
-            'Quando alguem escanear o QR Code, sera direcionado para sua pagina de apoiadores'
-          ], margin: [15, 0, 0, 10] },
-          
-          { text: '2.3 Voluntarios de Campanha', style: 'subModuleTitle' },
-          { text: 'Os voluntarios sao membros da sua equipe que ajudam a angariar novos eleitores. Cada voluntario recebe sua propria pagina publica e um codigo unico para rastrear suas indicacoes.', style: 'paragraph' },
-          
-          { text: 'Como criar um Voluntario:', style: 'sectionTitle' },
-          { ol: [
-            'Acesse Usuarios no menu lateral',
-            'Clique em "Novo Usuario"',
-            'Selecione o papel "Voluntario"',
-            'Preencha nome, e-mail e telefone',
-            'Clique em "Salvar"',
-            'O voluntario recebera um e-mail com instrucoes de acesso'
-          ], margin: [15, 0, 0, 10] },
-          
-          { text: 'O que o Voluntario recebe:', style: 'sectionTitle' },
-          { ul: [
-            'Codigo unico de 4 digitos (ex: A1B2) para identificacao',
-            'Link personalizado da pagina de apoiadores (www.politicall.com.br/apoiar/joao-silva?ref=A1B2)',
-            'QR Code exclusivo que inclui seu codigo de referencia',
-            'Acesso limitado ao sistema (apenas modulo Eleitores)'
-          ], margin: [15, 0, 0, 10] },
-          
-          { text: 'Foco do Voluntario:', style: 'sectionTitle' },
-          { text: 'O voluntario deve focar em ANGARIAR ELEITORES atraves da sua pagina publica personalizada. Quando alguem se cadastra atraves do link do voluntario, o sistema automaticamente registra quem fez a indicacao.', style: 'paragraph', bold: true },
-          
-          { text: 'Como o Voluntario trabalha:', style: 'sectionTitle' },
-          { ol: [
-            'Acessa o sistema com seu login',
-            'Copia o link da sua pagina personalizada',
-            'Compartilha o link nas redes sociais, WhatsApp, etc.',
-            'Mostra o QR Code em eventos e reunioes',
-            'Acompanha quantos eleitores cadastrou pelo sistema',
-            'Aparece no ranking de voluntarios do Dashboard'
-          ], margin: [15, 0, 0, 10] },
-          
-          { text: '2.4 Ranking de Atividades', style: 'subModuleTitle' },
-          { text: 'O sistema mantem um ranking de todos os usuarios e voluntarios baseado na quantidade de eleitores cadastrados:', style: 'paragraph' },
-          { ul: [
-            'Mostra os 10 usuarios mais ativos',
-            'Exibe foto, nome e quantidade de eleitores cadastrados',
-            'Atualizado em tempo real',
-            'Pode ser filtrado por periodo (semana, mes, ano)',
-            'Aparece no Dashboard do Admin',
-            'Incentiva a competicao saudavel entre a equipe'
-          ], margin: [15, 0, 0, 10] },
-          
-          { text: 'Como os eleitores sao contabilizados:', style: 'sectionTitle' },
-          { ul: [
-            'Eleitores cadastrados manualmente pelo usuario',
-            'Eleitores que se cadastraram pela pagina publica do voluntario',
-            'Eleitores importados por planilha (atribuidos ao usuario que importou)'
-          ], margin: [15, 0, 0, 10] },
-          
-          { text: '2.5 QR Codes e Compartilhamento', style: 'subModuleTitle' },
-          { text: 'O sistema gera QR Codes automaticamente para facilitar o compartilhamento:', style: 'paragraph' },
-          
-          { text: 'QR Code do Politico:', style: 'sectionTitle' },
-          { ul: [
-            'Gerado automaticamente com base no slug do politico',
-            'Direciona para a pagina publica de apoiadores',
-            'Disponivel em Configuracoes > Perfil',
-            'Pode ser baixado em alta resolucao (PNG)'
-          ], margin: [15, 0, 0, 10] },
-          
-          { text: 'QR Code do Voluntario:', style: 'sectionTitle' },
-          { ul: [
-            'Inclui o codigo de referencia do voluntario',
-            'Quando escaneado, registra automaticamente a indicacao',
-            'Cada voluntario tem seu QR Code exclusivo',
-            'Ideal para uso em eventos presenciais'
-          ], margin: [15, 0, 0, 10] },
-          
-          // ========== MÓDULO 3 - ALIANÇAS ==========
-          { text: '3. ALIANCAS POLITICAS', style: 'moduleTitle', pageBreak: 'before' },
-          { text: 'Gerencie parcerias e convites para outros partidos e politicos.', style: 'moduleDesc', margin: [0, 0, 0, 15] },
-          
-          { text: 'O que sao Aliancas Politicas?', style: 'sectionTitle' },
-          { text: 'O modulo de Aliancas permite criar e gerenciar parcerias com outros partidos politicos. Voce pode enviar convites formais, acompanhar o status de cada proposta e visualizar a distribuicao ideologica dos seus parceiros.', style: 'paragraph' },
-          
-          { text: 'Como enviar um Convite de Alianca:', style: 'sectionTitle' },
-          { ol: [
-            'Acesse "Aliancas" no menu lateral',
-            'Clique em "Novo Convite"',
-            'Selecione o partido que deseja convidar',
-            'Preencha o nome do contato responsavel',
-            'Adicione e-mail e telefone do contato',
-            'Escreva uma mensagem explicando a proposta',
-            'Clique em "Enviar Convite"'
-          ], margin: [15, 0, 0, 10] },
-          
-          { text: '3.1 Pagina Publica de Convites', style: 'subModuleTitle' },
-          { text: 'Quando voce envia um convite, o sistema gera uma pagina publica exclusiva para aquele convite:', style: 'paragraph' },
-          
-          { text: 'O que aparece na Pagina de Convite:', style: 'sectionTitle' },
-          { ul: [
-            'Logo do seu partido e do partido convidado',
-            'Mensagem personalizada que voce escreveu',
-            'Informacoes sobre a proposta de alianca',
-            'Botoes para ACEITAR ou RECUSAR o convite',
-            'Campo para o convidado deixar uma mensagem'
-          ], margin: [15, 0, 0, 10] },
-          
-          { text: 'Como funciona a resposta:', style: 'sectionTitle' },
-          { ul: [
-            'O convidado recebe um link por e-mail',
-            'Ao acessar o link, ve a pagina com os detalhes',
-            'Pode aceitar ou recusar a proposta',
-            'A resposta e registrada automaticamente no sistema',
-            'Voce recebe uma notificacao sobre a resposta'
-          ], margin: [15, 0, 0, 10] },
-          
-          { text: 'Status dos Convites:', style: 'sectionTitle' },
-          { ul: [
-            'Pendente: Aguardando resposta do convidado',
-            'Aceito: O partido aceitou a alianca',
-            'Recusado: O partido recusou a proposta',
-            'Expirado: O convite nao foi respondido no prazo'
-          ], margin: [15, 0, 0, 10] },
-          
-          { text: 'Grafico de Distribuicao Ideologica:', style: 'sectionTitle' },
-          { text: 'O sistema mostra um grafico com a distribuicao ideologica das suas aliancas (Esquerda, Centro-Esquerda, Centro, Centro-Direita, Direita), ajudando a visualizar o posicionamento politico da sua coalicao.', style: 'paragraph' },
-          
-          // ========== MÓDULO 4 - DEMANDAS ==========
-          { text: '4. DEMANDAS', style: 'moduleTitle', pageBreak: 'before' },
-          { text: 'Registre e acompanhe todas as solicitacoes dos cidadaos.', style: 'moduleDesc', margin: [0, 0, 0, 15] },
-          
-          { text: 'O que sao Demandas?', style: 'sectionTitle' },
-          { text: 'As demandas sao pedidos, reclamacoes ou solicitacoes que os cidadaos fazem ao gabinete. Pode ser um problema de infraestrutura, uma solicitacao de saude, educacao ou qualquer outra necessidade. O sistema permite acompanhar cada demanda desde o registro ate a resolucao final.', style: 'paragraph' },
-          
-          { text: 'Como cadastrar uma Demanda:', style: 'sectionTitle' },
-          { ol: [
-            'Acesse "Demandas" no menu lateral',
-            'Clique em "Nova Demanda"',
-            'Selecione o eleitor que fez a solicitacao (ou cadastre um novo)',
-            'Escolha a categoria: Saude, Educacao, Infraestrutura, Seguranca, etc.',
-            'Defina a prioridade: Baixa, Normal, Alta ou Urgente',
-            'Escreva um titulo resumido para a demanda',
-            'Descreva detalhadamente o que o cidadao precisa',
-            'Adicione arquivos anexos se necessario (fotos, documentos)',
-            'Clique em "Salvar"'
-          ], margin: [15, 0, 0, 10] },
-          
-          { text: 'Status das Demandas:', style: 'sectionTitle' },
-          { ul: [
-            'Aberta: Demanda recem cadastrada, aguardando acao',
-            'Em Andamento: Demanda sendo trabalhada pela equipe',
-            'Aguardando Retorno: Aguardando resposta de orgao externo',
-            'Resolvida: Demanda atendida com sucesso',
-            'Cancelada: Demanda cancelada pelo solicitante ou equipe'
-          ], margin: [15, 0, 0, 10] },
-          
-          { text: 'Prioridades:', style: 'sectionTitle' },
-          { ul: [
-            'Baixa (verde): Pode ser resolvida em ate 30 dias',
-            'Normal (azul): Deve ser resolvida em ate 15 dias',
-            'Alta (laranja): Deve ser resolvida em ate 7 dias',
-            'Urgente (vermelho): Deve ser resolvida em ate 24 horas'
-          ], margin: [15, 0, 0, 10] },
-          { text: 'Demandas URGENTES aparecem em destaque vermelho e devem ser prioridade absoluta!', style: 'warning' },
-          
-          { text: 'Timeline de Atualizacoes:', style: 'sectionTitle' },
-          { text: 'Cada demanda possui uma timeline que registra todas as acoes tomadas:', style: 'paragraph' },
-          { ul: [
-            'Data e hora de cada atualizacao',
-            'Usuario que fez a atualizacao',
-            'Comentarios e observacoes',
-            'Mudancas de status',
-            'Arquivos anexados'
-          ], margin: [15, 0, 0, 10] },
-          
-          // ========== MÓDULO 5 - AGENDA ==========
-          { text: '5. AGENDA / EVENTOS', style: 'moduleTitle', pageBreak: 'before' },
-          { text: 'Organize todos os compromissos e eventos do gabinete.', style: 'moduleDesc', margin: [0, 0, 0, 15] },
-          
-          { text: 'O que e a Agenda?', style: 'sectionTitle' },
-          { text: 'A Agenda e onde voce registra todos os compromissos: reunioes, audiencias, visitas, eventos publicos e qualquer outro compromisso. Voce pode ver os eventos em formato de lista, calendario mensal ou calendario semanal.', style: 'paragraph' },
-          
-          { text: 'Como criar um Evento:', style: 'sectionTitle' },
-          { ol: [
-            'Acesse "Agenda" no menu lateral',
-            'Clique em "Novo Evento"',
-            'Digite o titulo do evento (ex: "Reuniao com moradores")',
-            'Selecione a data e horario de inicio',
-            'Selecione a data e horario de termino',
-            'Escolha a categoria: Reuniao, Audiencia, Visita, Evento Publico, etc.',
-            'Adicione o local ou link de videoconferencia',
-            'Escreva uma descricao do evento',
-            'Clique em "Salvar"'
-          ], margin: [15, 0, 0, 10] },
-          
-          { text: 'Eventos Recorrentes:', style: 'sectionTitle' },
-          { text: 'Para eventos que se repetem regularmente:', style: 'paragraph' },
-          { ol: [
-            'Ao criar o evento, marque "Evento Recorrente"',
-            'Escolha a frequencia: Diario, Semanal ou Mensal',
-            'Defina ate quando o evento deve se repetir',
-            'O sistema criara automaticamente todas as ocorrencias'
-          ], margin: [15, 0, 0, 10] },
-          
-          { text: 'Integracao com Google Calendar:', style: 'sectionTitle' },
-          { text: 'Voce pode sincronizar sua agenda com o Google Calendar:', style: 'paragraph' },
-          { ul: [
-            'Acesse Configuracoes > Integracoes',
-            'Clique em "Conectar Google Calendar"',
-            'Autorize o acesso a sua conta Google',
-            'Seus eventos serao sincronizados automaticamente',
-            'Eventos criados no Politicall aparecem no Google Calendar e vice-versa'
-          ], margin: [15, 0, 0, 10] },
-          
-          // ========== MÓDULO 6 - PESQUISAS ==========
-          { text: '6. PESQUISAS MERCADOLOGICAS', style: 'moduleTitle', pageBreak: 'before' },
-          { text: 'Descubra o que os eleitores pensam sobre diversos temas.', style: 'moduleDesc', margin: [0, 0, 0, 15] },
-          
-          { text: 'O que sao Pesquisas Mercadologicas?', style: 'sectionTitle' },
-          { text: 'As pesquisas permitem coletar opinioes da populacao sobre qualquer tema politico. Voce cria perguntas, define opcoes de resposta e o sistema gera uma pagina publica para coleta de respostas. O modulo oferece dois tipos de distribuicao: Gratuita (organica) e Paga (Google ADS).', style: 'paragraph' },
-          
-          { text: 'Tipos de Pesquisa:', style: 'sectionTitle' },
-          { ul: [
-            'Gratuita (Organica): Voce mesmo divulga o link da pesquisa. Aprovada automaticamente.',
-            'Paga (Google ADS): A pesquisa e divulgada atraves de anuncios. Requer aprovacao do Admin Master e pagamento do Budget ADS.'
-          ], margin: [15, 0, 0, 10] },
-          
-          { text: 'Como criar uma Pesquisa:', style: 'sectionTitle' },
-          { ol: [
-            'Acesse "Pesquisas" no menu lateral',
-            'Clique em "Nova Campanha"',
-            'Escolha um template pronto ou "Personalizado" para criar do zero',
-            'Defina a regiao onde a pesquisa sera realizada',
-            'Configure os campos demograficos a serem coletados',
-            'Adicione perguntas adicionais se desejar',
-            'Escolha o tipo de distribuicao (Gratuita ou Google ADS)',
-            'Defina o publico-alvo da pesquisa',
-            'Clique em "Criar Pesquisa"'
-          ], margin: [15, 0, 0, 10] },
-          
-          { text: '6.1 Pagina Publica de Pesquisa', style: 'subModuleTitle' },
-          { text: 'Cada pesquisa gera uma pagina publica exclusiva para coleta de respostas:', style: 'paragraph' },
-          
-          { text: 'O que aparece na Pagina da Pesquisa:', style: 'sectionTitle' },
-          { ul: [
-            'Titulo da pesquisa',
-            'Pergunta principal com opcoes de resposta',
-            'Campos demograficos configurados (genero, idade, etc.)',
-            'Perguntas adicionais (se houver)',
-            'Campos personalizados (se configurados)',
-            'Botao para enviar resposta'
-          ], margin: [15, 0, 0, 10] },
-          
-          { text: 'URL da Pagina:', style: 'sectionTitle' },
-          { text: 'A URL segue o formato: www.politicall.com.br/pesquisa/[slug-da-pesquisa]', style: 'paragraph' },
-          
-          { text: 'Prevencao de Duplicatas:', style: 'sectionTitle' },
-          { text: 'O sistema evita respostas duplicadas atraves de verificacao por IP. Cada dispositivo so pode responder uma vez por pesquisa.', style: 'paragraph' },
-          
-          { text: 'Visualizando Resultados:', style: 'sectionTitle' },
-          { ul: [
-            'Graficos de pizza e barras com as respostas',
-            'Quantidade total de respostas',
-            'Contagem de visualizacoes da pagina',
-            'Filtros por periodo',
-            'Exportacao para Excel/PDF'
-          ], margin: [15, 0, 0, 10] },
-          
-          // ========== MÓDULO 7 - IA ==========
-          { text: '7. ATENDIMENTO IA', style: 'moduleTitle', pageBreak: 'before' },
-          { text: 'Automatize respostas nas suas redes sociais.', style: 'moduleDesc', margin: [0, 0, 0, 15] },
-          
-          { text: 'O que e o Atendimento IA?', style: 'sectionTitle' },
-          { text: 'O Atendimento IA usa inteligencia artificial para responder automaticamente mensagens no Facebook Messenger e Instagram Direct. A IA e treinada com informacoes sobre o politico e responde de forma personalizada, mantendo o tom de voz adequado.', style: 'paragraph' },
-          
-          { text: 'Plataformas Suportadas:', style: 'sectionTitle' },
-          { ul: [
-            'Facebook Messenger: Mensagens recebidas na sua pagina do Facebook',
-            'Instagram Direct: Mensagens diretas recebidas no Instagram'
-          ], margin: [15, 0, 0, 10] },
-          
-          { text: 'Configurando a IA:', style: 'sectionTitle' },
-          { ol: [
-            'Acesse "Atendimento IA" no menu lateral',
-            'Conecte sua conta do Facebook ou Instagram',
-            'Configure as informacoes do politico (nome, partido, cargo)',
-            'Defina o tom de voz desejado (formal, informal, tecnico)',
-            'Adicione informacoes que a IA deve saber responder',
-            'Configure os horarios de funcionamento',
-            'Ative o atendimento automatico'
-          ], margin: [15, 0, 0, 10] },
-          
-          { text: 'Modo TSE (Periodo Eleitoral):', style: 'sectionTitle' },
-          { text: 'Em periodo eleitoral, ative o Modo TSE para que a IA respeite as regras da legislacao eleitoral, evitando promessas inadequadas ou conteudo que possa configurar propaganda irregular.', style: 'paragraph' },
-          
-          { text: 'Historico de Conversas:', style: 'sectionTitle' },
-          { text: 'Todas as conversas sao armazenadas e podem ser revisadas:', style: 'paragraph' },
-          { ul: [
-            'Veja o historico completo de cada conversa',
-            'Identifique conversas que precisam de atencao humana',
-            'Analise o desempenho da IA',
-            'Melhore as respostas com base no feedback'
-          ], margin: [15, 0, 0, 10] },
-          
-          // ========== MÓDULO 8 - USUÁRIOS ==========
-          { text: '8. USUARIOS E PERMISSOES', style: 'moduleTitle', pageBreak: 'before' },
-          { text: 'Gerencie sua equipe e defina o que cada um pode fazer.', style: 'moduleDesc', margin: [0, 0, 0, 15] },
-          
-          { text: 'Niveis de Acesso:', style: 'sectionTitle' },
-          { text: 'O sistema possui quatro niveis de acesso:', style: 'paragraph' },
-          
-          { text: 'ADMIN (Administrador):', style: 'subModuleTitle' },
-          { ul: [
-            'Acesso TOTAL ao sistema',
-            'Pode criar, editar e excluir qualquer registro',
-            'Gerencia outros usuarios',
-            'Configura integracoes e preferencias',
-            'Ve relatorios completos e estatisticas'
-          ], margin: [15, 0, 0, 10] },
-          
-          { text: 'COORDENADOR:', style: 'subModuleTitle' },
-          { ul: [
-            'Acesso amplo, mas nao pode gerenciar usuarios',
-            'Gerencia eleitores, demandas, eventos e pesquisas',
-            'Pode usar o atendimento IA',
-            'Acessa relatorios e estatisticas',
-            'Nao pode alterar configuracoes do sistema'
-          ], margin: [15, 0, 0, 10] },
-          
-          { text: 'ASSESSOR:', style: 'subModuleTitle' },
-          { ul: [
-            'Acesso limitado, focado em atendimento',
-            'Gerencia eleitores e demandas',
-            'Acessa a agenda',
-            'Nao acessa aliancas, IA ou pesquisas',
-            'Nao gerencia usuarios ou configuracoes'
-          ], margin: [15, 0, 0, 10] },
-          
-          { text: 'VOLUNTARIO:', style: 'subModuleTitle' },
-          { ul: [
-            'Acesso MUITO limitado',
-            'FOCO: Angariar eleitores atraves da sua pagina publica personalizada',
-            'Acessa apenas o modulo Eleitores (visualizacao)',
-            'Recebe codigo unico de 4 digitos para rastreamento',
-            'Recebe link e QR Code personalizados',
-            'Aparece no ranking de atividades quando angaria eleitores',
-            'Nao acessa demandas, agenda, pesquisas ou configuracoes'
-          ], margin: [15, 0, 0, 10] },
-          { text: 'O voluntario deve compartilhar seu link personalizado em redes sociais, WhatsApp e eventos para maximizar o cadastro de apoiadores!', style: 'warning' },
-          
-          // ========== MÓDULO 9 - CONFIGURAÇÕES ==========
-          { text: '9. CONFIGURACOES DO SISTEMA', style: 'moduleTitle', pageBreak: 'before' },
-          { text: 'Personalize o sistema de acordo com suas preferencias.', style: 'moduleDesc', margin: [0, 0, 0, 15] },
-          
-          { text: 'Aba Perfil:', style: 'sectionTitle' },
-          { ul: [
-            'Foto de perfil (aparece na pagina publica)',
-            'Nome completo do politico',
-            'Cargo atual',
-            'Partido politico',
-            'Numero de urna',
-            'Estado e cidade',
-            'WhatsApp de contato',
-            'Imagem de fundo da pagina publica',
-            'Slug da URL personalizada',
-            'QR Code para download'
-          ], margin: [15, 0, 0, 10] },
-          
-          { text: 'Aba Metas:', style: 'sectionTitle' },
-          { ul: [
-            'Meta de eleitores a cadastrar',
-            'Data limite para atingir a meta',
-            'Acompanhamento do progresso'
-          ], margin: [15, 0, 0, 10] },
-          
-          { text: 'Aba Seguranca:', style: 'sectionTitle' },
-          { ul: [
-            'Alterar senha de acesso',
-            'Configurar autenticacao em dois fatores',
-            'Historico de acessos'
-          ], margin: [15, 0, 0, 10] },
-          
-          { text: 'Aba Integracoes:', style: 'sectionTitle' },
-          { ul: [
-            'Conexao com Google Calendar',
-            'Conexao com Facebook/Instagram (para IA)',
-            'Chaves de API para sistemas externos',
-            'Webhooks para integracao'
-          ], margin: [15, 0, 0, 10] },
-          
-          // ========== PARTE II - ADMIN MASTER ==========
-          { text: 'PARTE II', fontSize: 24, bold: true, alignment: 'center', color: '#20B2AA', pageBreak: 'before', margin: [0, 100, 0, 20] },
-          { text: 'PAINEL ADMIN MASTER', fontSize: 18, alignment: 'center', color: '#666666', margin: [0, 0, 0, 20] },
-          { text: '(Administrador do Politicall)', fontSize: 14, alignment: 'center', color: '#888888' },
-          
-          // ========== MÓDULO 10 - VISÃO GERAL ADMIN ==========
-          { text: '10. VISAO GERAL DO ADMIN MASTER', style: 'moduleTitle', pageBreak: 'before' },
-          { text: 'Central de controle para gerenciar todas as contas e pesquisas da plataforma.', style: 'moduleDesc', margin: [0, 0, 0, 15] },
-          
-          { text: 'O que e o Admin Master?', style: 'sectionTitle' },
-          { text: 'O Admin Master e o painel de controle do administrador do Politicall. Deste painel, voce gerencia todas as contas de politicos cadastradas, aprova ou rejeita pesquisas pagas, configura valores do sistema e monitora a operacao da plataforma.', style: 'paragraph' },
-          
-          { text: 'Acesso ao Admin Master:', style: 'sectionTitle' },
-          { text: 'O acesso e feito atraves de: www.politicall.com.br/admin', style: 'paragraph' },
-          { text: 'Use o login e senha de administrador master para acessar.', style: 'paragraph' },
-          
-          { text: 'Funcionalidades do Admin Master:', style: 'sectionTitle' },
-          { ul: [
-            'Kanban de Pesquisas: Gerencia o fluxo de aprovacao de pesquisas pagas',
-            'Gerenciamento de Contas: Lista todas as contas de politicos',
-            'Inbox: Recebe mensagens e notificacoes',
-            'Configuracoes: Define valor do Budget ADS e outras configuracoes',
-            'Manual de Treinamento: Baixa este PDF para compartilhar',
-            'Sincronizacao: Atualiza dados do sistema'
-          ], margin: [15, 0, 0, 10] },
-          
-          // ========== MÓDULO 11 - KANBAN ==========
-          { text: '11. KANBAN DE PESQUISAS', style: 'moduleTitle', pageBreak: 'before' },
-          { text: 'Gerencie o fluxo de aprovacao e producao de pesquisas pagas.', style: 'moduleDesc', margin: [0, 0, 0, 15] },
-          
-          { text: 'O que e o Kanban?', style: 'sectionTitle' },
-          { text: 'O Kanban e um quadro visual que mostra todas as pesquisas pagas (Google ADS) em diferentes estagios de producao. IMPORTANTE: Pesquisas gratuitas (organicas) NAO aparecem no Kanban, pois sao aprovadas automaticamente.', style: 'paragraph' },
-          
-          { text: 'Colunas do Kanban:', style: 'sectionTitle' },
-          { ul: [
-            'AGUARDANDO: Pesquisas recem criadas, aguardando revisao',
-            'APROVADO: Pesquisas aprovadas, aguardando inicio da producao',
-            'EM PRODUCAO: Pesquisas com anuncios sendo veiculados',
-            'FINALIZADO: Pesquisas concluidas, aguardando confirmacao de pagamento'
-          ], margin: [15, 0, 0, 10] },
-          
-          { text: 'Aprovar uma Pesquisa:', style: 'sectionTitle' },
-          { ol: [
-            'Clique no card da pesquisa na coluna "Aguardando"',
-            'Revise os detalhes: pergunta, opcoes, publico-alvo',
-            'Se estiver tudo correto, clique em "Aprovar"',
-            'A pesquisa move para a coluna "Aprovado"',
-            'O valor do Budget ADS e registrado automaticamente'
-          ], margin: [15, 0, 0, 10] },
-          
-          { text: 'Rejeitar uma Pesquisa:', style: 'sectionTitle' },
-          { ol: [
-            'Clique no card da pesquisa',
-            'Clique em "Rejeitar"',
-            'Escreva o motivo da rejeicao',
-            'Confirme a rejeicao',
-            'O politico recebera uma notificacao com o motivo'
-          ], margin: [15, 0, 0, 10] },
-          { text: 'Pesquisas rejeitadas podem ser excluidas clicando no icone de lixeira.', style: 'warning' },
-          
-          { text: 'Avancar Estagios:', style: 'sectionTitle' },
-          { text: 'Use o botao "Avancar" para mover pesquisas entre estagios:', style: 'paragraph' },
-          { ul: [
-            'Aprovado -> Em Producao: Quando os anuncios comecam a rodar',
-            'Em Producao -> Finalizado: Quando a campanha termina'
-          ], margin: [15, 0, 0, 10] },
-          
-          { text: 'Confirmar Pagamento:', style: 'sectionTitle' },
-          { text: 'Na coluna "Finalizado", clique em "Pago" para confirmar o recebimento do pagamento e remover a pesquisa do Kanban.', style: 'paragraph' },
-          
-          { text: 'Caixa Total:', style: 'sectionTitle' },
-          { text: 'No topo do Kanban, o valor "Caixa Total" mostra a soma de todas as pesquisas aprovadas (baseado no Budget ADS configurado no momento da aprovacao).', style: 'paragraph' },
-          
-          { text: 'Filtro por Politico:', style: 'sectionTitle' },
-          { text: 'Use o seletor de filtro para ver pesquisas de um politico especifico ou de todos.', style: 'paragraph' },
-          
-          { text: 'Detalhes da Pesquisa:', style: 'sectionTitle' },
-          { text: 'Clique em qualquer card para ver os detalhes completos:', style: 'paragraph' },
-          { ul: [
-            'Nome da campanha e politico responsavel',
-            'Valor da pesquisa (Budget ADS configurado)',
-            'Template utilizado',
-            'Regiao da pesquisa',
-            'Pergunta principal e opcoes de resposta',
-            'Perguntas adicionais (se houver)',
-            'Campos demograficos configurados',
-            'Campos personalizados (se houver)',
-            'Data de criacao',
-            'Publico-alvo definido',
-            'Notas do administrador'
-          ], margin: [15, 0, 0, 10] },
-          
-          // ========== MÓDULO 12 - GERENCIAMENTO DE CONTAS ==========
-          { text: '12. GERENCIAMENTO DE CONTAS', style: 'moduleTitle', pageBreak: 'before' },
-          { text: 'Visualize e gerencie todas as contas de politicos cadastradas.', style: 'moduleDesc', margin: [0, 0, 0, 15] },
-          
-          { text: 'Lista de Contas:', style: 'sectionTitle' },
-          { text: 'Acesse o menu "Contas" para ver todas as contas cadastradas:', style: 'paragraph' },
-          { ul: [
-            'Nome da conta/gabinete',
-            'Politico responsavel',
-            'Partido',
-            'Estado e cidade',
-            'Data de criacao',
-            'Status do plano (ativo/inativo)',
-            'Data de expiracao do plano',
-            'Status de pagamento'
-          ], margin: [15, 0, 0, 10] },
-          
-          { text: 'Informacoes de Pagamento:', style: 'sectionTitle' },
-          { text: 'Para cada conta, voce pode ver e editar:', style: 'paragraph' },
-          { ul: [
-            'Valor do plano mensal',
-            'Data de expiracao do plano',
-            'Status: Pago ou Atrasado',
-            'Data do ultimo pagamento'
-          ], margin: [15, 0, 0, 10] },
-          
-          // ========== MÓDULO 13 - BUDGET ADS ==========
-          { text: '13. CONFIGURACOES DO BUDGET ADS', style: 'moduleTitle', pageBreak: 'before' },
-          { text: 'Defina o valor cobrado por pesquisas pagas.', style: 'moduleDesc', margin: [0, 0, 0, 15] },
-          
-          { text: 'O que e o Budget ADS?', style: 'sectionTitle' },
-          { text: 'O Budget ADS e o valor cobrado por cada pesquisa paga (Google ADS). Este valor e exibido para o politico no momento da criacao da pesquisa e e registrado no Kanban quando a pesquisa e aprovada.', style: 'paragraph' },
-          
-          { text: 'Como configurar:', style: 'sectionTitle' },
-          { ol: [
-            'No Kanban, clique no botao "Budget ADS"',
-            'Digite o novo valor (em reais)',
-            'Clique em "Salvar"',
-            'O novo valor sera aplicado a todas as novas pesquisas'
-          ], margin: [15, 0, 0, 10] },
-          { text: 'Pesquisas ja aprovadas mantem o valor do Budget que estava configurado no momento da aprovacao.', style: 'warning' },
-          
-          { text: 'Onde o valor aparece:', style: 'sectionTitle' },
-          { ul: [
-            'No formulario de criacao de pesquisa (para o politico)',
-            'No modal de detalhes da pesquisa (no Kanban)',
-            'No calculo da "Caixa Total"',
-            'No badge ao lado do botao Budget ADS'
-          ], margin: [15, 0, 0, 10] },
+            'Metas de Campanha: acompanhamento de metas eleitorais, como superar o numero de votos da ultima eleicao.',
+            'Eleitores: total de eleitores cadastrados versus a meta definida.',
+            'Aliancas Politicas: progresso na construcao de aliancas estrategicas.',
+            'Demandas Ativas: quantidade de demandas pendentes, em andamento e concluidas.',
+            'Eventos Agendados: visao rapida dos compromissos e eventos.',
+            'Demografia dos Eleitores: analise por genero e faixa etaria.',
+            'Pesquisas Mercadologicas: status das pesquisas ativas e respostas coletadas.'
+          ], margin: [15, 10, 0, 10] },
+          
+          // ========== 3. MÓDULO ELEITORES ==========
+          { text: '3. Modulo Eleitores', style: 'moduleTitle', pageBreak: 'before' },
+          { text: 'O modulo Eleitores e um dos pilares da plataforma Politicall. Ele permite o cadastro, organizacao e analise detalhada da base eleitoral, transformando dados em inteligencia politica.', style: 'paragraph' },
+          { text: 'Os eleitores podem ser cadastrados manualmente, com informacoes completas como dados pessoais, interesses, religiao, esportes, educacao e preferencias diversas. Alem disso, a plataforma oferece uma pagina publica de apoiadores, gerada automaticamente, que pode ser compartilhada via QR Code ou link.', style: 'paragraph' },
+          { text: 'O sistema consolida dados estatisticos como distribuicao geografica, genero, fontes de cadastro e interesses mais populares, permitindo decisoes estrategicas baseadas em dados reais.', style: 'paragraph' },
+          
+          { text: 'Funcionalidades de Comunicacao com Eleitores', style: 'subModuleTitle' },
+          { text: 'A plataforma permite o envio de e-mails em massa com total controle de seguranca, oferecendo limites por blocos de envio para reduzir riscos de bloqueio. Tambem e possivel exportar automaticamente todos os numeros de WhatsApp cadastrados em formato de lista, facilitando acoes externas de comunicacao.', style: 'paragraph' },
+          
+          // ========== 4. MÓDULO ALIANÇAS ==========
+          { text: '4. Modulo Aliancas Politicas', style: 'moduleTitle', pageBreak: 'before' },
+          { text: 'O modulo de Aliancas Politicas foi desenvolvido para organizar e monitorar o relacionamento com lideres, partidos e apoiadores estrategicos. Ele permite o cadastro de aliados por estado, cidade e partido.', style: 'paragraph' },
+          { text: 'A plataforma disponibiliza paginas publicas de convite para aliancas, permitindo acompanhar quem aceitou, quem esta aguardando resposta e quem recusou. As aliancas sao organizadas em pastas por partido politico, seguindo o cenario eleitoral vigente.', style: 'paragraph' },
+          
+          // ========== 5. MÓDULO DEMANDAS ==========
+          { text: '5. Modulo Demandas do Gabinete', style: 'moduleTitle', pageBreak: 'before' },
+          { text: 'Este modulo centraliza todas as demandas politicas e administrativas do gabinete. Ele permite criar, acompanhar e classificar demandas como pendentes, em andamento ou concluidas.', style: 'paragraph' },
+          { text: 'A organizacao das demandas garante agilidade, transparencia e controle, evitando perdas de informacoes e melhorando a eficiencia do atendimento a populacao.', style: 'paragraph' },
+          
+          // ========== 6. MÓDULO AGENDA ==========
+          { text: '6. Modulo Agenda', style: 'moduleTitle', pageBreak: 'before' },
+          { text: 'O modulo Agenda e totalmente integrado ao Google Calendar, oferecendo sincronizacao completa e bidirecional. Os eventos podem ser visualizados tanto em formato tradicional de agenda quanto em uma linha do tempo (timeline) para facilitar a visualizacao dos proximos compromissos.', style: 'paragraph' },
+          
+          // ========== 7. MÓDULO PESQUISAS ==========
+          { text: '7. Modulo de Pesquisas de Intencao de Voto', style: 'moduleTitle', pageBreak: 'before' },
+          { text: 'O modulo de pesquisas permite criar, gerenciar e analisar pesquisas de opiniao publica em total conformidade com o TSE e com as diretrizes de trafego pago do Google Ads.', style: 'paragraph' },
+          { text: 'As pesquisas podem ser divulgadas manualmente atraves de paginas publicas ou impulsionadas por trafego pago, gerenciado pela equipe da Politicall, sem necessidade de configuracoes tecnicas por parte do usuario.', style: 'paragraph' },
+          
+          // ========== 8. MÓDULO IA ==========
+          { text: '8. Modulo de Atendimento por Inteligencia Artificial', style: 'moduleTitle', pageBreak: 'before' },
+          { text: 'O modulo de Atendimento por IA automatiza o atendimento no Facebook e Instagram, oferecendo diferentes modos de operacao, incluindo o Modo Compliance TSE e o Modo Formal.', style: 'paragraph' },
+          { text: 'A IA pode ser treinada, personalizada e testada, garantindo respostas alinhadas ao posicionamento politico e as normas legais.', style: 'paragraph' },
+          
+          // ========== 9. GERENCIAMENTO DE USUÁRIOS ==========
+          { text: '9. Gerenciamento de Usuarios', style: 'moduleTitle', pageBreak: 'before' },
+          { text: 'A plataforma permite criar diferentes perfis de usuarios, como administradores, assessores e voluntarios de campanha, com niveis de acesso personalizados.', style: 'paragraph' },
+          { text: 'O sistema oferece ranking de atividades, acompanhamento de desempenho e paginas publicas exclusivas para voluntarios, permitindo uma gestao eficiente da equipe.', style: 'paragraph' },
+          
+          // ========== 10. CONFIGURAÇÕES ==========
+          { text: '10. Configuracoes da Plataforma', style: 'moduleTitle', pageBreak: 'before' },
+          { text: 'O modulo de configuracoes permite gerenciar dados do perfil politico, integracoes, informacoes da conta, ativacao ou bloqueio de modulos e personalizacao visual da plataforma.', style: 'paragraph' },
+          { text: 'Essas configuracoes garantem que a plataforma esteja sempre alinhada a realidade politica, estrategica e operacional do usuario.', style: 'paragraph' },
           
           // ========== SUPORTE ==========
           { text: 'Precisa de Ajuda?', style: 'introTitle', pageBreak: 'before' },
