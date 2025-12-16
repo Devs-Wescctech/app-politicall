@@ -2177,18 +2177,22 @@ export default function Admin() {
 
       {/* Server Requirements Info Dialog */}
       <Dialog open={syncRequirementsOpen} onOpenChange={setSyncRequirementsOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" data-testid="dialog-sync-requirements">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2" data-testid="text-requirements-title">
-              <Info className="w-5 h-5 text-blue-500" />
-              Requisitos do Servidor para Sincronização
-            </DialogTitle>
-            <DialogDescription>
-              Para que a sincronização funcione corretamente, o servidor de destino precisa atender aos seguintes requisitos.
-            </DialogDescription>
-          </DialogHeader>
+        <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col p-0" data-testid="dialog-sync-requirements">
+          {/* Fixed Header */}
+          <div className="sticky top-0 z-10 bg-background border-b px-6 pt-6 pb-4">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2" data-testid="text-requirements-title">
+                <Info className="w-5 h-5 text-blue-500" />
+                Requisitos do Servidor para Sincronização
+              </DialogTitle>
+              <DialogDescription>
+                Para que a sincronização funcione corretamente, o servidor de destino precisa atender aos seguintes requisitos.
+              </DialogDescription>
+            </DialogHeader>
+          </div>
 
-          <div className="space-y-4 py-4">
+          {/* Scrollable Content */}
+          <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
             {/* Ferramentas Necessárias */}
             <div className="bg-muted/50 rounded-lg p-4 space-y-3">
               <div className="flex items-center gap-2">
@@ -2304,16 +2308,19 @@ export default function Admin() {
             </div>
           </div>
 
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setSyncRequirementsOpen(false)}
-              className="w-full"
-              data-testid="button-close-requirements"
-            >
-              Entendi
-            </Button>
-          </DialogFooter>
+          {/* Fixed Footer */}
+          <div className="sticky bottom-0 z-10 bg-background border-t px-6 py-4">
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setSyncRequirementsOpen(false)}
+                className="w-full"
+                data-testid="button-close-requirements"
+              >
+                Entendi
+              </Button>
+            </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
