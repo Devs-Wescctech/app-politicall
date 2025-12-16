@@ -1305,7 +1305,7 @@ export default function Alliances() {
       )}
       <Dialog open={!!selectedParty} onOpenChange={(open) => !open && setSelectedParty(null)}>
         <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col p-0 overflow-hidden [&>button]:hidden">
-          <DialogHeader className="bg-muted border-b border-border p-0">
+          <DialogHeader className="p-0">
             <div className="flex items-center">
               <div className="flex-1 px-6 py-4">
                 <DialogTitle className="flex items-center gap-3">
