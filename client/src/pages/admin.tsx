@@ -2087,9 +2087,6 @@ export default function Admin() {
                   <Info className="w-5 h-5 text-blue-500" />
                 </Button>
               </DialogTitle>
-              <DialogDescription data-testid="text-sync-description">
-                Esta ação irá PUXAR todos os dados do servidor fonte (Replit) para este servidor.
-              </DialogDescription>
             </DialogHeader>
           </div>
 
