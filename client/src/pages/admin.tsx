@@ -720,8 +720,11 @@ export default function Admin() {
   // Filter campaigns by stage and status
   const allCampaigns = campaigns || [];
   
-  // Get unique politicians for filter
-  const uniquePoliticians = allCampaigns
+  // Only show paid campaigns (google_ads) in admin kanban
+  const paidCampaigns = allCampaigns.filter(c => c.distributionType === "google_ads");
+  
+  // Get unique politicians for filter (from paid campaigns only)
+  const uniquePoliticians = paidCampaigns
     .filter(c => c.user)
     .reduce((acc, c) => {
       if (c.user && !acc.find(p => p.id === c.user!.id)) {
@@ -733,8 +736,8 @@ export default function Admin() {
 
   // Apply politician filter
   const filteredCampaigns = selectedPolitician === "all" 
-    ? allCampaigns 
-    : allCampaigns.filter(c => c.user?.id === selectedPolitician);
+    ? paidCampaigns 
+    : paidCampaigns.filter(c => c.user?.id === selectedPolitician);
   
   // Filter by campaign stage for kanban
   const aguardandoCampaigns = filteredCampaigns.filter(c => c.campaignStage === "aguardando");
