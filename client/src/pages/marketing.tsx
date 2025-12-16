@@ -820,6 +820,11 @@ export default function Marketing() {
     queryKey: ["/api/survey-campaigns"],
   });
 
+  // Fetch current budget_ads value for display
+  const { data: budgetData } = useQuery<{ value: string }>({
+    queryKey: ["/api/public/budget-ads"],
+  });
+
   const createMutation = useMutation({
     mutationFn: (data: InsertSurveyCampaign) => apiRequest("POST", "/api/survey-campaigns", data),
     onSuccess: () => {
@@ -2198,7 +2203,9 @@ export default function Marketing() {
                               Alcance qualificado via tráfego pago com conformidade TSE
                             </p>
                           </div>
-                          <span className="text-lg font-bold text-[#40E0D0]">R$ 1.250,00</span>
+                          <span className="text-lg font-bold text-[#40E0D0]">
+                            R$ {parseFloat(budgetData?.value || "1250").toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
                         </label>
                       </div>
                       

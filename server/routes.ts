@@ -1270,6 +1270,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ==================== SYSTEM SETTINGS (Admin Master) ====================
   
+  // Public endpoint to get budget_ads value (for survey creation form)
+  app.get("/api/public/budget-ads", async (_req, res) => {
+    try {
+      const [setting] = await db.select()
+        .from(systemSettings)
+        .where(eq(systemSettings.key, "budget_ads"));
+      
+      res.json({ value: setting?.value || "1250" });
+    } catch (error: any) {
+      res.json({ value: "1250" });
+    }
+  });
+  
   // Get a system setting by key
   app.get("/api/admin/settings/:key", authenticateAdminToken, async (req: AuthRequest, res) => {
     try {
