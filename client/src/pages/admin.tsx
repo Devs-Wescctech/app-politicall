@@ -1706,34 +1706,45 @@ export default function Admin() {
               </div>
             )}
 
-            {/* Dates */}
-            {(selectedCampaign?.startDate || selectedCampaign?.endDate) && (
-              <div className="grid grid-cols-2 gap-4">
-                {selectedCampaign?.startDate && (
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Calendar className="w-4 h-4" />
-                      <span>Data de Início</span>
-                    </div>
-                    <p className="text-sm font-medium" data-testid="text-details-start-date">
-                      {format(new Date(selectedCampaign.startDate), "dd/MM/yyyy", { locale: ptBR })}
-                    </p>
+            {/* Dates and Budget Value */}
+            <div className="grid grid-cols-2 gap-4">
+              {selectedCampaign?.startDate && (
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Calendar className="w-4 h-4" />
+                    <span>Data de Início</span>
                   </div>
-                )}
-                
-                {selectedCampaign?.endDate && (
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Calendar className="w-4 h-4" />
-                      <span>Data de Término</span>
-                    </div>
-                    <p className="text-sm font-medium" data-testid="text-details-end-date">
-                      {format(new Date(selectedCampaign.endDate), "dd/MM/yyyy", { locale: ptBR })}
-                    </p>
+                  <p className="text-sm font-medium" data-testid="text-details-start-date">
+                    {format(new Date(selectedCampaign.startDate), "dd/MM/yyyy", { locale: ptBR })}
+                  </p>
+                </div>
+              )}
+              
+              {selectedCampaign?.endDate && (
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Calendar className="w-4 h-4" />
+                    <span>Data de Término</span>
                   </div>
-                )}
+                  <p className="text-sm font-medium" data-testid="text-details-end-date">
+                    {format(new Date(selectedCampaign.endDate), "dd/MM/yyyy", { locale: ptBR })}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Budget Value */}
+            <div className="p-4 bg-[#40E0D0]/10 rounded-lg border border-[#40E0D0]/20">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <DollarSign className="w-4 h-4 text-[#40E0D0]" />
+                  <span>Valor da Pesquisa</span>
+                </div>
+                <p className="text-lg font-bold text-[#40E0D0]" data-testid="text-details-budget">
+                  R$ {parseFloat(selectedCampaign?.budgetValue || "1250").toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </p>
               </div>
-            )}
+            </div>
 
             {/* Template Info */}
             {selectedCampaign?.template && (
@@ -1821,6 +1832,49 @@ export default function Admin() {
                           <p className="text-xs text-muted-foreground">Opções:</p>
                           <div className="flex flex-wrap gap-1">
                             {question.options.map((opt, optIdx) => (
+                              <Badge key={optIdx} variant="outline" className="text-xs">
+                                {opt}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Custom Demographic Fields */}
+            {selectedCampaign?.customDemographicFields && selectedCampaign.customDemographicFields.length > 0 && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <Users className="w-4 h-4 text-[#40E0D0]" />
+                  <span>Campos Demográficos Personalizados ({selectedCampaign.customDemographicFields.length})</span>
+                </div>
+                <div className="space-y-2">
+                  {selectedCampaign.customDemographicFields.map((field: any, index: number) => (
+                    <Card key={field.id || index} className="p-4" data-testid={`card-demographic-field-${index}`}>
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <p className="text-sm font-medium">
+                          {field.label}
+                        </p>
+                        {field.required && (
+                          <Badge variant="destructive" className="text-xs flex-shrink-0">
+                            Obrigatório
+                          </Badge>
+                        )}
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        {field.type === 'text' ? 'Texto Livre' :
+                         field.type === 'single_choice' ? 'Escolha Única' : 'Múltipla Escolha'}
+                      </span>
+                      
+                      {field.options && field.options.length > 0 && (
+                        <div className="mt-2 space-y-1">
+                          <p className="text-xs text-muted-foreground">Opções:</p>
+                          <div className="flex flex-wrap gap-1">
+                            {field.options.map((opt: string, optIdx: number) => (
                               <Badge key={optIdx} variant="outline" className="text-xs">
                                 {opt}
                               </Badge>
