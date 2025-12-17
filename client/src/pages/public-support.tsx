@@ -335,19 +335,14 @@ export default function PublicSupport() {
                   <AvatarImage src={candidateData.avatar} alt={candidateData.name} />
                   <AvatarFallback className="text-3xl">{candidateData.name?.charAt(0)}</AvatarFallback>
                 </Avatar>
-                {/* Volunteer photo (behind, smaller, right - overlapping) */}
+                {/* Volunteer photo (same size, right - overlapping) */}
                 {volunteerData?.avatar && (
                   <Avatar 
-                    className="w-16 h-16 md:w-20 md:h-20 shadow-xl ring-2 ring-white/70 z-10 -ml-5"
-                    style={{ 
-                      borderWidth: '3px',
-                      borderStyle: 'solid',
-                      borderColor: '#228B22'
-                    }}
+                    className="w-24 h-24 md:w-28 md:h-28 shadow-xl ring-4 ring-white/70 z-10 -ml-5"
                     data-testid="img-volunteer-avatar"
                   >
                     <AvatarImage src={volunteerData.avatar} alt={volunteerData.name || ''} />
-                    <AvatarFallback className="text-lg">{volunteerData.name?.charAt(0)}</AvatarFallback>
+                    <AvatarFallback className="text-3xl">{volunteerData.name?.charAt(0)}</AvatarFallback>
                   </Avatar>
                 )}
               </div>
