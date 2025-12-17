@@ -261,6 +261,9 @@ export default function Contacts() {
   const [isQrCodeDialogOpen, setIsQrCodeDialogOpen] = useState(false);
   const [isProfileDialogOpen, setIsProfileDialogOpen] = useState(false);
   const [isProfileExportDialogOpen, setIsProfileExportDialogOpen] = useState(false);
+  const [isProfilePhotoDialogOpen, setIsProfilePhotoDialogOpen] = useState(false);
+  const [profilePhotoFile, setProfilePhotoFile] = useState<File | null>(null);
+  const [profilePhotoPreview, setProfilePhotoPreview] = useState<string | null>(null);
   const [selectedTopCount, setSelectedTopCount] = useState(1);
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
@@ -429,6 +432,85 @@ export default function Contacts() {
       toast({ title: "Erro ao excluir contato", variant: "destructive" });
     },
   });
+
+  const profilePhotoMutation = useMutation({
+    mutationFn: (avatar: string) => apiRequest("PATCH", "/api/auth/profile", { avatar }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+      toast({ title: "Foto de perfil atualizada com sucesso!" });
+      setIsProfilePhotoDialogOpen(false);
+      setProfilePhotoFile(null);
+      setProfilePhotoPreview(null);
+    },
+    onError: () => {
+      toast({ title: "Erro ao atualizar foto de perfil", variant: "destructive" });
+    },
+  });
+
+  const resizeImage = (file: File, maxSize: number): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const canvas = document.createElement('canvas');
+      const reader = new FileReader();
+
+      reader.onload = (e) => {
+        img.onload = () => {
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > maxSize) {
+              height *= maxSize / width;
+              width = maxSize;
+            }
+          } else {
+            if (height > maxSize) {
+              width *= maxSize / height;
+              height = maxSize;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            reject(new Error('Could not get canvas context'));
+            return;
+          }
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', 0.8));
+        };
+        img.onerror = reject;
+        img.src = e.target?.result as string;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleProfilePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast({ title: "Por favor, selecione uma imagem válida", variant: "destructive" });
+      return;
+    }
+
+    setProfilePhotoFile(file);
+    try {
+      const resized = await resizeImage(file, 400);
+      setProfilePhotoPreview(resized);
+    } catch (error) {
+      toast({ title: "Erro ao processar imagem", variant: "destructive" });
+    }
+  };
+
+  const handleProfilePhotoSave = () => {
+    if (profilePhotoPreview) {
+      profilePhotoMutation.mutate(profilePhotoPreview);
+    }
+  };
 
   const handleSubmit = (data: InsertContact) => {
     if (editingContact) {
@@ -1543,6 +1625,18 @@ export default function Contacts() {
         
         {/* Mobile: Icon buttons in a row */}
         <div className="flex items-center gap-1 sm:gap-2">
+          {currentUser?.role === 'voluntario' && (
+            <Button 
+              variant="outline"
+              size="icon"
+              className="h-8 w-8 sm:h-9 sm:w-9"
+              onClick={() => setIsProfilePhotoDialogOpen(true)}
+              data-testid="button-profile-photo"
+              title="Minha Foto de Perfil"
+            >
+              <Camera className="w-4 h-4" />
+            </Button>
+          )}
           <Button 
             variant="outline"
             size="icon"
@@ -1839,6 +1933,82 @@ export default function Contacts() {
                   </div>
                 )}
               </div>
+            </DialogContent>
+          </Dialog>
+          <Dialog open={isProfilePhotoDialogOpen} onOpenChange={(open) => {
+            setIsProfilePhotoDialogOpen(open);
+            if (!open) {
+              setProfilePhotoFile(null);
+              setProfilePhotoPreview(null);
+            }
+          }}>
+            <DialogContent className="max-w-sm p-0" aria-describedby="profile-photo-dialog-description">
+              <DialogHeader className="px-4 pt-4 pb-3 border-b">
+                <DialogTitle className="text-lg font-bold">Minha Foto de Perfil</DialogTitle>
+                <p id="profile-photo-dialog-description" className="text-xs text-muted-foreground mt-0.5">
+                  Sua foto aparecerá na página de apoio
+                </p>
+              </DialogHeader>
+              <div className="p-4 space-y-4">
+                <div className="flex flex-col items-center gap-4">
+                  {profilePhotoPreview || currentUser?.avatar ? (
+                    <div className="relative">
+                      <img 
+                        src={profilePhotoPreview || currentUser?.avatar} 
+                        alt="Preview"
+                        className="w-32 h-32 rounded-full object-cover ring-4 ring-primary/20"
+                        data-testid="img-profile-photo-preview"
+                      />
+                    </div>
+                  ) : (
+                    <div className="w-32 h-32 rounded-full bg-muted flex items-center justify-center ring-4 ring-primary/20">
+                      <Camera className="w-12 h-12 text-muted-foreground" />
+                    </div>
+                  )}
+                  <div className="flex flex-col items-center gap-2 w-full">
+                    <label htmlFor="profile-photo-input" className="w-full">
+                      <Button 
+                        variant="outline" 
+                        className="w-full"
+                        asChild
+                      >
+                        <span>
+                          <Upload className="w-4 h-4 mr-2" />
+                          Selecionar Foto
+                        </span>
+                      </Button>
+                    </label>
+                    <input 
+                      id="profile-photo-input"
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleProfilePhotoChange}
+                      data-testid="input-profile-photo"
+                    />
+                  </div>
+                </div>
+              </div>
+              <DialogFooter className="px-4 py-3 border-t">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setIsProfilePhotoDialogOpen(false);
+                    setProfilePhotoFile(null);
+                    setProfilePhotoPreview(null);
+                  }}
+                  data-testid="button-cancel-profile-photo"
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  onClick={handleProfilePhotoSave}
+                  disabled={!profilePhotoPreview || profilePhotoMutation.isPending}
+                  data-testid="button-save-profile-photo"
+                >
+                  {profilePhotoMutation.isPending ? "Salvando..." : "Salvar Foto"}
+                </Button>
+              </DialogFooter>
             </DialogContent>
           </Dialog>
           <Dialog open={isProfileDialogOpen} onOpenChange={setIsProfileDialogOpen}>

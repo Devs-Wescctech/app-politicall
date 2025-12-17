@@ -4626,6 +4626,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ==================== PUBLIC SUPPORT (QR CODE) ====================
   
+  // Get volunteer data by code (PUBLIC - no auth required)
+  app.get("/api/public/volunteer/:volunteerCode", async (req, res) => {
+    try {
+      const { volunteerCode } = req.params;
+      const volunteer = await storage.getVolunteerByCode(volunteerCode);
+      
+      if (!volunteer) {
+        return res.status(404).json({ error: "Voluntário não encontrado" });
+      }
+      
+      res.json({ name: volunteer.name, avatar: volunteer.avatar });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Get candidate data by slug (PUBLIC - no auth required)
   app.get("/api/public/candidate/:slug", async (req, res) => {
     try {

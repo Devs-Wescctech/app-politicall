@@ -353,11 +353,12 @@ export class DatabaseStorage implements IStorage {
     return result[0] || undefined;
   }
 
-  async getVolunteerByCode(volunteerCode: string): Promise<{ id: string; name: string; accountId: string } | undefined> {
+  async getVolunteerByCode(volunteerCode: string): Promise<{ id: string; name: string; accountId: string; avatar: string | null } | undefined> {
     const [volunteer] = await db.select({
       id: users.id,
       name: users.name,
-      accountId: users.accountId
+      accountId: users.accountId,
+      avatar: users.avatar
     })
       .from(users)
       .where(eq(users.volunteerCode, volunteerCode))

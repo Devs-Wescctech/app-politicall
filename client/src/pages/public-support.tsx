@@ -87,6 +87,19 @@ export default function PublicSupport() {
     retry: 1,
   });
 
+  const { data: volunteerData } = useQuery<{ name: string; avatar: string | null }>({
+    queryKey: ["/api/public/volunteer", volunteerCode],
+    queryFn: async () => {
+      const res = await fetch(`/api/public/volunteer/${volunteerCode}`);
+      if (!res.ok) {
+        return null;
+      }
+      return res.json();
+    },
+    enabled: !!volunteerCode,
+    retry: false,
+  });
+
   const capitalizeWords = (str: string) => {
     return str
       .toLowerCase()
@@ -305,18 +318,32 @@ export default function PublicSupport() {
           </div>
           
           <div className="relative z-10 flex flex-col items-center gap-3">
-            {/* Avatar at the top */}
-            <Avatar 
-              className="w-24 h-24 md:w-28 md:h-28 shadow-2xl ring-4 ring-white/70"
-              style={{ 
-                borderWidth: '4px',
-                borderStyle: 'solid',
-                borderColor: getPartyColor(candidateData.party?.acronym)
-              }}
-            >
-              <AvatarImage src={candidateData.avatar} alt={candidateData.name} />
-              <AvatarFallback className="text-3xl">{candidateData.name?.charAt(0)}</AvatarFallback>
-            </Avatar>
+            {/* Avatar at the top - with optional volunteer photo overlay */}
+            <div className="relative flex items-center justify-center">
+              {/* Volunteer photo (behind, smaller) */}
+              {volunteerData?.avatar && (
+                <Avatar 
+                  className="w-20 h-20 absolute -right-6 -z-10 ring-2 ring-white/50"
+                  data-testid="img-volunteer-avatar"
+                >
+                  <AvatarImage src={volunteerData.avatar} alt={volunteerData.name || ''} />
+                  <AvatarFallback className="text-xl">{volunteerData.name?.charAt(0)}</AvatarFallback>
+                </Avatar>
+              )}
+              {/* Candidate photo (front, larger) */}
+              <Avatar 
+                className="w-24 h-24 md:w-28 md:h-28 shadow-2xl ring-4 ring-white/70 z-10"
+                style={{ 
+                  borderWidth: '4px',
+                  borderStyle: 'solid',
+                  borderColor: getPartyColor(candidateData.party?.acronym)
+                }}
+                data-testid="img-candidate-avatar"
+              >
+                <AvatarImage src={candidateData.avatar} alt={candidateData.name} />
+                <AvatarFallback className="text-3xl">{candidateData.name?.charAt(0)}</AvatarFallback>
+              </Avatar>
+            </div>
 
             {/* Big Bold Text - Similar to reference */}
             <div className="space-y-1">
