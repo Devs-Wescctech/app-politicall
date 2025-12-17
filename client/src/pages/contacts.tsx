@@ -2002,9 +2002,10 @@ export default function Contacts() {
                   </div>
                 </div>
               </div>
-              <DialogFooter className="px-4 py-3 border-t flex justify-center gap-2">
+              <DialogFooter className="px-4 py-3 border-t flex gap-2">
                 <Button
                   variant="outline"
+                  className="flex-1"
                   onClick={() => {
                     setIsProfilePhotoDialogOpen(false);
                     setProfilePhotoFile(null);
@@ -2015,6 +2016,7 @@ export default function Contacts() {
                   Cancelar
                 </Button>
                 <Button
+                  className="flex-1"
                   onClick={handleProfilePhotoSave}
                   disabled={!profilePhotoPreview || profilePhotoMutation.isPending}
                   data-testid="button-save-profile-photo"
