@@ -848,7 +848,7 @@ export default function LandingPage() {
                 src={surveysImage} 
                 alt="Sistema de Pesquisas Eleitorais Politicall" 
                 className="w-full h-auto"
-                style={{ filter: 'sepia(1) hue-rotate(130deg) saturate(2)' }}
+                style={{ filter: 'hue-rotate(-15deg) saturate(1.2)' }}
                 data-testid="img-surveys-screenshot"
               />
             </div>
