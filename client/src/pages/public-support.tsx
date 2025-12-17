@@ -322,14 +322,9 @@ export default function PublicSupport() {
             <div className="flex items-center justify-center">
               {/* Container for overlapping photos */}
               <div className="relative flex items-center">
-                {/* Candidate photo (front, larger, left) */}
+                {/* Candidate photo (front, left) */}
                 <Avatar 
                   className="w-24 h-24 md:w-28 md:h-28 shadow-2xl ring-4 ring-white/70 z-20 relative"
-                  style={{ 
-                    borderWidth: '4px',
-                    borderStyle: 'solid',
-                    borderColor: getPartyColor(candidateData.party?.acronym)
-                  }}
                   data-testid="img-candidate-avatar"
                 >
                   <AvatarImage src={candidateData.avatar} alt={candidateData.name} />
