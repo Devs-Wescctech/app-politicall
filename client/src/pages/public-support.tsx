@@ -319,30 +319,38 @@ export default function PublicSupport() {
           
           <div className="relative z-10 flex flex-col items-center gap-3">
             {/* Avatar at the top - with optional volunteer photo overlay */}
-            <div className="relative flex items-center justify-center">
-              {/* Volunteer photo (behind, smaller) */}
-              {volunteerData?.avatar && (
+            <div className="flex items-center justify-center">
+              {/* Container for overlapping photos */}
+              <div className="relative flex items-center">
+                {/* Candidate photo (front, larger, left) */}
                 <Avatar 
-                  className="w-20 h-20 absolute -right-6 -z-10 ring-2 ring-white/50"
-                  data-testid="img-volunteer-avatar"
+                  className="w-24 h-24 md:w-28 md:h-28 shadow-2xl ring-4 ring-white/70 z-20 relative"
+                  style={{ 
+                    borderWidth: '4px',
+                    borderStyle: 'solid',
+                    borderColor: getPartyColor(candidateData.party?.acronym)
+                  }}
+                  data-testid="img-candidate-avatar"
                 >
-                  <AvatarImage src={volunteerData.avatar} alt={volunteerData.name || ''} />
-                  <AvatarFallback className="text-xl">{volunteerData.name?.charAt(0)}</AvatarFallback>
+                  <AvatarImage src={candidateData.avatar} alt={candidateData.name} />
+                  <AvatarFallback className="text-3xl">{candidateData.name?.charAt(0)}</AvatarFallback>
                 </Avatar>
-              )}
-              {/* Candidate photo (front, larger) */}
-              <Avatar 
-                className="w-24 h-24 md:w-28 md:h-28 shadow-2xl ring-4 ring-white/70 z-10"
-                style={{ 
-                  borderWidth: '4px',
-                  borderStyle: 'solid',
-                  borderColor: getPartyColor(candidateData.party?.acronym)
-                }}
-                data-testid="img-candidate-avatar"
-              >
-                <AvatarImage src={candidateData.avatar} alt={candidateData.name} />
-                <AvatarFallback className="text-3xl">{candidateData.name?.charAt(0)}</AvatarFallback>
-              </Avatar>
+                {/* Volunteer photo (behind, smaller, right - overlapping) */}
+                {volunteerData?.avatar && (
+                  <Avatar 
+                    className="w-16 h-16 md:w-20 md:h-20 shadow-xl ring-2 ring-white/70 z-10 -ml-5"
+                    style={{ 
+                      borderWidth: '3px',
+                      borderStyle: 'solid',
+                      borderColor: '#228B22'
+                    }}
+                    data-testid="img-volunteer-avatar"
+                  >
+                    <AvatarImage src={volunteerData.avatar} alt={volunteerData.name || ''} />
+                    <AvatarFallback className="text-lg">{volunteerData.name?.charAt(0)}</AvatarFallback>
+                  </Avatar>
+                )}
+              </div>
             </div>
 
             {/* Big Bold Text - Similar to reference */}
