@@ -328,17 +328,19 @@ export default function PublicSupport() {
                   className="w-24 h-24 md:w-28 md:h-28 shadow-2xl ring-4 ring-white/70 z-20 relative"
                   data-testid="img-candidate-avatar"
                 >
-                  <AvatarImage src={candidateData.avatar} alt={candidateData.name} />
+                  <AvatarImage src={candidateData.avatar || politicallIconUrl} alt={candidateData.name} />
                   <AvatarFallback className="text-3xl">{candidateData.name?.charAt(0)}</AvatarFallback>
                 </Avatar>
-                {/* Volunteer photo (same size, right - overlapping) - always shown with default Politicall icon */}
-                <Avatar 
-                  className="w-24 h-24 md:w-28 md:h-28 shadow-xl ring-4 ring-white/70 z-10 -ml-5"
-                  data-testid="img-volunteer-avatar"
-                >
-                  <AvatarImage src={volunteerData?.avatar || politicallIconUrl} alt={volunteerData?.name || 'Voluntário'} />
-                  <AvatarFallback className="text-3xl">{volunteerData?.name?.charAt(0) || 'V'}</AvatarFallback>
-                </Avatar>
+                {/* Volunteer photo (same size, right - overlapping) - only shown when there's a volunteer code in URL */}
+                {volunteerCode && (
+                  <Avatar 
+                    className="w-24 h-24 md:w-28 md:h-28 shadow-xl ring-4 ring-white/70 z-10 -ml-5"
+                    data-testid="img-volunteer-avatar"
+                  >
+                    <AvatarImage src={volunteerData?.avatar || politicallIconUrl} alt={volunteerData?.name || 'Voluntário'} />
+                    <AvatarFallback className="text-3xl">{volunteerData?.name?.charAt(0) || 'V'}</AvatarFallback>
+                  </Avatar>
+                )}
               </div>
             </div>
 
