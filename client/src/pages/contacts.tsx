@@ -2002,7 +2002,7 @@ export default function Contacts() {
                   </div>
                 </div>
               </div>
-              <DialogFooter className="px-4 py-3 border-t">
+              <DialogFooter className="px-4 py-3 border-t flex justify-center gap-2">
                 <Button
                   variant="outline"
                   onClick={() => {
