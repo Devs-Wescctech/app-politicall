@@ -44,6 +44,7 @@ import pdfMake from "pdfmake/build/pdfmake";
 import * as pdfFonts from "pdfmake/build/vfs_fonts";
 import * as XLSX from 'xlsx';
 import logoUrl from "@assets/logo pol_1763308638963_1763559095972.png";
+import politicallIconUrl from "@assets/icon politicall_1763309153389.png";
 import { QRCodeSVG } from 'qrcode.react';
 
 (pdfMake as any).vfs = pdfFonts;
@@ -1951,20 +1952,14 @@ export default function Contacts() {
               </DialogHeader>
               <div className="p-4 space-y-4">
                 <div className="flex flex-col items-center gap-4">
-                  {profilePhotoPreview || currentUser?.avatar ? (
-                    <div className="relative">
-                      <img 
-                        src={profilePhotoPreview || currentUser?.avatar} 
-                        alt="Preview"
-                        className="w-32 h-32 rounded-full object-cover ring-4 ring-primary/20"
-                        data-testid="img-profile-photo-preview"
-                      />
-                    </div>
-                  ) : (
-                    <div className="w-32 h-32 rounded-full bg-muted flex items-center justify-center ring-4 ring-primary/20">
-                      <Camera className="w-12 h-12 text-muted-foreground" />
-                    </div>
-                  )}
+                  <div className="relative">
+                    <img 
+                      src={profilePhotoPreview || currentUser?.avatar || politicallIconUrl} 
+                      alt="Preview"
+                      className="w-32 h-32 rounded-full object-cover ring-4 ring-primary/20"
+                      data-testid="img-profile-photo-preview"
+                    />
+                  </div>
                   <div className="flex flex-col items-center gap-2 w-full">
                     <label htmlFor="profile-photo-input" className="w-full">
                       <Button 

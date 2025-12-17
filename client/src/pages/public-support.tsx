@@ -17,6 +17,7 @@ import { Check, Heart, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import logoUrl from "@assets/logo pol_1763308638963_1763559095972.png";
+import politicallIconUrl from "@assets/icon politicall_1763309153389.png";
 import publicSupportBgUrl from "@assets/2151400563_1764253886925.jpg";
 
 const BRAZILIAN_STATES = [
@@ -330,16 +331,14 @@ export default function PublicSupport() {
                   <AvatarImage src={candidateData.avatar} alt={candidateData.name} />
                   <AvatarFallback className="text-3xl">{candidateData.name?.charAt(0)}</AvatarFallback>
                 </Avatar>
-                {/* Volunteer photo (same size, right - overlapping) */}
-                {volunteerData?.avatar && (
-                  <Avatar 
-                    className="w-24 h-24 md:w-28 md:h-28 shadow-xl ring-4 ring-white/70 z-10 -ml-5"
-                    data-testid="img-volunteer-avatar"
-                  >
-                    <AvatarImage src={volunteerData.avatar} alt={volunteerData.name || ''} />
-                    <AvatarFallback className="text-3xl">{volunteerData.name?.charAt(0)}</AvatarFallback>
-                  </Avatar>
-                )}
+                {/* Volunteer photo (same size, right - overlapping) - always shown with default Politicall icon */}
+                <Avatar 
+                  className="w-24 h-24 md:w-28 md:h-28 shadow-xl ring-4 ring-white/70 z-10 -ml-5"
+                  data-testid="img-volunteer-avatar"
+                >
+                  <AvatarImage src={volunteerData?.avatar || politicallIconUrl} alt={volunteerData?.name || 'Voluntário'} />
+                  <AvatarFallback className="text-3xl">{volunteerData?.name?.charAt(0) || 'V'}</AvatarFallback>
+                </Avatar>
               </div>
             </div>
 
