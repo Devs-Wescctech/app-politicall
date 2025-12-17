@@ -435,7 +435,7 @@ export default function Contacts() {
   });
 
   const profilePhotoMutation = useMutation({
-    mutationFn: (avatar: string) => apiRequest("PATCH", "/api/auth/profile", { avatar }),
+    mutationFn: (avatar: string | null) => apiRequest("PATCH", "/api/auth/profile", { avatar }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
       toast({ title: "Foto de perfil atualizada com sucesso!" });
@@ -1959,6 +1959,24 @@ export default function Contacts() {
                       className="w-32 h-32 rounded-full object-cover ring-4 ring-primary/20"
                       data-testid="img-profile-photo-preview"
                     />
+                    {(profilePhotoPreview || currentUser?.avatar) && (
+                      <Button
+                        variant="destructive"
+                        size="icon"
+                        className="absolute -top-1 -right-1 h-7 w-7 rounded-full shadow-md"
+                        onClick={() => {
+                          setProfilePhotoPreview(null);
+                          setProfilePhotoFile(null);
+                          if (currentUser?.avatar) {
+                            profilePhotoMutation.mutate(null);
+                          }
+                        }}
+                        data-testid="button-remove-profile-photo"
+                        title="Remover foto"
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    )}
                   </div>
                   <div className="flex flex-col items-center gap-2 w-full">
                     <label htmlFor="profile-photo-input" className="w-full">
