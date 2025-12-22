@@ -1,0 +1,57 @@
+sup_wescc@srvappsprod:/var/www/html/app-politicall$ docker run -it --rm ghcr.io/devs-wescctech/app-politicall:latest sh -c "ls -la /app/dist && head -50 /app/dist/index.js"
+total 324
+drwxr-xr-x    1 nodejs   nodejs        4096 Dec 22 23:23 .
+drwxr-xr-x    1 nodejs   nodejs        4096 Dec 22 23:23 ..
+-rw-r--r--    1 nodejs   nodejs      317361 Dec 22 23:23 index.js
+drwxr-xr-x    1 nodejs   nodejs        4096 Dec 22 23:23 public
+var __defProp = Object.defineProperty;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __esm = (fn, res) => function __init() {
+  return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
+};
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
+
+// server/services/systemSync.ts
+var systemSync_exports = {};
+__export(systemSync_exports, {
+  executeSystemSync: () => executeSystemSync,
+  generateExportPackage: () => generateExportPackage,
+  getSyncConfig: () => getSyncConfig,
+  importFromSource: () => importFromSource,
+  validateSyncConfig: () => validateSyncConfig
+});
+import { exec } from "child_process";
+import { promisify } from "util";
+import fs from "fs";
+import path from "path";
+import os from "os";
+import archiver from "archiver";
+async function createAttachmentsArchive(tempDir) {
+  if (!fs.existsSync(ATTACHED_ASSETS_DIR)) {
+    console.log("\u{1F4CE} Pasta attached_assets/ n\xE3o encontrada, pulando...");
+    return null;
+  }
+  const archivePath = path.join(tempDir, "attachments_archive.zip");
+  return new Promise((resolve2, reject) => {
+    const output = fs.createWriteStream(archivePath);
+    const archive = archiver("zip", { zlib: { level: 9 } });
+    output.on("close", () => {
+      if (archive.pointer() > 0) {
+        console.log(`\u{1F4CE} Arquivo de anexos criado: ${(archive.pointer() / 1024 / 1024).toFixed(2)} MB`);
+        resolve2(archivePath);
+      } else {
+        resolve2(null);
+      }
+    });
+    output.on("error", reject);
+    archive.on("error", reject);
+    archive.pipe(output);
+    archive.directory(ATTACHED_ASSETS_DIR, "attached_assets");
+    archive.finalize();
+  });
+}
+async function createDatabaseDump(tempDir) {
+sup_wescc@srvappsprod:/var/www/html/app-politicall$ 
