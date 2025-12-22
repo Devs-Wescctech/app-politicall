@@ -18,6 +18,5 @@ coverage
 dist
 uploads/*
 !uploads/.gitkeep
-attached_assets
 .replit
 replit.nix
