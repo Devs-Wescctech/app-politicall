@@ -1,0 +1,16 @@
+sup_wescc@srvappsprod:/var/www/html/app-politicall$ docker ps
+CONTAINER ID   IMAGE                                                   COMMAND                  CREATED          STATUS                                     PORTS                                         NAMES
+af43d8511a94   ghcr.io/devs-wescctech/app-politicall:latest            "docker-entrypoint.s…"   18 seconds ago   Up Less than a second (health: starting)   0.0.0.0:5000->5000/tcp, [::]:5000->5000/tcp   politicall
+638c3c0dc64c   ghcr.io/devs-wescctech/app-peticoesbr-frontend:latest   "/docker-entrypoint.…"   2 weeks ago      Up 2 weeks (healthy)                       0.0.0.0:3000->80/tcp, [::]:3000->80/tcp       peticoesbr-frontend
+4a97a37ec30f   ghcr.io/devs-wescctech/app-peticoesbr-backend:latest    "docker-entrypoint.s…"   2 weeks ago      Up 2 weeks (healthy)                       0.0.0.0:3001->3001/tcp, [::]:3001->3001/tcp   peticoesbr-backend
+sup_wescc@srvappsprod:/var/www/html/app-politicall$ ls
+docker-compose.yml  docker-compose.yml_old  uploads
+sup_wescc@srvappsprod:/var/www/html/app-politicall$ docker ps
+CONTAINER ID   IMAGE                                                   COMMAND                  CREATED          STATUS                          PORTS                                         NAMES
+af43d8511a94   ghcr.io/devs-wescctech/app-politicall:latest            "docker-entrypoint.s…"   36 seconds ago   Restarting (132) 1 second ago                                                 politicall
+638c3c0dc64c   ghcr.io/devs-wescctech/app-peticoesbr-frontend:latest   "/docker-entrypoint.…"   2 weeks ago      Up 2 weeks (healthy)            0.0.0.0:3000->80/tcp, [::]:3000->80/tcp       peticoesbr-frontend
+4a97a37ec30f   ghcr.io/devs-wescctech/app-peticoesbr-backend:latest    "docker-entrypoint.s…"   2 weeks ago      Up 2 weeks (healthy)            0.0.0.0:3001->3001/tcp, [::]:3001->3001/tcp   peticoesbr-backend
+sup_wescc@srvappsprod:/var/www/html/app-politicall$ docker logs -f politicall
+sup_wescc@srvappsprod:/var/www/html/app-politicall$ uname -m
+x86_64
+sup_wescc@srvappsprod:/var/www/html/app-politicall$ 
