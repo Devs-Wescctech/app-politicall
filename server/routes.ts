@@ -3277,8 +3277,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: isAutoApproved ? "approved" : "under_review",
         campaignStage: isAutoApproved ? "aprovado" : "aguardando",
         // Set start/end dates for auto-approved campaigns (7 days)
-        startDate: isAutoApproved ? new Date() : validatedData.startDate,
-        endDate: isAutoApproved ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) : validatedData.endDate,
+        startDate: isAutoApproved ? new Date().toISOString() : validatedData.startDate,
+        endDate: isAutoApproved ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() : validatedData.endDate,
       });
       
       res.json(campaign);
@@ -4880,7 +4880,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const oauth2Client = new google.auth.OAuth2(
         integration.clientId,
         decryptedClientSecret,
-        integration.redirectUri
+        integration.redirectUri ?? undefined
       );
       
       // Generate auth URL
@@ -4950,7 +4950,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const oauth2Client = new google.auth.OAuth2(
         integration.clientId,
         decryptedClientSecret,
-        integration.redirectUri
+        integration.redirectUri ?? undefined
       );
       
       console.log('[Google Calendar] Exchanging code for tokens...');
@@ -5045,14 +5045,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create OAuth2 client
 
       const oauth2Client = new google.auth.OAuth2(
-        integration.clientId,
+        integration.clientId ?? undefined,
         decryptedClientSecret,
-        integration.redirectUri
+        integration.redirectUri ?? undefined
       );
       
       oauth2Client.setCredentials({
         access_token: decryptedAccessToken,
-        refresh_token: decryptedRefreshToken,
+        refresh_token: decryptedRefreshToken ?? undefined,
         expiry_date: integration.tokenExpiryDate?.getTime()
       });
       

@@ -124,7 +124,7 @@ async function generateSurveyPdfReport(
     // Ensure fonts are loaded
     if (!(pdfMake as any).vfs) {
       const vfs = await import('pdfmake/build/vfs_fonts');
-      (pdfMake as any).vfs = vfs.pdfMake ? vfs.pdfMake.vfs : vfs;
+      (pdfMake as any).vfs = (vfs as any).pdfMake ? (vfs as any).pdfMake.vfs : (vfs as any).vfs || vfs;
     }
 
     const response = await apiRequest("GET", `/api/survey-campaigns/${campaignId}/responses`);
@@ -220,9 +220,9 @@ async function generateSurveyPdfReport(
         .forEach(([key, count]) => {
           const percentage = ((count / totalResponses) * 100).toFixed(1);
           tableBody.push([
-            { text: labelMap[key] || key, style: 'tableCell' },
-            { text: count.toString(), style: 'tableCell', alignment: 'center' },
-            { text: `${percentage}%`, style: 'tableCell', alignment: 'center', color: '#40E0D0', bold: true }
+            { text: labelMap[key] || key, style: 'tableCell', fillColor: '', color: '' },
+            { text: count.toString(), style: 'tableCell', fillColor: '', color: '', alignment: 'center' },
+            { text: `${percentage}%`, style: 'tableCell', fillColor: '', color: '#40E0D0', alignment: 'center' }
           ]);
         });
 
@@ -880,6 +880,8 @@ export default function Marketing() {
         questionText: "",
         questionType: "open_text",
         options: null,
+        createdAt: new Date(),
+        order: 0,
       };
       setSelectedTemplate(customTemplate);
       form.setValue("templateId", CUSTOM_TEMPLATE_ID);
@@ -913,7 +915,7 @@ export default function Marketing() {
       
       // Reset custom questions state
       setCustomMainQuestion(template.questionText);
-      setCustomMainQuestionType(template.questionType || "open_text");
+      setCustomMainQuestionType((template.questionType || "open_text") as "open_text" | "single_choice" | "multiple_choice");
       setCustomMainQuestionOptions([""]);
       setCustomQuestions([]);
       setIsEditingMainQuestion(false);
@@ -1976,7 +1978,7 @@ export default function Marketing() {
                                   className="rounded-full"
                                   onClick={() => {
                                     setCustomMainQuestion(selectedTemplate.questionText);
-                                    setCustomMainQuestionType(selectedTemplate.questionType || "open_text");
+                                    setCustomMainQuestionType((selectedTemplate.questionType || "open_text") as "open_text" | "single_choice" | "multiple_choice");
                                     setCustomMainQuestionOptions([""]);
                                     setIsEditingMainQuestion(false);
                                   }}

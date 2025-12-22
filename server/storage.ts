@@ -1238,7 +1238,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createSurveyCampaign(campaign: InsertSurveyCampaign & { userId: string; accountId: string }): Promise<SurveyCampaign> {
-    const values = {
+    const values: any = {
       ...campaign,
       startDate: campaign.startDate ? (typeof campaign.startDate === 'string' ? new Date(campaign.startDate) : campaign.startDate) : null,
       endDate: campaign.endDate ? (typeof campaign.endDate === 'string' ? new Date(campaign.endDate) : campaign.endDate) : null,

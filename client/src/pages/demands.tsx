@@ -204,7 +204,7 @@ export default function Demands() {
               description: editDescription,
               priority: editPriority,
               assignee: editAssignee,
-              dueDate: editDueDate ? editDueDate.toISOString() : null,
+              dueDate: editDueDate ?? null,
               recurrence: editRecurrence,
             });
           }

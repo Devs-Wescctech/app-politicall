@@ -1007,7 +1007,7 @@ export default function Alliances() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Cargo</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
+                        <Select onValueChange={field.onChange} value={field.value ?? undefined}>
                           <FormControl>
                             <SelectTrigger data-testid="select-position">
                               <SelectValue placeholder="Selecione o cargo" />
@@ -1038,7 +1038,7 @@ export default function Alliances() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Estado</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
+                        <Select onValueChange={field.onChange} value={field.value ?? undefined}>
                           <FormControl>
                             <SelectTrigger data-testid="select-state">
                               <SelectValue placeholder="Selecione o estado" />
@@ -1068,6 +1068,7 @@ export default function Alliances() {
                             data-testid="input-city"
                             list="cities-list"
                             {...field}
+                            value={field.value ?? ""}
                             onChange={(e) => {
                               const formatted = capitalizeWords(e.target.value);
                               field.onChange(formatted);
@@ -1090,7 +1091,7 @@ export default function Alliances() {
                       <FormItem>
                         <FormLabel>Telefone</FormLabel>
                         <FormControl>
-                          <Input placeholder="(00) 00000-0000" data-testid="input-ally-phone" {...field} />
+                          <Input placeholder="(00) 00000-0000" data-testid="input-ally-phone" {...field} value={field.value ?? ""} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -1103,7 +1104,7 @@ export default function Alliances() {
                       <FormItem>
                         <FormLabel>Email</FormLabel>
                         <FormControl>
-                          <Input type="email" placeholder="email@exemplo.com" data-testid="input-ally-email" {...field} />
+                          <Input type="email" placeholder="email@exemplo.com" data-testid="input-ally-email" {...field} value={field.value ?? ""} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -1116,7 +1117,7 @@ export default function Alliances() {
                       <FormItem>
                         <FormLabel>Observações</FormLabel>
                         <FormControl>
-                          <Textarea placeholder="Notas adicionais" data-testid="input-ally-notes" {...field} />
+                          <Textarea placeholder="Notas adicionais" data-testid="input-ally-notes" {...field} value={field.value ?? ""} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -1559,7 +1560,7 @@ export default function Alliances() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Cargo</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value ?? undefined}>
                         <FormControl>
                           <SelectTrigger data-testid="select-edit-position">
                             <SelectValue placeholder="Selecione o cargo" />
@@ -1590,7 +1591,7 @@ export default function Alliances() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Estado</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value ?? undefined}>
                         <FormControl>
                           <SelectTrigger data-testid="select-edit-state">
                             <SelectValue placeholder="Selecione o estado" />
@@ -1620,6 +1621,7 @@ export default function Alliances() {
                           data-testid="input-edit-city"
                           list="cities-list-edit"
                           {...field}
+                          value={field.value ?? ""}
                           onChange={(e) => {
                             const formatted = capitalizeWords(e.target.value);
                             field.onChange(formatted);
@@ -1642,7 +1644,7 @@ export default function Alliances() {
                     <FormItem>
                       <FormLabel>Telefone</FormLabel>
                       <FormControl>
-                        <Input placeholder="(00) 00000-0000" data-testid="input-edit-ally-phone" {...field} />
+                        <Input placeholder="(00) 00000-0000" data-testid="input-edit-ally-phone" {...field} value={field.value ?? ""} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -1655,7 +1657,7 @@ export default function Alliances() {
                     <FormItem>
                       <FormLabel>Email</FormLabel>
                       <FormControl>
-                        <Input type="email" placeholder="email@exemplo.com" data-testid="input-edit-ally-email" {...field} />
+                        <Input type="email" placeholder="email@exemplo.com" data-testid="input-edit-ally-email" {...field} value={field.value ?? ""} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -1668,7 +1670,7 @@ export default function Alliances() {
                     <FormItem>
                       <FormLabel>Observações</FormLabel>
                       <FormControl>
-                        <Textarea placeholder="Notas adicionais" data-testid="input-edit-ally-notes" {...field} />
+                        <Textarea placeholder="Notas adicionais" data-testid="input-edit-ally-notes" {...field} value={field.value ?? ""} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

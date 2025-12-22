@@ -1,0 +1,23 @@
+
+Security Audit
+Process completed with exit code 1.
+Type Check: client/src/pages/alliances.tsx#L1106
+Type '{ onChange: (...event: any[]) => void; onBlur: Noop; value: string | null | undefined; disabled?: boolean | undefined; name: "email"; ref: RefCallBack; type: "email"; placeholder: string; "data-testid": string; }' is not assignable to type 'Omit<DetailedHTMLProps<InputHTMLAttributes<HTMLInputElement>, HTMLInputElement>, "ref">'.
+Type Check: client/src/pages/alliances.tsx#L1093
+Type '{ onChange: (...event: any[]) => void; onBlur: Noop; value: string | null | undefined; disabled?: boolean | undefined; name: "phone"; ref: RefCallBack; placeholder: string; "data-testid": string; }' is not assignable to type 'Omit<DetailedHTMLProps<InputHTMLAttributes<HTMLInputElement>, HTMLInputElement>, "ref">'.
+Type Check: client/src/pages/alliances.tsx#L1066
+Type '{ onChange: (e: ChangeEvent<HTMLInputElement>) => void; onBlur: Noop; value: string | null | undefined; disabled?: boolean | undefined; name: "city"; ref: RefCallBack; placeholder: string; "data-testid": string; list: string; }' is not assignable to type 'Omit<DetailedHTMLProps<InputHTMLAttributes<HTMLInputElement>, HTMLInputElement>, "ref">'.
+Type Check: client/src/pages/alliances.tsx#L1041
+Type 'string | null | undefined' is not assignable to type 'string | undefined'.
+Type Check: client/src/pages/alliances.tsx#L1010
+Type 'string | null | undefined' is not assignable to type 'string | undefined'.
+Type Check: client/src/pages/admin.tsx#L1860
+Property 'customDemographicFields' does not exist on type 'CampaignWithTemplate'.
+Type Check: client/src/pages/admin.tsx#L1857
+Property 'customDemographicFields' does not exist on type 'CampaignWithTemplate'.
+Type Check: client/src/pages/admin.tsx#L1853
+Property 'customDemographicFields' does not exist on type 'CampaignWithTemplate'.
+Type Check: client/src/pages/admin.tsx#L1853
+Property 'customDemographicFields' does not exist on type 'CampaignWithTemplate'.
+Type Check: client/src/pages/admin.tsx#L725
+Property 'distributionType' does not exist on type 'CampaignWithTemplate'.

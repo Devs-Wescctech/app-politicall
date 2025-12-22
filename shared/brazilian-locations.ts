@@ -116,5 +116,6 @@ export const BRAZILIAN_STATES = Object.entries(BRAZILIAN_STATES_CITIES).map(([uf
 }));
 
 export function getCitiesByState(stateUF: string): string[] {
-  return BRAZILIAN_STATES_CITIES[stateUF as keyof typeof BRAZILIAN_STATES_CITIES]?.cities || [];
+  const cities = BRAZILIAN_STATES_CITIES[stateUF as keyof typeof BRAZILIAN_STATES_CITIES]?.cities;
+  return cities ? [...cities] : [];
 }

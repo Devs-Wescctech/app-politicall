@@ -21,6 +21,14 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import logoUrl from "@assets/logo pol_1763308638963.png";
 import type { Lead } from "@shared/schema";
 
+type CustomDemographicField = {
+  id: string;
+  label: string;
+  fieldType: "text" | "single_choice" | "multiple_choice";
+  options?: string[];
+  required: boolean;
+};
+
 type SurveyCampaign = {
   id: string;
   userId: string;
@@ -34,6 +42,7 @@ type SurveyCampaign = {
   startDate: string | null;
   endDate: string | null;
   targetAudience: string | null;
+  distributionType: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -71,6 +80,7 @@ type CampaignWithTemplate = SurveyCampaign & {
   customMainQuestionType?: string | null;
   customMainQuestionOptions?: string[] | null;
   customQuestions?: CustomQuestion[] | null;
+  customDemographicFields?: CustomDemographicField[] | null;
   viewCount?: number;
   budgetValue?: string | null;
 };
