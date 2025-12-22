@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  app:
+    image: ghcr.io/devs-wescctech/app-politicall:latest
+    container_name: app-politicall
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://auth_bd:4uth@1307BD@172.17.0.1:5432/politicall
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:5000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
