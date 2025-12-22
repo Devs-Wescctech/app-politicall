@@ -29,9 +29,6 @@ RUN npm ci --only=production && npm cache clean --force
 # Copy built application from builder stage
 COPY --from=builder /app/dist ./dist
 
-# Copy any static assets needed
-COPY --from=builder /app/client/src/assets ./client/src/assets 2>/dev/null || true
-
 # Create uploads directory
 RUN mkdir -p uploads && chown -R nodejs:nodejs /app
 
