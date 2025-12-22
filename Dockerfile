@@ -22,12 +22,17 @@ WORKDIR /app
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S nodejs -u 1001
 
-# Copy package files and install production dependencies only
+# Copy package files and install all dependencies (vite is needed at runtime)
 COPY package*.json ./
-RUN npm ci --only=production && npm cache clean --force
+RUN npm ci && npm cache clean --force
 
 # Copy built application from builder stage
 COPY --from=builder /app/dist ./dist
+
+# Copy vite config and client files needed at runtime
+COPY --from=builder /app/vite.config.ts ./vite.config.ts
+COPY --from=builder /app/client ./client
+COPY --from=builder /app/attached_assets ./attached_assets
 
 # Create uploads directory
 RUN mkdir -p uploads && chown -R nodejs:nodejs /app
