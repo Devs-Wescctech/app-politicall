@@ -1,0 +1,39 @@
+sup_wescc@srvappsprod:/var/www/html/app-politicall$ # Fazer login (substitua email/senha)
+curl -s -X POST http://localhost:5000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@politicall.com.br","password":"admin123"}'
+{"error":"Email ou senha incorretos"}sup_wescc@srvap# Ver usuários no banco de dadosall$ # Ver usuários no banco de dados
+docker exec -it app-politicall sh -c "echo 'SELECT email FROM users LIMIT 5;' | PGPASSWORD='4uth@1307BD' psql -h 172.17.0.1 -U auth_bd -d politicall"
+sh: 1: psql: not found
+sup_wescc@srvappsprod:/var/www/html/app-politicall$ # Use o token que apareceu nos headers da sua requisição anterior:
+TOKEN="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJkMDQ3NmUwNi1mMWIwLTQyMDQtODI4MC0xMTFmYTY0NzhmYzkiLCJhY2NvdW50SWQiOiJkMDQ3NmUwNi1mMWIwLTQyMDQtODI4MC0xMTFmYTY0NzhmYzkiLCJyb2xlIjoiYWRtaW4iLCJpYXQiOjE3NjY1MjY3NTcsImV4cCI6MTc2OTExODc1N30.8RIGsNfJhUBlhykCgscIGywE6PvEyX1byy5Q6kQKiJA"
+# Testar upload local (800KB)
+curl -X POST http://localhost:5000/api/auth/upload-background \
+  -H "Authorization: Bearer $TOKEN" \
+  -F "background=@/tmp/test800k.bin;type=image/jpeg" -v
+Note: Unnecessary use of -X or --request, POST is already inferred.
+* Host localhost:5000 was resolved.
+* IPv6: ::1
+* IPv4: 127.0.0.1
+*   Trying [::1]:5000...
+* Connected to localhost (::1) port 5000
+> POST /api/auth/upload-background HTTP/1.1
+> Host: localhost:5000
+> User-Agent: curl/8.5.0
+> Accept: */*
+> Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJkMDQ3NmUwNi1mMWIwLTQyMDQtODI4MC0xMTFmYTY0NzhmYzkiLCJhY2NvdW50SWQiOiJkMDQ3NmUwNi1mMWIwLTQyMDQtODI4MC0xMTFmYTY0NzhmYzkiLCJyb2xlIjoiYWRtaW4iLCJpYXQiOjE3NjY1MjY3NTcsImV4cCI6MTc2OTExODc1N30.8RIGsNfJhUBlhykCgscIGywE6PvEyX1byy5Q6kQKiJA
+> Content-Length: 819408
+> Content-Type: multipart/form-data; boundary=------------------------mLCPYvRdwqQ0YraiRnmJOd
+> 
+* We are completely uploaded and fine
+< HTTP/1.1 200 OK
+< X-Powered-By: Express
+< Content-Type: application/json; charset=utf-8
+< Content-Length: 85
+< ETag: W/"55-dUZRPCOUnHgaftiSGbR+gAykM4o"
+< Date: Tue, 23 Dec 2025 23:53:45 GMT
+< Connection: keep-alive
+< Keep-Alive: timeout=5
+< 
+* Connection #0 to host localhost left intact
+{"landingBackground":"/uploads/backgrounds/d0476e06-f1b0-4204-8280-111fa6478fc9.jpg"}sup_wescc@srvappsprod:/var/www/html/app-politicall$ 
