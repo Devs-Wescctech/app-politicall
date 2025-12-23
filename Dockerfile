@@ -40,6 +40,11 @@ COPY --from=builder /app/vite.config.ts ./vite.config.ts
 COPY --from=builder /app/client ./client
 COPY --from=builder /app/attached_assets ./attached_assets
 
+# Copy drizzle config and schema for database migrations
+COPY --from=builder /app/drizzle.config.ts ./drizzle.config.ts
+COPY --from=builder /app/shared ./shared
+COPY --from=builder /app/tsconfig.json ./tsconfig.json
+
 # Create uploads directory
 RUN mkdir -p uploads && chown -R nodejs:nodejs /app
 
