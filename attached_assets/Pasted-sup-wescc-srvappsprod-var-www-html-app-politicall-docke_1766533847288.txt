@@ -1,0 +1,95 @@
+sup_wescc@srvappsprod:/var/www/html/app-politicall$ docker logs -f app-politicall
+AI Integrations not configured. Set AI_INTEGRATIONS_OPENAI_BASE_URL and AI_INTEGRATIONS_OPENAI_API_KEY to enable AI features.
+✓ Admin user password ALWAYS updated to: admin123 (permissions preserved)
+✓ All survey templates already exist
+Test campaign already exists
+11:44:32 PM [express] serving on port 5000
+11:44:35 PM [express] HEAD /api/health 200 in 11ms
+11:45:05 PM [express] HEAD /api/health 200 in 4ms
+11:45:35 PM [express] HEAD /api/health 200 in 3ms
+11:46:05 PM [express] HEAD /api/health 200 in 2ms
+11:46:35 PM [express] HEAD /api/health 200 in 2ms
+11:46:39 PM [express] GET /api/auth/me 304 in 29ms :: {"id":"d0476e06-f1b0-4204-8280-111fa6478fc9","a…
+11:46:39 PM [express] GET /api/notifications 304 in 41ms :: []
+11:46:39 PM [express] GET /api/notifications/unread-count 304 in 9ms :: {"count":0}
+11:46:39 PM [express] GET /api/parties 304 in 10ms :: [{"id":"9cd5a4ab-ac7a-460a-acc0-becac2636fee","…
+11:46:39 PM [express] GET /api/account/admin 304 in 24ms :: {"id":"d0476e06-f1b0-4204-8280-111fa6478f…
+11:47:05 PM [express] HEAD /api/health 200 in 3ms
+11:47:09 PM [express] GET /api/notifications/unread-count 304 in 26ms :: {"count":0}
+11:47:09 PM [express] GET /api/notifications 304 in 24ms :: []
+11:47:35 PM [express] HEAD /api/health 200 in 2ms
+11:47:39 PM [express] GET /api/notifications/unread-count 304 in 28ms :: {"count":0}
+11:47:39 PM [express] GET /api/notifications 304 in 26ms :: []
+11:47:59 PM [express] GET /api/auth/upload-background 200 in 4ms
+11:48:06 PM [express] HEAD /api/health 200 in 2ms
+11:48:09 PM [express] GET /api/notifications 304 in 28ms :: []
+11:48:09 PM [express] GET /api/notifications/unread-count 304 in 25ms :: {"count":0}
+11:48:36 PM [express] HEAD /api/health 200 in 2ms
+11:48:39 PM [express] GET /api/notifications 304 in 27ms :: []
+11:48:39 PM [express] GET /api/notifications/unread-count 304 in 25ms :: {"count":0}
+11:49:06 PM [express] HEAD /api/health 200 in 1ms
+11:49:09 PM [express] GET /api/notifications/unread-count 304 in 24ms :: {"count":0}
+11:49:09 PM [express] GET /api/notifications 304 in 21ms :: []
+11:49:36 PM [express] HEAD /api/health 200 in 2ms
+11:49:39 PM [express] GET /api/notifications 304 in 22ms :: []
+11:49:39 PM [express] GET /api/notifications/unread-count 304 in 6ms :: {"count":0}
+11:50:06 PM [express] HEAD /api/health 200 in 2ms
+11:50:10 PM [express] GET /api/notifications 304 in 21ms :: []
+11:50:10 PM [express] GET /api/notifications/unread-count 304 in 5ms :: {"count":0}
+^Csup_wescc@srvappsprod:/var/www/html/app-politicall$ sudo dmesg | tail -50
+[2495928.653728] br-1419d84c8243: port 1(veth06a1be0) entered disabled state
+[2495928.654404] veth06a1be0 (unregistering): left allmulticast mode
+[2495928.654409] veth06a1be0 (unregistering): left promiscuous mode
+[2495928.654414] br-1419d84c8243: port 1(veth06a1be0) entered disabled state
+[2495929.636456] br-6932ab0654a4: port 1(veth3abc81a) entered blocking state
+[2495929.636467] br-6932ab0654a4: port 1(veth3abc81a) entered disabled state
+[2495929.636491] veth3abc81a: entered allmulticast mode
+[2495929.636620] veth3abc81a: entered promiscuous mode
+[2495929.667851] eth0: renamed from veth06e80b5
+[2495929.678880] br-6932ab0654a4: port 1(veth3abc81a) entered blocking state
+[2495929.678887] br-6932ab0654a4: port 1(veth3abc81a) entered forwarding state
+[2496277.331476] br-6932ab0654a4: port 1(veth3abc81a) entered disabled state
+[2496277.331929] veth06e80b5: renamed from eth0
+[2496277.379907] br-6932ab0654a4: port 1(veth3abc81a) entered disabled state
+[2496277.380416] veth3abc81a (unregistering): left allmulticast mode
+[2496277.380421] veth3abc81a (unregistering): left promiscuous mode
+[2496277.380431] br-6932ab0654a4: port 1(veth3abc81a) entered disabled state
+[2496278.729210] br-af89ad239cdc: port 1(veth8889af4) entered blocking state
+[2496278.729234] br-af89ad239cdc: port 1(veth8889af4) entered disabled state
+[2496278.729246] veth8889af4: entered allmulticast mode
+[2496278.729311] veth8889af4: entered promiscuous mode
+[2496278.772614] eth0: renamed from veth64daf07
+[2496278.785713] br-af89ad239cdc: port 1(veth8889af4) entered blocking state
+[2496278.785722] br-af89ad239cdc: port 1(veth8889af4) entered forwarding state
+[2496516.992540] br-af89ad239cdc: port 1(veth8889af4) entered disabled state
+[2496516.992831] veth64daf07: renamed from eth0
+[2496517.044396] br-af89ad239cdc: port 1(veth8889af4) entered disabled state
+[2496517.045058] veth8889af4 (unregistering): left allmulticast mode
+[2496517.045063] veth8889af4 (unregistering): left promiscuous mode
+[2496517.045068] br-af89ad239cdc: port 1(veth8889af4) entered disabled state
+[2496517.207045] br-af89ad239cdc: port 1(veth5dfc338) entered blocking state
+[2496517.207051] br-af89ad239cdc: port 1(veth5dfc338) entered disabled state
+[2496517.207080] veth5dfc338: entered allmulticast mode
+[2496517.207166] veth5dfc338: entered promiscuous mode
+[2496517.248544] eth0: renamed from veth4665db9
+[2496517.263433] br-af89ad239cdc: port 1(veth5dfc338) entered blocking state
+[2496517.263440] br-af89ad239cdc: port 1(veth5dfc338) entered forwarding state
+[2503257.323350] br-af89ad239cdc: port 1(veth5dfc338) entered disabled state
+[2503257.323623] veth4665db9: renamed from eth0
+[2503257.365662] br-af89ad239cdc: port 1(veth5dfc338) entered disabled state
+[2503257.366278] veth5dfc338 (unregistering): left allmulticast mode
+[2503257.366282] veth5dfc338 (unregistering): left promiscuous mode
+[2503257.366287] br-af89ad239cdc: port 1(veth5dfc338) entered disabled state
+[2503258.724729] br-0bcd2534ed59: port 1(veth3382a1a) entered blocking state
+[2503258.724741] br-0bcd2534ed59: port 1(veth3382a1a) entered disabled state
+[2503258.724753] veth3382a1a: entered allmulticast mode
+[2503258.724896] veth3382a1a: entered promiscuous mode
+[2503258.765373] eth0: renamed from vethf132033
+[2503258.773806] br-0bcd2534ed59: port 1(veth3382a1a) entered blocking state
+[2503258.773812] br-0bcd2534ed59: port 1(veth3382a1a) entered forwarding state
+sup_wescc@srvappsprod:/var/www/html/app-politicall$ # Verificar conntrack (limite de conexões)
+cat /proc/sys/net/netfilter/nf_conntrack_max
+cat /proc/sys/net/netfilter/nf_conntrack_count
+262144
+26
+sup_wescc@srvappsprod:/var/www/html/app-politicall$ 
