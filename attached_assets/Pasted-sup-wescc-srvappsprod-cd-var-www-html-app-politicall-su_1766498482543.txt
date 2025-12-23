@@ -1,0 +1,88 @@
+sup_wescc@srvappsprod:~$ cd /var/www/html/app-politicall/
+sup_wescc@srvappsprod:/var/www/html/app-politicall$ docker compose pull && docker compose up -d
+docker logs -f politicall
+WARN[0000] /var/www/html/app-politicall/docker-compose.yml: the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion 
+[+] Pulling 9/9
+ ✔ politicall Pulled                                                                                                                                                                            38.9s 
+   ✔ 20e0431a92ce Pull complete                                                                                                                                                                 36.1s 
+   ✔ 360cd22579b5 Pull complete                                                                                                                                                                 21.3s 
+   ✔ 37a388f118ce Pull complete                                                                                                                                                                 22.1s 
+   ✔ 551ab05daf83 Pull complete                                                                                                                                                                 21.5s 
+   ✔ 717090e51885 Pull complete                                                                                                                                                                  0.8s 
+   ✔ a7930f06c4da Pull complete                                                                                                                                                                  0.9s 
+   ✔ 753895d96c75 Pull complete                                                                                                                                                                  1.1s 
+   ✔ ab6383612f10 Download complete                                                                                                                                                              0.0s 
+WARN[0000] /var/www/html/app-politicall/docker-compose.yml: the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion 
+[+] Running 1/1
+ ✔ Container politicall  Started                                                                                                                                                                12.6s 
+AI Integrations not configured. Set AI_INTEGRATIONS_OPENAI_BASE_URL and AI_INTEGRATIONS_OPENAI_API_KEY to enable AI features.
+✓ Admin user password ALWAYS updated to: admin123 (permissions preserved)
+✓ All survey templates already exist
+Test campaign already exists
+2:00:30 PM [express] serving on port 5000
+2:00:34 PM [express] HEAD /api/health 200 in 10ms
+2:01:04 PM [express] POST /api/admin/login 200 in 134ms :: {"token":"eyJhbGciOiJIUzI1NiIsInR5cCI6Ikp…
+2:01:04 PM [express] HEAD /api/health 200 in 2ms
+2:01:04 PM [express] GET /api/admin/verify 304 in 3ms :: {"valid":true}
+2:01:04 PM [express] GET /api/admin/survey-campaigns 500 in 22ms :: {"error":"column survey_campaign…
+2:01:04 PM [express] GET /api/leads 200 in 21ms :: [{"id":"bb066fd5-137e-4b9a-8ecc-d7f97bbeb7f5","na…
+Erro ao buscar configuração: error: relation "system_settings" does not exist
+    at /app/node_modules/pg-pool/index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async /app/node_modules/drizzle-orm/node-postgres/session.cjs:118:22
+    at async file:///app/dist/index.js:3799:25 {
+  length: 114,
+  severity: 'ERROR',
+  code: '42P01',
+  detail: undefined,
+  hint: undefined,
+  position: '63',
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'parse_relation.c',
+  line: '1466',
+  routine: 'parserOpenTable'
+}
+2:01:04 PM [express] GET /api/admin/settings/budget_ads 500 in 23ms :: {"error":"relation \"system_s…
+ ✔ Container politicall  Started                                                                                                                                                                12.6s 
+AI Integrations not configured. Set AI_INTEGRATIONS_OPENAI_BASE_URL and AI_INTEGRATIONS_OPENAI_API_KEY to enable AI features.
+✓ Admin user password ALWAYS updated to: admin123 (permissions preserved)
+✓ All survey templates already exist
+Test campaign already exists
+2:00:30 PM [express] serving on port 5000
+2:00:34 PM [express] HEAD /api/health 200 in 10ms
+2:01:04 PM [express] POST /api/admin/login 200 in 134ms :: {"token":"eyJhbGciOiJIUzI1NiIsInR5cCI6Ikp…
+2:01:04 PM [express] HEAD /api/health 200 in 2ms
+2:01:04 PM [express] GET /api/admin/verify 304 in 3ms :: {"valid":true}
+2:01:04 PM [express] GET /api/admin/survey-campaigns 500 in 22ms :: {"error":"column survey_campaign…
+2:01:04 PM [express] GET /api/leads 200 in 21ms :: [{"id":"bb066fd5-137e-4b9a-8ecc-d7f97bbeb7f5","na…
+Erro ao buscar configuração: error: relation "system_settings" does not exist
+    at /app/node_modules/pg-pool/index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async /app/node_modules/drizzle-orm/node-postgres/session.cjs:118:22
+    at async file:///app/dist/index.js:3799:25 {
+  length: 114,
+  severity: 'ERROR',
+  code: '42P01',
+  detail: undefined,
+  hint: undefined,
+  position: '63',
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'parse_relation.c',
+  line: '1466',
+  routine: 'parserOpenTable'
+}
+2:01:04 PM [express] GET /api/admin/settings/budget_ads 500 in 23ms :: {"error":"relation \"system_s…
