@@ -14,12 +14,8 @@ services:
       - SESSION_SECRET=2Iz5EHu2ZKRnebbtxV+R/e1JcPxjX/zcF68Xt5q/mXo=
     volumes:
       - ./uploads:/app/uploads
-    deploy:
-      resources:
-        limits:
-          memory: 1G
-        reservations:
-          memory: 256M
+    mem_limit: 1g
+    memswap_limit: 2g
     shm_size: '256mb'
     ulimits:
       nofile:

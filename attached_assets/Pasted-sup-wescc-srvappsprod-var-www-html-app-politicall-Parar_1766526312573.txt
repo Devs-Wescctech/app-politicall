@@ -1,0 +1,47 @@
+sup_wescc@srvappsprod:/var/www/html/app-politicall$ # Parar e remover o container antigo
+docker stop politicall
+docker rm politicall
+
+# Agora iniciar o novo
+docker-compose up -d --remove-orphans
+
+# Ver logs
+docker logs -f app-politicall
+politicall
+politicall
+Starting app-politicall ... done
+AI Integrations not configured. Set AI_INTEGRATIONS_OPENAI_BASE_URL and AI_INTEGRATIONS_OPENAI_API_KEY to enable AI features.
+✓ Admin user password ALWAYS updated to: admin123 (permissions preserved)
+✓ All survey templates already exist
+Test campaign already exists
+9:42:23 PM [express] serving on port 5000
+9:42:26 PM [express] HEAD /api/health 200 in 12ms
+9:42:54 PM [express] POST /api/admin/login 200 in 134ms :: {"token":"eyJhbGciOiJIUzI1NiIsInR5cCI6Ikp…
+9:42:54 PM [express] GET /api/admin/verify 304 in 3ms :: {"valid":true}
+9:42:54 PM [express] GET /api/admin/survey-campaigns 304 in 27ms :: []
+9:42:54 PM [express] GET /api/admin/settings/budget_ads 304 in 7ms :: {"key":"budget_ads","value":nu…
+9:42:54 PM [express] GET /api/leads 304 in 18ms :: [{"id":"bb066fd5-137e-4b9a-8ecc-d7f97bbeb7f5","na…
+9:42:54 PM [express] GET /api/survey-templates 304 in 4ms :: [{"id":"custom-template","name":"Person…
+9:42:55 PM [express] GET /api/admin/verify 304 in 2ms :: {"valid":true}
+9:42:56 PM [express] GET /api/admin/users 304 in 94ms :: [{"id":"d0476e06-f1b0-4204-8280-111fa6478fc…
+9:42:56 PM [express] HEAD /api/health 200 in 2ms
+9:42:58 PM [express] POST /api/admin/users/d0476e06-f1b0-4204-8280-111fa6478fc9/impersonate 200 in 8…
+9:42:58 PM [express] GET /api/notifications 304 in 14ms :: []
+9:42:58 PM [express] GET /api/auth/me 304 in 14ms :: {"id":"d0476e06-f1b0-4204-8280-111fa6478fc9","a…
+9:42:58 PM [express] GET /api/notifications/unread-count 304 in 13ms :: {"count":0}
+9:42:58 PM [express] GET /api/account/admin 304 in 10ms :: {"id":"d0476e06-f1b0-4204-8280-111fa6478f…
+9:42:58 PM [express] GET /api/dashboard/stats 304 in 24ms :: {"totalContacts":9,"totalAlliances":3,"…
+9:42:58 PM [express] GET /api/survey-campaigns 304 in 7ms :: []
+9:43:01 PM [express] GET /api/parties 304 in 8ms :: [{"id":"9cd5a4ab-ac7a-460a-acc0-becac2636fee","n…
+9:43:26 PM [express] HEAD /api/health 200 in 3ms
+9:43:28 PM [express] GET /api/notifications/unread-count 304 in 25ms :: {"count":0}
+9:43:28 PM [express] GET /api/notifications 304 in 22ms :: []
+9:43:56 PM [express] HEAD /api/health 200 in 2ms
+9:43:58 PM [express] GET /api/notifications/unread-count 304 in 21ms :: {"count":0}
+9:43:58 PM [express] GET /api/notifications 304 in 28ms :: []
+9:44:26 PM [express] HEAD /api/health 200 in 2ms
+9:44:30 PM [express] GET /api/auth/me 304 in 25ms :: {"id":"d0476e06-f1b0-4204-8280-111fa6478fc9","a…
+9:44:30 PM [express] GET /api/notifications 304 in 24ms :: []
+9:44:30 PM [express] GET /api/notifications/unread-count 304 in 9ms :: {"count":0}
+9:44:30 PM [express] GET /api/parties 304 in 11ms :: [{"id":"9cd5a4ab-ac7a-460a-acc0-becac2636fee","…
+9:44:30 PM [express] GET /api/account/admin 304 in 24ms :: {"id":"d0476e06-f1b0-4204-8280-111fa6478f…
