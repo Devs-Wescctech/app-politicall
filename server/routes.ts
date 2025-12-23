@@ -814,6 +814,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Upload avatar image as file
   app.post("/api/auth/upload-avatar", authenticateToken, upload.single('avatar'), async (req: AuthRequest, res) => {
     try {
+      console.log("[UPLOAD] Avatar upload request received for user:", req.userId);
+      console.log("[UPLOAD] File received:", req.file ? `${req.file.originalname} (${req.file.size} bytes)` : "No file");
+      
       if (!req.file) {
         return res.status(400).json({ error: "Nenhuma imagem enviada" });
       }
@@ -858,6 +861,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Upload landing background image as file
   app.post("/api/auth/upload-background", authenticateToken, upload.single('background'), async (req: AuthRequest, res) => {
     try {
+      console.log("[UPLOAD] Background upload request received for user:", req.userId);
+      console.log("[UPLOAD] File received:", req.file ? `${req.file.originalname} (${req.file.size} bytes)` : "No file");
+      
       if (!req.file) {
         return res.status(400).json({ error: "Nenhuma imagem enviada" });
       }
