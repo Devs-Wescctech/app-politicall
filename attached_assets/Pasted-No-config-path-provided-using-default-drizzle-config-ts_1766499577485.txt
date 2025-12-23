@@ -1,0 +1,107 @@
+No config path provided, using default 'drizzle.config.ts'
+Reading config file '/app/drizzle.config.ts'
+Using 'pg' driver for database querying
+[✓] Pulling schema from database...
++ alliance_invites table will be created
+~ google_ads_campaigns › system_settings table will be renamed/moved
+--- all table conflicts resolved ---
+
+
+ERROR
+npm notice
+npm notice New major version of npm available! 10.8.2 -> 11.7.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.7.0
+npm notice To update run: npm install -g npm@11.7.0
+npm notice
+sup_wescc@srvappsprod:/var/www/html/app-politicall$ docker exec -it politicall npm run db:push
+
+> rest-express@1.0.0 db:push
+> drizzle-kit push
+
+No config path provided, using default 'drizzle.config.ts'
+Reading config file '/app/drizzle.config.ts'
+Using 'pg' driver for database querying
+[✓] Pulling schema from database...
++ alliance_invites table will be created
+~ google_ads_campaigns › system_settings table will be renamed/moved
+--- all table conflicts resolved ---
+
+
++ key column will be created
+
++ value column will be created
+
++ description column will be created
+--- all columns conflicts in system_settings table resolved ---
+
+· You're about to add api_keys_hashed_key_unique unique constraint to the table, which contains 2 items. If this statement fails, you will receive an error from the database. Do you want to truncate api_keys table?
+
+· You're about to add system_settings_key_unique unique constraint to the table, which contains 2 items. If this statement fails, you will receive an error from the database. Do you want to truncate system_settings table?
+
+· You're about to add google_calendar_integrations_account_id_unique unique constraint to the table, which contains 1 items. If this statement fails, you will receive an error from the database. Do you want to truncate google_calendar_integrations table?
+
+· You're about to add survey_campaigns_slug_unique unique constraint to the table, which contains 2 items. If this statement fails, you will receive an error from the database. Do you want to truncate survey_campaigns table?
+
+· You're about to add survey_templates_slug_unique unique constraint to the table, which contains 21 items. If this statement fails, you will receive an error from the database. Do you want to truncate survey_templates table?
+
+ Warning  Found data-loss statements:
+· You're about to delete field_operatives table with 1 items
+· You're about to delete contact_activities table with 1 items
+· You're about to add not-null key column without default value, which contains 2 items
+· You're about to add not-null value column without default value, which contains 2 items
+· You're about to delete user_id column in system_settings table with 2 items
+· You're about to delete campaign_name column in system_settings table with 2 items
+· You're about to delete objective column in system_settings table with 2 items
+· You're about to delete target_scope column in system_settings table with 2 items
+· You're about to delete target_locations column in system_settings table with 2 items
+· You're about to delete budget column in system_settings table with 2 items
+· You're about to delete management_fee column in system_settings table with 2 items
+· You're about to delete start_date column in system_settings table with 2 items
+· You're about to delete end_date column in system_settings table with 2 items
+· You're about to delete duration_days column in system_settings table with 2 items
+· You're about to delete lp_slug column in system_settings table with 2 items
+· You're about to delete lp_url column in system_settings table with 2 items
+· You're about to delete status column in system_settings table with 2 items
+· You're about to delete admin_reviewer_id column in system_settings table with 2 items
+· You're about to delete admin_notes column in system_settings table with 2 items
+· You're about to delete created_at column in system_settings table with 2 items
+· You're about to delete message column in api_key_usage table with 23 items
+· You're about to delete field_operative_id column in contacts table with 7 items
+· You're about to delete token_expiry column in google_calendar_integrations table with 1 items
+· You're about to delete scopes column in google_calendar_integrations table with 1 items
+· You're about to delete is_active column in google_calendar_integrations table with 1 items
+
+THIS ACTION WILL CAUSE DATA LOSS AND CANNOT BE REVERTED
+
+Do you still want to push changes?
+error: column "id" is in a primary key
+    at /app/node_modules/pg-pool/index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async Object.query (/app/node_modules/drizzle-kit/bin.cjs:80601:26)
+    at async pgPush (/app/node_modules/drizzle-kit/bin.cjs:84411:13)
+    at async Object.handler (/app/node_modules/drizzle-kit/bin.cjs:93813:9)
+    at async run (/app/node_modules/drizzle-kit/bin.cjs:93059:7) {
+  length: 104,
+  severity: 'ERROR',
+  code: '42P16',
+  detail: undefined,
+  hint: undefined,
+  position: undefined,
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'tablecmds.c',
+  line: '14146',
+  routine: 'dropconstraint_internal'
+}
+npm notice
+npm notice New major version of npm available! 10.8.2 -> 11.7.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.7.0
+npm notice To update run: npm install -g npm@11.7.0
+npm notice
+sup_wescc@srvappsprod:/var/www/html/app-politicall$ 
