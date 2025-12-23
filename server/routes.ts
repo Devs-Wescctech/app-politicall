@@ -983,7 +983,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Enrich with response counts
       const enrichedCampaigns = await Promise.all(
-        results.map(async ({ campaign, template, user }) => {
+        results.map(async ({ campaign, template, user }: { campaign: any; template: any; user: any }) => {
           const responses = await db.select()
             .from(surveyResponses)
             .where(eq(surveyResponses.campaignId, campaign.id));
@@ -1165,7 +1165,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Get activity count for each user
       const usersWithActivityCount = await Promise.all(
-        result.map(async (row) => {
+        result.map(async (row: any) => {
           // Count all activities for this user
           const [eventsCount] = await db.select({ count: sql<number>`count(*)::int` })
             .from(events)
@@ -3221,7 +3221,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Enrich with response counts
       const enrichedCampaigns = await Promise.all(
-        results.map(async ({ campaign, template }) => {
+        results.map(async ({ campaign, template }: { campaign: any; template: any }) => {
           const responses = await db.select()
             .from(surveyResponses)
             .where(eq(surveyResponses.campaignId, campaign.id));
@@ -3717,7 +3717,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               
               // Find config by Instagram Business Account ID or Facebook Page ID
               const configs = await db.select().from(aiConfigurations);
-              const config = configs.find(c => 
+              const config = configs.find((c: any) => 
                 c.instagramBusinessAccountId === recipientId || 
                 c.instagramFacebookPageId === recipientId ||
                 c.instagramBusinessAccountId === entry.id ||
@@ -3837,7 +3837,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               
               // Find config by Instagram Business Account ID
               const configs = await db.select().from(aiConfigurations);
-              const config = configs.find(c => 
+              const config = configs.find((c: any) => 
                 c.instagramBusinessAccountId === entry.id ||
                 c.instagramFacebookPageId === entry.id
               );
@@ -4011,7 +4011,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               
               // Find config by Facebook Page ID
               const configs = await db.select().from(aiConfigurations);
-              const config = configs.find(c => c.facebookPageId === recipientId || c.facebookPageId === pageId);
+              const config = configs.find((c: any) => c.facebookPageId === recipientId || c.facebookPageId === pageId);
               
               if (!config) {
                 console.log('❌ Configuração não encontrada para pageId:', recipientId);
@@ -4169,7 +4169,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               
               // Find config by Facebook Page ID
               const configs = await db.select().from(aiConfigurations);
-              const config = configs.find(c => c.facebookPageId === pageId);
+              const config = configs.find((c: any) => c.facebookPageId === pageId);
               
               if (!config) {
                 console.log('❌ Configuração não encontrada para pageId:', pageId);
@@ -4386,7 +4386,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             
             // Find config by Twitter username
             const configs = await db.select().from(aiConfigurations);
-            const config = configs.find(c => c.twitterUsername);
+            const config = configs.find((c: any) => c.twitterUsername);
             
             if (!config) {
               console.log('❌ Configuração Twitter não encontrada');
@@ -4458,7 +4458,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             
             // Find config
             const configs = await db.select().from(aiConfigurations);
-            const config = configs.find(c => c.twitterUsername);
+            const config = configs.find((c: any) => c.twitterUsername);
             
             if (!config) {
               console.log('❌ Configuração Twitter não encontrada');

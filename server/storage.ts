@@ -272,7 +272,7 @@ export class DatabaseStorage implements IStorage {
     const normalized = normalizeText(contact.name);
     
     // Use transaction to ensure atomicity
-    const result = await db.transaction(async (tx) => {
+    const result = await db.transaction(async (tx: any) => {
       // Check if a contact with the same normalized name already exists
       const existing = await tx.select()
         .from(contacts)
@@ -419,7 +419,7 @@ export class DatabaseStorage implements IStorage {
     };
     
     // Use transaction to ensure atomicity and handle deduplication
-    const result = await db.transaction(async (tx) => {
+    const result = await db.transaction(async (tx: any) => {
       // Check if a contact with the same normalized name already exists
       const existing = await tx.select()
         .from(contacts)
@@ -666,7 +666,7 @@ export class DatabaseStorage implements IStorage {
       .where(eq(demandComments.demandId, demandId))
       .orderBy(desc(demandComments.createdAt));
     
-    return results.map((r) => ({
+    return results.map((r: any) => ({
       ...r,
       userName: r.userName || "Usuário Desconhecido"
     }));
