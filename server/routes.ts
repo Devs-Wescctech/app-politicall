@@ -780,6 +780,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Allowed image MIME types
+  const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+  
+  // Get safe file extension from validated mimetype
+  function getSafeExtension(mimetype: string): string | null {
+    const mimeToExt: Record<string, string> = {
+      'image/jpeg': 'jpg',
+      'image/png': 'png', 
+      'image/webp': 'webp',
+      'image/gif': 'gif'
+    };
+    return mimeToExt[mimetype] || null;
+  }
+  
+  // Safely delete old user files from a directory
+  function deleteOldUserFiles(directory: string, userId: string): void {
+    if (!fs.existsSync(directory)) return;
+    const files = fs.readdirSync(directory);
+    for (const file of files) {
+      // Only match files that start with exact userId followed by a dot
+      if (file.match(new RegExp(`^${userId}\\.[a-z]+$`, 'i'))) {
+        const filePath = path.join(directory, file);
+        try {
+          fs.unlinkSync(filePath);
+        } catch (e) {
+          console.error(`Failed to delete old file: ${filePath}`, e);
+        }
+      }
+    }
+  }
+
   // Upload avatar image as file
   app.post("/api/auth/upload-avatar", authenticateToken, upload.single('avatar'), async (req: AuthRequest, res) => {
     try {
@@ -787,22 +818,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Nenhuma imagem enviada" });
       }
 
-      const userId = req.userId!;
-      const ext = req.file.mimetype === 'image/png' ? 'png' : 
-                  req.file.mimetype === 'image/webp' ? 'webp' : 'jpg';
-      const filename = `${userId}.${ext}`;
-      const filepath = path.join(process.cwd(), 'uploads', 'avatars', filename);
-      
-      // Delete old avatar files if exist
-      const avatarDir = path.join(process.cwd(), 'uploads', 'avatars');
-      if (fs.existsSync(avatarDir)) {
-        const files = fs.readdirSync(avatarDir);
-        for (const file of files) {
-          if (file.startsWith(userId + '.')) {
-            fs.unlinkSync(path.join(avatarDir, file));
-          }
-        }
+      // Validate MIME type
+      if (!ALLOWED_IMAGE_TYPES.includes(req.file.mimetype)) {
+        return res.status(400).json({ error: "Tipo de arquivo não permitido. Use JPG, PNG, WebP ou GIF." });
       }
+
+      // userId comes from authenticated JWT token - safe UUID
+      const userId = req.userId!;
+      const ext = getSafeExtension(req.file.mimetype);
+      if (!ext) {
+        return res.status(400).json({ error: "Tipo de imagem inválido" });
+      }
+      
+      const filename = `${userId}.${ext}`;
+      const avatarDir = path.join(process.cwd(), 'uploads', 'avatars');
+      const filepath = path.join(avatarDir, filename);
+      
+      // Ensure directory exists
+      if (!fs.existsSync(avatarDir)) {
+        fs.mkdirSync(avatarDir, { recursive: true });
+      }
+      
+      // Delete old avatar files for this user
+      deleteOldUserFiles(avatarDir, userId);
       
       // Save new file
       fs.writeFileSync(filepath, req.file.buffer);
@@ -824,22 +862,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Nenhuma imagem enviada" });
       }
 
-      const userId = req.userId!;
-      const ext = req.file.mimetype === 'image/png' ? 'png' : 
-                  req.file.mimetype === 'image/webp' ? 'webp' : 'jpg';
-      const filename = `${userId}.${ext}`;
-      const filepath = path.join(process.cwd(), 'uploads', 'backgrounds', filename);
-      
-      // Delete old background files if exist
-      const bgDir = path.join(process.cwd(), 'uploads', 'backgrounds');
-      if (fs.existsSync(bgDir)) {
-        const files = fs.readdirSync(bgDir);
-        for (const file of files) {
-          if (file.startsWith(userId + '.')) {
-            fs.unlinkSync(path.join(bgDir, file));
-          }
-        }
+      // Validate MIME type
+      if (!ALLOWED_IMAGE_TYPES.includes(req.file.mimetype)) {
+        return res.status(400).json({ error: "Tipo de arquivo não permitido. Use JPG, PNG, WebP ou GIF." });
       }
+
+      // userId comes from authenticated JWT token - safe UUID
+      const userId = req.userId!;
+      const ext = getSafeExtension(req.file.mimetype);
+      if (!ext) {
+        return res.status(400).json({ error: "Tipo de imagem inválido" });
+      }
+      
+      const filename = `${userId}.${ext}`;
+      const bgDir = path.join(process.cwd(), 'uploads', 'backgrounds');
+      const filepath = path.join(bgDir, filename);
+      
+      // Ensure directory exists
+      if (!fs.existsSync(bgDir)) {
+        fs.mkdirSync(bgDir, { recursive: true });
+      }
+      
+      // Delete old background files for this user
+      deleteOldUserFiles(bgDir, userId);
       
       // Save new file
       fs.writeFileSync(filepath, req.file.buffer);

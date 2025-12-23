@@ -292,8 +292,22 @@ export default function Settings() {
   });
 
   const uploadAvatarMutation = useMutation({
-    mutationFn: async (avatar: string) => {
-      return await apiRequest("PATCH", "/api/auth/profile", { avatar });
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append('avatar', file);
+      const token = localStorage.getItem("auth_token");
+      const response = await fetch("/api/auth/upload-avatar", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+        },
+        body: formData,
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Erro ao enviar foto");
+      }
+      return await response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
@@ -312,8 +326,22 @@ export default function Settings() {
   });
 
   const uploadBackgroundMutation = useMutation({
-    mutationFn: async (landingBackground: string) => {
-      return await apiRequest("PATCH", "/api/auth/profile", { landingBackground });
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append('background', file);
+      const token = localStorage.getItem("auth_token");
+      const response = await fetch("/api/auth/upload-background", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+        },
+        body: formData,
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Erro ao enviar imagem");
+      }
+      return await response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
@@ -487,12 +515,7 @@ export default function Settings() {
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const base64 = e.target?.result as string;
-      uploadAvatarMutation.mutate(base64);
-    };
-    reader.readAsDataURL(file);
+    uploadAvatarMutation.mutate(file);
   };
 
   const handleBackgroundClick = () => {
@@ -522,12 +545,7 @@ export default function Settings() {
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const base64 = e.target?.result as string;
-      uploadBackgroundMutation.mutate(base64);
-    };
-    reader.readAsDataURL(file);
+    uploadBackgroundMutation.mutate(file);
   };
 
   const onSubmitProfile = (data: ProfileForm) => {
