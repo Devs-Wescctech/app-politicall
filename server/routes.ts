@@ -780,6 +780,80 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Upload avatar image as file
+  app.post("/api/auth/upload-avatar", authenticateToken, upload.single('avatar'), async (req: AuthRequest, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "Nenhuma imagem enviada" });
+      }
+
+      const userId = req.userId!;
+      const ext = req.file.mimetype === 'image/png' ? 'png' : 
+                  req.file.mimetype === 'image/webp' ? 'webp' : 'jpg';
+      const filename = `${userId}.${ext}`;
+      const filepath = path.join(process.cwd(), 'uploads', 'avatars', filename);
+      
+      // Delete old avatar files if exist
+      const avatarDir = path.join(process.cwd(), 'uploads', 'avatars');
+      if (fs.existsSync(avatarDir)) {
+        const files = fs.readdirSync(avatarDir);
+        for (const file of files) {
+          if (file.startsWith(userId + '.')) {
+            fs.unlinkSync(path.join(avatarDir, file));
+          }
+        }
+      }
+      
+      // Save new file
+      fs.writeFileSync(filepath, req.file.buffer);
+      
+      // Update user with file URL
+      const avatarUrl = `/uploads/avatars/${filename}`;
+      await storage.updateUser(userId, req.accountId!, { avatar: avatarUrl });
+      
+      res.json({ avatar: avatarUrl });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Erro ao fazer upload do avatar" });
+    }
+  });
+
+  // Upload landing background image as file
+  app.post("/api/auth/upload-background", authenticateToken, upload.single('background'), async (req: AuthRequest, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "Nenhuma imagem enviada" });
+      }
+
+      const userId = req.userId!;
+      const ext = req.file.mimetype === 'image/png' ? 'png' : 
+                  req.file.mimetype === 'image/webp' ? 'webp' : 'jpg';
+      const filename = `${userId}.${ext}`;
+      const filepath = path.join(process.cwd(), 'uploads', 'backgrounds', filename);
+      
+      // Delete old background files if exist
+      const bgDir = path.join(process.cwd(), 'uploads', 'backgrounds');
+      if (fs.existsSync(bgDir)) {
+        const files = fs.readdirSync(bgDir);
+        for (const file of files) {
+          if (file.startsWith(userId + '.')) {
+            fs.unlinkSync(path.join(bgDir, file));
+          }
+        }
+      }
+      
+      // Save new file
+      fs.writeFileSync(filepath, req.file.buffer);
+      
+      // Update user with file URL
+      const bgUrl = `/uploads/backgrounds/${filename}`;
+      await storage.updateUser(userId, req.accountId!, { landingBackground: bgUrl });
+      
+      res.json({ landingBackground: bgUrl });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Erro ao fazer upload do background" });
+    }
+  });
+
   // Validate account admin password (for export authorization)
   app.post("/api/auth/validate-admin-password", authenticateToken, async (req: AuthRequest, res) => {
     try {

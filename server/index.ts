@@ -38,6 +38,9 @@ app.use(express.urlencoded({ limit: '50mb', extended: false }));
 // Serve uploaded assets
 app.use('/assets', express.static('attached_assets'));
 
+// Serve user uploads (avatars, backgrounds)
+app.use('/uploads', express.static('uploads'));
+
 app.use((req, res, next) => {
   const start = Date.now();
   const reqPath = req.path;
