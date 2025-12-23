@@ -1,5 +1,8 @@
 // Database connection - supports both Neon (Replit) and standard PostgreSQL (production)
+import { createRequire } from 'module';
 import * as schema from "@shared/schema";
+
+const require = createRequire(import.meta.url);
 
 if (!process.env.DATABASE_URL) {
   throw new Error(
@@ -15,21 +18,21 @@ let pool: any;
 
 if (isNeonDatabase) {
   // Use Neon serverless driver for Neon databases
-  const { Pool, neonConfig } = await import('@neondatabase/serverless');
-  const { drizzle } = await import('drizzle-orm/neon-serverless');
-  const ws = (await import('ws')).default;
+  const { Pool, neonConfig } = require('@neondatabase/serverless');
+  const { drizzle } = require('drizzle-orm/neon-serverless');
+  const ws = require('ws');
   
   neonConfig.webSocketConstructor = ws;
   pool = new Pool({ connectionString: process.env.DATABASE_URL });
   db = drizzle({ client: pool, schema });
 } else {
   // Use standard pg driver for regular PostgreSQL
-  const pg = await import('pg');
-  const { drizzle } = await import('drizzle-orm/node-postgres');
+  const { Pool: PgPool } = require('pg');
+  const { drizzle } = require('drizzle-orm/node-postgres');
   
-  pool = new pg.default.Pool({ 
+  pool = new PgPool({ 
     connectionString: process.env.DATABASE_URL,
-    ssl: false  // Disable SSL for local PostgreSQL
+    ssl: false
   });
   db = drizzle(pool, { schema });
 }

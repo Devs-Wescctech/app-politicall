@@ -1,0 +1,21 @@
+Error: server/db.ts(18,32): error TS1378: Top-level 'await' expressions are only allowed when the 'module' option is set to 'es2022', 'esnext', 'system', 'node16', 'nodenext', or 'preserve', and the 'target' option is set to 'es2017' or higher.
+Error: server/db.ts(19,23): error TS1378: Top-level 'await' expressions are only allowed when the 'module' option is set to 'es2022', 'esnext', 'system', 'node16', 'nodenext', or 'preserve', and the 'target' option is set to 'es2017' or higher.
+Error: server/db.ts(20,15): error TS1378: Top-level 'await' expressions are only allowed when the 'module' option is set to 'es2022', 'esnext', 'system', 'node16', 'nodenext', or 'preserve', and the 'target' option is set to 'es2017' or higher.
+Error: server/db.ts(27,14): error TS1378: Top-level 'await' expressions are only allowed when the 'module' option is set to 'es2022', 'esnext', 'system', 'node16', 'nodenext', or 'preserve', and the 'target' option is set to 'es2017' or higher.
+Error: server/db.ts(28,23): error TS1378: Top-level 'await' expressions are only allowed when the 'module' option is set to 'es2022', 'esnext', 'system', 'node16', 'nodenext', or 'preserve', and the 'target' option is set to 'es2017' or higher.
+Error: server/routes.ts(986,30): error TS7031: Binding element 'campaign' implicitly has an 'any' type.
+Error: server/routes.ts(986,40): error TS7031: Binding element 'template' implicitly has an 'any' type.
+Error: server/routes.ts(986,50): error TS7031: Binding element 'user' implicitly has an 'any' type.
+Error: server/routes.ts(1168,27): error TS7006: Parameter 'row' implicitly has an 'any' type.
+Error: server/routes.ts(3224,30): error TS7031: Binding element 'campaign' implicitly has an 'any' type.
+Error: server/routes.ts(3224,40): error TS7031: Binding element 'template' implicitly has an 'any' type.
+Error: server/routes.ts(3720,43): error TS7006: Parameter 'c' implicitly has an 'any' type.
+Error: server/routes.ts(3840,43): error TS7006: Parameter 'c' implicitly has an 'any' type.
+Error: server/routes.ts(4014,43): error TS7006: Parameter 'c' implicitly has an 'any' type.
+Error: server/routes.ts(4172,43): error TS7006: Parameter 'c' implicitly has an 'any' type.
+Error: server/routes.ts(4389,41): error TS7006: Parameter 'c' implicitly has an 'any' type.
+Error: server/routes.ts(4461,41): error TS7006: Parameter 'c' implicitly has an 'any' type.
+Error: server/storage.ts(275,48): error TS7006: Parameter 'tx' implicitly has an 'any' type.
+Error: server/storage.ts(422,48): error TS7006: Parameter 'tx' implicitly has an 'any' type.
+Error: server/storage.ts(669,25): error TS7006: Parameter 'r' implicitly has an 'any' type.
+Error: Process completed with exit code 2.
