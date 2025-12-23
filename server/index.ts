@@ -201,6 +201,12 @@ app.get("/convite-alianca/:token", async (req: Request, res: Response, next: Nex
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
   const port = parseInt(process.env.PORT || '5000', 10);
+  
+  // Configure timeouts for file uploads
+  server.keepAliveTimeout = 120000; // 2 minutes
+  server.headersTimeout = 125000; // slightly more than keepAlive
+  server.timeout = 300000; // 5 minutes for large uploads
+  
   server.listen({
     port,
     host: "0.0.0.0",

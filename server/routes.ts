@@ -20,10 +20,28 @@ import crypto from "crypto";
 import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
 import { insertUserSchema, loginSchema, insertContactSchema, insertPoliticalAllianceSchema, insertAllianceInviteSchema, insertDemandSchema, insertDemandCommentSchema, insertEventSchema, insertAiConfigurationSchema, insertAiTrainingExampleSchema, insertAiResponseTemplateSchema, insertMarketingCampaignSchema, insertNotificationSchema, insertIntegrationSchema, insertSurveyCampaignSchema, insertSurveyLandingPageSchema, insertSurveyResponseSchema, insertLeadSchema, DEFAULT_PERMISSIONS } from "@shared/schema";
 
-// Configure multer for file uploads
+// Configure multer for file uploads with disk storage for better performance
+const uploadDir = path.join(process.cwd(), 'uploads', 'temp');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+const diskStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => {
+    cb(null, uploadDir);
+  },
+  filename: (_req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, uniqueSuffix + '-' + file.originalname);
+  }
+});
+
 const upload = multer({ 
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 } // 10MB max
+  storage: diskStorage,
+  limits: { 
+    fileSize: 10 * 1024 * 1024, // 10MB max
+    fieldSize: 10 * 1024 * 1024 // 10MB for field values
+  }
 });
 import { db } from "./db";
 import { accounts, politicalParties, politicalAlliances, surveyTemplates, surveyCampaigns, surveyLandingPages, surveyResponses, users, events, demands, demandComments, contacts, aiConfigurations, systemSettings, type SurveyTemplate, type SurveyCampaign, type InsertSurveyCampaign, type SurveyLandingPage, type InsertSurveyLandingPage, type SurveyResponse, type InsertSurveyResponse } from "@shared/schema";
@@ -811,18 +829,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }
 
+  // Helper to clean up temp file
+  function cleanupTempFile(filePath: string): void {
+    try {
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    } catch (e) {
+      console.error("[UPLOAD] Failed to cleanup temp file:", filePath, e);
+    }
+  }
+
   // Upload avatar image as file
   app.post("/api/auth/upload-avatar", authenticateToken, upload.single('avatar'), async (req: AuthRequest, res) => {
+    const tempFilePath = req.file?.path;
     try {
       console.log("[UPLOAD] Avatar upload request received for user:", req.userId);
       console.log("[UPLOAD] File received:", req.file ? `${req.file.originalname} (${req.file.size} bytes)` : "No file");
       
-      if (!req.file) {
+      if (!req.file || !tempFilePath) {
         return res.status(400).json({ error: "Nenhuma imagem enviada" });
       }
 
       // Validate MIME type
       if (!ALLOWED_IMAGE_TYPES.includes(req.file.mimetype)) {
+        cleanupTempFile(tempFilePath);
         return res.status(400).json({ error: "Tipo de arquivo não permitido. Use JPG, PNG, WebP ou GIF." });
       }
 
@@ -830,6 +861,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.userId!;
       const ext = getSafeExtension(req.file.mimetype);
       if (!ext) {
+        cleanupTempFile(tempFilePath);
         return res.status(400).json({ error: "Tipo de imagem inválido" });
       }
       
@@ -845,8 +877,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Delete old avatar files for this user
       deleteOldUserFiles(avatarDir, userId);
       
-      // Save new file
-      fs.writeFileSync(filepath, req.file.buffer);
+      // Move file from temp to final location
+      fs.copyFileSync(tempFilePath, filepath);
+      cleanupTempFile(tempFilePath);
       
       // Update user with file URL
       const avatarUrl = `/uploads/avatars/${filename}`;
@@ -854,22 +887,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json({ avatar: avatarUrl });
     } catch (error: any) {
+      if (tempFilePath) cleanupTempFile(tempFilePath);
+      console.error("[UPLOAD] Avatar upload error:", error);
       res.status(500).json({ error: error.message || "Erro ao fazer upload do avatar" });
     }
   });
 
   // Upload landing background image as file
   app.post("/api/auth/upload-background", authenticateToken, upload.single('background'), async (req: AuthRequest, res) => {
+    const tempFilePath = req.file?.path;
     try {
       console.log("[UPLOAD] Background upload request received for user:", req.userId);
       console.log("[UPLOAD] File received:", req.file ? `${req.file.originalname} (${req.file.size} bytes)` : "No file");
       
-      if (!req.file) {
+      if (!req.file || !tempFilePath) {
         return res.status(400).json({ error: "Nenhuma imagem enviada" });
       }
 
       // Validate MIME type
       if (!ALLOWED_IMAGE_TYPES.includes(req.file.mimetype)) {
+        cleanupTempFile(tempFilePath);
         return res.status(400).json({ error: "Tipo de arquivo não permitido. Use JPG, PNG, WebP ou GIF." });
       }
 
@@ -877,6 +914,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.userId!;
       const ext = getSafeExtension(req.file.mimetype);
       if (!ext) {
+        cleanupTempFile(tempFilePath);
         return res.status(400).json({ error: "Tipo de imagem inválido" });
       }
       
@@ -892,8 +930,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Delete old background files for this user
       deleteOldUserFiles(bgDir, userId);
       
-      // Save new file
-      fs.writeFileSync(filepath, req.file.buffer);
+      // Move file from temp to final location
+      fs.copyFileSync(tempFilePath, filepath);
+      cleanupTempFile(tempFilePath);
       
       // Update user with file URL
       const bgUrl = `/uploads/backgrounds/${filename}`;
@@ -901,6 +940,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json({ landingBackground: bgUrl });
     } catch (error: any) {
+      if (tempFilePath) cleanupTempFile(tempFilePath);
+      console.error("[UPLOAD] Background upload error:", error);
       res.status(500).json({ error: error.message || "Erro ao fazer upload do background" });
     }
   });
