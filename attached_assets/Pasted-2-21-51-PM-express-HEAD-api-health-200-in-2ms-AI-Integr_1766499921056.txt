@@ -1,0 +1,121 @@
+2:21:51 PM [express] HEAD /api/health 200 in 2ms
+AI Integrations not configured. Set AI_INTEGRATIONS_OPENAI_BASE_URL and AI_INTEGRATIONS_OPENAI_API_KEY to enable AI features.
+❌ ERROR seeding admin user: error: relation "users" does not exist
+    at /app/node_modules/pg-pool/index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async /app/node_modules/drizzle-orm/node-postgres/session.cjs:118:22
+    at async DatabaseStorage.getUserByEmail (file:///app/dist/index.js:1656:20)
+    at async seedAdminUser (file:///app/dist/index.js:3442:27)
+    at async registerRoutes (file:///app/dist/index.js:3516:3)
+    at async file:///app/dist/index.js:7937:18 {
+  length: 105,
+  severity: 'ERROR',
+  code: '42P01',
+  detail: undefined,
+  hint: undefined,
+  position: '338',
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'parse_relation.c',
+  line: '1466',
+  routine: 'parserOpenTable'
+}
+Error seeding political parties: error: relation "political_parties" does not exist
+    at /app/node_modules/pg-pool/index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async /app/node_modules/drizzle-orm/node-postgres/session.cjs:118:22
+    at async DatabaseStorage.getAllParties (file:///app/dist/index.js:1837:12)
+    at async seedPoliticalParties (file:///app/dist/index.js:3223:29)
+    at async registerRoutes (file:///app/dist/index.js:3517:3)
+    at async file:///app/dist/index.js:7937:18 {
+  length: 116,
+  severity: 'ERROR',
+  code: '42P01',
+  detail: undefined,
+  hint: undefined,
+  position: '64',
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'parse_relation.c',
+  line: '1466',
+  routine: 'parserOpenTable'
+}
+Error seeding survey templates: error: relation "survey_templates" does not exist
+    at /app/node_modules/pg-pool/index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async /app/node_modules/drizzle-orm/node-postgres/session.cjs:118:22
+    at async DatabaseStorage.getSurveyTemplates (file:///app/dist/index.js:2355:12)
+    at async seedSurveyTemplates (file:///app/dist/index.js:3236:31)
+    at async registerRoutes (file:///app/dist/index.js:3518:3)
+    at async file:///app/dist/index.js:7937:18 {
+  length: 116,
+  severity: 'ERROR',
+  code: '42P01',
+  detail: undefined,
+  hint: undefined,
+  position: '117',
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'parse_relation.c',
+  line: '1466',
+  routine: 'parserOpenTable'
+}
+Error seeding test campaign: error: relation "users" does not exist
+    at /app/node_modules/pg-pool/index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async /app/node_modules/drizzle-orm/node-postgres/session.cjs:118:22
+    at async DatabaseStorage.getUser (file:///app/dist/index.js:1652:20)
+    at async seedTestCampaign (file:///app/dist/index.js:3487:22)
+    at async registerRoutes (file:///app/dist/index.js:3519:3)
+    at async file:///app/dist/index.js:7937:18 {
+  length: 105,
+  severity: 'ERROR',
+  code: '42P01',
+  detail: undefined,
+  hint: undefined,
+  position: '338',
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'parse_relation.c',
+  line: '1466',
+  routine: 'parserOpenTable'
+}
+2:21:58 PM [express] serving on port 5000
+2:22:01 PM [express] HEAD /api/health 200 in 10ms
+2:22:31 PM [express] HEAD /api/health 200 in 4ms
+2:23:01 PM [express] HEAD /api/health 200 in 3ms
+2:23:31 PM [express] HEAD /api/health 200 in 2ms
+2:24:01 PM [express] HEAD /api/health 200 in 2ms
+2:24:32 PM [express] HEAD /api/health 200 in 2ms
+2:25:02 PM [express] HEAD /api/health 200 in 2ms
+AI Integrations not configured. Set AI_INTEGRATIONS_OPENAI_BASE_URL and AI_INTEGRATIONS_OPENAI_API_KEY to enable AI features.
+✓ Admin user created with email: adm@politicall.com.br and password: admin123
+✓ Political parties seeded successfully
+✓ Inserted 20 new survey templates
+Test campaign seeded successfully
+2:25:07 PM [express] serving on port 5000
+2:25:11 PM [express] HEAD /api/health 200 in 10ms
