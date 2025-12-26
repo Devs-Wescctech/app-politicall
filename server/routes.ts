@@ -964,7 +964,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   setInterval(() => {
     const now = Date.now();
     const maxAge = 30 * 60 * 1000; // 30 minutes
-    for (const [uploadId, upload] of chunkedUploads.entries()) {
+    const entries = Array.from(chunkedUploads.entries());
+    for (let i = 0; i < entries.length; i++) {
+      const [uploadId, upload] = entries[i];
       if (now - upload.createdAt > maxAge) {
         chunkedUploads.delete(uploadId);
         console.log(`[CHUNKED] Cleaned up stale upload: ${uploadId}`);
