@@ -946,6 +946,196 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ==================== CHUNKED UPLOAD SYSTEM ====================
+  // For networks that block large uploads, we split files into small chunks
+  
+  const chunkedUploads = new Map<string, {
+    userId: string;
+    accountId: string;
+    mimetype: string;
+    totalChunks: number;
+    receivedChunks: Set<number>;
+    chunks: Buffer[];
+    createdAt: number;
+    type: 'avatar' | 'background';
+  }>();
+  
+  // Cleanup old incomplete uploads every 10 minutes
+  setInterval(() => {
+    const now = Date.now();
+    const maxAge = 30 * 60 * 1000; // 30 minutes
+    for (const [uploadId, upload] of chunkedUploads.entries()) {
+      if (now - upload.createdAt > maxAge) {
+        chunkedUploads.delete(uploadId);
+        console.log(`[CHUNKED] Cleaned up stale upload: ${uploadId}`);
+      }
+    }
+  }, 10 * 60 * 1000);
+
+  // Initialize chunked upload
+  app.post("/api/auth/upload-chunked-init", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const initSchema = z.object({
+        filename: z.string(),
+        mimetype: z.string(),
+        totalChunks: z.number().min(1).max(200),
+        type: z.enum(['avatar', 'background']),
+      });
+      
+      const { filename, mimetype, totalChunks, type } = initSchema.parse(req.body);
+      
+      if (!ALLOWED_IMAGE_TYPES.includes(mimetype)) {
+        return res.status(400).json({ error: "Tipo de arquivo não permitido. Use JPG, PNG, WebP ou GIF." });
+      }
+      
+      const uploadId = crypto.randomBytes(16).toString('hex');
+      
+      chunkedUploads.set(uploadId, {
+        userId: req.userId!,
+        accountId: req.accountId!,
+        mimetype,
+        totalChunks,
+        receivedChunks: new Set(),
+        chunks: new Array(totalChunks).fill(null),
+        createdAt: Date.now(),
+        type,
+      });
+      
+      console.log(`[CHUNKED] Upload initialized: ${uploadId}, ${totalChunks} chunks expected`);
+      
+      res.json({ uploadId, totalChunks });
+    } catch (error: any) {
+      console.error("[CHUNKED] Init error:", error);
+      res.status(400).json({ error: error.message || "Erro ao iniciar upload" });
+    }
+  });
+
+  // Constants for chunked upload limits
+  const MAX_CHUNK_SIZE = 64 * 1024; // 64KB max per chunk
+  const MAX_TOTAL_FILE_SIZE = 10 * 1024 * 1024; // 10MB max total
+
+  // Receive a chunk (accepts base64 in JSON body - small packets that pass through firewalls)
+  app.post("/api/auth/upload-chunked-chunk", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const chunkSchema = z.object({
+        uploadId: z.string(),
+        chunkIndex: z.number().min(0),
+        data: z.string().max(Math.ceil(MAX_CHUNK_SIZE * 4 / 3) + 10), // base64 is ~4/3 of binary size
+      });
+      
+      const { uploadId, chunkIndex, data } = chunkSchema.parse(req.body);
+      
+      const upload = chunkedUploads.get(uploadId);
+      if (!upload) {
+        return res.status(404).json({ error: "Upload não encontrado ou expirado" });
+      }
+      
+      if (upload.userId !== req.userId) {
+        return res.status(403).json({ error: "Não autorizado" });
+      }
+      
+      if (chunkIndex >= upload.totalChunks) {
+        return res.status(400).json({ error: "Índice de chunk inválido" });
+      }
+      
+      const chunkBuffer = Buffer.from(data, 'base64');
+      
+      // Validate chunk size
+      if (chunkBuffer.length > MAX_CHUNK_SIZE) {
+        return res.status(400).json({ error: `Chunk muito grande: ${chunkBuffer.length} bytes (máximo: ${MAX_CHUNK_SIZE})` });
+      }
+      
+      // Calculate current total size and validate
+      const currentSize = upload.chunks.reduce((acc, chunk) => acc + (chunk?.length || 0), 0);
+      if (currentSize + chunkBuffer.length > MAX_TOTAL_FILE_SIZE) {
+        chunkedUploads.delete(uploadId);
+        return res.status(400).json({ error: "Arquivo excede o tamanho máximo de 10MB" });
+      }
+      
+      upload.chunks[chunkIndex] = chunkBuffer;
+      upload.receivedChunks.add(chunkIndex);
+      
+      console.log(`[CHUNKED] Received chunk ${chunkIndex + 1}/${upload.totalChunks} for upload ${uploadId}`);
+      
+      res.json({ 
+        received: chunkIndex,
+        total: upload.totalChunks,
+        remaining: upload.totalChunks - upload.receivedChunks.size
+      });
+    } catch (error: any) {
+      console.error("[CHUNKED] Chunk error:", error);
+      res.status(400).json({ error: error.message || "Erro ao receber chunk" });
+    }
+  });
+
+  // Finalize chunked upload
+  app.post("/api/auth/upload-chunked-finalize", authenticateToken, async (req: AuthRequest, res) => {
+    try {
+      const finalizeSchema = z.object({
+        uploadId: z.string(),
+      });
+      
+      const { uploadId } = finalizeSchema.parse(req.body);
+      
+      const upload = chunkedUploads.get(uploadId);
+      if (!upload) {
+        return res.status(404).json({ error: "Upload não encontrado ou expirado" });
+      }
+      
+      if (upload.userId !== req.userId) {
+        return res.status(403).json({ error: "Não autorizado" });
+      }
+      
+      if (upload.receivedChunks.size !== upload.totalChunks) {
+        return res.status(400).json({ 
+          error: `Upload incompleto: ${upload.receivedChunks.size}/${upload.totalChunks} chunks recebidos` 
+        });
+      }
+      
+      // Combine all chunks
+      const completeBuffer = Buffer.concat(upload.chunks);
+      
+      const ext = getSafeExtension(upload.mimetype);
+      if (!ext) {
+        chunkedUploads.delete(uploadId);
+        return res.status(400).json({ error: "Tipo de imagem inválido" });
+      }
+      
+      const filename = `${upload.userId}.${ext}`;
+      const targetDir = upload.type === 'avatar' 
+        ? path.join(process.cwd(), 'uploads', 'avatars')
+        : path.join(process.cwd(), 'uploads', 'backgrounds');
+      const filepath = path.join(targetDir, filename);
+      
+      if (!fs.existsSync(targetDir)) {
+        fs.mkdirSync(targetDir, { recursive: true });
+      }
+      
+      deleteOldUserFiles(targetDir, upload.userId);
+      fs.writeFileSync(filepath, completeBuffer);
+      
+      const fileUrl = upload.type === 'avatar'
+        ? `/uploads/avatars/${filename}`
+        : `/uploads/backgrounds/${filename}`;
+      
+      if (upload.type === 'avatar') {
+        await storage.updateUser(upload.userId, upload.accountId, { avatar: fileUrl });
+      } else {
+        await storage.updateUser(upload.userId, upload.accountId, { landingBackground: fileUrl });
+      }
+      
+      chunkedUploads.delete(uploadId);
+      
+      console.log(`[CHUNKED] Upload finalized: ${uploadId}, saved to ${filepath}`);
+      
+      const responseKey = upload.type === 'avatar' ? 'avatar' : 'landingBackground';
+      res.json({ [responseKey]: fileUrl });
+    } catch (error: any) {
+      console.error("[CHUNKED] Finalize error:", error);
+      res.status(500).json({ error: error.message || "Erro ao finalizar upload" });
+    }
+  });
+
   // Validate account admin password (for export authorization)
   app.post("/api/auth/validate-admin-password", authenticateToken, async (req: AuthRequest, res) => {
     try {

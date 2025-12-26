@@ -325,23 +325,97 @@ export default function Settings() {
     },
   });
 
-  const uploadBackgroundMutation = useMutation({
-    mutationFn: async (file: File) => {
-      const formData = new FormData();
-      formData.append('background', file);
-      const token = localStorage.getItem("auth_token");
-      const response = await fetch("/api/auth/upload-background", {
+  // Chunked upload helper function - splits file into small chunks that pass through firewalls
+  const uploadFileChunked = async (file: File, type: 'avatar' | 'background'): Promise<any> => {
+    const CHUNK_SIZE = 50 * 1024; // 50KB chunks - small enough to pass through most firewalls
+    const token = localStorage.getItem("auth_token");
+    const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+    
+    // Step 1: Initialize upload
+    const initResponse = await fetch("/api/auth/upload-chunked-init", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        filename: file.name,
+        mimetype: file.type,
+        totalChunks,
+        type,
+      }),
+    });
+    
+    if (!initResponse.ok) {
+      const error = await initResponse.json();
+      throw new Error(error.error || "Erro ao iniciar upload");
+    }
+    
+    const { uploadId } = await initResponse.json();
+    
+    // Step 2: Send chunks sequentially
+    const arrayBuffer = await file.arrayBuffer();
+    const uint8Array = new Uint8Array(arrayBuffer);
+    
+    // Robust binary to base64 conversion function
+    const arrayBufferToBase64 = (buffer: Uint8Array): string => {
+      let binary = '';
+      const len = buffer.byteLength;
+      for (let i = 0; i < len; i++) {
+        binary += String.fromCharCode(buffer[i]);
+      }
+      return btoa(binary);
+    };
+    
+    for (let i = 0; i < totalChunks; i++) {
+      const start = i * CHUNK_SIZE;
+      const end = Math.min(start + CHUNK_SIZE, file.size);
+      const chunk = uint8Array.slice(start, end);
+      
+      // Convert to base64 using robust method
+      const base64Chunk = arrayBufferToBase64(chunk);
+      
+      const chunkResponse = await fetch("/api/auth/upload-chunked-chunk", {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
-        body: formData,
+        body: JSON.stringify({
+          uploadId,
+          chunkIndex: i,
+          data: base64Chunk,
+        }),
       });
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Erro ao enviar imagem");
+      
+      if (!chunkResponse.ok) {
+        const error = await chunkResponse.json();
+        throw new Error(error.error || `Erro ao enviar parte ${i + 1}`);
       }
-      return await response.json();
+    }
+    
+    // Step 3: Finalize upload
+    const finalizeResponse = await fetch("/api/auth/upload-chunked-finalize", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ uploadId }),
+    });
+    
+    if (!finalizeResponse.ok) {
+      const error = await finalizeResponse.json();
+      throw new Error(error.error || "Erro ao finalizar upload");
+    }
+    
+    return await finalizeResponse.json();
+  };
+
+  const uploadBackgroundMutation = useMutation({
+    mutationFn: async (file: File) => {
+      // Use chunked upload to bypass firewall restrictions
+      return await uploadFileChunked(file, 'background');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
