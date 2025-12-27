@@ -327,7 +327,7 @@ export default function Settings() {
 
   // Chunked upload helper function - splits file into small chunks that pass through firewalls
   const uploadFileChunked = async (file: File, type: 'avatar' | 'background'): Promise<any> => {
-    const CHUNK_SIZE = 50 * 1024; // 50KB chunks - small enough to pass through most firewalls
+    const CHUNK_SIZE = 8 * 1024; // 8KB chunks - very small to pass through restrictive firewalls
     const token = localStorage.getItem("auth_token");
     const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
     

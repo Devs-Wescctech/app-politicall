@@ -980,7 +980,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const initSchema = z.object({
         filename: z.string(),
         mimetype: z.string(),
-        totalChunks: z.number().min(1).max(200),
+        totalChunks: z.number().min(1).max(1500), // Allow up to 1500 chunks (8KB each = 12MB max)
         type: z.enum(['avatar', 'background']),
       });
       
