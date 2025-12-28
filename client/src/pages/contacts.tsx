@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -1724,12 +1724,12 @@ export default function Contacts() {
             </>
           )}
           <Dialog open={isExportDialogOpen} onOpenChange={setIsExportDialogOpen}>
-            <DialogContent className="max-w-md p-0" aria-describedby="export-dialog-description">
+            <DialogContent className="max-w-md p-0">
               <DialogHeader className="px-5 pt-5 pb-3 border-b">
                 <DialogTitle className="text-xl font-bold">Exportar Eleitores</DialogTitle>
-                <p id="export-dialog-description" className="text-xs text-muted-foreground mt-1">
+                <DialogDescription className="text-xs text-muted-foreground mt-1">
                   Selecione o formato para exportar <span className="font-semibold text-foreground">{filteredContacts?.length || 0}</span> eleitor(es)
-                </p>
+                </DialogDescription>
               </DialogHeader>
               <div className="p-4">
                 <div className="grid gap-3">
@@ -1795,12 +1795,12 @@ export default function Contacts() {
             </DialogContent>
           </Dialog>
           <Dialog open={isQrCodeDialogOpen} onOpenChange={setIsQrCodeDialogOpen}>
-            <DialogContent className="max-w-sm p-0" aria-describedby="qr-code-dialog-description">
+            <DialogContent className="max-w-sm p-0">
               <DialogHeader className="px-4 pt-4 pb-3 border-b">
                 <DialogTitle className="text-lg font-bold">QR Code de Apoio</DialogTitle>
-                <p id="qr-code-dialog-description" className="text-xs text-muted-foreground mt-0.5">
+                <DialogDescription className="text-xs text-muted-foreground mt-0.5">
                   Compartilhe para que apoiadores se cadastrem
-                </p>
+                </DialogDescription>
               </DialogHeader>
               <div className="p-4 space-y-3">
                 {qrCodeSlug ? (
@@ -1943,12 +1943,12 @@ export default function Contacts() {
               setProfilePhotoPreview(null);
             }
           }}>
-            <DialogContent className="max-w-sm p-0" aria-describedby="profile-photo-dialog-description">
+            <DialogContent className="max-w-sm p-0">
               <DialogHeader className="px-4 pt-4 pb-3 border-b">
                 <DialogTitle className="text-lg font-bold">Minha Foto de Perfil</DialogTitle>
-                <p id="profile-photo-dialog-description" className="text-xs text-muted-foreground mt-0.5">
+                <DialogDescription className="text-xs text-muted-foreground mt-0.5">
                   Sua foto aparecerá na página de apoio
-                </p>
+                </DialogDescription>
               </DialogHeader>
               <div className="p-4 space-y-4">
                 <div className="flex flex-col items-center gap-4">
@@ -2027,14 +2027,14 @@ export default function Contacts() {
             </DialogContent>
           </Dialog>
           <Dialog open={isProfileDialogOpen} onOpenChange={setIsProfileDialogOpen}>
-            <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0 [&>button]:hidden" aria-describedby="voter-profile-dialog-description">
+            <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0 [&>button]:hidden">
               <DialogHeader className="px-4 pt-4 pb-3 border-b">
                 <div className="flex items-center justify-between">
                   <div>
                     <DialogTitle className="text-lg font-bold">Perfil dos Eleitores</DialogTitle>
-                    <p id="voter-profile-dialog-description" className="text-xs text-muted-foreground mt-0.5">
+                    <DialogDescription className="text-xs text-muted-foreground mt-0.5">
                       Análise agregada dos dados cadastrados
-                    </p>
+                    </DialogDescription>
                   </div>
                   <Button
                     variant="outline"
@@ -2255,12 +2255,12 @@ export default function Contacts() {
             </DialogContent>
           </Dialog>
           <Dialog open={isProfileExportDialogOpen} onOpenChange={setIsProfileExportDialogOpen}>
-            <DialogContent className="max-w-md p-0" aria-describedby="profile-export-dialog-description">
+            <DialogContent className="max-w-md p-0">
               <DialogHeader className="px-5 pt-5 pb-3 border-b">
                 <DialogTitle className="text-xl font-bold">Exportar Perfil</DialogTitle>
-                <p id="profile-export-dialog-description" className="text-xs text-muted-foreground mt-1">
+                <DialogDescription className="text-xs text-muted-foreground mt-1">
                   Selecione o formato para exportar o perfil dos eleitores
-                </p>
+                </DialogDescription>
               </DialogHeader>
               <div className="p-4">
                 <div className="grid gap-3">
@@ -2325,12 +2325,12 @@ export default function Contacts() {
             setIsImportDialogOpen(open);
             if (!open) resetImport();
           }}>
-            <DialogContent className="max-w-lg max-h-[90vh] flex flex-col p-0" aria-describedby="import-dialog-description">
+            <DialogContent className="max-w-lg max-h-[90vh] flex flex-col p-0">
               <DialogHeader className="px-5 pt-5 pb-3 border-b">
                 <DialogTitle className="text-xl font-bold">Importar Contatos</DialogTitle>
-                <p id="import-dialog-description" className="text-xs text-muted-foreground mt-1">
+                <DialogDescription className="text-xs text-muted-foreground mt-1">
                   Importe uma lista de contatos de qualquer formato (.xlsx, .xls, .csv, .pdf)
-                </p>
+                </DialogDescription>
               </DialogHeader>
               <div className="flex-1 overflow-y-auto p-4">
                 {!importFile && !importResult && (
@@ -3223,15 +3223,15 @@ export default function Contacts() {
           setPendingExportType(null);
         }
       }}>
-        <DialogContent className="max-w-sm p-0" aria-describedby="password-dialog-description">
+        <DialogContent className="max-w-sm p-0">
           <DialogHeader className="px-5 pt-5 pb-3 border-b">
             <DialogTitle className="text-lg font-bold flex items-center gap-2">
               <Lock className="w-5 h-5 text-primary" />
               Confirmação de Segurança
             </DialogTitle>
-            <p id="password-dialog-description" className="text-xs text-muted-foreground mt-1">
+            <DialogDescription className="text-xs text-muted-foreground mt-1">
               Digite a senha do administrador da conta para autorizar a exportação
-            </p>
+            </DialogDescription>
           </DialogHeader>
           <div className="p-4 space-y-4">
             <div className="space-y-2">
@@ -3285,15 +3285,15 @@ export default function Contacts() {
           setBulkDeletePassword("");
         }
       }}>
-        <DialogContent className="max-w-sm p-0" aria-describedby="bulk-delete-dialog-description">
+        <DialogContent className="max-w-sm p-0">
           <DialogHeader className="px-5 pt-5 pb-3 border-b">
             <DialogTitle className="text-lg font-bold flex items-center gap-2 text-destructive">
               <Trash2 className="w-5 h-5" />
               Excluir {selectedContacts.size} Contato(s)
             </DialogTitle>
-            <p id="bulk-delete-dialog-description" className="text-xs text-muted-foreground mt-1">
+            <DialogDescription className="text-xs text-muted-foreground mt-1">
               Esta ação é irreversível. Digite a senha do administrador para confirmar.
-            </p>
+            </DialogDescription>
           </DialogHeader>
           <div className="p-4 space-y-4">
             <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3">
@@ -3344,15 +3344,15 @@ export default function Contacts() {
 
       {/* Bulk Email Modal with Blocks */}
       <Dialog open={isBulkEmailModalOpen} onOpenChange={setIsBulkEmailModalOpen}>
-        <DialogContent className="max-w-2xl max-h-[80vh] p-0" aria-describedby="bulk-email-dialog-description">
+        <DialogContent className="max-w-2xl max-h-[80vh] p-0">
           <DialogHeader className="px-5 pt-5 pb-3 border-b">
             <DialogTitle className="text-lg font-bold flex items-center gap-2">
               <Mail className="w-5 h-5 text-primary" />
               Envio de Email em Massa
             </DialogTitle>
-            <p id="bulk-email-dialog-description" className="text-xs text-muted-foreground mt-1">
+            <DialogDescription className="text-xs text-muted-foreground mt-1">
               Selecione o limite de envios por bloco e clique em cada bloco para enviar.
-            </p>
+            </DialogDescription>
           </DialogHeader>
           <div className="p-4 space-y-4">
             <div className="flex items-center justify-center gap-2">
