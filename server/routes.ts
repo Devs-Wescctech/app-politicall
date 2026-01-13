@@ -5004,6 +5004,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ==================== SALES (ADMIN ONLY) ====================
+
+  // Get all accounts/sales (admin only)
+  app.get("/api/admin/sales", authenticateAdminToken, async (req: AuthRequest, res) => {
+    try {
+      const accounts = await storage.getAllAccounts();
+      res.json(accounts);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Update account payment status (admin only)
+  app.patch("/api/admin/sales/:id", authenticateAdminToken, async (req: AuthRequest, res) => {
+    try {
+      const { paymentStatus, commissionPaid } = req.body;
+      const updated = await storage.updateAccountPaymentStatus(
+        req.params.id,
+        paymentStatus || "pending",
+        commissionPaid || false
+      );
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // ==================== PUBLIC SUPPORT (QR CODE) ====================
   
   // Get volunteer data by code (PUBLIC - no auth required)

@@ -21,6 +21,8 @@ export const accounts = pgTable("accounts", {
   name: text("name").notNull(), // Nome do gabinete/escritório político
   salesperson: text("salesperson"), // Nome do vendedor
   planValue: text("plan_value"), // Valor do plano
+  paymentStatus: text("payment_status"), // "paid", "pending", "free"
+  commissionPaid: boolean("commission_paid").default(false), // Comissão paga ao vendedor
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

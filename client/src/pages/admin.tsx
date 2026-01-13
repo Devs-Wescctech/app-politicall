@@ -6,6 +6,7 @@ import { ptBR } from "date-fns/locale";
 import { CheckCircle2, XCircle, ChevronLeft, ChevronRight, ChevronDown, User, Copy, Check, DollarSign, Inbox, Mail, Phone, Trash2, Search, Sun, Moon, Eye, Calendar, MapPin, Users, FileText, MessageSquare, BarChart3, X, RefreshCw, Server, Loader2, Info, AlertTriangle, Terminal, Database, FolderOpen, Key, HardDrive, Wand2 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { AdminBottomNav } from "@/components/admin-bottom-nav";
+import AdminSales from "@/pages/admin-sales";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -92,6 +93,7 @@ export default function Admin() {
   const [paidDialogOpen, setPaidDialogOpen] = useState(false);
   const [deleteCampaignDialogOpen, setDeleteCampaignDialogOpen] = useState(false);
   const [inboxDialogOpen, setInboxDialogOpen] = useState(false);
+  const [showSalesPage, setShowSalesPage] = useState(false);
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
   const [selectedCampaign, setSelectedCampaign] = useState<CampaignWithTemplate | null>(null);
   const [rejectNotes, setRejectNotes] = useState("");
@@ -1206,14 +1208,14 @@ export default function Admin() {
       <AdminBottomNav 
         activePage="dashboard" 
         onInboxClick={() => setInboxDialogOpen(true)}
-        onSearchClick={() => {
-          const searchInput = document.querySelector('[data-testid="input-search"]') as HTMLInputElement;
-          if (searchInput) {
-            searchInput.focus();
-            searchInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          }
-        }}
+        onSearchClick={() => setShowSalesPage(true)}
       />
+      {/* Sales Page Dialog */}
+      <Dialog open={showSalesPage} onOpenChange={setShowSalesPage}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <AdminSales onBack={() => setShowSalesPage(false)} />
+        </DialogContent>
+      </Dialog>
       {/* Reject Dialog */}
       <Dialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
         <DialogContent data-testid="dialog-reject">

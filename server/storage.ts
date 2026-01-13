@@ -33,6 +33,8 @@ import { normalizeText } from "@shared/text-normalization";
 export interface IStorage {
   // Accounts
   createAccount(account: { name: string; salesperson?: string | null; planValue?: string | null }): Promise<Account>;
+  getAllAccounts(): Promise<Account[]>;
+  updateAccountPaymentStatus(id: string, paymentStatus: string, commissionPaid: boolean): Promise<Account>;
 
   // Users
   getUser(id: string): Promise<User | undefined>;
@@ -188,6 +190,18 @@ export class DatabaseStorage implements IStorage {
   async createAccount(account: { name: string; salesperson?: string | null; planValue?: string | null }): Promise<Account> {
     const [newAccount] = await db.insert(accounts).values(account).returning();
     return newAccount;
+  }
+
+  async getAllAccounts(): Promise<Account[]> {
+    return await db.select().from(accounts).orderBy(desc(accounts.createdAt));
+  }
+
+  async updateAccountPaymentStatus(id: string, paymentStatus: string, commissionPaid: boolean): Promise<Account> {
+    const [updated] = await db.update(accounts)
+      .set({ paymentStatus, commissionPaid })
+      .where(eq(accounts.id, id))
+      .returning();
+    return updated;
   }
 
   // Users

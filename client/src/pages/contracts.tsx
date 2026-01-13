@@ -35,6 +35,7 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { UserPlus, ArrowLeft, Mail, Lock, User as UserIcon, MoreVertical, Phone, Pencil, Trash2, Inbox, LogIn, Search, Key, Eye, EyeOff, Sun, Moon, CheckCircle2, AlertCircle } from "lucide-react";
 import { AdminBottomNav } from "@/components/admin-bottom-nav";
+import AdminSales from "@/pages/admin-sales";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { setAuthToken, setAuthUser } from "@/lib/auth";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -102,6 +103,7 @@ export default function ContractsPage() {
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
   const [inboxDialogOpen, setInboxDialogOpen] = useState(false);
+  const [showSalesPage, setShowSalesPage] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isEditingUser, setIsEditingUser] = useState(false);
   const [editPlanValue, setEditPlanValue] = useState("");
@@ -881,14 +883,14 @@ export default function ContractsPage() {
       <AdminBottomNav 
         activePage="contracts" 
         onInboxClick={() => setInboxDialogOpen(true)}
-        onSearchClick={() => {
-          const searchInput = document.querySelector('[data-testid="input-search"]') as HTMLInputElement;
-          if (searchInput) {
-            searchInput.focus();
-            searchInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          }
-        }}
+        onSearchClick={() => setShowSalesPage(true)}
       />
+      {/* Sales Page Dialog */}
+      <Dialog open={showSalesPage} onOpenChange={setShowSalesPage}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <AdminSales onBack={() => setShowSalesPage(false)} />
+        </DialogContent>
+      </Dialog>
       {/* User Details Dialog */}
       <Dialog open={detailsDialogOpen} onOpenChange={setDetailsDialogOpen}>
         <DialogContent className="max-w-md max-h-[85vh] flex flex-col p-0" data-testid="dialog-user-details">

@@ -1,0 +1,157 @@
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { queryClient, apiRequest } from "@/lib/queryClient";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ArrowLeft, DollarSign, User, Calendar } from "lucide-react";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
+
+interface Account {
+  id: string;
+  name: string;
+  salesperson: string | null;
+  planValue: string | null;
+  paymentStatus: string | null;
+  commissionPaid: boolean | null;
+  createdAt: string;
+}
+
+interface AdminSalesProps {
+  onBack: () => void;
+}
+
+export default function AdminSales({ onBack }: AdminSalesProps) {
+  const { data: accounts = [], isLoading } = useQuery<Account[]>({
+    queryKey: ["/api/admin/sales"],
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, paymentStatus, commissionPaid }: { id: string; paymentStatus: string; commissionPaid: boolean }) => {
+      return apiRequest("PATCH", `/api/admin/sales/${id}`, { paymentStatus, commissionPaid });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/sales"] });
+    },
+  });
+
+  const handleStatusChange = (account: Account, paymentStatus: string) => {
+    updateMutation.mutate({
+      id: account.id,
+      paymentStatus,
+      commissionPaid: account.commissionPaid || false,
+    });
+  };
+
+  const handleCommissionChange = (account: Account, commissionPaid: boolean) => {
+    updateMutation.mutate({
+      id: account.id,
+      paymentStatus: account.paymentStatus || "pending",
+      commissionPaid,
+    });
+  };
+
+  const getStatusBadge = (status: string | null) => {
+    switch (status) {
+      case "paid":
+        return <Badge className="bg-green-500">Cliente Pagou</Badge>;
+      case "free":
+        return <Badge className="bg-blue-500">Plano Gratuito</Badge>;
+      default:
+        return <Badge variant="secondary">Pendente</Badge>;
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    );
+  }
+
+  const salesWithVendors = accounts.filter(a => a.salesperson);
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center gap-4">
+        <Button variant="ghost" size="icon" onClick={onBack} data-testid="button-back-sales">
+          <ArrowLeft className="w-5 h-5" />
+        </Button>
+        <div>
+          <h1 className="text-2xl font-bold">Vendas</h1>
+          <p className="text-muted-foreground">Acompanhamento de vendas e comissões</p>
+        </div>
+      </div>
+
+      {salesWithVendors.length === 0 ? (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <DollarSign className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+            <p className="text-muted-foreground">Nenhuma venda registrada ainda</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-4">
+          {salesWithVendors.map((account) => (
+            <Card key={account.id} data-testid={`card-sale-${account.id}`}>
+              <CardContent className="py-4">
+                <div className="flex flex-col md:flex-row md:items-center gap-4">
+                  <div className="flex-1 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <User className="w-4 h-4 text-muted-foreground" />
+                      <span className="font-medium">{account.salesperson}</span>
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      Cliente: {account.name}
+                    </div>
+                    <div className="flex items-center gap-4 text-sm">
+                      <div className="flex items-center gap-1">
+                        <DollarSign className="w-4 h-4 text-green-600" />
+                        <span className="font-medium">{account.planValue || "Não definido"}</span>
+                      </div>
+                      <div className="flex items-center gap-1 text-muted-foreground">
+                        <Calendar className="w-4 h-4" />
+                        <span>{format(new Date(account.createdAt), "dd/MM/yyyy", { locale: ptBR })}</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                    <Select
+                      value={account.paymentStatus || "pending"}
+                      onValueChange={(value) => handleStatusChange(account, value)}
+                    >
+                      <SelectTrigger className="w-[160px]" data-testid={`select-status-${account.id}`}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="pending">Pendente</SelectItem>
+                        <SelectItem value="paid">Cliente Pagou</SelectItem>
+                        <SelectItem value="free">Plano Gratuito</SelectItem>
+                      </SelectContent>
+                    </Select>
+
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        id={`commission-${account.id}`}
+                        checked={account.commissionPaid || false}
+                        onCheckedChange={(checked) => handleCommissionChange(account, Boolean(checked))}
+                        data-testid={`checkbox-commission-${account.id}`}
+                      />
+                      <label htmlFor={`commission-${account.id}`} className="text-sm cursor-pointer">
+                        Comissão Paga
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
