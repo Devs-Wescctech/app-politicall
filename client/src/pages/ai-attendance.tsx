@@ -119,9 +119,9 @@ export default function AiAttendance() {
       instagramAppSecret: "",
       instagramAccessToken: "",
       instagramBusinessAccountId: "",
-      instagramFacebookPageId: "",
+      instagramFacebookPageId: "61583878966627",
       instagramUsername: "",
-      instagramWebhookVerifyToken: "",
+      instagramWebhookVerifyToken: "politicall",
       // Twitter/X
       twitterApiKey: "",
       twitterApiSecretKey: "",
