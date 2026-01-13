@@ -22,10 +22,10 @@ interface Account {
 }
 
 interface AdminSalesProps {
-  onBack: () => void;
+  onClose: () => void;
 }
 
-export default function AdminSales({ onBack }: AdminSalesProps) {
+export default function AdminSales({ onClose }: AdminSalesProps) {
   const [selectedVendor, setSelectedVendor] = useState<string>("all");
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
@@ -146,80 +146,78 @@ export default function AdminSales({ onBack }: AdminSalesProps) {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
+      <div className="flex items-center justify-center h-full">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-        <div className="flex items-center gap-4 flex-1">
-          <Button variant="ghost" size="icon" onClick={onBack} data-testid="button-back-sales">
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold">Vendas ({filteredAccounts.length})</h1>
-            <p className="text-muted-foreground">Acompanhamento de vendas e comissões</p>
-          </div>
+    <>
+      {/* Fixed Header */}
+      <div className="flex-shrink-0 px-6 pt-6 pb-4 border-b space-y-4">
+        <div>
+          <h1 className="text-2xl font-bold">Vendas ({filteredAccounts.length})</h1>
+          <p className="text-muted-foreground">Acompanhamento de vendas e comissões</p>
         </div>
         
-      </div>
-      
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-muted-foreground" />
-            <span className="text-sm text-muted-foreground">Período:</span>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-muted-foreground" />
+              <span className="text-sm text-muted-foreground">Período:</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Input
+                placeholder="DD/MM/AAAA"
+                value={startDate}
+                onChange={(e) => setStartDate(formatDateInput(e.target.value))}
+                maxLength={10}
+                className="w-[130px]"
+                data-testid="input-start-date"
+              />
+              <span className="text-muted-foreground">até</span>
+              <Input
+                placeholder="DD/MM/AAAA"
+                value={endDate}
+                onChange={(e) => setEndDate(formatDateInput(e.target.value))}
+                maxLength={10}
+                className="w-[130px]"
+                data-testid="input-end-date"
+              />
+              {(startDate || endDate) && (
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={() => { setStartDate(""); setEndDate(""); }}
+                  data-testid="button-clear-dates"
+                >
+                  Limpar
+                </Button>
+              )}
+            </div>
           </div>
+          
           <div className="flex items-center gap-2">
-            <Input
-              placeholder="DD/MM/AAAA"
-              value={startDate}
-              onChange={(e) => setStartDate(formatDateInput(e.target.value))}
-              maxLength={10}
-              className="w-[130px]"
-              data-testid="input-start-date"
-            />
-            <span className="text-muted-foreground">até</span>
-            <Input
-              placeholder="DD/MM/AAAA"
-              value={endDate}
-              onChange={(e) => setEndDate(formatDateInput(e.target.value))}
-              maxLength={10}
-              className="w-[130px]"
-              data-testid="input-end-date"
-            />
-            {(startDate || endDate) && (
-              <Button 
-                variant="ghost" 
-                size="sm"
-                onClick={() => { setStartDate(""); setEndDate(""); }}
-                data-testid="button-clear-dates"
-              >
-                Limpar
-              </Button>
-            )}
+            <Filter className="w-4 h-4 text-muted-foreground" />
+            <Select value={selectedVendor} onValueChange={setSelectedVendor}>
+              <SelectTrigger className="w-[160px]" data-testid="select-vendor-filter">
+                <SelectValue placeholder="Vendedor" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="no_vendor">Sem vendedor</SelectItem>
+                {vendors.map(vendor => (
+                  <SelectItem key={vendor} value={vendor}>{vendor}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
-        
-        <div className="flex items-center gap-2">
-          <Filter className="w-4 h-4 text-muted-foreground" />
-          <Select value={selectedVendor} onValueChange={setSelectedVendor}>
-            <SelectTrigger className="w-[160px]" data-testid="select-vendor-filter">
-              <SelectValue placeholder="Vendedor" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos</SelectItem>
-              <SelectItem value="no_vendor">Sem vendedor</SelectItem>
-              {vendors.map(vendor => (
-                <SelectItem key={vendor} value={vendor}>{vendor}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
       </div>
+
+      {/* Scrollable Content */}
+      <div className="flex-1 overflow-y-auto px-6 py-4">
 
       {filteredAccounts.length === 0 ? (
         <Card>
@@ -287,6 +285,19 @@ export default function AdminSales({ onBack }: AdminSalesProps) {
           ))}
         </div>
       )}
-    </div>
+      </div>
+
+      {/* Fixed Footer */}
+      <div className="flex-shrink-0 px-6 py-4 border-t">
+        <Button 
+          className="w-full" 
+          variant="outline"
+          onClick={onClose}
+          data-testid="button-close-sales"
+        >
+          Fechar
+        </Button>
+      </div>
+    </>
   );
 }
