@@ -14,6 +14,17 @@ import { setAuthToken, setAuthUser } from "@/lib/auth";
 import { apiRequest } from "@/lib/queryClient";
 import logoUrl from "@assets/logo pol_1763308638963.png";
 
+function formatCurrency(value: string): string {
+  const digits = value.replace(/\D/g, "");
+  if (!digits) return "";
+  const number = parseInt(digits, 10);
+  const formatted = (number / 100).toLocaleString("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+  return `R$ ${formatted}`;
+}
+
 export default function Register() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -157,9 +168,10 @@ export default function Register() {
                       <FormLabel>Valor do Plano</FormLabel>
                       <FormControl>
                         <Input 
-                          placeholder="Ex: R$ 299,00" 
+                          placeholder="R$ 0,00" 
                           data-testid="input-plan-value"
-                          {...field} 
+                          value={field.value || ""}
+                          onChange={(e) => field.onChange(formatCurrency(e.target.value))}
                         />
                       </FormControl>
                       <FormMessage />
