@@ -165,7 +165,46 @@ export default function AdminSales({ onBack }: AdminSalesProps) {
           </div>
         </div>
         
-        <div className="flex flex-wrap items-center gap-2">
+      </div>
+      
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-muted-foreground" />
+            <span className="text-sm text-muted-foreground">Período:</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Input
+              placeholder="DD/MM/AAAA"
+              value={startDate}
+              onChange={(e) => setStartDate(formatDateInput(e.target.value))}
+              maxLength={10}
+              className="w-[130px]"
+              data-testid="input-start-date"
+            />
+            <span className="text-muted-foreground">até</span>
+            <Input
+              placeholder="DD/MM/AAAA"
+              value={endDate}
+              onChange={(e) => setEndDate(formatDateInput(e.target.value))}
+              maxLength={10}
+              className="w-[130px]"
+              data-testid="input-end-date"
+            />
+            {(startDate || endDate) && (
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={() => { setStartDate(""); setEndDate(""); }}
+                data-testid="button-clear-dates"
+              >
+                Limpar
+              </Button>
+            )}
+          </div>
+        </div>
+        
+        <div className="flex items-center gap-2">
           <Filter className="w-4 h-4 text-muted-foreground" />
           <Select value={selectedVendor} onValueChange={setSelectedVendor}>
             <SelectTrigger className="w-[160px]" data-testid="select-vendor-filter">
@@ -179,42 +218,6 @@ export default function AdminSales({ onBack }: AdminSalesProps) {
               ))}
             </SelectContent>
           </Select>
-        </div>
-      </div>
-      
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-2">
-          <Calendar className="w-4 h-4 text-muted-foreground" />
-          <span className="text-sm text-muted-foreground">Período:</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <Input
-            placeholder="DD/MM/AAAA"
-            value={startDate}
-            onChange={(e) => setStartDate(formatDateInput(e.target.value))}
-            maxLength={10}
-            className="w-[130px]"
-            data-testid="input-start-date"
-          />
-          <span className="text-muted-foreground">até</span>
-          <Input
-            placeholder="DD/MM/AAAA"
-            value={endDate}
-            onChange={(e) => setEndDate(formatDateInput(e.target.value))}
-            maxLength={10}
-            className="w-[130px]"
-            data-testid="input-end-date"
-          />
-          {(startDate || endDate) && (
-            <Button 
-              variant="ghost" 
-              size="sm"
-              onClick={() => { setStartDate(""); setEndDate(""); }}
-              data-testid="button-clear-dates"
-            >
-              Limpar
-            </Button>
-          )}
         </div>
       </div>
 
