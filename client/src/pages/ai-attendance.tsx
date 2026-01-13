@@ -186,9 +186,9 @@ export default function AiAttendance() {
         instagramAppSecret: config.instagramAppSecret || "",
         instagramAccessToken: config.instagramAccessToken || "",
         instagramBusinessAccountId: config.instagramBusinessAccountId || "",
-        instagramFacebookPageId: config.instagramFacebookPageId || "",
+        instagramFacebookPageId: config.instagramFacebookPageId || "61583878966627",
         instagramUsername: config.instagramUsername || "",
-        instagramWebhookVerifyToken: config.instagramWebhookVerifyToken || "",
+        instagramWebhookVerifyToken: config.instagramWebhookVerifyToken || "politicall",
         // Twitter/X
         twitterApiKey: config.twitterApiKey || "",
         twitterApiSecretKey: config.twitterApiSecretKey || "",
