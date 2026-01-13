@@ -1,0 +1,88 @@
+sup_wescc@srvappsprod:/etc/nginx/sites-available$ sudo nginx -t
+2026/01/13 19:38:43 [emerg] 2535302#2535302: duplicate location "/" in /etc/nginx/sites-enabled/politicall.conf:64
+nginx: configuration file /etc/nginx/nginx.conf test failed
+sup_wescc@srvappsprod:/etc/nginx/sites-available$ cat politicall.conf
+server {
+    if ($host = politicall.peticoesbr.com.br) {
+        return 301 https://$host$request_uri;
+    } # managed by Certbot
+
+
+    if ($host = www.politicall.com.br) {
+        return 301 https://$host$request_uri;
+    } # managed by Certbot
+
+
+    if ($host = politicall.com.br) {
+        return 301 https://$host$request_uri;
+    } # managed by Certbot
+
+
+    listen 80;
+    server_name politicall.com.br www.politicall.com.br politicall.peticoesbr.com.br;
+    return 301 https://$host$request_uri;
+
+
+
+
+
+
+}
+
+server {
+    listen 443 ssl;
+    server_name politicall.com.br www.politicall.com.br politicall.peticoesbr.com.br;
+    ssl_certificate /etc/letsencrypt/live/politicall.peticoesbr.com.br/fullchain.pem; # managed by Certbot
+    ssl_certificate_key /etc/letsencrypt/live/politicall.peticoesbr.com.br/privkey.pem; # managed by Certbot
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+    client_max_body_size 50M;
+    client_body_buffer_size 10M;
+    
+    proxy_read_timeout 300s;
+    proxy_connect_timeout 75s;
+
+# Adicione isso ANTES do location / principal:
+
+location /api/ {
+    proxy_pass http://127.0.0.1:5000;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    
+    # Forçar sem cache para APIs
+    proxy_no_cache 1;
+    proxy_cache_bypass 1;
+    add_header Cache-Control "no-store, no-cache, must-revalidate" always;
+    add_header Pragma "no-cache" always;
+}
+
+location / {
+    # ... resto da config existente
+}
+
+
+    location / {
+        proxy_pass http://127.0.0.1:5000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /uploads {
+        proxy_pass http://127.0.0.1:5000/uploads;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+    }
+
+
+
+}
+sup_wescc@srvappsprod:/etc/nginx/sites-available$ 
