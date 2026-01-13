@@ -32,7 +32,7 @@ import { normalizeText } from "@shared/text-normalization";
 
 export interface IStorage {
   // Accounts
-  createAccount(account: { name: string }): Promise<Account>;
+  createAccount(account: { name: string; salesperson?: string | null; planValue?: string | null }): Promise<Account>;
 
   // Users
   getUser(id: string): Promise<User | undefined>;
@@ -185,7 +185,7 @@ export interface IStorage {
 
 export class DatabaseStorage implements IStorage {
   // Accounts
-  async createAccount(account: { name: string }): Promise<Account> {
+  async createAccount(account: { name: string; salesperson?: string | null; planValue?: string | null }): Promise<Account> {
     const [newAccount] = await db.insert(accounts).values(account).returning();
     return newAccount;
   }

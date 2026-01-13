@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertUserSchema, type InsertUser } from "@shared/schema";
+import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,12 +19,17 @@ export default function Register() {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
 
-  const form = useForm<InsertUser>({
-    resolver: zodResolver(insertUserSchema),
+  const form = useForm<InsertUser & { salesperson?: string; planValue?: string }>({
+    resolver: zodResolver(insertUserSchema.extend({
+      salesperson: z.string().optional(),
+      planValue: z.string().optional(),
+    })),
     defaultValues: {
       name: "",
       email: "",
       password: "",
+      salesperson: "",
+      planValue: "",
       permissions: {
         dashboard: true,
         contacts: false,
@@ -124,6 +130,43 @@ export default function Register() {
                   </FormItem>
                 )}
               />
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="salesperson"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Vendedor</FormLabel>
+                      <FormControl>
+                        <Input 
+                          placeholder="Nome do vendedor" 
+                          data-testid="input-salesperson"
+                          {...field} 
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="planValue"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Valor do Plano</FormLabel>
+                      <FormControl>
+                        <Input 
+                          placeholder="Ex: R$ 299,00" 
+                          data-testid="input-plan-value"
+                          {...field} 
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
 
               <div className="space-y-3 pt-2">
                 <div className="border-t pt-4">

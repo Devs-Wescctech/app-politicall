@@ -563,7 +563,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // CRIAR NOVA CONTA PRIMEIRO
       const account = await storage.createAccount({
-        name: validatedData.name || validatedData.email
+        name: validatedData.name || validatedData.email,
+        salesperson: req.body.salesperson || null,
+        planValue: req.body.planValue || null,
       });
       
       // Gerar slug base a partir do nome do admin

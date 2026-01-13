@@ -19,6 +19,8 @@ import { z } from "zod";
 export const accounts = pgTable("accounts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(), // Nome do gabinete/escritório político
+  salesperson: text("salesperson"), // Nome do vendedor
+  planValue: text("plan_value"), // Valor do plano
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
