@@ -1519,9 +1519,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         partyAbbreviation: politicalParties.acronym,
         partyName: politicalParties.name,
         partyIdeology: politicalParties.ideology,
+        salesperson: accounts.salesperson,
       })
       .from(users)
-      .leftJoin(politicalParties, eq(users.partyId, politicalParties.id));
+      .leftJoin(politicalParties, eq(users.partyId, politicalParties.id))
+      .leftJoin(accounts, eq(users.accountId, accounts.id));
       
       // Get activity count for each user
       const usersWithActivityCount = await Promise.all(
@@ -1579,6 +1581,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             paymentStatus: row.paymentStatus,
             lastPaymentDate: row.lastPaymentDate,
             createdAt: row.createdAt,
+            salesperson: row.salesperson,
             party: row.partyName ? {
               id: row.partyId!,
               name: row.partyName,
