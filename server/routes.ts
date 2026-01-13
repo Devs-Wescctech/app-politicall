@@ -647,6 +647,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Get current authenticated user (with fresh role from database)
   app.get("/api/auth/me", authenticateToken, async (req: AuthRequest, res) => {
+    // Prevent browser caching to ensure fresh avatar/profile data
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+    
     try {
       let user = await storage.getUser(req.userId!);
       if (!user) {
@@ -685,6 +690,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Get account admin information (for sidebar header)
   app.get("/api/account/admin", authenticateToken, async (req: AuthRequest, res) => {
+    // Prevent browser caching to ensure fresh avatar/profile data
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+    
     try {
       // Find the admin user for this account
       const [adminUser] = await db
