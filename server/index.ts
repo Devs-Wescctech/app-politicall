@@ -22,6 +22,9 @@ import * as path from "path";
 
 const app = express();
 
+// Disable ETag to prevent 304 responses causing stale avatar/profile data
+app.set('etag', false);
+
 declare module 'http' {
   interface IncomingMessage {
     rawBody: unknown
