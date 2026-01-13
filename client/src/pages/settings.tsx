@@ -15,7 +15,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { User, Edit, Camera, Key, Copy, Trash2, Calendar, Clock, CheckCircle2, XCircle, Plus, Code2, AlertCircle, Terminal, Globe, ChevronDown, ExternalLink, RefreshCw, Settings2, Link, Lock, Users, Handshake, ClipboardList, FileCheck, Bot, BarChart3 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { getAuthUser } from "@/lib/auth";
+import { getAuthUser, setAuthUser } from "@/lib/auth";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -311,7 +311,12 @@ export default function Settings() {
       }
       return await response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      // Update localStorage with new avatar to sync all components
+      const storedUser = getAuthUser();
+      if (storedUser && data.avatar) {
+        setAuthUser({ ...storedUser, avatar: data.avatar });
+      }
       // Force immediate refetch to update avatar everywhere
       queryClient.refetchQueries({ queryKey: ["/api/auth/me"] });
       queryClient.refetchQueries({ queryKey: ["/api/account/admin"] });

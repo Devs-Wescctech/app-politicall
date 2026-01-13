@@ -829,8 +829,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!fs.existsSync(directory)) return;
     const files = fs.readdirSync(directory);
     for (const file of files) {
-      // Only match files that start with exact userId followed by a dot
-      if (file.match(new RegExp(`^${userId}\\.[a-z]+$`, 'i'))) {
+      // Match files: userId.ext OR userId_timestamp.ext (for cache-busting)
+      if (file.match(new RegExp(`^${userId}(_\\d+)?\\.[a-z]+$`, 'i'))) {
         const filePath = path.join(directory, file);
         try {
           fs.unlinkSync(filePath);
@@ -877,7 +877,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Tipo de imagem inválido" });
       }
       
-      const filename = `${userId}.${ext}`;
+      // Add timestamp to filename for cache-busting (browser won't use cached old image)
+      const timestamp = Date.now();
+      const filename = `${userId}_${timestamp}.${ext}`;
       const avatarDir = path.join(process.cwd(), 'uploads', 'avatars');
       const filepath = path.join(avatarDir, filename);
       
@@ -886,7 +888,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         fs.mkdirSync(avatarDir, { recursive: true });
       }
       
-      // Delete old avatar files for this user
+      // Delete ALL old avatar files for this user (including timestamped versions)
       deleteOldUserFiles(avatarDir, userId);
       
       // Move file from temp to final location
@@ -930,7 +932,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Tipo de imagem inválido" });
       }
       
-      const filename = `${userId}.${ext}`;
+      // Add timestamp to filename for cache-busting
+      const timestamp = Date.now();
+      const filename = `${userId}_${timestamp}.${ext}`;
       const bgDir = path.join(process.cwd(), 'uploads', 'backgrounds');
       const filepath = path.join(bgDir, filename);
       
@@ -1115,7 +1119,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Tipo de imagem inválido" });
       }
       
-      const filename = `${upload.userId}.${ext}`;
+      // Add timestamp to filename for cache-busting
+      const timestamp = Date.now();
+      const filename = `${upload.userId}_${timestamp}.${ext}`;
       const targetDir = upload.type === 'avatar' 
         ? path.join(process.cwd(), 'uploads', 'avatars')
         : path.join(process.cwd(), 'uploads', 'backgrounds');
