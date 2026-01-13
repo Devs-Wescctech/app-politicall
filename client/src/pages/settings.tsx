@@ -275,8 +275,9 @@ export default function Settings() {
       return await apiRequest("PATCH", "/api/auth/profile", payload);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/account/admin"] });
+      // Force immediate refetch to update profile everywhere
+      queryClient.refetchQueries({ queryKey: ["/api/auth/me"] });
+      queryClient.refetchQueries({ queryKey: ["/api/account/admin"] });
       toast({
         title: "Sucesso",
         description: "Perfil atualizado com sucesso",
@@ -311,8 +312,9 @@ export default function Settings() {
       return await response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/account/admin"] });
+      // Force immediate refetch to update avatar everywhere
+      queryClient.refetchQueries({ queryKey: ["/api/auth/me"] });
+      queryClient.refetchQueries({ queryKey: ["/api/account/admin"] });
       toast({
         title: "Sucesso",
         description: "Foto de perfil atualizada",
@@ -346,8 +348,9 @@ export default function Settings() {
       return await response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/account/admin"] });
+      // Force immediate refetch to update background everywhere
+      queryClient.refetchQueries({ queryKey: ["/api/auth/me"] });
+      queryClient.refetchQueries({ queryKey: ["/api/account/admin"] });
       toast({
         title: "Sucesso",
         description: "Plano de fundo da página de apoio atualizado",

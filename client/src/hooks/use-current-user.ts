@@ -23,7 +23,7 @@ export interface CurrentUser {
 export function useCurrentUser() {
   const { data: user, isLoading } = useQuery<CurrentUser>({
     queryKey: ["/api/auth/me"],
-    staleTime: 60000, // Cache for 1 minute
+    staleTime: 0, // Always refetch to ensure fresh avatar/profile data
   });
 
   return {
