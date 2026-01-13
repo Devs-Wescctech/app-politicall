@@ -59,6 +59,7 @@ type User = {
   lastPaymentDate?: string;
   politicalPosition?: string;
   avatar?: string;
+  salesperson?: string;
   party?: {
     id: string;
     name: string;
@@ -937,6 +938,18 @@ export default function ContractsPage() {
                 <Mail className="h-6 w-6 text-blue-500" />
               </Button>
             </div>
+
+            {/* Salesperson Info */}
+            {selectedUser?.salesperson && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Vendedor</label>
+                <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                  <span className="text-sm font-semibold">
+                    {selectedUser.salesperson}
+                  </span>
+                </div>
+              </div>
+            )}
 
             {/* Plan Details */}
             <div className="space-y-3">
