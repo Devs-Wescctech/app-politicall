@@ -985,6 +985,7 @@ export const leads = pgTable("leads", {
   state: text("state").notNull(),
   city: text("city").notNull(),
   message: text("message"),
+  isRead: boolean("is_read").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

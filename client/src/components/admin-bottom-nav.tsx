@@ -1,6 +1,8 @@
 import { useLocation } from "wouter";
 import { Inbox, FileText, Search, Megaphone, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { queryClient } from "@/lib/queryClient";
 
 interface AdminBottomNavProps {
   activePage: "dashboard" | "contracts";
@@ -14,9 +16,10 @@ interface NavItemProps {
   isActive: boolean;
   onClick: () => void;
   testId: string;
+  badge?: number;
 }
 
-function NavItem({ icon, label, isActive, onClick, testId }: NavItemProps) {
+function NavItem({ icon, label, isActive, onClick, testId, badge }: NavItemProps) {
   return (
     <button
       onClick={onClick}
@@ -27,8 +30,13 @@ function NavItem({ icon, label, isActive, onClick, testId }: NavItemProps) {
       )}
       data-testid={testId}
     >
-      <div className="flex items-center justify-center">
+      <div className="relative flex items-center justify-center">
         {icon}
+        {badge !== undefined && badge > 0 && (
+          <span className="absolute -top-2 -right-2 min-w-[18px] h-[18px] flex items-center justify-center px-1 text-[10px] font-bold text-white bg-red-500 rounded-full">
+            {badge > 99 ? "99+" : badge}
+          </span>
+        )}
       </div>
       <span className={cn(
         "text-[11px] font-medium leading-none",
@@ -43,6 +51,40 @@ function NavItem({ icon, label, isActive, onClick, testId }: NavItemProps) {
 export function AdminBottomNav({ activePage, onInboxClick, onSearchClick }: AdminBottomNavProps) {
   const [, setLocation] = useLocation();
 
+  const { data: unreadData } = useQuery<{ count: number }>({
+    queryKey: ["/api/leads/unread-count"],
+    queryFn: async () => {
+      const token = localStorage.getItem("admin_token");
+      const response = await fetch("/api/leads/unread-count", {
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+      if (!response.ok) throw new Error("Failed to fetch unread count");
+      return response.json();
+    },
+    refetchInterval: 30000,
+  });
+
+  const markAsReadMutation = useMutation({
+    mutationFn: async () => {
+      const token = localStorage.getItem("admin_token");
+      const response = await fetch("/api/leads/mark-read", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+      if (!response.ok) throw new Error("Failed to mark as read");
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/leads/unread-count"] });
+    },
+  });
+
   const handleDashboardClick = () => {
     setLocation("/admin");
   };
@@ -52,6 +94,7 @@ export function AdminBottomNav({ activePage, onInboxClick, onSearchClick }: Admi
   };
 
   const handleInboxClick = () => {
+    markAsReadMutation.mutate();
     onInboxClick?.();
   };
 
@@ -87,6 +130,7 @@ export function AdminBottomNav({ activePage, onInboxClick, onSearchClick }: Admi
           label="Inbox"
           isActive={false}
           onClick={handleInboxClick}
+          badge={unreadData?.count}
           testId="nav-inbox"
         />
         <div className="h-8 w-px bg-border" />

@@ -24,7 +24,7 @@ import {
   type ApiKeyUsage, type InsertApiKeyUsage
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, count, inArray } from "drizzle-orm";
+import { eq, desc, and, count, inArray, sql } from "drizzle-orm";
 import { encryptApiKey, decryptApiKey } from "./crypto";
 import bcrypt from "bcrypt";
 import crypto from "crypto";
@@ -169,6 +169,8 @@ export interface IStorage {
   // Leads
   createLead(lead: InsertLead): Promise<Lead>;
   getLeads(): Promise<Lead[]>;
+  getUnreadLeadsCount(): Promise<number>;
+  markLeadsAsRead(): Promise<void>;
   deleteLead(id: string): Promise<void>;
   deleteLeads(ids: string[]): Promise<void>;
 
@@ -1362,6 +1364,19 @@ export class DatabaseStorage implements IStorage {
     return await db.select()
       .from(leads)
       .orderBy(desc(leads.createdAt));
+  }
+
+  async getUnreadLeadsCount(): Promise<number> {
+    const result = await db.select({ count: sql<number>`count(*)` })
+      .from(leads)
+      .where(eq(leads.isRead, false));
+    return Number(result[0]?.count || 0);
+  }
+
+  async markLeadsAsRead(): Promise<void> {
+    await db.update(leads)
+      .set({ isRead: true })
+      .where(eq(leads.isRead, false));
   }
 
   async deleteLead(id: string): Promise<void> {

@@ -4982,6 +4982,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get unread leads count (admin only)
+  app.get("/api/leads/unread-count", authenticateAdminToken, async (req: AuthRequest, res) => {
+    try {
+      const count = await storage.getUnreadLeadsCount();
+      res.json({ count });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Mark all leads as read (admin only)
+  app.post("/api/leads/mark-read", authenticateAdminToken, async (req: AuthRequest, res) => {
+    try {
+      await storage.markLeadsAsRead();
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // ==================== PUBLIC SUPPORT (QR CODE) ====================
   
   // Get volunteer data by code (PUBLIC - no auth required)
