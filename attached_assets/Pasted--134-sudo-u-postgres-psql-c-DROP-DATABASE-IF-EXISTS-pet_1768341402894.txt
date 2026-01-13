@@ -1,0 +1,35 @@
+  134  sudo -u postgres psql -c "DROP DATABASE IF EXISTS peticoesbr;"
+  135  sudo -u postgres psql -c "CREATE DATABASE peticoesbr OWNER auth_bd;"
+  140  sudo -u postgres psql -d peticoesbr <<EOF
+  158  sudo -u postgres psql -d peticoesbr
+  159  sudo -u postgres psql -c "CREATE ROLE sup_cristian LOGIN;"
+  160  sudo -u postgres psql -d peticoesbr
+  164  sudo -u postgres psql -d peticoesbr <<'EOF'
+  178  sudo -u postgres psql -d peticoesbr -c "SELECT tablename, tableowner FROM pg_tables WHERE schemaname='public' AND tablename='tenants';"
+  183  sudo -u postgres psql -d peticoesbr <<'EOF'
+  192  sudo -u postgres psql -c "ALTER ROLE auth_bd SUPERUSER;"
+  193  sudo -u postgres psql -c "SELECT rolname, rolsuper FROM pg_roles WHERE rolname = 'auth_bd';"
+  328  sudo -u postgres psql
+  366  sudo -u postgres psql politicall < /home/sup_wescc/backup_20251208_221725.sql
+  372  sudo -u postgres psql politicall
+  375  sudo -u postgres psql politicall < /home/sup_wescc/fix_constraints.sql
+  376  sudo -u postgres psql politicall < /home/sup_wescc/insert_users.sql
+  377  sudo -u postgres psql politicall
+  424  history | grep psq
+  425  sudo -u postgres psql -d politicall
+  435  sudo -u postgres psql -d politicall -f /home/sup_wescc/production_sync.sql
+  437  sudo -u postgres psql -d politicall -f /home/sup_wescc/production_sync.sql
+  439  sudo -u postgres psql -d politicall -f /home/sup_wescc/production_sync.sql
+  442  sudo -u postgres psql -d politicall -f /tmp/production_sync.sqlvar
+  562  sudo -u postgres psql
+  584  sudo -u postgres psql -d politicall -f migration-script.sql
+  585  sudo -u postgres psql -d politicall -f /home/sup_wescc/migration-script.sql 
+  588  sudo -u postgres psql -d politicall -f /tmp/migration-script.sql
+  800  docker exec -it app-politicall sh -c "echo 'SELECT email FROM users LIMIT 5;' | PGPASSWORD='4uth@1307BD' psql -h 172.17.0.1 -U auth_bd -d politicall"
+  894  history | grep psql
+  895  sudo -u postgres psql -d politicall -c "SELECT id, name, email, slug FROM user_accounts WHERE role = 'admin';"
+  897  sudo -u postgres psql -d politicall -c "SELECT id, name, email, slug FROM users WHERE role = 'admin';"
+  898  sudo -u postgres psql -d politicall -c "UPDATE users SET slug = LOWER(REGEXP_REPLACE(REGEXP_REPLACE(TRANSLATE(name, 'áàãâéèêíìîóòõôúùûçÁÀÃÂÉÈÊÍÌÎÓÒÕÔÚÙÛÇ', 'aaaaeeeiiioooouuucAAAAEEEIIIOOOOUUUC'), '\s+', '-', 'g'), '[^a-z0-9-]', '', 'g')) WHERE role = 'admin' AND (slug IS NULL OR slug = '');"
+  899  sudo -u postgres psql -d politicall -c "SELECT id, name, slug FROM users WHERE role = 'admin';"
+  926  history | grep psq
+sup_wescc@srvappsprod:~$ 
