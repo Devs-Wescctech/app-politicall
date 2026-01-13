@@ -1,3 +1,4 @@
+import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -5,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ArrowLeft, DollarSign, User, Calendar } from "lucide-react";
+import { ArrowLeft, DollarSign, User, Calendar, Filter } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -24,6 +25,8 @@ interface AdminSalesProps {
 }
 
 export default function AdminSales({ onBack }: AdminSalesProps) {
+  const [selectedVendor, setSelectedVendor] = useState<string>("all");
+  
   const { data: accounts = [], isLoading } = useQuery<Account[]>({
     queryKey: ["/api/admin/sales"],
     queryFn: async () => {
@@ -38,6 +41,20 @@ export default function AdminSales({ onBack }: AdminSalesProps) {
       return response.json();
     },
   });
+
+  const vendors = useMemo(() => {
+    const vendorSet = new Set<string>();
+    accounts.forEach(a => {
+      if (a.salesperson) vendorSet.add(a.salesperson);
+    });
+    return Array.from(vendorSet).sort();
+  }, [accounts]);
+
+  const filteredAccounts = useMemo(() => {
+    if (selectedVendor === "all") return accounts;
+    if (selectedVendor === "no_vendor") return accounts.filter(a => !a.salesperson);
+    return accounts.filter(a => a.salesperson === selectedVendor);
+  }, [accounts, selectedVendor]);
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, paymentStatus, commissionPaid }: { id: string; paymentStatus: string; commissionPaid: boolean }) => {
@@ -95,17 +112,35 @@ export default function AdminSales({ onBack }: AdminSalesProps) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={onBack} data-testid="button-back-sales">
-          <ArrowLeft className="w-5 h-5" />
-        </Button>
-        <div>
-          <h1 className="text-2xl font-bold">Vendas</h1>
-          <p className="text-muted-foreground">Acompanhamento de vendas e comissões</p>
+      <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+        <div className="flex items-center gap-4 flex-1">
+          <Button variant="ghost" size="icon" onClick={onBack} data-testid="button-back-sales">
+            <ArrowLeft className="w-5 h-5" />
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold">Vendas</h1>
+            <p className="text-muted-foreground">Acompanhamento de vendas e comissões</p>
+          </div>
+        </div>
+        
+        <div className="flex items-center gap-2">
+          <Filter className="w-4 h-4 text-muted-foreground" />
+          <Select value={selectedVendor} onValueChange={setSelectedVendor}>
+            <SelectTrigger className="w-[200px]" data-testid="select-vendor-filter">
+              <SelectValue placeholder="Filtrar por vendedor" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos</SelectItem>
+              <SelectItem value="no_vendor">Sem vendedor</SelectItem>
+              {vendors.map(vendor => (
+                <SelectItem key={vendor} value={vendor}>{vendor}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
-      {accounts.length === 0 ? (
+      {filteredAccounts.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
             <DollarSign className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
@@ -114,7 +149,7 @@ export default function AdminSales({ onBack }: AdminSalesProps) {
         </Card>
       ) : (
         <div className="space-y-4">
-          {accounts.map((account) => (
+          {filteredAccounts.map((account) => (
             <Card key={account.id} data-testid={`card-sale-${account.id}`}>
               <CardContent className="py-4">
                 <div className="flex flex-col md:flex-row md:items-center gap-4">
