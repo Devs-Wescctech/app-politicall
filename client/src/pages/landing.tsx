@@ -505,6 +505,36 @@ export default function LandingPage() {
         </div>
       </section>
 
+      <section className="py-24 bg-muted/30">
+        <div className="container mx-auto px-4">
+          <div className="max-w-4xl mx-auto">
+            <div className="text-center mb-12">
+              <h2 className="text-4xl md:text-5xl font-bold mb-4" data-testid="text-video-demo-title">
+                Veja o Politicall em Ação
+              </h2>
+              <p className="text-xl text-muted-foreground">
+                Assista uma demonstração completa da plataforma
+              </p>
+            </div>
+            <div className="relative w-full aspect-video rounded-2xl overflow-hidden shadow-2xl">
+              <iframe
+                src="https://drive.google.com/file/d/1oaNgdrpN2ElUpKJHrZlbGpm4FZ5vH-zL/preview"
+                className="w-full h-full"
+                allow="autoplay"
+                allowFullScreen
+                data-testid="video-demo"
+              />
+              <div 
+                className="absolute top-0 right-0 w-16 h-16 bg-transparent z-10"
+                onClick={(e) => e.preventDefault()}
+                onContextMenu={(e) => e.preventDefault()}
+                data-testid="video-blocker"
+              />
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section id="modulos" className="py-24 bg-muted/30">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
