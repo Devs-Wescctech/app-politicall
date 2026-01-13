@@ -136,7 +136,7 @@ export function AdminBottomNav({ activePage, onInboxClick, onSearchClick }: Admi
         <div className="h-8 w-px bg-border" />
         <NavItem
           icon={<Search className="w-5 h-5" />}
-          label="Pesquisa"
+          label="Comercial"
           isActive={false}
           onClick={handleSearchClick}
           testId="nav-search"
