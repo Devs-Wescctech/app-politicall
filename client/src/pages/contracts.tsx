@@ -888,8 +888,8 @@ export default function ContractsPage() {
       />
       {/* Sales Page Dialog */}
       <Dialog open={showSalesPage} onOpenChange={setShowSalesPage}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <AdminSales onBack={() => setShowSalesPage(false)} />
+        <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0 [&>button]:hidden">
+          <AdminSales onClose={() => setShowSalesPage(false)} />
         </DialogContent>
       </Dialog>
       {/* User Details Dialog */}
