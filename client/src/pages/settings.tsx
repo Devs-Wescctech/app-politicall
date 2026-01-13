@@ -276,6 +276,7 @@ export default function Settings() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/account/admin"] });
       toast({
         title: "Sucesso",
         description: "Perfil atualizado com sucesso",
@@ -311,6 +312,7 @@ export default function Settings() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/account/admin"] });
       toast({
         title: "Sucesso",
         description: "Foto de perfil atualizada",

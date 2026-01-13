@@ -438,6 +438,7 @@ export default function Contacts() {
     mutationFn: (avatar: string | null) => apiRequest("PATCH", "/api/auth/profile", { avatar }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/account/admin"] });
       toast({ title: "Foto de perfil atualizada com sucesso!" });
       setIsProfilePhotoDialogOpen(false);
       setProfilePhotoFile(null);
