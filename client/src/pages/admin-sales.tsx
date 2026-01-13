@@ -168,7 +168,7 @@ export default function AdminSales({ onClose }: AdminSalesProps) {
       {/* Fixed Header */}
       <div className="flex-shrink-0 px-6 pt-6 pb-4 border-b space-y-4">
         <div>
-          <h1 className="text-2xl font-bold">Vendas ({filteredAccounts.length})</h1>
+          <h1 className="text-2xl font-bold">Vendas ({filteredAccounts.length}/{accounts.length})</h1>
           <p className="text-muted-foreground">Acompanhamento de vendas e comissões</p>
         </div>
         
