@@ -160,7 +160,7 @@ export default function AdminSales({ onBack }: AdminSalesProps) {
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <div>
-            <h1 className="text-2xl font-bold">Vendas</h1>
+            <h1 className="text-2xl font-bold">Vendas ({filteredAccounts.length})</h1>
             <p className="text-muted-foreground">Acompanhamento de vendas e comissões</p>
           </div>
         </div>
