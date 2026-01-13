@@ -26,11 +26,32 @@ interface AdminSalesProps {
 export default function AdminSales({ onBack }: AdminSalesProps) {
   const { data: accounts = [], isLoading } = useQuery<Account[]>({
     queryKey: ["/api/admin/sales"],
+    queryFn: async () => {
+      const token = localStorage.getItem("admin_token");
+      const response = await fetch("/api/admin/sales", {
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+      if (!response.ok) throw new Error("Failed to fetch sales");
+      return response.json();
+    },
   });
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, paymentStatus, commissionPaid }: { id: string; paymentStatus: string; commissionPaid: boolean }) => {
-      return apiRequest("PATCH", `/api/admin/sales/${id}`, { paymentStatus, commissionPaid });
+      const token = localStorage.getItem("admin_token");
+      const response = await fetch(`/api/admin/sales/${id}`, {
+        method: "PATCH",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ paymentStatus, commissionPaid }),
+      });
+      if (!response.ok) throw new Error("Failed to update sale");
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/sales"] });
@@ -72,8 +93,6 @@ export default function AdminSales({ onBack }: AdminSalesProps) {
     );
   }
 
-  const salesWithVendors = accounts.filter(a => a.salesperson);
-
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
@@ -86,7 +105,7 @@ export default function AdminSales({ onBack }: AdminSalesProps) {
         </div>
       </div>
 
-      {salesWithVendors.length === 0 ? (
+      {accounts.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
             <DollarSign className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
@@ -95,18 +114,18 @@ export default function AdminSales({ onBack }: AdminSalesProps) {
         </Card>
       ) : (
         <div className="space-y-4">
-          {salesWithVendors.map((account) => (
+          {accounts.map((account) => (
             <Card key={account.id} data-testid={`card-sale-${account.id}`}>
               <CardContent className="py-4">
                 <div className="flex flex-col md:flex-row md:items-center gap-4">
                   <div className="flex-1 space-y-2">
-                    <div className="flex items-center gap-2">
-                      <User className="w-4 h-4 text-muted-foreground" />
-                      <span className="font-medium">{account.salesperson}</span>
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      Cliente: {account.name}
-                    </div>
+                    <div className="font-medium text-base">{account.name}</div>
+                    {account.salesperson && (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <User className="w-4 h-4" />
+                        <span>Vendedor: {account.salesperson}</span>
+                      </div>
+                    )}
                     <div className="flex items-center gap-4 text-sm">
                       <div className="flex items-center gap-1">
                         <DollarSign className="w-4 h-4 text-green-600" />
