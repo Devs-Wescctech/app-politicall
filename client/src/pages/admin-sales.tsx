@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import { ArrowLeft, DollarSign, User, Calendar, Filter } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -26,6 +27,22 @@ interface AdminSalesProps {
 
 export default function AdminSales({ onBack }: AdminSalesProps) {
   const [selectedVendor, setSelectedVendor] = useState<string>("all");
+  const [startDate, setStartDate] = useState<string>("");
+  const [endDate, setEndDate] = useState<string>("");
+  
+  const formatDateInput = (value: string): string => {
+    const digits = value.replace(/\D/g, "");
+    if (digits.length <= 2) return digits;
+    if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+    return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4, 8)}`;
+  };
+
+  const parseDate = (dateStr: string): Date | null => {
+    if (!dateStr || dateStr.length !== 10) return null;
+    const [day, month, year] = dateStr.split("/").map(Number);
+    if (!day || !month || !year) return null;
+    return new Date(year, month - 1, day);
+  };
   
   const { data: accounts = [], isLoading } = useQuery<Account[]>({
     queryKey: ["/api/admin/sales"],
@@ -51,10 +68,35 @@ export default function AdminSales({ onBack }: AdminSalesProps) {
   }, [accounts]);
 
   const filteredAccounts = useMemo(() => {
-    if (selectedVendor === "all") return accounts;
-    if (selectedVendor === "no_vendor") return accounts.filter(a => !a.salesperson);
-    return accounts.filter(a => a.salesperson === selectedVendor);
-  }, [accounts, selectedVendor]);
+    let filtered = accounts;
+    
+    if (selectedVendor === "no_vendor") {
+      filtered = filtered.filter(a => !a.salesperson);
+    } else if (selectedVendor !== "all") {
+      filtered = filtered.filter(a => a.salesperson === selectedVendor);
+    }
+    
+    const start = parseDate(startDate);
+    const end = parseDate(endDate);
+    
+    if (start) {
+      filtered = filtered.filter(a => {
+        const accountDate = new Date(a.createdAt);
+        return accountDate >= start;
+      });
+    }
+    
+    if (end) {
+      const endOfDay = new Date(end);
+      endOfDay.setHours(23, 59, 59, 999);
+      filtered = filtered.filter(a => {
+        const accountDate = new Date(a.createdAt);
+        return accountDate <= endOfDay;
+      });
+    }
+    
+    return filtered;
+  }, [accounts, selectedVendor, startDate, endDate]);
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, paymentStatus, commissionPaid }: { id: string; paymentStatus: string; commissionPaid: boolean }) => {
@@ -123,11 +165,11 @@ export default function AdminSales({ onBack }: AdminSalesProps) {
           </div>
         </div>
         
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Filter className="w-4 h-4 text-muted-foreground" />
           <Select value={selectedVendor} onValueChange={setSelectedVendor}>
-            <SelectTrigger className="w-[200px]" data-testid="select-vendor-filter">
-              <SelectValue placeholder="Filtrar por vendedor" />
+            <SelectTrigger className="w-[160px]" data-testid="select-vendor-filter">
+              <SelectValue placeholder="Vendedor" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos</SelectItem>
@@ -137,6 +179,42 @@ export default function AdminSales({ onBack }: AdminSalesProps) {
               ))}
             </SelectContent>
           </Select>
+        </div>
+      </div>
+      
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-2">
+          <Calendar className="w-4 h-4 text-muted-foreground" />
+          <span className="text-sm text-muted-foreground">Período:</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <Input
+            placeholder="DD/MM/AAAA"
+            value={startDate}
+            onChange={(e) => setStartDate(formatDateInput(e.target.value))}
+            maxLength={10}
+            className="w-[130px]"
+            data-testid="input-start-date"
+          />
+          <span className="text-muted-foreground">até</span>
+          <Input
+            placeholder="DD/MM/AAAA"
+            value={endDate}
+            onChange={(e) => setEndDate(formatDateInput(e.target.value))}
+            maxLength={10}
+            className="w-[130px]"
+            data-testid="input-end-date"
+          />
+          {(startDate || endDate) && (
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={() => { setStartDate(""); setEndDate(""); }}
+              data-testid="button-clear-dates"
+            >
+              Limpar
+            </Button>
+          )}
         </div>
       </div>
 
