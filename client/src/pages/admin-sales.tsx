@@ -27,8 +27,19 @@ interface AdminSalesProps {
 
 export default function AdminSales({ onClose }: AdminSalesProps) {
   const [selectedVendor, setSelectedVendor] = useState<string>("all");
-  const [startDate, setStartDate] = useState<string>("");
-  const [endDate, setEndDate] = useState<string>("");
+  
+  const getDefaultDates = () => {
+    const now = new Date();
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    const formatDate = (d: Date) => 
+      `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+    return { start: formatDate(firstDay), end: formatDate(lastDay) };
+  };
+  
+  const defaultDates = getDefaultDates();
+  const [startDate, setStartDate] = useState<string>(defaultDates.start);
+  const [endDate, setEndDate] = useState<string>(defaultDates.end);
   
   const formatDateInput = (value: string): string => {
     const digits = value.replace(/\D/g, "");
