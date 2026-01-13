@@ -301,25 +301,6 @@ export default function Register() {
                       )}
                     />
 
-                    <FormField
-                      control={form.control}
-                      name="permissions.petitions"
-                      render={({ field }) => (
-                        <FormItem className="flex items-center space-x-2 space-y-0">
-                          <FormControl>
-                            <Checkbox
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                              data-testid="checkbox-petitions"
-                            />
-                          </FormControl>
-                          <FormLabel className="text-sm font-normal cursor-pointer">
-                            Petições
-                          </FormLabel>
-                        </FormItem>
-                      )}
-                    />
-
                     <FormItem className="flex items-center space-x-2 space-y-0 col-span-2 pt-2 border-t mt-2">
                       <Checkbox
                         checked={
@@ -328,8 +309,7 @@ export default function Register() {
                           form.watch("permissions.demands") &&
                           form.watch("permissions.agenda") &&
                           form.watch("permissions.ai") &&
-                          form.watch("permissions.marketing") &&
-                          form.watch("permissions.petitions")
+                          form.watch("permissions.marketing")
                         }
                         onCheckedChange={(checked) => {
                           const value = Boolean(checked);
@@ -339,7 +319,6 @@ export default function Register() {
                           form.setValue("permissions.agenda", value);
                           form.setValue("permissions.ai", value);
                           form.setValue("permissions.marketing", value);
-                          form.setValue("permissions.petitions", value);
                         }}
                         data-testid="checkbox-select-all"
                       />
