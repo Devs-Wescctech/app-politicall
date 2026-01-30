@@ -211,10 +211,15 @@ const handlePublicSupportSSR = async (req: Request, res: Response, next: NextFun
     const { slug } = req.params;
     const candidate = await storage.getCandidateBySlug(slug);
     
+    // Get the base URL from the request
+    const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
+    const host = req.headers['x-forwarded-host'] || req.headers.host || 'www.politicall.com.br';
+    const baseUrl = `${protocol}://${host}`;
+    
     // Default meta tags
     let ogTitle = "Apoie - Politicall";
     let ogDescription = "Cadastre-se como apoiador e faça parte dessa mudança!";
-    let ogImage = "https://www.politicall.com.br/favicon.png";
+    let ogImage = `${baseUrl}/favicon.png`;
     
     if (candidate) {
       ogTitle = `Apoie ${candidate.name}`;
@@ -225,7 +230,7 @@ const handlePublicSupportSSR = async (req: Request, res: Response, next: NextFun
       
       // Use candidate avatar directly - skip data URLs as they don't work well with OG image crawlers
       if (candidate.avatar && !candidate.avatar.startsWith('data:')) {
-        ogImage = candidate.avatar.startsWith('http') ? candidate.avatar : `https://www.politicall.com.br${candidate.avatar}`;
+        ogImage = candidate.avatar.startsWith('http') ? candidate.avatar : `${baseUrl}${candidate.avatar}`;
       }
     }
     
@@ -238,7 +243,7 @@ const handlePublicSupportSSR = async (req: Request, res: Response, next: NextFun
     const ogTags = `
     <!-- Dynamic Open Graph Meta Tags for Public Support Page -->
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://www.politicall.com.br${req.originalUrl}" />
+    <meta property="og:url" content="${baseUrl}${req.originalUrl}" />
     <meta property="og:title" content="${ogTitle}" />
     <meta property="og:description" content="${ogDescription}" />
     <meta property="og:image" content="${ogImage}" />
