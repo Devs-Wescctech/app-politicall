@@ -103,6 +103,7 @@ export default function Settings() {
   const [isDocumentationOpen, setIsDocumentationOpen] = useState(false);
   const [showGoogleAuthDialog, setShowGoogleAuthDialog] = useState(false);
   const [isAuthorizing, setIsAuthorizing] = useState(false);
+  const [isCredentialsOpen, setIsCredentialsOpen] = useState(false);
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -1145,104 +1146,115 @@ export default function Settings() {
           <div className="grid gap-6 lg:grid-cols-2">
             {/* Left Column - Configuration */}
             <div className="space-y-6">
-              {/* Credentials Card */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-sm">Credenciais OAuth</CardTitle>
-                  <CardDescription className="text-xs">
-                    Insira as credenciais do Google Cloud Console
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {loadingGoogleCalendar ? (
-                    <div className="space-y-4">
-                      <Skeleton className="h-10 w-full" />
-                      <Skeleton className="h-10 w-full" />
-                    </div>
-                  ) : (
-                    <Form {...googleCalendarForm}>
-                      <form onSubmit={googleCalendarForm.handleSubmit(onSubmitGoogleCalendar)} className="space-y-4">
-                        <FormField
-                          control={googleCalendarForm.control}
-                          name="clientId"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="text-xs">Client ID</FormLabel>
-                              <FormControl>
-                                <Input 
-                                  placeholder="Cole o Client ID aqui" 
-                                  {...field}
-                                  data-testid="input-google-client-id"
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-
-                        <FormField
-                          control={googleCalendarForm.control}
-                          name="clientSecret"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="text-xs">Client Secret</FormLabel>
-                              <FormControl>
-                                <div className="relative">
-                                  <Input 
-                                    type="password"
-                                    placeholder={googleCalendarConfig?.isConfigured ? "••••••••••••••••" : "Cole o Client Secret aqui"}
-                                    {...field}
-                                    data-testid="input-google-client-secret"
-                                  />
-                                  {googleCalendarConfig?.isConfigured && !field.value && (
-                                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                                      <Badge variant="secondary" className="text-xs">
-                                        <CheckCircle2 className="w-3 h-3 mr-1" />
-                                        Salvo
-                                      </Badge>
-                                    </div>
-                                  )}
-                                </div>
-                              </FormControl>
-                              {googleCalendarConfig?.isConfigured && (
-                                <p className="text-xs text-muted-foreground">
-                                  O Client Secret está salvo com segurança. Deixe em branco para manter o atual ou digite um novo para substituir.
-                                </p>
-                              )}
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-
-                        <div className="p-3 bg-muted rounded-lg">
-                          <p className="text-xs font-medium mb-1">Redirect URI (copie para o Google Console)</p>
-                          <div className="flex items-center gap-2">
-                            <code className="text-xs flex-1 break-all">https://www.politicall.com.br/api/google-calendar/callback</code>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => copyToClipboard("https://www.politicall.com.br/api/google-calendar/callback")}
-                              data-testid="button-copy-redirect-uri"
-                            >
-                              <Copy className="w-4 h-4" />
-                            </Button>
-                          </div>
+              {/* Credentials Card - Collapsible */}
+              <Collapsible open={isCredentialsOpen} onOpenChange={setIsCredentialsOpen}>
+                <Card>
+                  <CollapsibleTrigger asChild>
+                    <CardHeader className="cursor-pointer hover-elevate">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <CardTitle className="text-sm">Credenciais OAuth</CardTitle>
+                          <CardDescription className="text-xs">
+                            Insira as credenciais do Google Cloud Console
+                          </CardDescription>
                         </div>
+                        <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${isCredentialsOpen ? 'rotate-180' : ''}`} />
+                      </div>
+                    </CardHeader>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <CardContent>
+                      {loadingGoogleCalendar ? (
+                        <div className="space-y-4">
+                          <Skeleton className="h-10 w-full" />
+                          <Skeleton className="h-10 w-full" />
+                        </div>
+                      ) : (
+                        <Form {...googleCalendarForm}>
+                          <form onSubmit={googleCalendarForm.handleSubmit(onSubmitGoogleCalendar)} className="space-y-4">
+                            <FormField
+                              control={googleCalendarForm.control}
+                              name="clientId"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel className="text-xs">Client ID</FormLabel>
+                                  <FormControl>
+                                    <Input 
+                                      placeholder="Cole o Client ID aqui" 
+                                      {...field}
+                                      data-testid="input-google-client-id"
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
 
-                        <Button 
-                          type="submit" 
-                          className="w-full rounded-full"
-                          disabled={saveGoogleCalendarMutation.isPending}
-                          data-testid="button-save-google-credentials"
-                        >
-                          {saveGoogleCalendarMutation.isPending ? "Salvando..." : "Salvar Credenciais"}
-                        </Button>
-                      </form>
-                    </Form>
-                  )}
-                </CardContent>
-              </Card>
+                            <FormField
+                              control={googleCalendarForm.control}
+                              name="clientSecret"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel className="text-xs">Client Secret</FormLabel>
+                                  <FormControl>
+                                    <div className="relative">
+                                      <Input 
+                                        type="password"
+                                        placeholder={googleCalendarConfig?.isConfigured ? "••••••••••••••••" : "Cole o Client Secret aqui"}
+                                        {...field}
+                                        data-testid="input-google-client-secret"
+                                      />
+                                      {googleCalendarConfig?.isConfigured && !field.value && (
+                                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                          <Badge variant="secondary" className="text-xs">
+                                            <CheckCircle2 className="w-3 h-3 mr-1" />
+                                            Salvo
+                                          </Badge>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </FormControl>
+                                  {googleCalendarConfig?.isConfigured && (
+                                    <p className="text-xs text-muted-foreground">
+                                      O Client Secret está salvo com segurança. Deixe em branco para manter o atual ou digite um novo para substituir.
+                                    </p>
+                                  )}
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+
+                            <div className="p-3 bg-muted rounded-lg">
+                              <p className="text-xs font-medium mb-1">Redirect URI (copie para o Google Console)</p>
+                              <div className="flex items-center gap-2">
+                                <code className="text-xs flex-1 break-all">https://www.politicall.com.br/api/google-calendar/callback</code>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => copyToClipboard("https://www.politicall.com.br/api/google-calendar/callback")}
+                                  data-testid="button-copy-redirect-uri"
+                                >
+                                  <Copy className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            </div>
+
+                            <Button 
+                              type="submit" 
+                              className="w-full rounded-full"
+                              disabled={saveGoogleCalendarMutation.isPending}
+                              data-testid="button-save-google-credentials"
+                            >
+                              {saveGoogleCalendarMutation.isPending ? "Salvando..." : "Salvar Credenciais"}
+                            </Button>
+                          </form>
+                        </Form>
+                      )}
+                    </CardContent>
+                  </CollapsibleContent>
+                </Card>
+              </Collapsible>
 
               {/* Sync Preferences Card */}
               <Card>
