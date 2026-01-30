@@ -211,10 +211,9 @@ const handlePublicSupportSSR = async (req: Request, res: Response, next: NextFun
     const { slug } = req.params;
     const candidate = await storage.getCandidateBySlug(slug);
     
-    // Get the base URL from the request
-    const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
+    // Get the base URL from the request - always use https for external URLs
     const host = req.headers['x-forwarded-host'] || req.headers.host || 'www.politicall.com.br';
-    const baseUrl = `${protocol}://${host}`;
+    const baseUrl = `https://${host}`;
     
     // Default meta tags
     let ogTitle = "Apoie - Politicall";
