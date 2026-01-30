@@ -424,10 +424,9 @@ export default function PublicSupport() {
               {/* Volunteer name display - only when there's a volunteer code */}
               {volunteerCode && volunteerData?.name && (
                 <p 
-                  className="text-lg md:text-xl font-bold uppercase tracking-wide text-[#ffffff]"
+                  className="text-lg md:text-xl font-bold uppercase tracking-wide text-white"
                   style={{ 
-                    color: getPartyColor(candidateData.party?.acronym),
-                    textShadow: '1px 1px 2px rgba(0,0,0,0.1)'
+                    textShadow: '2px 2px 4px rgba(0,0,0,0.3)'
                   }}
                   data-testid="text-volunteer-name"
                 >
