@@ -179,6 +179,102 @@ app.get("/convite-alianca/:token", async (req: Request, res: Response, next: Nex
   }
 });
 
+// SSR route for public support page with dynamic Open Graph meta tags
+// Handles both /apoio/:slug and /apoio/:slug/:volunteerCode
+const handlePublicSupportSSR = async (req: Request, res: Response, next: NextFunction) => {
+  const userAgent = req.headers['user-agent'] || '';
+  const crawlerPatterns = [
+    'facebookexternalhit',
+    'Facebot',
+    'WhatsApp',
+    'Twitterbot',
+    'LinkedInBot',
+    'Pinterest',
+    'Slackbot',
+    'TelegramBot',
+    'Discordbot',
+    'Googlebot',
+    'bingbot',
+    'Applebot'
+  ];
+  
+  const isCrawler = crawlerPatterns.some(pattern => 
+    userAgent.toLowerCase().includes(pattern.toLowerCase())
+  );
+  
+  // Let regular browsers use the normal SPA via Vite
+  if (!isCrawler) {
+    return next();
+  }
+  
+  try {
+    const { slug } = req.params;
+    const candidate = await storage.getCandidateBySlug(slug);
+    
+    // Default meta tags
+    let ogTitle = "Apoie - Politicall";
+    let ogDescription = "Cadastre-se como apoiador e faça parte dessa mudança!";
+    let ogImage = "https://www.politicall.com.br/favicon.png";
+    
+    if (candidate) {
+      ogTitle = `Apoie ${candidate.name}`;
+      
+      const positionText = candidate.politicalPosition ? ` - ${candidate.politicalPosition}` : '';
+      const partyText = candidate.party?.acronym ? ` | ${candidate.party.acronym}` : '';
+      ogDescription = `Cadastre-se como apoiador de ${candidate.name}${positionText}${partyText}. Juntos construiremos um futuro melhor!`;
+      
+      // Use candidate avatar as OG image if available
+      // Skip data URLs as they don't work well with OG image crawlers
+      if (candidate.avatar && !candidate.avatar.startsWith('data:')) {
+        ogImage = candidate.avatar.startsWith('http') ? candidate.avatar : `https://www.politicall.com.br${candidate.avatar}`;
+      }
+    }
+    
+    // Read and modify index.html
+    const indexPath = path.resolve("client", "index.html");
+    
+    let html = fs.readFileSync(indexPath, "utf-8");
+    
+    // Build OG image tag with correct dimensions for social sharing
+    const ogTags = `
+    <!-- Dynamic Open Graph Meta Tags for Public Support Page -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://www.politicall.com.br${req.originalUrl}" />
+    <meta property="og:title" content="${ogTitle}" />
+    <meta property="og:description" content="${ogDescription}" />
+    <meta property="og:image" content="${ogImage}" />
+    <meta property="og:site_name" content="Politicall" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="${ogTitle}" />
+    <meta name="twitter:description" content="${ogDescription}" />
+    <meta name="twitter:image" content="${ogImage}" />
+    <link rel="icon" type="image/png" href="${ogImage}" />
+  `;
+    
+    // Replace title
+    html = html.replace(/<title>.*?<\/title>/, `<title>${ogTitle}</title>`);
+    
+    // Replace description
+    html = html.replace(
+      /<meta name="description" content=".*?" \/>/,
+      `<meta name="description" content="${ogDescription}" />`
+    );
+    
+    // Inject OG tags before </head>
+    html = html.replace('</head>', `${ogTags}</head>`);
+    
+    res.setHeader("Content-Type", "text/html");
+    return res.send(html);
+  } catch (error) {
+    log(`SSR error for /apoio/:slug: ${error}`);
+    return next(); // Fall back to SPA on error
+  }
+};
+
+// Register routes for both patterns
+app.get("/apoio/:slug", handlePublicSupportSSR);
+app.get("/apoio/:slug/:volunteerCode", handlePublicSupportSSR);
+
 (async () => {
   const server = await registerRoutes(app);
 

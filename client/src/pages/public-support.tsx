@@ -101,8 +101,9 @@ export default function PublicSupport() {
     retry: false,
   });
 
-  // Dynamic favicon and title based on candidate data
+  // Dynamic favicon, title and Open Graph meta tags based on candidate data
   useEffect(() => {
+    // Set favicon
     if (candidateData?.avatar) {
       const link = document.querySelector("link[rel~='icon']") as HTMLLinkElement;
       if (link) {
@@ -115,17 +116,48 @@ export default function PublicSupport() {
       }
     }
     
+    // Set title
     if (candidateData?.name) {
       document.title = `Apoie ${candidateData.name} - Politicall`;
     }
 
-    // Cleanup: restore original favicon when leaving the page
+    // Set Open Graph meta tags for social sharing
+    const ogTags: { property: string; content: string }[] = [];
+    
+    if (candidateData?.name) {
+      ogTags.push({ property: "og:title", content: `Apoie ${candidateData.name}` });
+      ogTags.push({ property: "og:description", content: `Cadastre-se como apoiador de ${candidateData.name}. Juntos construiremos um futuro melhor!` });
+    }
+    
+    if (candidateData?.avatar) {
+      ogTags.push({ property: "og:image", content: candidateData.avatar });
+    }
+    
+    ogTags.push({ property: "og:type", content: "website" });
+    ogTags.push({ property: "og:url", content: window.location.href });
+
+    // Remove existing OG tags and add new ones
+    const existingOgTags = document.querySelectorAll('meta[property^="og:"]');
+    existingOgTags.forEach(tag => tag.remove());
+
+    ogTags.forEach(({ property, content }) => {
+      const meta = document.createElement('meta');
+      meta.setAttribute('property', property);
+      meta.setAttribute('content', content);
+      document.head.appendChild(meta);
+    });
+
+    // Cleanup: restore original favicon and remove OG tags when leaving
     return () => {
       const link = document.querySelector("link[rel~='icon']") as HTMLLinkElement;
       if (link) {
         link.href = "/favicon.png";
       }
       document.title = "Plataforma de Gestão Política";
+      
+      // Remove OG tags
+      const ogTagsToRemove = document.querySelectorAll('meta[property^="og:"]');
+      ogTagsToRemove.forEach(tag => tag.remove());
     };
   }, [candidateData?.avatar, candidateData?.name]);
 
