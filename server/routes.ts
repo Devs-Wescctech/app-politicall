@@ -5092,18 +5092,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const candidate = await storage.getCandidateBySlug(slug);
       
       if (!candidate || !candidate.avatar) {
-        // Return a default placeholder image
-        return res.redirect('/favicon.png');
+        const defaultPath = path.join(process.cwd(), 'client', 'public', 'favicon.png');
+        if (fs.existsSync(defaultPath)) {
+          res.setHeader('Content-Type', 'image/png');
+          res.setHeader('Cache-Control', 'public, max-age=86400');
+          return res.sendFile(defaultPath);
+        }
+        return res.status(404).send('No avatar');
       }
       
-      // If it's a file URL, redirect to it
+      // If it's a file URL, serve the file directly
       if (candidate.avatar.startsWith('/uploads/')) {
-        return res.redirect(candidate.avatar);
+        const filePath = path.join(process.cwd(), candidate.avatar);
+        if (fs.existsSync(filePath)) {
+          const ext = path.extname(filePath).toLowerCase();
+          const mimeTypes: Record<string, string> = {
+            '.jpg': 'image/jpeg',
+            '.jpeg': 'image/jpeg',
+            '.png': 'image/png',
+            '.gif': 'image/gif',
+            '.webp': 'image/webp'
+          };
+          res.setHeader('Content-Type', mimeTypes[ext] || 'image/jpeg');
+          res.setHeader('Cache-Control', 'public, max-age=86400');
+          return res.sendFile(filePath);
+        }
       }
       
-      // If it's an external URL, redirect to it
+      // If it's an external URL, fetch and serve (for crawlers)
       if (candidate.avatar.startsWith('http')) {
-        return res.redirect(candidate.avatar);
+        try {
+          const response = await fetch(candidate.avatar);
+          if (response.ok) {
+            const buffer = await response.arrayBuffer();
+            const contentType = response.headers.get('content-type') || 'image/jpeg';
+            res.setHeader('Content-Type', contentType);
+            res.setHeader('Cache-Control', 'public, max-age=86400');
+            return res.send(Buffer.from(buffer));
+          }
+        } catch (fetchError) {
+          console.error('Error fetching external avatar:', fetchError);
+        }
       }
       
       // If it's a base64 data URL, convert to image
@@ -5114,16 +5143,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const imageData = Buffer.from(matches[2], 'base64');
           
           res.setHeader('Content-Type', mimeType);
-          res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache for 1 day
+          res.setHeader('Cache-Control', 'public, max-age=86400');
           return res.send(imageData);
         }
       }
       
       // Fallback to default
-      return res.redirect('/favicon.png');
+      const defaultPath = path.join(process.cwd(), 'client', 'public', 'favicon.png');
+      if (fs.existsSync(defaultPath)) {
+        res.setHeader('Content-Type', 'image/png');
+        res.setHeader('Cache-Control', 'public, max-age=86400');
+        return res.sendFile(defaultPath);
+      }
+      return res.status(404).send('No avatar');
     } catch (error: any) {
       console.error('Error serving candidate avatar:', error);
-      return res.redirect('/favicon.png');
+      return res.status(500).send('Error serving avatar');
     }
   });
 
