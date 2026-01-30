@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRoute } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -100,6 +100,34 @@ export default function PublicSupport() {
     enabled: !!volunteerCode,
     retry: false,
   });
+
+  // Dynamic favicon and title based on candidate data
+  useEffect(() => {
+    if (candidateData?.avatar) {
+      const link = document.querySelector("link[rel~='icon']") as HTMLLinkElement;
+      if (link) {
+        link.href = candidateData.avatar;
+      } else {
+        const newLink = document.createElement('link');
+        newLink.rel = 'icon';
+        newLink.href = candidateData.avatar;
+        document.head.appendChild(newLink);
+      }
+    }
+    
+    if (candidateData?.name) {
+      document.title = `Apoie ${candidateData.name} - Politicall`;
+    }
+
+    // Cleanup: restore original favicon when leaving the page
+    return () => {
+      const link = document.querySelector("link[rel~='icon']") as HTMLLinkElement;
+      if (link) {
+        link.href = "/favicon.png";
+      }
+      document.title = "Plataforma de Gestão Política";
+    };
+  }, [candidateData?.avatar, candidateData?.name]);
 
   const capitalizeWords = (str: string) => {
     return str
