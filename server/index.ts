@@ -225,13 +225,13 @@ const handlePublicSupportSSR = async (req: Request, res: Response, next: NextFun
       ogTitle = `Apoie ${candidate.name}${partyText}`;
       
       if (candidate.politicalPosition && candidate.party?.acronym) {
-        ogDescription = `Faça parte da nossa campanha! Cadastre seu apoio a ${candidate.name}, candidato a ${candidate.politicalPosition} pelo ${candidate.party.acronym}. Sua participação faz a diferença!`;
+        ogDescription = `Faça parte da nossa campanha! Cadastre seu apoio a "${candidate.name}", candidato a ${candidate.politicalPosition} pelo ${candidate.party.acronym}. Sua participação faz a diferença!`;
       } else if (candidate.politicalPosition) {
-        ogDescription = `Faça parte da nossa campanha! Cadastre seu apoio a ${candidate.name}, candidato a ${candidate.politicalPosition}. Sua participação faz a diferença!`;
+        ogDescription = `Faça parte da nossa campanha! Cadastre seu apoio a "${candidate.name}", candidato a ${candidate.politicalPosition}. Sua participação faz a diferença!`;
       } else if (candidate.party?.acronym) {
-        ogDescription = `Faça parte da nossa campanha! Cadastre seu apoio a ${candidate.name} (${candidate.party.acronym}). Sua participação faz a diferença!`;
+        ogDescription = `Faça parte da nossa campanha! Cadastre seu apoio a "${candidate.name}" (${candidate.party.acronym}). Sua participação faz a diferença!`;
       } else {
-        ogDescription = `Faça parte da nossa campanha! Cadastre seu apoio a ${candidate.name}. Sua participação faz a diferença!`;
+        ogDescription = `Faça parte da nossa campanha! Cadastre seu apoio a "${candidate.name}". Sua participação faz a diferença!`;
       }
       
       // Use candidate avatar directly - skip data URLs as they don't work well with OG image crawlers
