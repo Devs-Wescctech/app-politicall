@@ -5084,6 +5084,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Serve candidate avatar image (PUBLIC - for social media crawlers)
+  // Converts base64 to actual image response
+  app.get("/api/public/candidate/:slug/avatar", async (req, res) => {
+    try {
+      const { slug } = req.params;
+      const candidate = await storage.getCandidateBySlug(slug);
+      
+      if (!candidate || !candidate.avatar) {
+        // Return a default placeholder image
+        return res.redirect('/favicon.png');
+      }
+      
+      // If it's a file URL, redirect to it
+      if (candidate.avatar.startsWith('/uploads/')) {
+        return res.redirect(candidate.avatar);
+      }
+      
+      // If it's an external URL, redirect to it
+      if (candidate.avatar.startsWith('http')) {
+        return res.redirect(candidate.avatar);
+      }
+      
+      // If it's a base64 data URL, convert to image
+      if (candidate.avatar.startsWith('data:image')) {
+        const matches = candidate.avatar.match(/^data:image\/([a-zA-Z+]+);base64,(.+)$/);
+        if (matches) {
+          const mimeType = matches[1] === 'jpeg' ? 'image/jpeg' : `image/${matches[1]}`;
+          const imageData = Buffer.from(matches[2], 'base64');
+          
+          res.setHeader('Content-Type', mimeType);
+          res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache for 1 day
+          return res.send(imageData);
+        }
+      }
+      
+      // Fallback to default
+      return res.redirect('/favicon.png');
+    } catch (error: any) {
+      console.error('Error serving candidate avatar:', error);
+      return res.redirect('/favicon.png');
+    }
+  });
+
   // Create public supporter (PUBLIC - no auth required)
   app.post("/api/public/support/:slug", async (req, res) => {
     try {

@@ -223,10 +223,9 @@ const handlePublicSupportSSR = async (req: Request, res: Response, next: NextFun
       const partyText = candidate.party?.acronym ? ` | ${candidate.party.acronym}` : '';
       ogDescription = `Cadastre-se como apoiador de ${candidate.name}${positionText}${partyText}. Juntos construiremos um futuro melhor!`;
       
-      // Use candidate avatar as OG image if available
-      // Skip data URLs as they don't work well with OG image crawlers
-      if (candidate.avatar && !candidate.avatar.startsWith('data:')) {
-        ogImage = candidate.avatar.startsWith('http') ? candidate.avatar : `https://www.politicall.com.br${candidate.avatar}`;
+      // Always use the avatar endpoint - it handles base64, file URLs, and redirects properly
+      if (candidate.avatar) {
+        ogImage = `https://www.politicall.com.br/api/public/candidate/${slug}/avatar`;
       }
     }
     
