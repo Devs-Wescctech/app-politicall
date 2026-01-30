@@ -319,27 +319,44 @@ export default function PublicSupport() {
           </div>
           
           <div className="relative z-10 flex flex-col items-center gap-3">
-            {/* Avatar at the top - with optional volunteer photo overlay */}
+            {/* Avatar section - candidate and optional volunteer */}
             <div className="flex items-center justify-center">
-              {/* Container for overlapping photos */}
               <div className="relative flex items-center">
-                {/* Candidate photo (front, left) */}
-                <Avatar 
-                  className="w-24 h-24 md:w-28 md:h-28 shadow-2xl ring-4 ring-white/70 z-20 relative"
+                {/* Candidate photo */}
+                <div 
+                  className="w-24 h-24 md:w-28 md:h-28 rounded-full shadow-2xl ring-4 ring-white/70 z-20 relative overflow-hidden bg-gray-200"
                   data-testid="img-candidate-avatar"
                 >
-                  <AvatarImage src={candidateData.avatar || politicallIconUrl} alt={candidateData.name} />
-                  <AvatarFallback className="text-3xl">{candidateData.name?.charAt(0)}</AvatarFallback>
-                </Avatar>
-                {/* Volunteer photo (same size, right - overlapping) - only shown when there's a volunteer code in URL */}
+                  {candidateData.avatar ? (
+                    <img 
+                      src={candidateData.avatar} 
+                      alt={candidateData.name || 'Candidato'} 
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-primary text-white text-3xl font-bold">
+                      {candidateData.name?.charAt(0) || 'C'}
+                    </div>
+                  )}
+                </div>
+                {/* Volunteer photo - only shown when there's a volunteer code */}
                 {volunteerCode && (
-                  <Avatar 
-                    className="w-24 h-24 md:w-28 md:h-28 shadow-xl ring-4 ring-white/70 z-10 -ml-5"
+                  <div 
+                    className="w-24 h-24 md:w-28 md:h-28 rounded-full shadow-xl ring-4 ring-white/70 z-10 -ml-5 overflow-hidden bg-gray-200"
                     data-testid="img-volunteer-avatar"
                   >
-                    <AvatarImage src={volunteerData?.avatar || politicallIconUrl} alt={volunteerData?.name || 'Voluntário'} />
-                    <AvatarFallback className="text-3xl">{volunteerData?.name?.charAt(0) || 'V'}</AvatarFallback>
-                  </Avatar>
+                    {volunteerData?.avatar ? (
+                      <img 
+                        src={volunteerData.avatar} 
+                        alt={volunteerData?.name || 'Voluntário'} 
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-secondary text-white text-3xl font-bold">
+                        {volunteerData?.name?.charAt(0) || 'V'}
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
             </div>
