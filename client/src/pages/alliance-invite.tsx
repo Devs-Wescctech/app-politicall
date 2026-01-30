@@ -417,7 +417,7 @@ export default function AllianceInvitePage() {
           </CardHeader>
 
           <CardContent className="space-y-6">
-            <div className="bg-primary/5 border border-primary/10 rounded-lg p-4 text-center">
+            <div className="p-4 text-center">
               <div className="flex items-center justify-center gap-2 text-primary mb-2">
                 <Handshake className="w-5 h-5" />
                 <span className="font-semibold">Convite de Aliança Política</span>
