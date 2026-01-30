@@ -332,12 +332,10 @@ export default function PublicSupport() {
           backgroundImage: `url(${backgroundImageUrl})`,
         }}
       ></div>
-      
       {/* Dark overlay for better readability */}
       <div 
         className="fixed inset-0 z-5 bg-black/40"
       ></div>
-      
       {/* Content */}
       <div 
         className="relative z-20 min-h-screen"
@@ -426,7 +424,7 @@ export default function PublicSupport() {
               {/* Volunteer name display - only when there's a volunteer code */}
               {volunteerCode && volunteerData?.name && (
                 <p 
-                  className="text-lg md:text-xl font-bold uppercase tracking-wide"
+                  className="text-lg md:text-xl font-bold uppercase tracking-wide text-[#ffffff]"
                   style={{ 
                     color: getPartyColor(candidateData.party?.acronym),
                     textShadow: '1px 1px 2px rgba(0,0,0,0.1)'
