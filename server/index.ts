@@ -221,11 +221,18 @@ const handlePublicSupportSSR = async (req: Request, res: Response, next: NextFun
     let ogImage = `${baseUrl}/favicon.png`;
     
     if (candidate) {
-      ogTitle = `Apoie ${candidate.name}`;
+      const partyText = candidate.party?.acronym ? ` (${candidate.party.acronym})` : '';
+      ogTitle = `Apoie ${candidate.name}${partyText}`;
       
-      const positionText = candidate.politicalPosition ? ` - ${candidate.politicalPosition}` : '';
-      const partyText = candidate.party?.acronym ? ` | ${candidate.party.acronym}` : '';
-      ogDescription = `Cadastre-se como apoiador de ${candidate.name}${positionText}${partyText}. Juntos construiremos um futuro melhor!`;
+      if (candidate.politicalPosition && candidate.party?.acronym) {
+        ogDescription = `Faça parte da nossa campanha! Cadastre seu apoio a ${candidate.name}, candidato a ${candidate.politicalPosition} pelo ${candidate.party.acronym}. Sua participação faz a diferença!`;
+      } else if (candidate.politicalPosition) {
+        ogDescription = `Faça parte da nossa campanha! Cadastre seu apoio a ${candidate.name}, candidato a ${candidate.politicalPosition}. Sua participação faz a diferença!`;
+      } else if (candidate.party?.acronym) {
+        ogDescription = `Faça parte da nossa campanha! Cadastre seu apoio a ${candidate.name} (${candidate.party.acronym}). Sua participação faz a diferença!`;
+      } else {
+        ogDescription = `Faça parte da nossa campanha! Cadastre seu apoio a ${candidate.name}. Sua participação faz a diferença!`;
+      }
       
       // Use candidate avatar directly - skip data URLs as they don't work well with OG image crawlers
       if (candidate.avatar && !candidate.avatar.startsWith('data:')) {
