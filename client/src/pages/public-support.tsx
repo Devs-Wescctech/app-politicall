@@ -346,6 +346,19 @@ export default function PublicSupport() {
 
             {/* Big Bold Text - Similar to reference */}
             <div className="space-y-1">
+              {/* Volunteer name display - only when there's a volunteer code */}
+              {volunteerCode && volunteerData?.name && (
+                <p 
+                  className="text-lg md:text-xl font-bold uppercase tracking-wide"
+                  style={{ 
+                    color: getPartyColor(candidateData.party?.acronym),
+                    textShadow: '1px 1px 2px rgba(0,0,0,0.1)'
+                  }}
+                  data-testid="text-volunteer-name"
+                >
+                  {volunteerData.name}
+                </p>
+              )}
               <div className="flex items-center justify-center gap-3">
                 <h1 
                   className="text-4xl md:text-6xl lg:text-7xl font-black uppercase tracking-tight leading-none"
