@@ -1434,36 +1434,6 @@ export default function Settings() {
                 </CardContent>
               </Card>
 
-              {/* Instructions Card */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-sm">Como Configurar</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ol className="space-y-3 text-xs text-muted-foreground">
-                    <li className="flex gap-2">
-                      <span className="font-bold text-foreground">1.</span>
-                      Acesse <a href="https://console.cloud.google.com/" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">console.cloud.google.com</a>
-                    </li>
-                    <li className="flex gap-2">
-                      <span className="font-bold text-foreground">2.</span>
-                      Crie um projeto e ative a "Google Calendar API"
-                    </li>
-                    <li className="flex gap-2">
-                      <span className="font-bold text-foreground">3.</span>
-                      Vá em Credenciais → Criar ID OAuth 2.0
-                    </li>
-                    <li className="flex gap-2">
-                      <span className="font-bold text-foreground">4.</span>
-                      Copie o Redirect URI acima e cole no Google
-                    </li>
-                    <li className="flex gap-2">
-                      <span className="font-bold text-foreground">5.</span>
-                      Cole o Client ID e Secret nos campos à esquerda
-                    </li>
-                  </ol>
-                </CardContent>
-              </Card>
             </div>
           </div>
         </TabsContent>
