@@ -2436,15 +2436,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .sort((a, b) => b.count - a.count)
         .slice(0, 5);
 
-      // Top cities
-      const cityCounts: Record<string, number> = {};
+      // Top cities - normalize city names to avoid duplicates
+      // Function to normalize city name (title case with proper accents)
+      const normalizeCityName = (city: string): string => {
+        // Convert to lowercase first
+        const lower = city.toLowerCase().trim();
+        // Title case each word
+        return lower.replace(/\b\w/g, (char) => char.toUpperCase());
+      };
+      
+      // Group cities by normalized name, keeping the best formatted version
+      const cityGroups: Record<string, { displayName: string; count: number }> = {};
       contacts.forEach(contact => {
         if (contact.city) {
-          cityCounts[contact.city] = (cityCounts[contact.city] || 0) + 1;
+          const normalized = normalizeCityName(contact.city);
+          if (!cityGroups[normalized]) {
+            cityGroups[normalized] = { displayName: normalized, count: 0 };
+          }
+          cityGroups[normalized].count++;
         }
       });
-      const topCities = Object.entries(cityCounts)
-        .map(([city, count]) => ({ city, count }))
+      
+      const topCities = Object.values(cityGroups)
+        .map(({ displayName, count }) => ({ city: displayName, count }))
         .sort((a, b) => b.count - a.count)
         .slice(0, 5);
 
