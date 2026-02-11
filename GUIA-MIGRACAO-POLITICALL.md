@@ -1,6 +1,10 @@
 # DOCUMENTAÇÃO COMPLETA - COMO FIZEMOS A MIGRAÇÃO DO POLITICALL
 ## Todas as informações reais do projeto
 
+IMPORTANTE: As credenciais sensíveis (tokens, senhas, secrets) foram removidas deste arquivo
+por segurança do repositório. Consulte o documento separado "CREDENCIAIS-POLITICALL.md"
+que deve ser armazenado FORA do repositório (local seguro, nunca no GitHub).
+
 ---
 
 ## 1. GITHUB - REPOSITÓRIO E ACESSO
@@ -8,13 +12,13 @@
 - **Repositório:** https://github.com/Devs-Wescctech/app-politicall
 - **Branch:** main
 - **Organização GitHub:** Devs-Wescctech
-- **Token de acesso (PAT):** `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`
+- **Token de acesso (PAT):** Ver documento de credenciais
 - **Escopos do token:** repo, write:packages, read:packages
 
 ### Como conectamos o Replit ao GitHub
 No terminal do Replit rodamos:
 ```bash
-git remote set-url origin https://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@github.com/Devs-Wescctech/app-politicall.git
+git remote set-url origin https://<SEU_PAT>@github.com/Devs-Wescctech/app-politicall.git
 git branch -M main
 git push -u origin main
 ```
@@ -29,7 +33,7 @@ A partir disso, todo commit feito no Replit é enviado automaticamente para o Gi
 - **Endereço da imagem:** `ghcr.io/devs-wescctech/app-politicall:latest`
 - **Login no GHCR (no servidor):**
 ```bash
-echo "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" | docker login ghcr.io -u Devs-Wescctech --password-stdin
+echo "<SEU_PAT>" | docker login ghcr.io -u Devs-Wescctech --password-stdin
 ```
 
 ---
@@ -60,31 +64,31 @@ A autenticação no GHCR é pelo `GITHUB_TOKEN` (secret automático do GitHub Ac
 - **Tipo:** PostgreSQL padrão instalado direto no servidor
 - **Host:** `172.17.0.1` (IP do host Docker - assim o container acessa o banco no servidor)
 - **Porta:** `5432`
-- **Nome do banco:** `politicall`
-- **Usuário:** `auth_bd`
-- **Senha:** `4uth@1307BD`
-- **DATABASE_URL completa:** `postgresql://auth_bd:4uth@1307BD@172.17.0.1:5432/politicall`
+- **Nome do banco:** Ver documento de credenciais
+- **Usuário:** Ver documento de credenciais
+- **Senha:** Ver documento de credenciais
+- **DATABASE_URL completa:** Ver documento de credenciais
 
 ### Como criamos o banco no servidor
 ```bash
 sudo -u postgres psql
-CREATE DATABASE politicall;
-CREATE USER auth_bd WITH PASSWORD '4uth@1307BD';
-GRANT ALL PRIVILEGES ON DATABASE politicall TO auth_bd;
-\c politicall
-GRANT ALL ON SCHEMA public TO auth_bd;
+CREATE DATABASE <NOME_BANCO>;
+CREATE USER <USUARIO> WITH PASSWORD '<SENHA>';
+GRANT ALL PRIVILEGES ON DATABASE <NOME_BANCO> TO <USUARIO>;
+\c <NOME_BANCO>
+GRANT ALL ON SCHEMA public TO <USUARIO>;
 \q
 ```
 
 ### Como aplicamos o schema das tabelas
 ```bash
-DATABASE_URL="postgresql://auth_bd:4uth@1307BD@localhost:5432/politicall" npx drizzle-kit push
+DATABASE_URL="<DATABASE_URL_COMPLETA>" npx drizzle-kit push
 ```
 
 ### Como migramos os dados
 Criamos o arquivo `migration-script.sql` com todos os INSERTs dos dados existentes e rodamos:
 ```bash
-psql -U auth_bd -d politicall -f migration-script.sql
+psql -U <USUARIO> -d <NOME_BANCO> -f migration-script.sql
 ```
 
 ### Como o código detecta qual banco usar (server/db.ts)
@@ -120,8 +124,8 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=5000
-      - DATABASE_URL=postgresql://auth_bd:4uth@1307BD@172.17.0.1:5432/politicall
-      - SESSION_SECRET=2Iz5EHu2ZKRnebbtxV+R/e1JcPxjX/zcF68Xt5q/mXo=
+      - DATABASE_URL=<VER_CREDENCIAIS>
+      - SESSION_SECRET=<VER_CREDENCIAIS>
     volumes:
       - ./uploads:/app/uploads
     mem_limit: 1g
@@ -158,8 +162,8 @@ networks:
 |----------|-------|
 | `NODE_ENV` | `production` |
 | `PORT` | `5000` |
-| `DATABASE_URL` | `postgresql://auth_bd:4uth@1307BD@172.17.0.1:5432/politicall` |
-| `SESSION_SECRET` | `2Iz5EHu2ZKRnebbtxV+R/e1JcPxjX/zcF68Xt5q/mXo=` |
+| `DATABASE_URL` | Ver documento de credenciais |
+| `SESSION_SECRET` | Ver documento de credenciais |
 
 ### Variáveis que estão no Replit (secrets)
 | Variável | Uso |
@@ -189,7 +193,7 @@ networks:
 node -e "const b=require('bcrypt');b.hash('NovaSenha123',10).then(h=>console.log(h));"
 
 # Atualizar no banco
-psql -U auth_bd -d politicall -c "UPDATE users SET password = '\$2b\$10\$HASH_GERADO' WHERE email = 'email@do.usuario';"
+psql -U <USUARIO> -d <NOME_BANCO> -c "UPDATE users SET password = '\$2b\$10\$HASH_GERADO' WHERE email = 'email@do.usuario';"
 ```
 
 ---
@@ -222,7 +226,7 @@ REPLIT (código) → push automático → GITHUB (repositório)
                                     SERVIDOR (docker pull + up)
                                     container: app-politicall
                                     porta: 5000
-                                    banco: politicall (PostgreSQL local)
+                                    banco: PostgreSQL local
 ```
 
 ### Para atualizar no servidor após um commit
@@ -246,9 +250,9 @@ docker-compose up -d
 
 | Serviço | Como está integrado |
 |---------|-------------------|
-| **OpenAI** | Pacote `openai` npm, chave via secret `AI_INTEGRATIONS_OPENAI_API_KEY` no Replit |
+| **OpenAI** | Pacote `openai` npm, chave via secret no Replit |
 | **Facebook/Instagram** | Webhooks para atendimento IA automático via API do Meta |
-| **GitHub** | PAT `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` para push + GHCR |
+| **GitHub** | PAT (ver credenciais) para push + GHCR |
 | **Neon Database** | Driver serverless no Replit (automático) |
 | **PostgreSQL** | Driver `pg` no servidor (via DATABASE_URL) |
 
@@ -271,4 +275,5 @@ Estes são os arquivos que precisam existir no repositório para o CI/CD e Docke
 
 ---
 
-*Documento com todas as informações reais do projeto Politicall - como foi feito e o que temos configurado hoje.*
+*Documento com todas as informações do projeto Politicall - como foi feito e o que temos configurado hoje.*
+*Credenciais sensíveis estão no documento separado CREDENCIAIS-POLITICALL.md (manter fora do repositório).*
