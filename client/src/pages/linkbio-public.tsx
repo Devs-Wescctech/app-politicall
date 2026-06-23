@@ -31,13 +31,13 @@ export default function LinkBioPublic() {
 
   if (isLoading || !page) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-500 to-purple-600">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-teal-500 to-cyan-600">
         <Loader2 className="w-12 h-12 animate-spin text-white" />
       </div>
     );
   }
 
-  const bg = page.backgroundColor || "#6366f1";
+  const bg = page.backgroundColor || "#14b8a6";
 
   return (
     <div className="min-h-screen py-12 px-4" style={{ background: `linear-gradient(to bottom right, ${bg}, ${bg}cc)` }}>

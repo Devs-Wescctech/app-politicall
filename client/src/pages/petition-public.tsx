@@ -126,13 +126,13 @@ export default function PetitionPublic() {
 
   if (isLoading || !petition) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-500 to-purple-600">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-teal-500 to-cyan-600">
         <Loader2 className="w-12 h-12 animate-spin text-white" />
       </div>
     );
   }
 
-  const primaryColor = petition.primaryColor || "#6366f1";
+  const primaryColor = petition.primaryColor || "#14b8a6";
   const progress = Math.min((petition.signaturesCount / petition.goal) * 100, 100);
   const shareUrl = `${window.location.origin}/p/${petition.slug}`;
   const shareText = petition.shareText
@@ -185,6 +185,11 @@ export default function PetitionPublic() {
         ) : (
           <div className="absolute inset-0" style={{ background: `linear-gradient(to bottom right, ${primaryColor}, ${primaryColor}cc, ${primaryColor}99)` }} />
         )}
+
+        <div className="pointer-events-none absolute inset-0 overflow-hidden">
+          <div className="absolute -top-24 -left-24 w-96 h-96 rounded-full blur-3xl animate-pulse" style={{ animationDuration: "4s", backgroundColor: `${primaryColor}40` }} />
+          <div className="absolute -bottom-24 -right-24 w-96 h-96 rounded-full blur-3xl animate-pulse" style={{ animationDuration: "6s", animationDelay: "1s", backgroundColor: `${primaryColor}40` }} />
+        </div>
 
         <div className="relative z-10 max-w-5xl mx-auto px-4 py-16">
           {petition.videoUrl ? (

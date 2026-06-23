@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import {
   insertPetitionSchema,
@@ -90,7 +90,24 @@ import {
   Image as ImageIcon,
   Upload,
   Send,
+  ArrowLeft,
+  Target,
+  TrendingUp,
+  MapPin,
+  Heart,
+  Phone,
+  CreditCard,
+  MessageCircle,
 } from "lucide-react";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  ResponsiveContainer,
+  Tooltip as RechartsTooltip,
+  CartesianGrid,
+} from "recharts";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { getAuthToken } from "@/lib/auth";
@@ -298,7 +315,7 @@ const petitionDefaults: InsertPetition = {
   description: "",
   goal: 100,
   status: "rascunho",
-  primaryColor: "#6366f1",
+  primaryColor: "#14b8a6",
   shareText: "",
   videoUrl: "",
   bannerUrl: "",
@@ -317,17 +334,16 @@ const petitionDefaults: InsertPetition = {
   lgpdText: "",
 };
 
-function PetitionFormDialog({
-  open,
-  onOpenChange,
+function PetitionFormView({
   petition,
+  onBack,
 }: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
   petition?: PetitionWithCount | null;
+  onBack: () => void;
 }) {
   const { toast } = useToast();
   const isEdit = !!petition;
+  const open = true;
   const [slugEdited, setSlugEdited] = useState(false);
 
   const form = useForm<InsertPetition>({
@@ -344,7 +360,7 @@ function PetitionFormDialog({
           description: petition.description,
           goal: petition.goal,
           status: petition.status,
-          primaryColor: petition.primaryColor ?? "#6366f1",
+          primaryColor: petition.primaryColor ?? "#14b8a6",
           shareText: petition.shareText ?? "",
           videoUrl: petition.videoUrl ?? "",
           bannerUrl: petition.bannerUrl ?? "",
@@ -380,7 +396,7 @@ function PetitionFormDialog({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/petitions"] });
       toast({ title: isEdit ? "Petição atualizada!" : "Petição criada!" });
-      onOpenChange(false);
+      onBack();
     },
     onError: () => {
       toast({ title: "Erro ao salvar petição", variant: "destructive" });
@@ -389,19 +405,42 @@ function PetitionFormDialog({
 
   const onSubmit = (data: InsertPetition) => mutation.mutate(data);
 
+  const w = form.watch();
+  const accent = w.primaryColor || "#14b8a6";
+  const collectedFields = [
+    w.collectEmail && "E-mail",
+    w.collectPhone && "Telefone",
+    w.collectCity && "Cidade",
+    w.collectState && "Estado",
+    w.collectCpf && "CPF",
+    w.collectComment && "Comentário",
+  ].filter(Boolean) as string[];
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle data-testid="text-petition-form-title">
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center gap-3">
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={onBack}
+          data-testid="button-back-petition-form"
+        >
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
+        <div>
+          <h2 className="text-2xl font-bold text-foreground" data-testid="text-petition-form-title">
             {isEdit ? "Editar Petição" : "Nova Petição"}
-          </DialogTitle>
-          <DialogDescription>
+          </h2>
+          <p className="text-sm text-muted-foreground">
             Configure os detalhes e os campos do formulário público da petição.
-          </DialogDescription>
-        </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          </p>
+        </div>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-5">
+        <div className="lg:col-span-3">
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
               control={form.control}
               name="title"
@@ -528,7 +567,7 @@ function PetitionFormDialog({
                       <Input
                         type="color"
                         {...field}
-                        value={field.value ?? "#6366f1"}
+                        value={field.value ?? "#14b8a6"}
                         className="h-9 p-1"
                         data-testid="input-petition-color"
                       />
@@ -611,21 +650,54 @@ function PetitionFormDialog({
             <Separator />
 
             <div>
-              <h3 className="mb-3 text-sm font-semibold text-foreground">
+              <h3 className="mb-1 text-sm font-semibold text-foreground">
                 Campos do formulário
               </h3>
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                <SwitchField control={form.control} name="collectPhone" label="Coletar telefone" testid="collectPhone" />
-                <SwitchField control={form.control} name="requirePhone" label="Telefone obrigatório" testid="requirePhone" />
-                <SwitchField control={form.control} name="collectEmail" label="Coletar e-mail" testid="collectEmail" />
-                <SwitchField control={form.control} name="requireEmail" label="E-mail obrigatório" testid="requireEmail" />
-                <SwitchField control={form.control} name="collectCity" label="Coletar cidade" testid="collectCity" />
-                <SwitchField control={form.control} name="collectState" label="Coletar estado" testid="collectState" />
-                <SwitchField control={form.control} name="requireLocation" label="Localização obrigatória" testid="requireLocation" />
-                <SwitchField control={form.control} name="collectCpf" label="Coletar CPF" testid="collectCpf" />
-                <SwitchField control={form.control} name="requireCpf" label="CPF obrigatório" testid="requireCpf" />
-                <SwitchField control={form.control} name="collectComment" label="Coletar comentário" testid="collectComment" />
-                <SwitchField control={form.control} name="requireComment" label="Comentário obrigatório" testid="requireComment" />
+              <p className="mb-3 text-xs text-muted-foreground">
+                Escolha quais dados coletar dos signatários e quais são obrigatórios.
+              </p>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <Card className="space-y-2 p-3">
+                  <div className="flex items-center gap-2">
+                    <Mail className="h-4 w-4 text-primary" />
+                    <span className="text-sm font-medium text-foreground">E-mail</span>
+                  </div>
+                  <SwitchField control={form.control} name="collectEmail" label="Coletar e-mail" testid="collectEmail" />
+                  <SwitchField control={form.control} name="requireEmail" label="Obrigatório" testid="requireEmail" />
+                </Card>
+                <Card className="space-y-2 p-3">
+                  <div className="flex items-center gap-2">
+                    <Phone className="h-4 w-4 text-primary" />
+                    <span className="text-sm font-medium text-foreground">Telefone</span>
+                  </div>
+                  <SwitchField control={form.control} name="collectPhone" label="Coletar telefone" testid="collectPhone" />
+                  <SwitchField control={form.control} name="requirePhone" label="Obrigatório" testid="requirePhone" />
+                </Card>
+                <Card className="space-y-2 p-3">
+                  <div className="flex items-center gap-2">
+                    <MapPin className="h-4 w-4 text-primary" />
+                    <span className="text-sm font-medium text-foreground">Localização</span>
+                  </div>
+                  <SwitchField control={form.control} name="collectCity" label="Coletar cidade" testid="collectCity" />
+                  <SwitchField control={form.control} name="collectState" label="Coletar estado" testid="collectState" />
+                  <SwitchField control={form.control} name="requireLocation" label="Obrigatório" testid="requireLocation" />
+                </Card>
+                <Card className="space-y-2 p-3">
+                  <div className="flex items-center gap-2">
+                    <CreditCard className="h-4 w-4 text-primary" />
+                    <span className="text-sm font-medium text-foreground">CPF</span>
+                  </div>
+                  <SwitchField control={form.control} name="collectCpf" label="Coletar CPF" testid="collectCpf" />
+                  <SwitchField control={form.control} name="requireCpf" label="Obrigatório" testid="requireCpf" />
+                </Card>
+                <Card className="space-y-2 p-3 sm:col-span-2">
+                  <div className="flex items-center gap-2">
+                    <MessageCircle className="h-4 w-4 text-primary" />
+                    <span className="text-sm font-medium text-foreground">Comentário</span>
+                  </div>
+                  <SwitchField control={form.control} name="collectComment" label="Coletar comentário" testid="collectComment" />
+                  <SwitchField control={form.control} name="requireComment" label="Obrigatório" testid="requireComment" />
+                </Card>
               </div>
             </div>
 
@@ -649,11 +721,11 @@ function PetitionFormDialog({
               )}
             />
 
-            <DialogFooter>
+            <div className="flex flex-wrap items-center justify-end gap-2 pt-2">
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => onOpenChange(false)}
+                onClick={onBack}
                 data-testid="button-cancel-petition"
               >
                 Cancelar
@@ -662,11 +734,72 @@ function PetitionFormDialog({
                 {mutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
                 Salvar
               </Button>
-            </DialogFooter>
-          </form>
-        </Form>
-      </DialogContent>
-    </Dialog>
+            </div>
+            </form>
+          </Form>
+        </div>
+
+        <div className="lg:col-span-2">
+          <div className="sticky top-4 space-y-3">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Pré-visualização
+            </p>
+            <Card className="overflow-hidden" data-testid="card-petition-preview">
+              <div
+                className="relative h-28 w-full"
+                style={
+                  w.bannerUrl
+                    ? { backgroundImage: `url(${w.bannerUrl})`, backgroundSize: "cover", backgroundPosition: "center" }
+                    : { background: `linear-gradient(135deg, ${accent}, ${accent}bb)` }
+                }
+              >
+                {w.logoUrl && (
+                  <img
+                    src={w.logoUrl}
+                    alt="Logo"
+                    className="absolute bottom-2 left-3 h-12 w-12 rounded-md border-2 border-white bg-white object-cover"
+                  />
+                )}
+              </div>
+              <CardContent className="space-y-3 pt-4">
+                <h3 className="text-lg font-bold text-foreground" data-testid="text-preview-title">
+                  {w.title || "Título da sua petição"}
+                </h3>
+                <p className="line-clamp-3 text-sm text-muted-foreground">
+                  {w.description || "A descrição da petição aparecerá aqui para os signatários."}
+                </p>
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                    <span>0 assinaturas</span>
+                    <span>Meta: {w.goal || 0}</span>
+                  </div>
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                    <div className="h-full rounded-full" style={{ width: "4%", background: accent }} />
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  disabled
+                  className="w-full rounded-md py-2 text-sm font-semibold text-white"
+                  style={{ background: accent }}
+                >
+                  Assinar agora
+                </button>
+                {collectedFields.length > 0 && (
+                  <div className="flex flex-wrap gap-1 pt-1">
+                    {collectedFields.map((f) => (
+                      <Badge key={f} variant="secondary" className="text-xs">
+                        {f}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -674,16 +807,15 @@ function PetitionFormDialog({
 // Petition details dialog
 // ============================================================================
 
-function PetitionDetailsDialog({
-  open,
-  onOpenChange,
+function PetitionDetailsView({
   petition,
+  onBack,
 }: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
   petition: PetitionWithCount | null;
+  onBack: () => void;
 }) {
   const { toast } = useToast();
+  const open = true;
   const [qrUrl, setQrUrl] = useState<string | null>(null);
   const [loadingQr, setLoadingQr] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
@@ -820,18 +952,160 @@ function PetitionDetailsDialog({
     }
   };
 
+  const chartData = useMemo(() => {
+    const days: { key: number; label: string; count: number }[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setHours(0, 0, 0, 0);
+      d.setDate(d.getDate() - i);
+      days.push({
+        key: d.getTime(),
+        label: d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }),
+        count: 0,
+      });
+    }
+    (signatures ?? []).forEach((s) => {
+      if (!s.createdAt) return;
+      const sd = new Date(s.createdAt);
+      sd.setHours(0, 0, 0, 0);
+      const bucket = days.find((x) => x.key === sd.getTime());
+      if (bucket) bucket.count++;
+    });
+    return days.map((d) => ({ label: d.label, count: d.count }));
+  }, [signatures]);
+
   if (!petition) return null;
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle data-testid="text-petition-details-title">{petition.title}</DialogTitle>
-          <DialogDescription>{petition.description}</DialogDescription>
-        </DialogHeader>
+  const accent = petition.primaryColor || "#14b8a6";
+  const totalSignatures = signatures?.length ?? petition.signaturesCount ?? 0;
+  const goalPct = petition.goal
+    ? Math.min(100, Math.round((totalSignatures / petition.goal) * 100))
+    : 0;
+  const last7 = chartData.reduce((sum, d) => sum + d.count, 0);
+  const statusMeta = PETITION_STATUS[petition.status as keyof typeof PETITION_STATUS];
 
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+  return (
+    <div className="space-y-6">
+      <div
+        className="relative overflow-hidden rounded-md p-6 text-white"
+        style={{ background: `linear-gradient(135deg, ${accent}, ${accent}bb)` }}
+        data-testid="hero-petition-details"
+      >
+        <div
+          className="pointer-events-none absolute inset-0 opacity-20"
+          style={{
+            backgroundImage:
+              "radial-gradient(circle at 1px 1px, rgba(255,255,255,0.4) 1px, transparent 0)",
+            backgroundSize: "16px 16px",
+          }}
+        />
+        <div className="relative space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onBack}
+              className="border-white/40 bg-white/10 text-white backdrop-blur"
+              data-testid="button-back-petition-details"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Voltar
+            </Button>
+            {statusMeta && (
+              <Badge className="border-white/30 bg-white/15 text-white">
+                {statusMeta.label}
+              </Badge>
+            )}
+          </div>
+          <h2 className="text-2xl font-bold" data-testid="text-petition-details-title">
+            {petition.title}
+          </h2>
+          {petition.description && (
+            <p className="max-w-2xl text-sm text-white/90">{petition.description}</p>
+          )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <Card data-testid="card-metric-total">
+          <CardContent className="flex items-center gap-3 p-4">
+            <div className="flex h-10 w-10 items-center justify-center rounded-md bg-primary/10 text-primary">
+              <Users className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-foreground">{totalSignatures}</p>
+              <p className="text-xs text-muted-foreground">Assinaturas</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card data-testid="card-metric-goal">
+          <CardContent className="flex items-center gap-3 p-4">
+            <div className="flex h-10 w-10 items-center justify-center rounded-md bg-primary/10 text-primary">
+              <Target className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-foreground">{goalPct}%</p>
+              <p className="text-xs text-muted-foreground">da meta ({petition.goal})</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card data-testid="card-metric-recent">
+          <CardContent className="flex items-center gap-3 p-4">
+            <div className="flex h-10 w-10 items-center justify-center rounded-md bg-primary/10 text-primary">
+              <TrendingUp className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-foreground">{last7}</p>
+              <p className="text-xs text-muted-foreground">Últimos 7 dias</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="text-base">Assinaturas nos últimos 7 dias</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-56 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartData} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                  <XAxis
+                    dataKey="label"
+                    tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }}
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <YAxis
+                    allowDecimals={false}
+                    tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }}
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <RechartsTooltip
+                    cursor={{ fill: "hsl(var(--muted))" }}
+                    contentStyle={{
+                      background: "hsl(var(--popover))",
+                      border: "1px solid hsl(var(--border))",
+                      borderRadius: "0.375rem",
+                      fontSize: "12px",
+                      color: "hsl(var(--popover-foreground))",
+                    }}
+                  />
+                  <Bar dataKey="count" fill={accent} radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Compartilhar</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
             <div className="space-y-2">
               <p className="text-sm font-medium text-foreground">Link público</p>
               <div className="flex flex-wrap items-center gap-2">
@@ -849,7 +1123,7 @@ function PetitionDetailsDialog({
                   <Copy className="h-4 w-4" />
                 </Button>
               </div>
-              <div className="flex flex-wrap gap-2 pt-2">
+              <div className="flex flex-wrap gap-2 pt-1">
                 <Button
                   variant="outline"
                   size="sm"
@@ -892,10 +1166,12 @@ function PetitionDetailsDialog({
                 </div>
               )}
             </div>
-          </div>
+          </CardContent>
+        </Card>
+      </div>
 
-          <Separator />
-
+      <Card>
+        <CardContent className="pt-6">
           <div>
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <h3 className="text-sm font-semibold text-foreground">
@@ -997,9 +1273,9 @@ function PetitionDetailsDialog({
               </div>
             )}
           </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 
@@ -1009,11 +1285,12 @@ function PetitionDetailsDialog({
 
 function PetitionsTab() {
   const { toast } = useToast();
-  const [formOpen, setFormOpen] = useState(false);
-  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [view, setView] = useState<"list" | "form" | "details">("list");
   const [editing, setEditing] = useState<PetitionWithCount | null>(null);
   const [selected, setSelected] = useState<PetitionWithCount | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<PetitionWithCount | null>(null);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("todas");
 
   const { data: petitions, isLoading } = useQuery<PetitionWithCount[]>({
     queryKey: ["/api/petitions"],
@@ -1037,8 +1314,59 @@ function PetitionsTab() {
   const activeCount =
     petitions?.filter((p) => p.status === "publicada").length ?? 0;
 
+  const statusFilters: { value: string; label: string }[] = [
+    { value: "todas", label: "Todas" },
+    { value: "publicada", label: "Publicadas" },
+    { value: "rascunho", label: "Rascunhos" },
+    { value: "pausada", label: "Pausadas" },
+    { value: "concluida", label: "Concluídas" },
+  ];
+
+  const filteredPetitions = (petitions ?? []).filter((p) => {
+    const matchesStatus = statusFilter === "todas" || p.status === statusFilter;
+    const matchesSearch = p.title.toLowerCase().includes(search.trim().toLowerCase());
+    return matchesStatus && matchesSearch;
+  });
+
+  if (view === "form") {
+    return <PetitionFormView petition={editing} onBack={() => setView("list")} />;
+  }
+
+  if (view === "details" && selected) {
+    return <PetitionDetailsView petition={selected} onBack={() => setView("list")} />;
+  }
+
   return (
     <div className="space-y-6">
+      <div className="relative overflow-hidden rounded-md bg-gradient-to-br from-primary to-primary/80 p-6 md:p-8">
+        <div className="absolute inset-0 opacity-10 [background-image:radial-gradient(circle_at_1px_1px,white_1px,transparent_0)] [background-size:18px_18px]" />
+        <div className="relative flex flex-wrap items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 text-primary-foreground/80">
+              <ScrollText className="h-5 w-5" />
+              <span className="text-sm font-medium">Petições</span>
+            </div>
+            <h2 className="text-2xl font-bold text-primary-foreground md:text-3xl">
+              Mobilize apoio para suas causas
+            </h2>
+            <p className="max-w-xl text-sm text-primary-foreground/80">
+              Crie petições, colete assinaturas e acompanhe o progresso em tempo real.
+            </p>
+          </div>
+          <Button
+            variant="secondary"
+            onClick={() => {
+              setEditing(null);
+              setView("form");
+            }}
+            data-testid="button-new-petition"
+          >
+            <Plus className="h-4 w-4" />
+            Nova Petição
+          </Button>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <Card data-testid="card-total-petitions">
           <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
@@ -1081,134 +1409,171 @@ function PetitionsTab() {
         </Card>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-lg font-semibold text-foreground">Petições</h2>
-        <Button
-          onClick={() => {
-            setEditing(null);
-            setFormOpen(true);
-          }}
-          data-testid="button-new-petition"
-        >
-          <Plus className="h-4 w-4" />
-          Nova Petição
-        </Button>
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="relative w-full md:max-w-xs">
+          <Eye className="pointer-events-none absolute left-3 top-1/2 hidden h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar petições..."
+            data-testid="input-search-petitions"
+          />
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {statusFilters.map((f) => (
+            <Button
+              key={f.value}
+              variant={statusFilter === f.value ? "default" : "outline"}
+              size="sm"
+              onClick={() => setStatusFilter(f.value)}
+              data-testid={`button-filter-${f.value}`}
+            >
+              {f.label}
+            </Button>
+          ))}
+        </div>
       </div>
 
       {isLoading ? (
-        <div className="space-y-2">
-          <Skeleton className="h-16 w-full" />
-          <Skeleton className="h-16 w-full" />
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <Skeleton className="h-64 w-full rounded-md" />
+          <Skeleton className="h-64 w-full rounded-md" />
+          <Skeleton className="h-64 w-full rounded-md" />
         </div>
       ) : !petitions || petitions.length === 0 ? (
         <Card>
-          <CardContent className="py-10 text-center text-muted-foreground">
-            Nenhuma petição cadastrada. Crie a primeira!
+          <CardContent className="flex flex-col items-center gap-3 py-14 text-center">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted text-muted-foreground">
+              <ScrollText className="h-7 w-7" />
+            </div>
+            <p className="text-muted-foreground">Nenhuma petição cadastrada. Crie a primeira!</p>
+            <Button
+              onClick={() => {
+                setEditing(null);
+                setView("form");
+              }}
+              data-testid="button-new-petition-empty"
+            >
+              <Plus className="h-4 w-4" />
+              Nova Petição
+            </Button>
+          </CardContent>
+        </Card>
+      ) : filteredPetitions.length === 0 ? (
+        <Card>
+          <CardContent className="py-14 text-center text-muted-foreground">
+            Nenhuma petição encontrada para os filtros selecionados.
           </CardContent>
         </Card>
       ) : (
-        <Card>
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Título</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="min-w-[180px]">Progresso</TableHead>
-                    <TableHead>Visualizações</TableHead>
-                    <TableHead className="text-right">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {petitions.map((p) => {
-                    const count = p.signaturesCount ?? 0;
-                    const pct = p.goal > 0 ? Math.min(100, (count / p.goal) * 100) : 0;
-                    const statusCfg = PETITION_STATUS[p.status] ?? PETITION_STATUS.rascunho;
-                    return (
-                      <TableRow key={p.id} data-testid={`row-petition-${p.id}`}>
-                        <TableCell className="font-medium text-foreground" data-testid={`text-petition-title-${p.id}`}>
-                          {p.title}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={statusCfg.variant} data-testid={`badge-petition-status-${p.id}`}>
-                            {statusCfg.label}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="space-y-1">
-                            <Progress value={pct} className="h-2" />
-                            <p className="text-xs text-muted-foreground">
-                              {count} / {p.goal}
-                            </p>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-muted-foreground" data-testid={`text-petition-views-${p.id}`}>
-                          {p.viewsCount}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex flex-wrap items-center justify-end gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => {
-                                setSelected(p);
-                                setDetailsOpen(true);
-                              }}
-                              title="Ver detalhes"
-                              data-testid={`button-details-petition-${p.id}`}
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() =>
-                                copyToClipboard(
-                                  `${window.location.origin}/p/${p.slug}`,
-                                  toast,
-                                )
-                              }
-                              title="Copiar link público"
-                              data-testid={`button-copy-petition-${p.id}`}
-                            >
-                              <Copy className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => {
-                                setEditing(p);
-                                setFormOpen(true);
-                              }}
-                              title="Editar"
-                              data-testid={`button-edit-petition-${p.id}`}
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => setDeleteTarget(p)}
-                              title="Excluir"
-                              data-testid={`button-delete-petition-${p.id}`}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {filteredPetitions.map((p) => {
+            const count = p.signaturesCount ?? 0;
+            const pct = p.goal > 0 ? Math.min(100, (count / p.goal) * 100) : 0;
+            const statusCfg = PETITION_STATUS[p.status] ?? PETITION_STATUS.rascunho;
+            const accent = p.primaryColor || "#14b8a6";
+            return (
+              <Card
+                key={p.id}
+                className="flex flex-col overflow-hidden"
+                data-testid={`card-petition-${p.id}`}
+              >
+                <div
+                  className="relative h-28 bg-cover bg-center"
+                  style={
+                    p.bannerUrl
+                      ? { backgroundImage: `url(${p.bannerUrl})` }
+                      : { background: `linear-gradient(135deg, ${accent}, ${accent}99)` }
+                  }
+                >
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+                  <Badge
+                    variant={statusCfg.variant}
+                    className="absolute right-3 top-3"
+                    data-testid={`badge-petition-status-${p.id}`}
+                  >
+                    {statusCfg.label}
+                  </Badge>
+                  {p.logoUrl && (
+                    <img
+                      src={p.logoUrl}
+                      alt=""
+                      className="absolute bottom-3 left-3 h-10 w-10 rounded-md border-2 border-white/70 object-cover"
+                    />
+                  )}
+                </div>
+                <CardContent className="flex flex-1 flex-col gap-3 p-4">
+                  <h3
+                    className="line-clamp-2 font-semibold text-foreground"
+                    data-testid={`text-petition-title-${p.id}`}
+                  >
+                    {p.title}
+                  </h3>
+                  <div className="mt-auto space-y-1.5">
+                    <Progress value={pct} className="h-2" />
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <span data-testid={`text-petition-count-${p.id}`}>
+                        {count.toLocaleString("pt-BR")} / {p.goal.toLocaleString("pt-BR")}
+                      </span>
+                      <span className="flex items-center gap-1" data-testid={`text-petition-views-${p.id}`}>
+                        <Eye className="h-3 w-3" />
+                        {p.viewsCount}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center justify-end gap-1 border-t pt-2">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => {
+                        setSelected(p);
+                        setView("details");
+                      }}
+                      title="Ver detalhes"
+                      data-testid={`button-details-petition-${p.id}`}
+                    >
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() =>
+                        copyToClipboard(`${window.location.origin}/p/${p.slug}`, toast)
+                      }
+                      title="Copiar link público"
+                      data-testid={`button-copy-petition-${p.id}`}
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => {
+                        setEditing(p);
+                        setView("form");
+                      }}
+                      title="Editar"
+                      data-testid={`button-edit-petition-${p.id}`}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setDeleteTarget(p)}
+                      title="Excluir"
+                      data-testid={`button-delete-petition-${p.id}`}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
       )}
 
-      <PetitionFormDialog open={formOpen} onOpenChange={setFormOpen} petition={editing} />
-      <PetitionDetailsDialog open={detailsOpen} onOpenChange={setDetailsOpen} petition={selected} />
 
       <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
         <AlertDialogContent>
@@ -1677,122 +2042,136 @@ function CampaignsTab() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-lg font-semibold text-foreground">Campanhas WhatsApp</h2>
-        <Button
-          onClick={() => {
-            setEditing(null);
-            setFormOpen(true);
-          }}
-          data-testid="button-new-campaign"
-        >
-          <Plus className="h-4 w-4" />
-          Nova Campanha
-        </Button>
+      <div className="relative overflow-hidden rounded-md bg-gradient-to-br from-primary to-primary/80 p-6 md:p-8">
+        <div className="absolute inset-0 opacity-10 [background-image:radial-gradient(circle_at_1px_1px,white_1px,transparent_0)] [background-size:18px_18px]" />
+        <div className="relative flex flex-wrap items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 text-primary-foreground/80">
+              <Send className="h-5 w-5" />
+              <span className="text-sm font-medium">Campanhas</span>
+            </div>
+            <h2 className="text-2xl font-bold text-primary-foreground md:text-3xl">
+              Dispare mensagens em massa
+            </h2>
+            <p className="max-w-xl text-sm text-primary-foreground/80">
+              Envie campanhas de WhatsApp e e-mail e acompanhe entregas em tempo real.
+            </p>
+          </div>
+          <Button
+            variant="secondary"
+            onClick={() => {
+              setEditing(null);
+              setFormOpen(true);
+            }}
+            data-testid="button-new-campaign"
+          >
+            <Plus className="h-4 w-4" />
+            Nova Campanha
+          </Button>
+        </div>
       </div>
 
       {isLoading ? (
-        <div className="space-y-2">
-          <Skeleton className="h-16 w-full" />
-          <Skeleton className="h-16 w-full" />
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <Skeleton className="h-44 w-full" />
+          <Skeleton className="h-44 w-full" />
+          <Skeleton className="h-44 w-full" />
         </div>
       ) : !campaigns || campaigns.length === 0 ? (
         <Card>
-          <CardContent className="py-10 text-center text-muted-foreground">
-            Nenhuma campanha cadastrada.
+          <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted text-muted-foreground">
+              <Send className="h-7 w-7" />
+            </div>
+            <p className="text-muted-foreground">Nenhuma campanha cadastrada.</p>
           </CardContent>
         </Card>
       ) : (
-        <Card>
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nome</TableHead>
-                    <TableHead>Tipo</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Enviadas</TableHead>
-                    <TableHead>Sucesso</TableHead>
-                    <TableHead>Falhas</TableHead>
-                    <TableHead className="text-right">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {campaigns.map((c) => {
-                    const statusCfg = CAMPAIGN_STATUS[c.status] ?? CAMPAIGN_STATUS.rascunho;
-                    return (
-                      <TableRow key={c.id} data-testid={`row-campaign-${c.id}`}>
-                        <TableCell className="font-medium text-foreground">{c.name}</TableCell>
-                        <TableCell>
-                          <Badge variant="secondary">
-                            {c.type === "whatsapp" ? "WhatsApp" : "E-mail"}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={statusCfg.variant}>{statusCfg.label}</Badge>
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">{c.sentCount}</TableCell>
-                        <TableCell className="text-muted-foreground">{c.successCount}</TableCell>
-                        <TableCell className="text-muted-foreground">{c.failedCount}</TableCell>
-                        <TableCell>
-                          <div className="flex flex-wrap items-center justify-end gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => {
-                                setAccessToken("");
-                                setRunTarget(c);
-                              }}
-                              disabled={c.type !== "whatsapp" || c.status === "enviando"}
-                              title="Disparar campanha"
-                              data-testid={`button-run-campaign-${c.id}`}
-                            >
-                              <Send className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => {
-                                setLogsTarget(c);
-                                setLogsOpen(true);
-                              }}
-                              title="Ver logs"
-                              data-testid={`button-logs-campaign-${c.id}`}
-                            >
-                              <FileText className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => {
-                                setEditing(c);
-                                setFormOpen(true);
-                              }}
-                              title="Editar"
-                              data-testid={`button-edit-campaign-${c.id}`}
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => setDeleteTarget(c)}
-                              title="Excluir"
-                              data-testid={`button-delete-campaign-${c.id}`}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {campaigns.map((c) => {
+            const statusCfg = CAMPAIGN_STATUS[c.status] ?? CAMPAIGN_STATUS.rascunho;
+            return (
+              <Card key={c.id} className="flex flex-col" data-testid={`row-campaign-${c.id}`}>
+                <CardContent className="flex flex-1 flex-col gap-4 p-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                        <Send className="h-4 w-4" />
+                      </div>
+                      <p className="font-medium text-foreground line-clamp-2">{c.name}</p>
+                    </div>
+                    <Badge variant={statusCfg.variant}>{statusCfg.label}</Badge>
+                  </div>
+                  <Badge variant="secondary" className="w-fit">
+                    {c.type === "whatsapp" ? "WhatsApp" : "E-mail"}
+                  </Badge>
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    <div className="rounded-md bg-muted/50 p-2">
+                      <p className="text-lg font-semibold text-foreground">{c.sentCount}</p>
+                      <p className="text-xs text-muted-foreground">Enviadas</p>
+                    </div>
+                    <div className="rounded-md bg-muted/50 p-2">
+                      <p className="text-lg font-semibold text-foreground">{c.successCount}</p>
+                      <p className="text-xs text-muted-foreground">Sucesso</p>
+                    </div>
+                    <div className="rounded-md bg-muted/50 p-2">
+                      <p className="text-lg font-semibold text-foreground">{c.failedCount}</p>
+                      <p className="text-xs text-muted-foreground">Falhas</p>
+                    </div>
+                  </div>
+                  <div className="mt-auto flex flex-wrap items-center justify-end gap-1 border-t pt-3">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => {
+                        setAccessToken("");
+                        setRunTarget(c);
+                      }}
+                      disabled={c.type !== "whatsapp" || c.status === "enviando"}
+                      title="Disparar campanha"
+                      data-testid={`button-run-campaign-${c.id}`}
+                    >
+                      <Send className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => {
+                        setLogsTarget(c);
+                        setLogsOpen(true);
+                      }}
+                      title="Ver logs"
+                      data-testid={`button-logs-campaign-${c.id}`}
+                    >
+                      <FileText className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => {
+                        setEditing(c);
+                        setFormOpen(true);
+                      }}
+                      title="Editar"
+                      data-testid={`button-edit-campaign-${c.id}`}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setDeleteTarget(c)}
+                      title="Excluir"
+                      data-testid={`button-delete-campaign-${c.id}`}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
       )}
 
       <CampaignFormDialog
@@ -2070,92 +2449,94 @@ function TemplatesTab() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-lg font-semibold text-foreground">Modelos de Mensagem</h2>
-        <Button
-          onClick={() => {
-            setEditing(null);
-            setFormOpen(true);
-          }}
-          data-testid="button-new-template"
-        >
-          <Plus className="h-4 w-4" />
-          Novo Modelo
-        </Button>
+      <div className="relative overflow-hidden rounded-md bg-gradient-to-br from-primary to-primary/80 p-6 md:p-8">
+        <div className="absolute inset-0 opacity-10 [background-image:radial-gradient(circle_at_1px_1px,white_1px,transparent_0)] [background-size:18px_18px]" />
+        <div className="relative flex flex-wrap items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 text-primary-foreground/80">
+              <FileText className="h-5 w-5" />
+              <span className="text-sm font-medium">Modelos</span>
+            </div>
+            <h2 className="text-2xl font-bold text-primary-foreground md:text-3xl">
+              Modelos de mensagem reutilizáveis
+            </h2>
+            <p className="max-w-xl text-sm text-primary-foreground/80">
+              Crie e padronize mensagens para usar nas suas campanhas.
+            </p>
+          </div>
+          <Button
+            variant="secondary"
+            onClick={() => {
+              setEditing(null);
+              setFormOpen(true);
+            }}
+            data-testid="button-new-template"
+          >
+            <Plus className="h-4 w-4" />
+            Novo Modelo
+          </Button>
+        </div>
       </div>
 
       {isLoading ? (
-        <div className="space-y-2">
-          <Skeleton className="h-16 w-full" />
-          <Skeleton className="h-16 w-full" />
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <Skeleton className="h-32 w-full" />
+          <Skeleton className="h-32 w-full" />
+          <Skeleton className="h-32 w-full" />
         </div>
       ) : !templates || templates.length === 0 ? (
         <Card>
-          <CardContent className="py-10 text-center text-muted-foreground">
-            Nenhum modelo cadastrado.
+          <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted text-muted-foreground">
+              <FileText className="h-7 w-7" />
+            </div>
+            <p className="text-muted-foreground">Nenhum modelo cadastrado.</p>
           </CardContent>
         </Card>
       ) : (
-        <Card>
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nome</TableHead>
-                    <TableHead>Tipo</TableHead>
-                    <TableHead>Padrão</TableHead>
-                    <TableHead className="text-right">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {templates.map((t) => (
-                    <TableRow key={t.id} data-testid={`row-template-${t.id}`}>
-                      <TableCell className="font-medium text-foreground">{t.name}</TableCell>
-                      <TableCell>
-                        <Badge variant="secondary">
-                          {t.type === "whatsapp" ? "WhatsApp" : "E-mail"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {t.isDefault ? (
-                          <Badge variant="default">Padrão</Badge>
-                        ) : (
-                          <span className="text-muted-foreground">-</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-wrap items-center justify-end gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => {
-                              setEditing(t);
-                              setFormOpen(true);
-                            }}
-                            title="Editar"
-                            data-testid={`button-edit-template-${t.id}`}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setDeleteTarget(t)}
-                            title="Excluir"
-                            data-testid={`button-delete-template-${t.id}`}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {templates.map((t) => (
+            <Card key={t.id} className="flex flex-col" data-testid={`row-template-${t.id}`}>
+              <CardContent className="flex flex-1 flex-col gap-3 p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                      <FileText className="h-4 w-4" />
+                    </div>
+                    <p className="font-medium text-foreground line-clamp-2">{t.name}</p>
+                  </div>
+                  {t.isDefault && <Badge variant="default">Padrão</Badge>}
+                </div>
+                <Badge variant="secondary" className="w-fit">
+                  {t.type === "whatsapp" ? "WhatsApp" : "E-mail"}
+                </Badge>
+                <div className="mt-auto flex flex-wrap items-center justify-end gap-1 border-t pt-3">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => {
+                      setEditing(t);
+                      setFormOpen(true);
+                    }}
+                    title="Editar"
+                    data-testid={`button-edit-template-${t.id}`}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setDeleteTarget(t)}
+                    title="Excluir"
+                    data-testid={`button-delete-template-${t.id}`}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       )}
 
       <TemplateFormDialog open={formOpen} onOpenChange={setFormOpen} template={editing} />
@@ -2192,7 +2573,7 @@ const linkBioDefaults: InsertLinkBioPage = {
   slug: "",
   description: "",
   avatarUrl: "",
-  backgroundColor: "#6366f1",
+  backgroundColor: "#14b8a6",
   status: "rascunho",
   petitionIds: [],
 };
@@ -2225,7 +2606,7 @@ function LinkBioFormDialog({
           slug: page.slug,
           description: page.description ?? "",
           avatarUrl: page.avatarUrl ?? "",
-          backgroundColor: page.backgroundColor ?? "#6366f1",
+          backgroundColor: page.backgroundColor ?? "#14b8a6",
           status: page.status,
           petitionIds: page.petitionIds ?? [],
         });
@@ -2353,7 +2734,7 @@ function LinkBioFormDialog({
                       <Input
                         type="color"
                         {...field}
-                        value={field.value ?? "#6366f1"}
+                        value={field.value ?? "#14b8a6"}
                         className="h-9 p-1"
                         data-testid="input-linkbio-color"
                       />
@@ -2472,99 +2853,109 @@ function LinkBioTab() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-lg font-semibold text-foreground">Link Bio</h2>
-        <Button
-          onClick={() => {
-            setEditing(null);
-            setFormOpen(true);
-          }}
-          data-testid="button-new-linkbio"
-        >
-          <Plus className="h-4 w-4" />
-          Nova Página
-        </Button>
+      <div className="relative overflow-hidden rounded-md bg-gradient-to-br from-primary to-primary/80 p-6 md:p-8">
+        <div className="absolute inset-0 opacity-10 [background-image:radial-gradient(circle_at_1px_1px,white_1px,transparent_0)] [background-size:18px_18px]" />
+        <div className="relative flex flex-wrap items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 text-primary-foreground/80">
+              <LinkIcon className="h-5 w-5" />
+              <span className="text-sm font-medium">Link Bio</span>
+            </div>
+            <h2 className="text-2xl font-bold text-primary-foreground md:text-3xl">
+              Sua página de links personalizada
+            </h2>
+            <p className="max-w-xl text-sm text-primary-foreground/80">
+              Reúna seus links principais em uma página pública compartilhável.
+            </p>
+          </div>
+          <Button
+            variant="secondary"
+            onClick={() => {
+              setEditing(null);
+              setFormOpen(true);
+            }}
+            data-testid="button-new-linkbio"
+          >
+            <Plus className="h-4 w-4" />
+            Nova Página
+          </Button>
+        </div>
       </div>
 
       {isLoading ? (
-        <div className="space-y-2">
-          <Skeleton className="h-16 w-full" />
-          <Skeleton className="h-16 w-full" />
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <Skeleton className="h-36 w-full" />
+          <Skeleton className="h-36 w-full" />
+          <Skeleton className="h-36 w-full" />
         </div>
       ) : !pages || pages.length === 0 ? (
         <Card>
-          <CardContent className="py-10 text-center text-muted-foreground">
-            Nenhuma página cadastrada.
+          <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted text-muted-foreground">
+              <LinkIcon className="h-7 w-7" />
+            </div>
+            <p className="text-muted-foreground">Nenhuma página cadastrada.</p>
           </CardContent>
         </Card>
       ) : (
-        <Card>
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Título</TableHead>
-                    <TableHead>Slug</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Visualizações</TableHead>
-                    <TableHead className="text-right">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {pages.map((p) => (
-                    <TableRow key={p.id} data-testid={`row-linkbio-${p.id}`}>
-                      <TableCell className="font-medium text-foreground">{p.title}</TableCell>
-                      <TableCell className="text-muted-foreground">/bio/{p.slug}</TableCell>
-                      <TableCell>
-                        <Badge variant={p.status === "publicada" ? "default" : "secondary"}>
-                          {p.status === "publicada" ? "Publicada" : "Rascunho"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">{p.viewsCount}</TableCell>
-                      <TableCell>
-                        <div className="flex flex-wrap items-center justify-end gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() =>
-                              copyToClipboard(`${window.location.origin}/bio/${p.slug}`, toast)
-                            }
-                            title="Copiar link"
-                            data-testid={`button-copy-linkbio-${p.id}`}
-                          >
-                            <Copy className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => {
-                              setEditing(p);
-                              setFormOpen(true);
-                            }}
-                            title="Editar"
-                            data-testid={`button-edit-linkbio-${p.id}`}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setDeleteTarget(p)}
-                            title="Excluir"
-                            data-testid={`button-delete-linkbio-${p.id}`}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {pages.map((p) => (
+            <Card key={p.id} className="flex flex-col" data-testid={`row-linkbio-${p.id}`}>
+              <CardContent className="flex flex-1 flex-col gap-3 p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                      <LinkIcon className="h-4 w-4" />
+                    </div>
+                    <p className="font-medium text-foreground line-clamp-2">{p.title}</p>
+                  </div>
+                  <Badge variant={p.status === "publicada" ? "default" : "secondary"}>
+                    {p.status === "publicada" ? "Publicada" : "Rascunho"}
+                  </Badge>
+                </div>
+                <p className="truncate text-sm text-muted-foreground">/bio/{p.slug}</p>
+                <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                  <Eye className="h-4 w-4" />
+                  <span>{p.viewsCount} visualizações</span>
+                </div>
+                <div className="mt-auto flex flex-wrap items-center justify-end gap-1 border-t pt-3">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() =>
+                      copyToClipboard(`${window.location.origin}/bio/${p.slug}`, toast)
+                    }
+                    title="Copiar link"
+                    data-testid={`button-copy-linkbio-${p.id}`}
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => {
+                      setEditing(p);
+                      setFormOpen(true);
+                    }}
+                    title="Editar"
+                    data-testid={`button-edit-linkbio-${p.id}`}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setDeleteTarget(p)}
+                    title="Excluir"
+                    data-testid={`button-delete-linkbio-${p.id}`}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       )}
 
       <LinkBioFormDialog
@@ -2964,99 +3355,109 @@ function LinkTreeTab() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-lg font-semibold text-foreground">Link Tree</h2>
-        <Button
-          onClick={() => {
-            setEditing(null);
-            setFormOpen(true);
-          }}
-          data-testid="button-new-linktree"
-        >
-          <Plus className="h-4 w-4" />
-          Nova Página
-        </Button>
+      <div className="relative overflow-hidden rounded-md bg-gradient-to-br from-primary to-primary/80 p-6 md:p-8">
+        <div className="absolute inset-0 opacity-10 [background-image:radial-gradient(circle_at_1px_1px,white_1px,transparent_0)] [background-size:18px_18px]" />
+        <div className="relative flex flex-wrap items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 text-primary-foreground/80">
+              <ListTree className="h-5 w-5" />
+              <span className="text-sm font-medium">Link Tree</span>
+            </div>
+            <h2 className="text-2xl font-bold text-primary-foreground md:text-3xl">
+              Centralize todos os seus links
+            </h2>
+            <p className="max-w-xl text-sm text-primary-foreground/80">
+              Monte uma árvore de links pública para suas redes e campanhas.
+            </p>
+          </div>
+          <Button
+            variant="secondary"
+            onClick={() => {
+              setEditing(null);
+              setFormOpen(true);
+            }}
+            data-testid="button-new-linktree"
+          >
+            <Plus className="h-4 w-4" />
+            Nova Página
+          </Button>
+        </div>
       </div>
 
       {isLoading ? (
-        <div className="space-y-2">
-          <Skeleton className="h-16 w-full" />
-          <Skeleton className="h-16 w-full" />
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <Skeleton className="h-36 w-full" />
+          <Skeleton className="h-36 w-full" />
+          <Skeleton className="h-36 w-full" />
         </div>
       ) : !pages || pages.length === 0 ? (
         <Card>
-          <CardContent className="py-10 text-center text-muted-foreground">
-            Nenhuma página cadastrada.
+          <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted text-muted-foreground">
+              <ListTree className="h-7 w-7" />
+            </div>
+            <p className="text-muted-foreground">Nenhuma página cadastrada.</p>
           </CardContent>
         </Card>
       ) : (
-        <Card>
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Título</TableHead>
-                    <TableHead>Slug</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Visualizações</TableHead>
-                    <TableHead className="text-right">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {pages.map((p) => (
-                    <TableRow key={p.id} data-testid={`row-linktree-${p.id}`}>
-                      <TableCell className="font-medium text-foreground">{p.title}</TableCell>
-                      <TableCell className="text-muted-foreground">/tree/{p.slug}</TableCell>
-                      <TableCell>
-                        <Badge variant={p.status === "publicada" ? "default" : "secondary"}>
-                          {p.status === "publicada" ? "Publicada" : "Rascunho"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">{p.viewsCount}</TableCell>
-                      <TableCell>
-                        <div className="flex flex-wrap items-center justify-end gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() =>
-                              copyToClipboard(`${window.location.origin}/tree/${p.slug}`, toast)
-                            }
-                            title="Copiar link"
-                            data-testid={`button-copy-linktree-${p.id}`}
-                          >
-                            <Copy className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => {
-                              setEditing(p);
-                              setFormOpen(true);
-                            }}
-                            title="Editar"
-                            data-testid={`button-edit-linktree-${p.id}`}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setDeleteTarget(p)}
-                            title="Excluir"
-                            data-testid={`button-delete-linktree-${p.id}`}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {pages.map((p) => (
+            <Card key={p.id} className="flex flex-col" data-testid={`row-linktree-${p.id}`}>
+              <CardContent className="flex flex-1 flex-col gap-3 p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                      <ListTree className="h-4 w-4" />
+                    </div>
+                    <p className="font-medium text-foreground line-clamp-2">{p.title}</p>
+                  </div>
+                  <Badge variant={p.status === "publicada" ? "default" : "secondary"}>
+                    {p.status === "publicada" ? "Publicada" : "Rascunho"}
+                  </Badge>
+                </div>
+                <p className="truncate text-sm text-muted-foreground">/tree/{p.slug}</p>
+                <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                  <Eye className="h-4 w-4" />
+                  <span>{p.viewsCount} visualizações</span>
+                </div>
+                <div className="mt-auto flex flex-wrap items-center justify-end gap-1 border-t pt-3">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() =>
+                      copyToClipboard(`${window.location.origin}/tree/${p.slug}`, toast)
+                    }
+                    title="Copiar link"
+                    data-testid={`button-copy-linktree-${p.id}`}
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => {
+                      setEditing(p);
+                      setFormOpen(true);
+                    }}
+                    title="Editar"
+                    data-testid={`button-edit-linktree-${p.id}`}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setDeleteTarget(p)}
+                    title="Excluir"
+                    data-testid={`button-delete-linktree-${p.id}`}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       )}
 
       <LinkTreeFormDialog open={formOpen} onOpenChange={setFormOpen} page={editing} />
