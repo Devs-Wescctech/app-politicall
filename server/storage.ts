@@ -206,6 +206,7 @@ export interface IStorage {
   getPetitionSignatures(petitionId: string, accountId: string): Promise<PetitionSignature[]>;
   getPetitionSignatureCount(petitionId: string): Promise<number>;
   getPetitionSignatureByEmail(petitionId: string, email: string): Promise<PetitionSignature | undefined>;
+  getPetitionSignatureByCpf(petitionId: string, cpf: string): Promise<PetitionSignature | undefined>;
   createPetitionSignature(signature: InsertPetitionSignature & { ipAddress?: string | null }): Promise<PetitionSignature>;
   deletePetitionSignature(id: string, accountId: string): Promise<void>;
 
@@ -1654,6 +1655,16 @@ export class DatabaseStorage implements IStorage {
       .where(and(
         eq(petitionSignatures.petitionId, petitionId),
         eq(petitionSignatures.email, email)
+      ));
+    return signature || undefined;
+  }
+
+  async getPetitionSignatureByCpf(petitionId: string, cpf: string): Promise<PetitionSignature | undefined> {
+    const [signature] = await db.select()
+      .from(petitionSignatures)
+      .where(and(
+        eq(petitionSignatures.petitionId, petitionId),
+        eq(petitionSignatures.cpf, cpf)
       ));
     return signature || undefined;
   }

@@ -4609,6 +4609,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const validated = insertPetitionSignatureSchema.omit({ petitionId: true }).parse(req.body);
       const email = validated.email && validated.email.trim() !== "" ? validated.email.trim().toLowerCase() : null;
+      const cpf = validated.cpf && validated.cpf.replace(/\D/g, "") !== "" ? validated.cpf.replace(/\D/g, "") : null;
 
       // Dedupe by email (when provided)
       if (email) {
@@ -4618,12 +4619,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      // Dedupe by CPF (when provided)
+      if (cpf) {
+        const existingCpf = await storage.getPetitionSignatureByCpf(petition.id, cpf);
+        if (existingCpf) {
+          return res.status(400).json({ error: "Este CPF já assinou esta petição." });
+        }
+      }
+
       const ipAddress = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
         req.ip || req.socket.remoteAddress || 'unknown';
 
       const signature = await storage.createPetitionSignature({
         ...validated,
         email,
+        cpf,
         petitionId: petition.id,
         ipAddress,
       });
