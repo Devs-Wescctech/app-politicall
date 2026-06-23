@@ -1090,6 +1090,268 @@ export type InsertApiKeyUsage = z.infer<typeof insertApiKeyUsageSchema>;
 export type Lead = typeof leads.$inferSelect;
 export type InsertLead = z.infer<typeof insertLeadSchema>;
 
+// ============================================================================
+// PETIÇÕES MODULE - Petitions, signatures, campaigns, link pages
+// ============================================================================
+
+// Petitions - Abaixo-assinados (account-scoped)
+export const petitions = pgTable("petitions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  accountId: varchar("account_id").notNull().references(() => accounts.id, { onDelete: 'cascade' }),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  bannerUrl: text("banner_url"),
+  logoUrl: text("logo_url"),
+  videoUrl: text("video_url"),
+  primaryColor: text("primary_color").default("#6366f1"),
+  shareText: text("share_text"),
+  goal: integer("goal").notNull().default(1),
+  status: text("status").notNull().default("rascunho"), // rascunho, publicada, pausada, concluida
+  slug: text("slug").notNull().unique(),
+  collectPhone: boolean("collect_phone").default(false),
+  collectCity: boolean("collect_city").default(true),
+  collectState: boolean("collect_state").default(false),
+  collectCpf: boolean("collect_cpf").default(false),
+  collectEmail: boolean("collect_email").default(false),
+  collectComment: boolean("collect_comment").default(true),
+  requireEmail: boolean("require_email").default(false),
+  requirePhone: boolean("require_phone").default(false),
+  requireLocation: boolean("require_location").default(false),
+  requireCpf: boolean("require_cpf").default(false),
+  requireComment: boolean("require_comment").default(false),
+  lgpdText: text("lgpd_text"),
+  viewsCount: integer("views_count").default(0).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Petition Signatures
+export const petitionSignatures = pgTable("petition_signatures", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  petitionId: varchar("petition_id").notNull().references(() => petitions.id, { onDelete: 'cascade' }),
+  name: text("name").notNull(),
+  email: text("email"),
+  phone: text("phone"),
+  city: text("city"),
+  state: text("state"),
+  cpf: text("cpf"),
+  comment: text("comment"),
+  ipAddress: text("ip_address"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Petition Campaigns - WhatsApp/email mass messaging tied to petitions
+export const petitionCampaigns = pgTable("petition_campaigns", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  accountId: varchar("account_id").notNull().references(() => accounts.id, { onDelete: 'cascade' }),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  type: text("type").notNull(), // whatsapp, email
+  status: text("status").notNull().default("rascunho"), // rascunho, agendada, enviando, concluida, pausada
+  petitionId: varchar("petition_id").references(() => petitions.id, { onDelete: 'set null' }),
+  targetPetitions: text("target_petitions").array(),
+  targetFilters: jsonb("target_filters").$type<Record<string, any>>().default({}),
+  message: text("message").notNull(),
+  subject: text("subject"),
+  senderEmail: text("sender_email"),
+  senderName: text("sender_name"),
+  scheduledDate: timestamp("scheduled_date"),
+  sentCount: integer("sent_count").default(0).notNull(),
+  successCount: integer("success_count").default(0).notNull(),
+  failedCount: integer("failed_count").default(0).notNull(),
+  totalRecipients: integer("total_recipients").default(0).notNull(),
+  apiToken: text("api_token"),
+  delaySeconds: integer("delay_seconds").default(3).notNull(),
+  messagesPerHour: integer("messages_per_hour").default(20).notNull(),
+  avoidNightHours: boolean("avoid_night_hours").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Petition Campaign Logs - delivery logs per recipient
+export const petitionCampaignLogs = pgTable("petition_campaign_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  accountId: varchar("account_id").notNull().references(() => accounts.id, { onDelete: 'cascade' }),
+  campaignId: varchar("campaign_id").notNull().references(() => petitionCampaigns.id, { onDelete: 'cascade' }),
+  recipientName: text("recipient_name").notNull(),
+  recipientContact: text("recipient_contact").notNull(),
+  status: text("status").notNull(), // success, error
+  responseStatus: text("response_status"),
+  responseBody: text("response_body"),
+  errorMessage: text("error_message"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Petition Message Templates
+export const petitionMessageTemplates = pgTable("petition_message_templates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  accountId: varchar("account_id").notNull().references(() => accounts.id, { onDelete: 'cascade' }),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  type: text("type").notNull(), // whatsapp, email
+  subject: text("subject"),
+  content: text("content").notNull(),
+  isDefault: boolean("is_default").default(false),
+  thumbnailUrl: text("thumbnail_url"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Link Bio Pages - bio link page grouping multiple petitions
+export const linkBioPages = pgTable("linkbio_pages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  accountId: varchar("account_id").notNull().references(() => accounts.id, { onDelete: 'cascade' }),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  slug: text("slug").notNull().unique(),
+  description: text("description"),
+  avatarUrl: text("avatar_url"),
+  backgroundColor: text("background_color").default("#6366f1"),
+  status: text("status").notNull().default("rascunho"), // rascunho, publicada
+  petitionIds: text("petition_ids").array(),
+  viewsCount: integer("views_count").default(0).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Link Tree type for individual links
+export interface LinkTreeLink {
+  id: string;
+  title: string;
+  url: string;
+  icon?: string;
+}
+
+// Link Tree Pages - linktree-style page with arbitrary links
+export const linkTreePages = pgTable("linktree_pages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  accountId: varchar("account_id").notNull().references(() => accounts.id, { onDelete: 'cascade' }),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  slug: text("slug").notNull().unique(),
+  description: text("description"),
+  avatarUrl: text("avatar_url"),
+  backgroundColor: text("background_color").default("#ffffff"),
+  textColor: text("text_color").default("#000000"),
+  links: jsonb("links").$type<LinkTreeLink[]>().default([]),
+  status: text("status").notNull().default("rascunho"), // rascunho, publicada
+  viewsCount: integer("views_count").default(0).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Petition module insert schemas
+export const insertPetitionSchema = createInsertSchema(petitions).omit({
+  id: true,
+  accountId: true,
+  userId: true,
+  viewsCount: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  title: z.string().min(3, "Título deve ter no mínimo 3 caracteres"),
+  description: z.string().min(1, "Descrição é obrigatória"),
+  slug: z.string().min(3, "Slug deve ter no mínimo 3 caracteres"),
+  goal: z.coerce.number().int().min(1, "Meta deve ser maior que zero"),
+});
+
+export const insertPetitionSignatureSchema = createInsertSchema(petitionSignatures).omit({
+  id: true,
+  ipAddress: true,
+  createdAt: true,
+}).extend({
+  name: z.string().min(2, "Nome é obrigatório"),
+  email: z.string().email("E-mail inválido").nullable().optional().or(z.literal("")),
+});
+
+export const insertPetitionCampaignSchema = createInsertSchema(petitionCampaigns).omit({
+  id: true,
+  accountId: true,
+  userId: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  name: z.string().min(2, "Nome é obrigatório"),
+  type: z.enum(["whatsapp", "email"]),
+  message: z.string().min(1, "Mensagem é obrigatória"),
+  scheduledDate: z.coerce.date().nullable().optional(),
+  targetPetitions: z.array(z.string()).nullable().optional(),
+});
+
+export const insertPetitionCampaignLogSchema = createInsertSchema(petitionCampaignLogs).omit({
+  id: true,
+  accountId: true,
+  createdAt: true,
+});
+
+export const insertPetitionMessageTemplateSchema = createInsertSchema(petitionMessageTemplates).omit({
+  id: true,
+  accountId: true,
+  userId: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  name: z.string().min(2, "Nome é obrigatório"),
+  type: z.enum(["whatsapp", "email"]),
+  content: z.string().min(1, "Conteúdo é obrigatório"),
+});
+
+export const linkTreeLinkSchema = z.object({
+  id: z.string(),
+  title: z.string().min(1, "Título é obrigatório"),
+  url: z.string().min(1, "URL é obrigatória"),
+  icon: z.string().optional(),
+});
+
+export const insertLinkBioPageSchema = createInsertSchema(linkBioPages).omit({
+  id: true,
+  accountId: true,
+  userId: true,
+  viewsCount: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  title: z.string().min(2, "Título é obrigatório"),
+  slug: z.string().min(3, "Slug deve ter no mínimo 3 caracteres"),
+  petitionIds: z.array(z.string()).nullable().optional(),
+});
+
+export const insertLinkTreePageSchema = createInsertSchema(linkTreePages).omit({
+  id: true,
+  accountId: true,
+  userId: true,
+  viewsCount: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  title: z.string().min(2, "Título é obrigatório"),
+  slug: z.string().min(3, "Slug deve ter no mínimo 3 caracteres"),
+  links: z.array(linkTreeLinkSchema).nullable().optional(),
+});
+
+// Petition module types
+export type Petition = typeof petitions.$inferSelect;
+export type InsertPetition = z.infer<typeof insertPetitionSchema>;
+
+export type PetitionSignature = typeof petitionSignatures.$inferSelect;
+export type InsertPetitionSignature = z.infer<typeof insertPetitionSignatureSchema>;
+
+export type PetitionCampaign = typeof petitionCampaigns.$inferSelect;
+export type InsertPetitionCampaign = z.infer<typeof insertPetitionCampaignSchema>;
+
+export type PetitionCampaignLog = typeof petitionCampaignLogs.$inferSelect;
+export type InsertPetitionCampaignLog = z.infer<typeof insertPetitionCampaignLogSchema>;
+
+export type PetitionMessageTemplate = typeof petitionMessageTemplates.$inferSelect;
+export type InsertPetitionMessageTemplate = z.infer<typeof insertPetitionMessageTemplateSchema>;
+
+export type LinkBioPage = typeof linkBioPages.$inferSelect;
+export type InsertLinkBioPage = z.infer<typeof insertLinkBioPageSchema>;
+
+export type LinkTreePage = typeof linkTreePages.$inferSelect;
+export type InsertLinkTreePage = z.infer<typeof insertLinkTreePageSchema>;
+
 // System Settings table - Global admin settings
 export const systemSettings = pgTable("system_settings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

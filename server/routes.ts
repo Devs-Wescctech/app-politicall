@@ -18,7 +18,7 @@ import multer from "multer";
 import { google } from "googleapis";
 import crypto from "crypto";
 import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
-import { insertUserSchema, loginSchema, insertContactSchema, insertPoliticalAllianceSchema, insertAllianceInviteSchema, insertDemandSchema, insertDemandCommentSchema, insertEventSchema, insertAiConfigurationSchema, insertAiTrainingExampleSchema, insertAiResponseTemplateSchema, insertMarketingCampaignSchema, insertNotificationSchema, insertIntegrationSchema, insertSurveyCampaignSchema, insertSurveyLandingPageSchema, insertSurveyResponseSchema, insertLeadSchema, DEFAULT_PERMISSIONS } from "@shared/schema";
+import { insertUserSchema, loginSchema, insertContactSchema, insertPoliticalAllianceSchema, insertAllianceInviteSchema, insertDemandSchema, insertDemandCommentSchema, insertEventSchema, insertAiConfigurationSchema, insertAiTrainingExampleSchema, insertAiResponseTemplateSchema, insertMarketingCampaignSchema, insertNotificationSchema, insertIntegrationSchema, insertSurveyCampaignSchema, insertSurveyLandingPageSchema, insertSurveyResponseSchema, insertLeadSchema, insertPetitionSchema, insertPetitionSignatureSchema, insertPetitionCampaignSchema, insertPetitionCampaignLogSchema, insertPetitionMessageTemplateSchema, insertLinkBioPageSchema, insertLinkTreePageSchema, DEFAULT_PERMISSIONS } from "@shared/schema";
 
 // Configure multer for file uploads with disk storage for better performance
 const uploadDir = path.join(process.cwd(), 'uploads', 'temp');
@@ -3897,6 +3897,776 @@ export async function registerRoutes(app: Express): Promise<Server> {
           questionType: template?.questionType
         });
       }
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ==========================================================================
+  // PETITIONS MODULE (Petições)
+  // ==========================================================================
+
+  const getPublicBaseUrl = (req: Request): string => {
+    const proto = ((req.headers['x-forwarded-proto'] as string) || req.protocol || 'https').split(',')[0].trim();
+    const host = (req.headers['x-forwarded-host'] as string) || req.headers.host || '';
+    return `${proto}://${host}`;
+  };
+
+  // ---------- Petitions CRUD ----------
+  app.get("/api/petitions", authenticateToken, requirePermission("petitions"), async (req: AuthRequest, res) => {
+    try {
+      const list = await storage.getPetitions(req.accountId!);
+      // Attach live signature counts
+      const withCounts = await Promise.all(list.map(async (p) => ({
+        ...p,
+        signaturesCount: await storage.getPetitionSignatureCount(p.id),
+      })));
+      res.json(withCounts);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/petitions/:id", authenticateToken, requirePermission("petitions"), async (req: AuthRequest, res) => {
+    try {
+      const petition = await storage.getPetition(req.params.id, req.accountId!);
+      if (!petition) return res.status(404).json({ error: "Petição não encontrada" });
+      const signaturesCount = await storage.getPetitionSignatureCount(petition.id);
+      res.json({ ...petition, signaturesCount });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Generate a globally-unique slug by appending -2, -3, ... on collision.
+  // Slugs are global because public pages resolve by slug alone (no account in URL),
+  // so collisions across accounts must auto-dedupe instead of blocking creation.
+  async function makeUniqueSlug(
+    base: string,
+    lookup: (slug: string) => Promise<{ id: string } | undefined>,
+    currentId?: string,
+  ): Promise<string> {
+    const clean = (base || "").trim() || "item";
+    let candidate = clean;
+    let n = 1;
+    while (true) {
+      const found = await lookup(candidate);
+      if (!found || found.id === currentId) return candidate;
+      n += 1;
+      candidate = `${clean}-${n}`;
+    }
+  }
+
+  app.post("/api/petitions", authenticateToken, requirePermission("petitions"), async (req: AuthRequest, res) => {
+    try {
+      const validated = insertPetitionSchema.parse(req.body);
+      const slug = await makeUniqueSlug(validated.slug, (s) => storage.getPetitionBySlug(s));
+      const petition = await storage.createPetition({
+        ...validated,
+        slug,
+        userId: req.userId!,
+        accountId: req.accountId!,
+      });
+      res.status(201).json(petition);
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Dados inválidos", details: error.errors });
+      }
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.patch("/api/petitions/:id", authenticateToken, requirePermission("petitions"), async (req: AuthRequest, res) => {
+    try {
+      const validated = insertPetitionSchema.partial().parse(req.body);
+      if (validated.slug) {
+        validated.slug = await makeUniqueSlug(validated.slug, (s) => storage.getPetitionBySlug(s), req.params.id);
+      }
+      const petition = await storage.updatePetition(req.params.id, req.accountId!, validated);
+      res.json(petition);
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Dados inválidos", details: error.errors });
+      }
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/petitions/:id", authenticateToken, requirePermission("petitions"), async (req: AuthRequest, res) => {
+    try {
+      await storage.deletePetition(req.params.id, req.accountId!);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // ---------- Petition image upload ----------
+  app.post("/api/petitions/upload", authenticateToken, requirePermission("petitions"), upload.single('image'), async (req: AuthRequest, res) => {
+    const tempFilePath = req.file?.path;
+    try {
+      if (!req.file || !tempFilePath) {
+        return res.status(400).json({ error: "Nenhuma imagem enviada" });
+      }
+      if (!ALLOWED_IMAGE_TYPES.includes(req.file.mimetype)) {
+        cleanupTempFile(tempFilePath);
+        return res.status(400).json({ error: "Tipo de arquivo não permitido. Use JPG, PNG, WebP ou GIF." });
+      }
+      const ext = getSafeExtension(req.file.mimetype);
+      if (!ext) {
+        cleanupTempFile(tempFilePath);
+        return res.status(400).json({ error: "Tipo de imagem inválido" });
+      }
+      const filename = `${req.accountId}_${Date.now()}_${Math.round(Math.random() * 1e9)}.${ext}`;
+      const destDir = path.join(process.cwd(), 'uploads', 'petitions');
+      if (!fs.existsSync(destDir)) fs.mkdirSync(destDir, { recursive: true });
+      const filepath = path.join(destDir, filename);
+      fs.copyFileSync(tempFilePath, filepath);
+      cleanupTempFile(tempFilePath);
+      res.json({ url: `/uploads/petitions/${filename}` });
+    } catch (error: any) {
+      if (tempFilePath) cleanupTempFile(tempFilePath);
+      res.status(500).json({ error: error.message || "Erro ao fazer upload" });
+    }
+  });
+
+  // ---------- Petition signatures (authed view/delete) ----------
+  app.get("/api/petitions/:id/signatures", authenticateToken, requirePermission("petitions"), async (req: AuthRequest, res) => {
+    try {
+      const signatures = await storage.getPetitionSignatures(req.params.id, req.accountId!);
+      res.json(signatures);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/petition-signatures/:id", authenticateToken, requirePermission("petitions"), async (req: AuthRequest, res) => {
+    try {
+      await storage.deletePetitionSignature(req.params.id, req.accountId!);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // ---------- Bulk import signatures (CSV/array) ----------
+  app.post("/api/petitions/:id/signatures/import", authenticateToken, requirePermission("petitions"), async (req: AuthRequest, res) => {
+    try {
+      // Ensure the petition belongs to this account
+      const petition = await storage.getPetition(req.params.id, req.accountId!);
+      if (!petition) return res.status(404).json({ error: "Petição não encontrada" });
+
+      const rows: any[] = Array.isArray(req.body?.signatures) ? req.body.signatures : [];
+      if (rows.length === 0) {
+        return res.status(400).json({ error: "Nenhuma assinatura enviada para importação." });
+      }
+
+      let success = 0;
+      let failed = 0;
+      let skipped = 0;
+      const errors: { line: number; error: string }[] = [];
+
+      const norm = (v: any) => (typeof v === "string" ? v.trim() : v ? String(v).trim() : "");
+
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i] || {};
+        const name = norm(row.name ?? row.nome);
+        if (!name) {
+          failed++;
+          errors.push({ line: i + 1, error: "Nome ausente" });
+          continue;
+        }
+        const email = norm(row.email ?? row["e-mail"]);
+        try {
+          // Dedupe by email within this petition (only when email present)
+          if (email) {
+            const existing = await storage.getPetitionSignatureByEmail(req.params.id, email);
+            if (existing) {
+              skipped++;
+              continue;
+            }
+          }
+          await storage.createPetitionSignature({
+            petitionId: req.params.id,
+            name,
+            email: email || null,
+            phone: norm(row.phone ?? row.telefone ?? row.celular) || null,
+            city: norm(row.city ?? row.cidade) || null,
+            state: norm(row.state ?? row.estado ?? row.uf) || null,
+            cpf: norm(row.cpf) || null,
+            comment: norm(row.comment ?? row.comentario ?? row.mensagem) || null,
+          } as any);
+          success++;
+        } catch (e: any) {
+          failed++;
+          errors.push({ line: i + 1, error: e.message || "Erro ao salvar" });
+        }
+      }
+
+      res.json({ success, failed, skipped, total: rows.length, errors });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // ---------- Petition QR code (PNG) ----------
+  app.get("/api/petitions/:id/qrcode", authenticateToken, requirePermission("petitions"), async (req: AuthRequest, res) => {
+    try {
+      const petition = await storage.getPetition(req.params.id, req.accountId!);
+      if (!petition) return res.status(404).json({ error: "Petição não encontrada" });
+      const QRCode = require('qrcode');
+      const targetUrl = `${getPublicBaseUrl(req)}/p/${petition.slug}`;
+      const buffer = await QRCode.toBuffer(targetUrl, {
+        type: 'png',
+        width: 400,
+        margin: 2,
+        color: { dark: '#000000', light: '#FFFFFF' },
+      });
+      res.setHeader('Content-Type', 'image/png');
+      res.setHeader('Content-Disposition', `inline; filename="qrcode-${petition.slug}.png"`);
+      res.send(buffer);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ---------- Petition signatures PDF export ----------
+  app.get("/api/petitions/:id/pdf", authenticateToken, requirePermission("petitions"), async (req: AuthRequest, res) => {
+    try {
+      const petition = await storage.getPetition(req.params.id, req.accountId!);
+      if (!petition) return res.status(404).json({ error: "Petição não encontrada" });
+      const signatures = await storage.getPetitionSignatures(req.params.id, req.accountId!);
+
+      const PDFDocument = require('pdfkit');
+      const doc = new PDFDocument({ margin: 40, size: 'A4' });
+
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="peticao-${petition.slug}.pdf"`);
+      doc.pipe(res);
+
+      // Header
+      doc.fontSize(20).fillColor('#111111').text(petition.title, { align: 'center' });
+      doc.moveDown(0.5);
+      doc.fontSize(10).fillColor('#555555').text(petition.description, { align: 'justify' });
+      doc.moveDown(1);
+      doc.fontSize(11).fillColor('#111111')
+        .text(`Total de assinaturas: ${signatures.length}`, { continued: true })
+        .text(`     Meta: ${petition.goal}`, { align: 'left' });
+      doc.moveDown(1);
+
+      // Table header
+      doc.fontSize(12).fillColor('#000000').text('Assinaturas', { underline: true });
+      doc.moveDown(0.5);
+
+      signatures.forEach((s, idx) => {
+        if (doc.y > 760) doc.addPage();
+        const parts: string[] = [`${idx + 1}. ${s.name}`];
+        if (s.email) parts.push(s.email);
+        if (s.phone) parts.push(s.phone);
+        const loc = [s.city, s.state].filter(Boolean).join('/');
+        if (loc) parts.push(loc);
+        if (s.cpf) parts.push(`CPF: ${s.cpf}`);
+        const dateStr = s.createdAt ? new Date(s.createdAt).toLocaleString('pt-BR') : '';
+        doc.fontSize(9).fillColor('#222222').text(parts.join('  •  '));
+        if (s.comment) {
+          doc.fontSize(8).fillColor('#666666').text(`   "${s.comment}"`);
+        }
+        if (dateStr) doc.fontSize(7).fillColor('#999999').text(`   ${dateStr}`);
+        doc.moveDown(0.3);
+      });
+
+      doc.end();
+    } catch (error: any) {
+      if (!res.headersSent) res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ---------- Petition Campaigns ----------
+  app.get("/api/petition-campaigns", authenticateToken, requirePermission("petitions"), async (req: AuthRequest, res) => {
+    try {
+      res.json(await storage.getPetitionCampaigns(req.accountId!));
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/petition-campaigns/:id", authenticateToken, requirePermission("petitions"), async (req: AuthRequest, res) => {
+    try {
+      const campaign = await storage.getPetitionCampaign(req.params.id, req.accountId!);
+      if (!campaign) return res.status(404).json({ error: "Campanha não encontrada" });
+      res.json(campaign);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/petition-campaigns", authenticateToken, requirePermission("petitions"), async (req: AuthRequest, res) => {
+    try {
+      const validated = insertPetitionCampaignSchema.parse(req.body);
+      const campaign = await storage.createPetitionCampaign({
+        ...validated,
+        userId: req.userId!,
+        accountId: req.accountId!,
+      });
+      res.status(201).json(campaign);
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Dados inválidos", details: error.errors });
+      }
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.patch("/api/petition-campaigns/:id", authenticateToken, requirePermission("petitions"), async (req: AuthRequest, res) => {
+    try {
+      const validated = insertPetitionCampaignSchema.partial().parse(req.body);
+      const campaign = await storage.updatePetitionCampaign(req.params.id, req.accountId!, validated);
+      res.json(campaign);
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Dados inválidos", details: error.errors });
+      }
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/petition-campaigns/:id", authenticateToken, requirePermission("petitions"), async (req: AuthRequest, res) => {
+    try {
+      await storage.deletePetitionCampaign(req.params.id, req.accountId!);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // ---------- Run / dispatch a campaign ----------
+  app.post("/api/petition-campaigns/:id/run", authenticateToken, requirePermission("petitions"), async (req: AuthRequest, res) => {
+    try {
+      const campaign = await storage.getPetitionCampaign(req.params.id, req.accountId!);
+      if (!campaign) return res.status(404).json({ error: "Campanha não encontrada" });
+      if (campaign.status === "enviando") {
+        return res.status(400).json({ error: "Esta campanha já está em envio." });
+      }
+
+      // WhatsApp dispatch goes through the gateway; the access token is provided
+      // by the user (per send) or stored on the campaign. No silent mock.
+      const accessToken = (req.body?.accessToken || campaign.apiToken || "").trim();
+      if (campaign.type !== "whatsapp") {
+        return res.status(400).json({ error: "Apenas campanhas de WhatsApp podem ser disparadas no momento." });
+      }
+      if (!accessToken) {
+        return res.status(400).json({ error: "Informe o token de acesso da API de WhatsApp para disparar a campanha." });
+      }
+
+      // Resolve target petitions (single petitionId and/or targetPetitions array)
+      const petitionIds = Array.from(new Set([
+        ...(campaign.petitionId ? [campaign.petitionId] : []),
+        ...((campaign.targetPetitions as string[] | null) || []),
+      ]));
+      if (petitionIds.length === 0) {
+        return res.status(400).json({ error: "A campanha não está vinculada a nenhuma petição." });
+      }
+
+      // Gather recipients (signatures with a phone number) from this account's petitions
+      const petitionTitles: Record<string, string> = {};
+      const petitionSlugs: Record<string, string> = {};
+      const recipients: { name: string; phone: string; petitionId: string }[] = [];
+      for (const pid of petitionIds) {
+        const petition = await storage.getPetition(pid, req.accountId!);
+        if (!petition) continue;
+        petitionTitles[pid] = petition.title;
+        petitionSlugs[pid] = petition.slug;
+        const sigs = await storage.getPetitionSignatures(pid, req.accountId!);
+        for (const s of sigs) {
+          if (s.phone && s.phone.replace(/\D/g, "").length >= 8) {
+            recipients.push({ name: s.name, phone: s.phone, petitionId: pid });
+          }
+        }
+      }
+
+      if (recipients.length === 0) {
+        return res.status(400).json({ error: "Nenhum destinatário com telefone encontrado para esta campanha." });
+      }
+
+      await storage.updatePetitionCampaign(campaign.id, req.accountId!, {
+        status: "enviando",
+        totalRecipients: recipients.length,
+        sentCount: 0,
+        successCount: 0,
+        failedCount: 0,
+      } as any);
+
+      const baseUrl = getPublicBaseUrl(req);
+      const delayMs = Math.max(0, (campaign.delaySeconds ?? 0) * 1000);
+      let success = 0;
+      let failed = 0;
+
+      for (const r of recipients) {
+        const link = `${baseUrl}/p/${petitionSlugs[r.petitionId] || ""}`;
+        const personalized = (campaign.message || "")
+          .replaceAll("{nome}", r.name)
+          .replaceAll("{peticao}", petitionTitles[r.petitionId] || "")
+          .replaceAll("{link}", link);
+        const number = r.phone.replace(/\D/g, "");
+
+        let ok = false;
+        let errorMessage: string | null = null;
+        try {
+          const resp = await fetch("https://api.wescctech.com.br/core/v2/api/chats/send-text", {
+            method: "POST",
+            headers: {
+              "access-token": accessToken,
+              "Content-Type": "application/json",
+              "Accept": "application/json",
+            },
+            body: JSON.stringify({
+              forceSend: false,
+              isWhisper: false,
+              message: personalized,
+              verifyContact: true,
+              number,
+              delayInSeconds: 2,
+              linkPreview: true,
+            }),
+          });
+          if (resp.ok) {
+            ok = true;
+          } else {
+            errorMessage = (await resp.text())?.slice(0, 500) || `HTTP ${resp.status}`;
+          }
+        } catch (e: any) {
+          errorMessage = e.message || "Erro de rede";
+        }
+
+        if (ok) success++; else failed++;
+
+        await storage.createPetitionCampaignLog({
+          campaignId: campaign.id,
+          accountId: req.accountId!,
+          recipientName: r.name,
+          recipientContact: r.phone,
+          status: ok ? "enviado" : "falhou",
+          errorMessage,
+        } as any);
+
+        if (delayMs > 0) await new Promise((resolve) => setTimeout(resolve, delayMs));
+      }
+
+      const updated = await storage.updatePetitionCampaign(campaign.id, req.accountId!, {
+        status: "concluida",
+        sentCount: success + failed,
+        successCount: success,
+        failedCount: failed,
+      } as any);
+
+      res.json({ campaign: updated, total: recipients.length, success, failed });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // ---------- Petition Campaign Logs ----------
+  app.get("/api/petition-campaigns/:id/logs", authenticateToken, requirePermission("petitions"), async (req: AuthRequest, res) => {
+    try {
+      const logs = await storage.getPetitionCampaignLogs(req.params.id, req.accountId!);
+      res.json(logs);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/petition-campaigns/:id/logs", authenticateToken, requirePermission("petitions"), async (req: AuthRequest, res) => {
+    try {
+      // Ensure the campaign belongs to this account
+      const campaign = await storage.getPetitionCampaign(req.params.id, req.accountId!);
+      if (!campaign) return res.status(404).json({ error: "Campanha não encontrada" });
+      const validated = insertPetitionCampaignLogSchema.parse({ ...req.body, campaignId: req.params.id });
+      const log = await storage.createPetitionCampaignLog({ ...validated, accountId: req.accountId! });
+      res.status(201).json(log);
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Dados inválidos", details: error.errors });
+      }
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // ---------- Petition Message Templates ----------
+  app.get("/api/petition-message-templates", authenticateToken, requirePermission("petitions"), async (req: AuthRequest, res) => {
+    try {
+      res.json(await storage.getPetitionMessageTemplates(req.accountId!));
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/petition-message-templates", authenticateToken, requirePermission("petitions"), async (req: AuthRequest, res) => {
+    try {
+      const validated = insertPetitionMessageTemplateSchema.parse(req.body);
+      const template = await storage.createPetitionMessageTemplate({
+        ...validated,
+        userId: req.userId!,
+        accountId: req.accountId!,
+      });
+      res.status(201).json(template);
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Dados inválidos", details: error.errors });
+      }
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.patch("/api/petition-message-templates/:id", authenticateToken, requirePermission("petitions"), async (req: AuthRequest, res) => {
+    try {
+      const validated = insertPetitionMessageTemplateSchema.partial().parse(req.body);
+      const template = await storage.updatePetitionMessageTemplate(req.params.id, req.accountId!, validated);
+      res.json(template);
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Dados inválidos", details: error.errors });
+      }
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/petition-message-templates/:id", authenticateToken, requirePermission("petitions"), async (req: AuthRequest, res) => {
+    try {
+      await storage.deletePetitionMessageTemplate(req.params.id, req.accountId!);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // ---------- Link Bio Pages ----------
+  app.get("/api/linkbio-pages", authenticateToken, requirePermission("petitions"), async (req: AuthRequest, res) => {
+    try {
+      res.json(await storage.getLinkBioPages(req.accountId!));
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/linkbio-pages/:id", authenticateToken, requirePermission("petitions"), async (req: AuthRequest, res) => {
+    try {
+      const page = await storage.getLinkBioPage(req.params.id, req.accountId!);
+      if (!page) return res.status(404).json({ error: "Página não encontrada" });
+      res.json(page);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/linkbio-pages", authenticateToken, requirePermission("petitions"), async (req: AuthRequest, res) => {
+    try {
+      const validated = insertLinkBioPageSchema.parse(req.body);
+      const slug = await makeUniqueSlug(validated.slug, (s) => storage.getLinkBioPageBySlug(s));
+      const page = await storage.createLinkBioPage({
+        ...validated,
+        slug,
+        userId: req.userId!,
+        accountId: req.accountId!,
+      });
+      res.status(201).json(page);
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Dados inválidos", details: error.errors });
+      }
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.patch("/api/linkbio-pages/:id", authenticateToken, requirePermission("petitions"), async (req: AuthRequest, res) => {
+    try {
+      const validated = insertLinkBioPageSchema.partial().parse(req.body);
+      if (validated.slug) {
+        validated.slug = await makeUniqueSlug(validated.slug, (s) => storage.getLinkBioPageBySlug(s), req.params.id);
+      }
+      const page = await storage.updateLinkBioPage(req.params.id, req.accountId!, validated);
+      res.json(page);
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Dados inválidos", details: error.errors });
+      }
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/linkbio-pages/:id", authenticateToken, requirePermission("petitions"), async (req: AuthRequest, res) => {
+    try {
+      await storage.deleteLinkBioPage(req.params.id, req.accountId!);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // ---------- Link Tree Pages ----------
+  app.get("/api/linktree-pages", authenticateToken, requirePermission("petitions"), async (req: AuthRequest, res) => {
+    try {
+      res.json(await storage.getLinkTreePages(req.accountId!));
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/linktree-pages/:id", authenticateToken, requirePermission("petitions"), async (req: AuthRequest, res) => {
+    try {
+      const page = await storage.getLinkTreePage(req.params.id, req.accountId!);
+      if (!page) return res.status(404).json({ error: "Página não encontrada" });
+      res.json(page);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/linktree-pages", authenticateToken, requirePermission("petitions"), async (req: AuthRequest, res) => {
+    try {
+      const validated = insertLinkTreePageSchema.parse(req.body);
+      const slug = await makeUniqueSlug(validated.slug, (s) => storage.getLinkTreePageBySlug(s));
+      const page = await storage.createLinkTreePage({
+        ...validated,
+        slug,
+        userId: req.userId!,
+        accountId: req.accountId!,
+      });
+      res.status(201).json(page);
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Dados inválidos", details: error.errors });
+      }
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.patch("/api/linktree-pages/:id", authenticateToken, requirePermission("petitions"), async (req: AuthRequest, res) => {
+    try {
+      const validated = insertLinkTreePageSchema.partial().parse(req.body);
+      if (validated.slug) {
+        validated.slug = await makeUniqueSlug(validated.slug, (s) => storage.getLinkTreePageBySlug(s), req.params.id);
+      }
+      const page = await storage.updateLinkTreePage(req.params.id, req.accountId!, validated);
+      res.json(page);
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Dados inválidos", details: error.errors });
+      }
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/linktree-pages/:id", authenticateToken, requirePermission("petitions"), async (req: AuthRequest, res) => {
+    try {
+      await storage.deleteLinkTreePage(req.params.id, req.accountId!);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // ==========================================================================
+  // PETITIONS MODULE - PUBLIC ENDPOINTS (no auth)
+  // ==========================================================================
+
+  // Public petition by slug
+  app.get("/api/public/petitions/:slug", async (req, res) => {
+    try {
+      const petition = await storage.getPetitionBySlug(req.params.slug);
+      if (!petition || petition.status === "rascunho") {
+        return res.status(404).json({ error: "Petição não encontrada" });
+      }
+      await storage.incrementPetitionViews(petition.id);
+      const signaturesCount = await storage.getPetitionSignatureCount(petition.id);
+      res.json({ ...petition, signaturesCount });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Public signature count
+  app.get("/api/public/petitions/:slug/count", async (req, res) => {
+    try {
+      const petition = await storage.getPetitionBySlug(req.params.slug);
+      if (!petition) return res.status(404).json({ error: "Petição não encontrada" });
+      const signaturesCount = await storage.getPetitionSignatureCount(petition.id);
+      res.json({ signaturesCount, goal: petition.goal });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Public sign petition
+  app.post("/api/public/petitions/:slug/sign", async (req, res) => {
+    try {
+      const petition = await storage.getPetitionBySlug(req.params.slug);
+      if (!petition || petition.status === "rascunho") {
+        return res.status(404).json({ error: "Petição não encontrada" });
+      }
+      if (petition.status === "pausada" || petition.status === "concluida") {
+        return res.status(400).json({ error: "Esta petição não está mais recebendo assinaturas." });
+      }
+
+      const validated = insertPetitionSignatureSchema.omit({ petitionId: true }).parse(req.body);
+      const email = validated.email && validated.email.trim() !== "" ? validated.email.trim().toLowerCase() : null;
+
+      // Dedupe by email (when provided)
+      if (email) {
+        const existing = await storage.getPetitionSignatureByEmail(petition.id, email);
+        if (existing) {
+          return res.status(400).json({ error: "Este e-mail já assinou esta petição." });
+        }
+      }
+
+      const ipAddress = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
+        req.ip || req.socket.remoteAddress || 'unknown';
+
+      const signature = await storage.createPetitionSignature({
+        ...validated,
+        email,
+        petitionId: petition.id,
+        ipAddress,
+      });
+      const signaturesCount = await storage.getPetitionSignatureCount(petition.id);
+      res.status(201).json({ success: true, signature, signaturesCount });
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Dados inválidos", details: error.errors });
+      }
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // Public link bio page by slug
+  app.get("/api/public/linkbio/:slug", async (req, res) => {
+    try {
+      const page = await storage.getLinkBioPageBySlug(req.params.slug);
+      if (!page || page.status !== "publicada") {
+        return res.status(404).json({ error: "Página não encontrada" });
+      }
+      await storage.incrementLinkBioViews(page.id);
+      const ids = page.petitionIds || [];
+      const petitionsData = await Promise.all(ids.map(async (pid) => {
+        const p = await storage.getPetition(pid, page.accountId);
+        if (!p) return null;
+        const signaturesCount = await storage.getPetitionSignatureCount(p.id);
+        return { ...p, signaturesCount };
+      }));
+      res.json({ ...page, petitions: petitionsData.filter(Boolean) });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Public link tree page by slug
+  app.get("/api/public/linktree/:slug", async (req, res) => {
+    try {
+      const page = await storage.getLinkTreePageBySlug(req.params.slug);
+      if (!page || page.status !== "publicada") {
+        return res.status(404).json({ error: "Página não encontrada" });
+      }
+      await storage.incrementLinkTreeViews(page.id);
+      res.json(page);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }

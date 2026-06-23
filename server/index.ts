@@ -285,6 +285,79 @@ const handlePublicSupportSSR = async (req: Request, res: Response, next: NextFun
 app.get("/apoio/:slug", handlePublicSupportSSR);
 app.get("/apoio/:slug/:volunteerCode", handlePublicSupportSSR);
 
+// SSR Open Graph tags for public petition pages (/p/:slug)
+const handlePetitionSSR = async (req: Request, res: Response, next: NextFunction) => {
+  const userAgent = req.headers['user-agent'] || '';
+  const crawlerPatterns = [
+    'facebookexternalhit', 'Facebot', 'WhatsApp', 'Twitterbot', 'LinkedInBot',
+    'Pinterest', 'Slackbot', 'TelegramBot', 'Discordbot', 'Googlebot', 'bingbot', 'Applebot'
+  ];
+  const isCrawler = crawlerPatterns.some(pattern =>
+    userAgent.toLowerCase().includes(pattern.toLowerCase())
+  );
+  if (!isCrawler) {
+    return next();
+  }
+
+  try {
+    const { slug } = req.params;
+    const petition = await storage.getPetitionBySlug(slug);
+
+    const host = req.headers['x-forwarded-host'] || req.headers.host || 'www.politicall.com.br';
+    const baseUrl = `https://${host}`;
+
+    let ogTitle = "Petição - Politicall";
+    let ogDescription = "Assine esta petição e faça parte dessa mudança!";
+    let ogImage = `${baseUrl}/favicon.png`;
+
+    if (petition) {
+      ogTitle = petition.title;
+      if (petition.description) {
+        ogDescription = petition.description.length > 200
+          ? `${petition.description.slice(0, 200)}...`
+          : petition.description;
+      }
+      const img = petition.bannerUrl || petition.logoUrl;
+      if (img && !img.startsWith('data:')) {
+        ogImage = img.startsWith('http') ? img : `${baseUrl}${img}`;
+      }
+    }
+
+    const indexPath = path.resolve("client", "index.html");
+    let html = fs.readFileSync(indexPath, "utf-8");
+
+    const ogTags = `
+    <!-- Dynamic Open Graph Meta Tags for Petition Page -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="${baseUrl}${req.originalUrl}" />
+    <meta property="og:title" content="${ogTitle}" />
+    <meta property="og:description" content="${ogDescription}" />
+    <meta property="og:image" content="${ogImage}" />
+    <meta property="og:site_name" content="Politicall" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="${ogTitle}" />
+    <meta name="twitter:description" content="${ogDescription}" />
+    <meta name="twitter:image" content="${ogImage}" />
+    <link rel="icon" type="image/png" href="${ogImage}" />
+  `;
+
+    html = html.replace(/<title>.*?<\/title>/, `<title>${ogTitle}</title>`);
+    html = html.replace(
+      /<meta name="description" content=".*?" \/>/,
+      `<meta name="description" content="${ogDescription}" />`
+    );
+    html = html.replace('</head>', `${ogTags}</head>`);
+
+    res.setHeader("Content-Type", "text/html");
+    return res.send(html);
+  } catch (error) {
+    log(`SSR error for /p/:slug: ${error}`);
+    return next();
+  }
+};
+
+app.get("/p/:slug", handlePetitionSSR);
+
 (async () => {
   const server = await registerRoutes(app);
 

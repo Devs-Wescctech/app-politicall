@@ -21,7 +21,16 @@ import {
   type SurveyResponse, type InsertSurveyResponse,
   type Lead, type InsertLead,
   type ApiKey, type InsertApiKey,
-  type ApiKeyUsage, type InsertApiKeyUsage
+  type ApiKeyUsage, type InsertApiKeyUsage,
+  petitions, petitionSignatures, petitionCampaigns, petitionCampaignLogs,
+  petitionMessageTemplates, linkBioPages, linkTreePages,
+  type Petition, type InsertPetition,
+  type PetitionSignature, type InsertPetitionSignature,
+  type PetitionCampaign, type InsertPetitionCampaign,
+  type PetitionCampaignLog, type InsertPetitionCampaignLog,
+  type PetitionMessageTemplate, type InsertPetitionMessageTemplate,
+  type LinkBioPage, type InsertLinkBioPage,
+  type LinkTreePage, type InsertLinkTreePage
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, count, inArray, sql } from "drizzle-orm";
@@ -183,6 +192,58 @@ export interface IStorage {
   deleteApiKey(id: string, accountId: string): Promise<void>;
   validateApiKey(key: string): Promise<ApiKey | null>;
   updateApiKeyUsage(apiKeyId: string, usage: Omit<InsertApiKeyUsage, "apiKeyId">): Promise<void>;
+
+  // Petitions
+  getPetitions(accountId: string): Promise<Petition[]>;
+  getPetition(id: string, accountId: string): Promise<Petition | undefined>;
+  getPetitionBySlug(slug: string): Promise<Petition | undefined>;
+  createPetition(petition: InsertPetition & { userId: string; accountId: string }): Promise<Petition>;
+  updatePetition(id: string, accountId: string, petition: Partial<InsertPetition>): Promise<Petition>;
+  deletePetition(id: string, accountId: string): Promise<void>;
+  incrementPetitionViews(id: string): Promise<void>;
+
+  // Petition Signatures
+  getPetitionSignatures(petitionId: string, accountId: string): Promise<PetitionSignature[]>;
+  getPetitionSignatureCount(petitionId: string): Promise<number>;
+  getPetitionSignatureByEmail(petitionId: string, email: string): Promise<PetitionSignature | undefined>;
+  createPetitionSignature(signature: InsertPetitionSignature & { ipAddress?: string | null }): Promise<PetitionSignature>;
+  deletePetitionSignature(id: string, accountId: string): Promise<void>;
+
+  // Petition Campaigns
+  getPetitionCampaigns(accountId: string): Promise<PetitionCampaign[]>;
+  getPetitionCampaign(id: string, accountId: string): Promise<PetitionCampaign | undefined>;
+  createPetitionCampaign(campaign: InsertPetitionCampaign & { userId: string; accountId: string }): Promise<PetitionCampaign>;
+  updatePetitionCampaign(id: string, accountId: string, campaign: Partial<InsertPetitionCampaign>): Promise<PetitionCampaign>;
+  deletePetitionCampaign(id: string, accountId: string): Promise<void>;
+
+  // Petition Campaign Logs
+  getPetitionCampaignLogs(campaignId: string, accountId: string): Promise<PetitionCampaignLog[]>;
+  createPetitionCampaignLog(log: InsertPetitionCampaignLog & { accountId: string }): Promise<PetitionCampaignLog>;
+
+  // Petition Message Templates
+  getPetitionMessageTemplates(accountId: string): Promise<PetitionMessageTemplate[]>;
+  getPetitionMessageTemplate(id: string, accountId: string): Promise<PetitionMessageTemplate | undefined>;
+  createPetitionMessageTemplate(template: InsertPetitionMessageTemplate & { userId: string; accountId: string }): Promise<PetitionMessageTemplate>;
+  updatePetitionMessageTemplate(id: string, accountId: string, template: Partial<InsertPetitionMessageTemplate>): Promise<PetitionMessageTemplate>;
+  deletePetitionMessageTemplate(id: string, accountId: string): Promise<void>;
+
+  // Link Bio Pages
+  getLinkBioPages(accountId: string): Promise<LinkBioPage[]>;
+  getLinkBioPage(id: string, accountId: string): Promise<LinkBioPage | undefined>;
+  getLinkBioPageBySlug(slug: string): Promise<LinkBioPage | undefined>;
+  createLinkBioPage(page: InsertLinkBioPage & { userId: string; accountId: string }): Promise<LinkBioPage>;
+  updateLinkBioPage(id: string, accountId: string, page: Partial<InsertLinkBioPage>): Promise<LinkBioPage>;
+  deleteLinkBioPage(id: string, accountId: string): Promise<void>;
+  incrementLinkBioViews(id: string): Promise<void>;
+
+  // Link Tree Pages
+  getLinkTreePages(accountId: string): Promise<LinkTreePage[]>;
+  getLinkTreePage(id: string, accountId: string): Promise<LinkTreePage | undefined>;
+  getLinkTreePageBySlug(slug: string): Promise<LinkTreePage | undefined>;
+  createLinkTreePage(page: InsertLinkTreePage & { userId: string; accountId: string }): Promise<LinkTreePage>;
+  updateLinkTreePage(id: string, accountId: string, page: Partial<InsertLinkTreePage>): Promise<LinkTreePage>;
+  deleteLinkTreePage(id: string, accountId: string): Promise<void>;
+  incrementLinkTreeViews(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1509,6 +1570,321 @@ export class DatabaseStorage implements IStorage {
         ...usage,
         apiKeyId,
       });
+  }
+
+  // ==========================================================================
+  // PETITIONS MODULE
+  // ==========================================================================
+
+  // Petitions
+  async getPetitions(accountId: string): Promise<Petition[]> {
+    return await db.select()
+      .from(petitions)
+      .where(eq(petitions.accountId, accountId))
+      .orderBy(desc(petitions.createdAt));
+  }
+
+  async getPetition(id: string, accountId: string): Promise<Petition | undefined> {
+    const [petition] = await db.select()
+      .from(petitions)
+      .where(and(eq(petitions.id, id), eq(petitions.accountId, accountId)));
+    return petition || undefined;
+  }
+
+  async getPetitionBySlug(slug: string): Promise<Petition | undefined> {
+    const [petition] = await db.select()
+      .from(petitions)
+      .where(eq(petitions.slug, slug));
+    return petition || undefined;
+  }
+
+  async createPetition(petition: InsertPetition & { userId: string; accountId: string }): Promise<Petition> {
+    const [newPetition] = await db.insert(petitions)
+      .values(petition as any)
+      .returning();
+    return newPetition;
+  }
+
+  async updatePetition(id: string, accountId: string, petition: Partial<InsertPetition>): Promise<Petition> {
+    const [updated] = await db.update(petitions)
+      .set({ ...petition, updatedAt: new Date() } as any)
+      .where(and(eq(petitions.id, id), eq(petitions.accountId, accountId)))
+      .returning();
+    if (!updated) throw new Error('Petition not found or access denied');
+    return updated;
+  }
+
+  async deletePetition(id: string, accountId: string): Promise<void> {
+    const result = await db.delete(petitions)
+      .where(and(eq(petitions.id, id), eq(petitions.accountId, accountId)))
+      .returning();
+    if (result.length === 0) throw new Error('Petition not found or access denied');
+  }
+
+  async incrementPetitionViews(id: string): Promise<void> {
+    await db.update(petitions)
+      .set({ viewsCount: sql`${petitions.viewsCount} + 1` })
+      .where(eq(petitions.id, id));
+  }
+
+  // Petition Signatures
+  async getPetitionSignatures(petitionId: string, accountId: string): Promise<PetitionSignature[]> {
+    // Verify the petition belongs to the account
+    const [petition] = await db.select({ id: petitions.id })
+      .from(petitions)
+      .where(and(eq(petitions.id, petitionId), eq(petitions.accountId, accountId)));
+    if (!petition) throw new Error('Petition not found or access denied');
+
+    return await db.select()
+      .from(petitionSignatures)
+      .where(eq(petitionSignatures.petitionId, petitionId))
+      .orderBy(desc(petitionSignatures.createdAt));
+  }
+
+  async getPetitionSignatureCount(petitionId: string): Promise<number> {
+    const [result] = await db.select({ value: count() })
+      .from(petitionSignatures)
+      .where(eq(petitionSignatures.petitionId, petitionId));
+    return result?.value ?? 0;
+  }
+
+  async getPetitionSignatureByEmail(petitionId: string, email: string): Promise<PetitionSignature | undefined> {
+    const [signature] = await db.select()
+      .from(petitionSignatures)
+      .where(and(
+        eq(petitionSignatures.petitionId, petitionId),
+        eq(petitionSignatures.email, email)
+      ));
+    return signature || undefined;
+  }
+
+  async createPetitionSignature(signature: InsertPetitionSignature & { ipAddress?: string | null }): Promise<PetitionSignature> {
+    const [newSignature] = await db.insert(petitionSignatures)
+      .values(signature as any)
+      .returning();
+    return newSignature;
+  }
+
+  async deletePetitionSignature(id: string, accountId: string): Promise<void> {
+    // Verify ownership via petition join
+    const [existing] = await db.select({ accountId: petitions.accountId })
+      .from(petitionSignatures)
+      .leftJoin(petitions, eq(petitionSignatures.petitionId, petitions.id))
+      .where(eq(petitionSignatures.id, id));
+    if (!existing || existing.accountId !== accountId) {
+      throw new Error('Signature not found or access denied');
+    }
+    await db.delete(petitionSignatures).where(eq(petitionSignatures.id, id));
+  }
+
+  // Petition Campaigns
+  async getPetitionCampaigns(accountId: string): Promise<PetitionCampaign[]> {
+    return await db.select()
+      .from(petitionCampaigns)
+      .where(eq(petitionCampaigns.accountId, accountId))
+      .orderBy(desc(petitionCampaigns.createdAt));
+  }
+
+  async getPetitionCampaign(id: string, accountId: string): Promise<PetitionCampaign | undefined> {
+    const [campaign] = await db.select()
+      .from(petitionCampaigns)
+      .where(and(eq(petitionCampaigns.id, id), eq(petitionCampaigns.accountId, accountId)));
+    return campaign || undefined;
+  }
+
+  async createPetitionCampaign(campaign: InsertPetitionCampaign & { userId: string; accountId: string }): Promise<PetitionCampaign> {
+    const values: any = {
+      ...campaign,
+      scheduledDate: campaign.scheduledDate
+        ? (typeof campaign.scheduledDate === 'string' ? new Date(campaign.scheduledDate) : campaign.scheduledDate)
+        : null,
+    };
+    const [newCampaign] = await db.insert(petitionCampaigns)
+      .values(values)
+      .returning();
+    return newCampaign;
+  }
+
+  async updatePetitionCampaign(id: string, accountId: string, campaign: Partial<InsertPetitionCampaign>): Promise<PetitionCampaign> {
+    const values: any = { ...campaign, updatedAt: new Date() };
+    if (campaign.scheduledDate !== undefined) {
+      values.scheduledDate = campaign.scheduledDate
+        ? (typeof campaign.scheduledDate === 'string' ? new Date(campaign.scheduledDate) : campaign.scheduledDate)
+        : null;
+    }
+    const [updated] = await db.update(petitionCampaigns)
+      .set(values)
+      .where(and(eq(petitionCampaigns.id, id), eq(petitionCampaigns.accountId, accountId)))
+      .returning();
+    if (!updated) throw new Error('Campaign not found or access denied');
+    return updated;
+  }
+
+  async deletePetitionCampaign(id: string, accountId: string): Promise<void> {
+    const result = await db.delete(petitionCampaigns)
+      .where(and(eq(petitionCampaigns.id, id), eq(petitionCampaigns.accountId, accountId)))
+      .returning();
+    if (result.length === 0) throw new Error('Campaign not found or access denied');
+  }
+
+  // Petition Campaign Logs
+  async getPetitionCampaignLogs(campaignId: string, accountId: string): Promise<PetitionCampaignLog[]> {
+    const [campaign] = await db.select({ id: petitionCampaigns.id })
+      .from(petitionCampaigns)
+      .where(and(eq(petitionCampaigns.id, campaignId), eq(petitionCampaigns.accountId, accountId)));
+    if (!campaign) throw new Error('Campaign not found or access denied');
+
+    return await db.select()
+      .from(petitionCampaignLogs)
+      .where(eq(petitionCampaignLogs.campaignId, campaignId))
+      .orderBy(desc(petitionCampaignLogs.createdAt));
+  }
+
+  async createPetitionCampaignLog(log: InsertPetitionCampaignLog & { accountId: string }): Promise<PetitionCampaignLog> {
+    const [newLog] = await db.insert(petitionCampaignLogs)
+      .values(log as any)
+      .returning();
+    return newLog;
+  }
+
+  // Petition Message Templates
+  async getPetitionMessageTemplates(accountId: string): Promise<PetitionMessageTemplate[]> {
+    return await db.select()
+      .from(petitionMessageTemplates)
+      .where(eq(petitionMessageTemplates.accountId, accountId))
+      .orderBy(desc(petitionMessageTemplates.createdAt));
+  }
+
+  async getPetitionMessageTemplate(id: string, accountId: string): Promise<PetitionMessageTemplate | undefined> {
+    const [template] = await db.select()
+      .from(petitionMessageTemplates)
+      .where(and(eq(petitionMessageTemplates.id, id), eq(petitionMessageTemplates.accountId, accountId)));
+    return template || undefined;
+  }
+
+  async createPetitionMessageTemplate(template: InsertPetitionMessageTemplate & { userId: string; accountId: string }): Promise<PetitionMessageTemplate> {
+    const [newTemplate] = await db.insert(petitionMessageTemplates)
+      .values(template as any)
+      .returning();
+    return newTemplate;
+  }
+
+  async updatePetitionMessageTemplate(id: string, accountId: string, template: Partial<InsertPetitionMessageTemplate>): Promise<PetitionMessageTemplate> {
+    const [updated] = await db.update(petitionMessageTemplates)
+      .set({ ...template, updatedAt: new Date() } as any)
+      .where(and(eq(petitionMessageTemplates.id, id), eq(petitionMessageTemplates.accountId, accountId)))
+      .returning();
+    if (!updated) throw new Error('Template not found or access denied');
+    return updated;
+  }
+
+  async deletePetitionMessageTemplate(id: string, accountId: string): Promise<void> {
+    const result = await db.delete(petitionMessageTemplates)
+      .where(and(eq(petitionMessageTemplates.id, id), eq(petitionMessageTemplates.accountId, accountId)))
+      .returning();
+    if (result.length === 0) throw new Error('Template not found or access denied');
+  }
+
+  // Link Bio Pages
+  async getLinkBioPages(accountId: string): Promise<LinkBioPage[]> {
+    return await db.select()
+      .from(linkBioPages)
+      .where(eq(linkBioPages.accountId, accountId))
+      .orderBy(desc(linkBioPages.createdAt));
+  }
+
+  async getLinkBioPage(id: string, accountId: string): Promise<LinkBioPage | undefined> {
+    const [page] = await db.select()
+      .from(linkBioPages)
+      .where(and(eq(linkBioPages.id, id), eq(linkBioPages.accountId, accountId)));
+    return page || undefined;
+  }
+
+  async getLinkBioPageBySlug(slug: string): Promise<LinkBioPage | undefined> {
+    const [page] = await db.select()
+      .from(linkBioPages)
+      .where(eq(linkBioPages.slug, slug));
+    return page || undefined;
+  }
+
+  async createLinkBioPage(page: InsertLinkBioPage & { userId: string; accountId: string }): Promise<LinkBioPage> {
+    const [newPage] = await db.insert(linkBioPages)
+      .values(page as any)
+      .returning();
+    return newPage;
+  }
+
+  async updateLinkBioPage(id: string, accountId: string, page: Partial<InsertLinkBioPage>): Promise<LinkBioPage> {
+    const [updated] = await db.update(linkBioPages)
+      .set({ ...page, updatedAt: new Date() } as any)
+      .where(and(eq(linkBioPages.id, id), eq(linkBioPages.accountId, accountId)))
+      .returning();
+    if (!updated) throw new Error('Link bio page not found or access denied');
+    return updated;
+  }
+
+  async deleteLinkBioPage(id: string, accountId: string): Promise<void> {
+    const result = await db.delete(linkBioPages)
+      .where(and(eq(linkBioPages.id, id), eq(linkBioPages.accountId, accountId)))
+      .returning();
+    if (result.length === 0) throw new Error('Link bio page not found or access denied');
+  }
+
+  async incrementLinkBioViews(id: string): Promise<void> {
+    await db.update(linkBioPages)
+      .set({ viewsCount: sql`${linkBioPages.viewsCount} + 1` })
+      .where(eq(linkBioPages.id, id));
+  }
+
+  // Link Tree Pages
+  async getLinkTreePages(accountId: string): Promise<LinkTreePage[]> {
+    return await db.select()
+      .from(linkTreePages)
+      .where(eq(linkTreePages.accountId, accountId))
+      .orderBy(desc(linkTreePages.createdAt));
+  }
+
+  async getLinkTreePage(id: string, accountId: string): Promise<LinkTreePage | undefined> {
+    const [page] = await db.select()
+      .from(linkTreePages)
+      .where(and(eq(linkTreePages.id, id), eq(linkTreePages.accountId, accountId)));
+    return page || undefined;
+  }
+
+  async getLinkTreePageBySlug(slug: string): Promise<LinkTreePage | undefined> {
+    const [page] = await db.select()
+      .from(linkTreePages)
+      .where(eq(linkTreePages.slug, slug));
+    return page || undefined;
+  }
+
+  async createLinkTreePage(page: InsertLinkTreePage & { userId: string; accountId: string }): Promise<LinkTreePage> {
+    const [newPage] = await db.insert(linkTreePages)
+      .values(page as any)
+      .returning();
+    return newPage;
+  }
+
+  async updateLinkTreePage(id: string, accountId: string, page: Partial<InsertLinkTreePage>): Promise<LinkTreePage> {
+    const [updated] = await db.update(linkTreePages)
+      .set({ ...page, updatedAt: new Date() } as any)
+      .where(and(eq(linkTreePages.id, id), eq(linkTreePages.accountId, accountId)))
+      .returning();
+    if (!updated) throw new Error('Link tree page not found or access denied');
+    return updated;
+  }
+
+  async deleteLinkTreePage(id: string, accountId: string): Promise<void> {
+    const result = await db.delete(linkTreePages)
+      .where(and(eq(linkTreePages.id, id), eq(linkTreePages.accountId, accountId)))
+      .returning();
+    if (result.length === 0) throw new Error('Link tree page not found or access denied');
+  }
+
+  async incrementLinkTreeViews(id: string): Promise<void> {
+    await db.update(linkTreePages)
+      .set({ viewsCount: sql`${linkTreePages.viewsCount} + 1` })
+      .where(eq(linkTreePages.id, id));
   }
 }
 

@@ -1,0 +1,1 @@
+- [Petições module & external DB](petitions-module.md) — single external DB blocks workspace db:push/runtime; verify via tsc+build. Module wiring, slug public pages, blob downloads.

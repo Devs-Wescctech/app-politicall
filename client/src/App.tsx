@@ -42,6 +42,9 @@ import Settings from "@/pages/settings";
 import UsersManagement from "@/pages/users";
 import Petitions from "@/pages/petitions";
 import SurveyLanding from "@/pages/survey-landing";
+import PetitionPublic from "@/pages/petition-public";
+import LinkBioPublic from "@/pages/linkbio-public";
+import LinkTreePublic from "@/pages/linktree-public";
 import PublicSupport from "@/pages/public-support";
 import AllianceInvitePage from "@/pages/alliance-invite";
 import LandingPage from "@/pages/landing";
@@ -149,6 +152,9 @@ function App() {
             <Route path="/admin/manual" component={AdminManual} />
             <Route path="/contracts" component={Contracts} />
             <Route path="/pesquisa/:slug" component={SurveyLanding} />
+            <Route path="/p/:slug" component={PetitionPublic} />
+            <Route path="/bio/:slug" component={LinkBioPublic} />
+            <Route path="/tree/:slug" component={LinkTreePublic} />
             <Route path="/apoio/:slug/:volunteerCode" component={PublicSupport} />
             <Route path="/apoio/:slug" component={PublicSupport} />
             <Route path="/convite-alianca/:token" component={AllianceInvitePage} />
