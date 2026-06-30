@@ -29,9 +29,17 @@ force-push or alter the schema.
 ## This project's DB environment quirks
 - Dev uses the user's OWN external Postgres (host `204.157.108.76:5432`), NOT a
   Replit-managed DB. `DATABASE_URL` secret holds the correct host.
-- That host's `pg_hba.conf` only whitelists the Replit workspace egress IP, so the
-  `executeSql` tool (different source IP) may be rejected — use the `pg` npm Client
-  in a bash command instead. Production deploy will use a different egress IP that
-  also needs whitelisting.
-- Post-merge `db:push` pulls the remote schema (~30s with network latency); the
-  post-merge timeout was raised to 180000ms so it doesn't time out.
+- **Recurring blocker:** that host's `pg_hba.conf` whitelists specific IPs, but the
+  Replit workspace egress IP is NOT static — it rotates between sessions/restarts
+  (seen: 34.75.47.23, 34.23.210.12, 35.227.111.237, all GCP). Each rotation makes
+  the WHOLE APP fail every DB query with `28000 no pg_hba.conf entry for host ...`
+  (admin login still works — it reads a local file, not the DB). Only the USER can
+  fix it by whitelisting the new egress IP (or a broader range) in their server.
+  This cannot be solved from inside the workspace. Going back to a managed DB
+  (e.g. Neon) would remove the IP-whitelist fragility entirely.
+- `executeSql` tool uses a different source IP and is also rejected — use the `pg`
+  npm Client in a bash command instead.
+- Post-merge `db:push` pulls the remote schema (~30s); timeout raised to 180000ms.
+  `scripts/post-merge.sh` now treats a db:push failure as a NON-fatal warning so a
+  DB-connectivity rotation does not block merges (schema must then be applied
+  manually once the DB is reachable).
