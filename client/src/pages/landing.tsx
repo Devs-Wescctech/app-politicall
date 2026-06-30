@@ -518,7 +518,7 @@ export default function LandingPage() {
             </div>
             <div className="relative w-full aspect-video rounded-2xl overflow-hidden shadow-2xl">
               <iframe
-                src="https://drive.google.com/file/d/1oaNgdrpN2ElUpKJHrZlbGpm4FZ5vH-zL/preview"
+                src="https://drive.google.com/file/d/1LyA7iJ9quvg_BONoqKskXiNswum0LkU3/preview"
                 className="w-full h-full"
                 allow="autoplay"
                 allowFullScreen
