@@ -1,2 +1,3 @@
 - [Petições module & external DB](petitions-module.md) — single external DB blocks workspace db:push/runtime; verify via tsc+build. Module wiring, slug public pages, blob downloads.
 - [drizzle-kit + PG18 push churn](drizzle-pg18.md) — db:push 42P16 "id is in a primary key" = drizzle-kit/PG18 bug, not schema; bump drizzle-kit, re-add rolled-back FKs. Dev uses user's external PG.
+- [GitHub push hangs/403 on org repo](github-push-org-oauth-restriction.md) — org's "restrict OAuth app access" policy blocks push even with valid token+permissions; check org settings.
