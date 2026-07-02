@@ -24,16 +24,33 @@ import {
   type ApiKeyUsage, type InsertApiKeyUsage,
   petitions, petitionSignatures, petitionCampaigns, petitionCampaignLogs,
   petitionMessageTemplates, linkBioPages, linkTreePages,
+  channelConnections, attConversations, attMessages, attAttachments,
+  quickReplies, attSectors, sectorMembers, attQueues, attQueueMembers, attNotes, attAutomation, attLabels, attContactLabels, attConversationLabels, attImportJobs, integrationLogs, attConversationEvents, attTransfers,
   type Petition, type InsertPetition,
   type PetitionSignature, type InsertPetitionSignature,
   type PetitionCampaign, type InsertPetitionCampaign,
   type PetitionCampaignLog, type InsertPetitionCampaignLog,
   type PetitionMessageTemplate, type InsertPetitionMessageTemplate,
   type LinkBioPage, type InsertLinkBioPage,
-  type LinkTreePage, type InsertLinkTreePage
+  type LinkTreePage, type InsertLinkTreePage,
+  type ChannelConnection, type InsertChannelConnection,
+  type AttConversation, type InsertAttConversation,
+  type AttMessage, type InsertAttMessage,
+  type AttAttachment, type InsertAttAttachment,
+  type QuickReply, type InsertQuickReply,
+  type AttSector, type InsertAttSector,
+  type AttQueue, type InsertAttQueue,
+  type AttQueueMember, type InsertAttQueueMember,
+  type AttNote, type InsertAttNote,
+  type AttAutomation, type InsertAttAutomation,
+  type AttLabel, type InsertAttLabel,
+  type AttImportJob, type InsertAttImportJob,
+  type IntegrationLog, type InsertIntegrationLog,
+  type AttConversationEvent, type InsertAttConversationEvent,
+  type AttTransfer, type InsertAttTransfer
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, count, inArray, sql } from "drizzle-orm";
+import { eq, desc, and, count, inArray, sql, or, ilike } from "drizzle-orm";
 import { encryptApiKey, decryptApiKey } from "./crypto";
 import bcrypt from "bcrypt";
 import crypto from "crypto";
@@ -135,6 +152,7 @@ export interface IStorage {
   getCampaign(id: string, accountId: string): Promise<MarketingCampaign | undefined>;
   createCampaign(campaign: InsertMarketingCampaign & { userId: string; accountId: string }): Promise<MarketingCampaign>;
   updateCampaign(id: string, accountId: string, campaign: Partial<InsertMarketingCampaign> & { sentAt?: Date }): Promise<MarketingCampaign>;
+  deleteCampaign(id: string, accountId: string): Promise<void>;
 
   // Notifications
   getNotifications(userId: string, accountId: string, limit?: number): Promise<Notification[]>;
@@ -245,6 +263,103 @@ export interface IStorage {
   updateLinkTreePage(id: string, accountId: string, page: Partial<InsertLinkTreePage>): Promise<LinkTreePage>;
   deleteLinkTreePage(id: string, accountId: string): Promise<void>;
   incrementLinkTreeViews(id: string): Promise<void>;
+
+  // Attendance — Channel Connections
+  getChannelConnections(accountId: string): Promise<ChannelConnection[]>;
+  getChannelConnection(id: string, accountId: string | undefined): Promise<ChannelConnection | null>;
+  createChannelConnection(data: InsertChannelConnection & { accountId: string }): Promise<ChannelConnection>;
+  updateChannelConnection(id: string, accountId: string, data: Partial<ChannelConnection>): Promise<ChannelConnection>;
+  deleteChannelConnection(id: string, accountId: string): Promise<void>;
+  getIntegrationByAccount(accountId: string, service: string): Promise<Integration | null>;
+
+  // Attendance — Conversations
+  getConversations(accountId: string, filters?: {
+    channel?: string;
+    status?: string;
+    search?: string;
+    assignedUserId?: string;
+    sectorId?: string;
+    queueId?: string;
+    mode?: string;
+    priority?: string;
+    from?: string;
+    to?: string;
+    archived?: boolean;
+  }): Promise<AttConversation[]>;
+  getConversation(id: string, accountId: string): Promise<AttConversation | null>;
+  getConversationByExternal(accountId: string, externalThreadId: string): Promise<AttConversation | null>;
+  createConversation(data: Partial<InsertAttConversation> & { accountId: string; channel: string }): Promise<AttConversation>;
+  updateConversation(id: string, accountId: string, data: Partial<AttConversation>): Promise<AttConversation>;
+  assumeConversation(id: string, accountId: string, userId: string, assignedByUserId: string): Promise<{ conversation: AttConversation | null; conflict: AttConversation | null }>;
+  releaseConversation(id: string, accountId: string, data?: { status?: string; metadata?: Record<string, any> }): Promise<AttConversation>;
+
+  // Attendance — Messages
+  getMessages(conversationId: string, accountId: string): Promise<AttMessage[]>;
+  createMessage(data: Partial<InsertAttMessage> & { accountId: string; conversationId: string; direction: string }): Promise<AttMessage>;
+  getMessageByExternalId(externalId: string, accountId: string): Promise<AttMessage | null>;
+  searchMessages(accountId: string, filters?: { q?: string; conversationId?: string; from?: string; to?: string; limit?: number }): Promise<AttMessage[]>;
+
+  // Attendance — Attachments
+  createAttachment(data: Partial<InsertAttAttachment> & { accountId: string; conversationId: string; fileName: string; url: string }): Promise<AttAttachment>;
+
+  // Attendance — Quick Replies
+  getQuickReplies(accountId: string): Promise<QuickReply[]>;
+  createQuickReply(data: InsertQuickReply & { accountId: string; userId: string }): Promise<QuickReply>;
+  updateQuickReply(id: string, accountId: string, data: Partial<QuickReply>): Promise<QuickReply>;
+  deleteQuickReply(id: string, accountId: string): Promise<void>;
+
+  // Attendance — Sectors
+  getSectors(accountId: string): Promise<AttSector[]>;
+  createSector(data: InsertAttSector & { accountId: string }): Promise<AttSector>;
+  updateSector(id: string, accountId: string, data: Partial<AttSector>): Promise<AttSector>;
+  deleteSector(id: string, accountId: string): Promise<void>;
+
+  // Attendance — Queues
+  getQueues(accountId: string): Promise<AttQueue[]>;
+  getQueue(id: string, accountId: string): Promise<AttQueue | null>;
+  createQueue(data: InsertAttQueue & { accountId: string }): Promise<AttQueue>;
+  updateQueue(id: string, accountId: string, data: Partial<AttQueue>): Promise<AttQueue>;
+  deleteQueue(id: string, accountId: string): Promise<void>;
+  getQueueMembers(queueId: string, accountId: string): Promise<AttQueueMember[]>;
+  createQueueMember(data: InsertAttQueueMember & { accountId: string }): Promise<AttQueueMember>;
+  deleteQueueMember(id: string, accountId: string): Promise<void>;
+
+  // Attendance — Notes
+  getNotes(conversationId: string, accountId: string): Promise<AttNote[]>;
+  createNote(data: InsertAttNote & { accountId: string; userId: string }): Promise<AttNote>;
+
+  // Attendance — Permanent Events / Audit Trail
+  createAttendanceEvent(data: Partial<InsertAttConversationEvent> & { accountId: string; action: string }): Promise<AttConversationEvent>;
+  getAttendanceEvents(accountId: string, filters?: { conversationId?: string; userId?: string; action?: string; from?: string; to?: string; limit?: number }): Promise<AttConversationEvent[]>;
+  createTransfer(data: Partial<InsertAttTransfer> & { accountId: string; conversationId: string }): Promise<AttTransfer>;
+  getTransfers(conversationId: string, accountId: string): Promise<AttTransfer[]>;
+  getLabels(accountId: string): Promise<AttLabel[]>;
+  upsertLabel(accountId: string, data: Partial<InsertAttLabel> & { name: string }): Promise<AttLabel>;
+  updateLabel(id: string, accountId: string, data: Partial<AttLabel>): Promise<AttLabel>;
+  deleteLabel(id: string, accountId: string): Promise<void>;
+  setConversationLabels(accountId: string, conversationId: string, labelNames: string[]): Promise<AttLabel[]>;
+  setContactLabels(accountId: string, contactId: string, labelNames: string[]): Promise<AttLabel[]>;
+  getConversationLabelNames(accountId: string, conversationId: string): Promise<string[]>;
+  getContactLabelNames(accountId: string, contactId: string): Promise<string[]>;
+  createImportJob(data: Partial<InsertAttImportJob> & { accountId: string; userId?: string | null }): Promise<AttImportJob>;
+  updateImportJob(id: string, accountId: string, data: Partial<AttImportJob>): Promise<AttImportJob>;
+  getImportJob(id: string, accountId: string): Promise<AttImportJob | null>;
+  createIntegrationLog(data: Partial<InsertIntegrationLog> & { accountId: string; service: string; action: string; status: string; userId?: string | null }): Promise<IntegrationLog>;
+
+  // Attendance — Automation
+  getAutomation(accountId: string): Promise<AttAutomation | null>;
+  upsertAutomation(data: Partial<InsertAttAutomation> & { accountId: string }): Promise<AttAutomation>;
+
+  // Attendance — Reports
+  getAttendanceReport(accountId: string, filters?: { channel?: string; from?: string; to?: string }): Promise<Record<string, any>>;
+}
+
+function buildAttendanceCode(date = new Date()): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  const random = crypto.randomInt(0, 1_000_000).toString().padStart(6, "0");
+  return `ATD-${y}${m}${d}-${random}`;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1110,6 +1225,13 @@ export class DatabaseStorage implements IStorage {
     return newCampaign;
   }
 
+  async deleteCampaign(id: string, accountId: string): Promise<void> {
+    await db.delete(marketingCampaigns).where(and(
+      eq(marketingCampaigns.id, id),
+      eq(marketingCampaigns.accountId, accountId)
+    ));
+  }
+
   async updateCampaign(id: string, accountId: string, campaign: Partial<InsertMarketingCampaign> & { sentAt?: Date }): Promise<MarketingCampaign> {
     const [updated] = await db.update(marketingCampaigns)
       .set(campaign)
@@ -1187,10 +1309,7 @@ export class DatabaseStorage implements IStorage {
   async getIntegrations(userId: string, accountId: string): Promise<Integration[]> {
     return await db.select()
       .from(integrations)
-      .where(and(
-        eq(integrations.userId, userId),
-        eq(integrations.accountId, accountId)
-      ))
+      .where(eq(integrations.accountId, accountId))
       .orderBy(integrations.service);
   }
 
@@ -1198,7 +1317,6 @@ export class DatabaseStorage implements IStorage {
     const [integration] = await db.select()
       .from(integrations)
       .where(and(
-        eq(integrations.userId, userId),
         eq(integrations.accountId, accountId),
         eq(integrations.service, service)
       ));
@@ -1206,7 +1324,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async upsertIntegration(integration: InsertIntegration & { userId: string; accountId: string }): Promise<Integration> {
-    // Check if integration exists
+    // Integrations are account-scoped; keep userId only as the last editor/creator for audit compatibility.
     const existing = await this.getIntegration(integration.userId, integration.accountId, integration.service);
     
     if (existing) {
@@ -1896,6 +2014,591 @@ export class DatabaseStorage implements IStorage {
     await db.update(linkTreePages)
       .set({ viewsCount: sql`${linkTreePages.viewsCount} + 1` })
       .where(eq(linkTreePages.id, id));
+  }
+
+  // ─── Attendance: Channel Connections ─────────────────────────────────────────
+
+  async getChannelConnections(accountId: string): Promise<ChannelConnection[]> {
+    return db.select().from(channelConnections)
+      .where(eq(channelConnections.accountId, accountId))
+      .orderBy(desc(channelConnections.createdAt));
+  }
+
+  async getChannelConnection(id: string, accountId: string | undefined): Promise<ChannelConnection | null> {
+    const conds = accountId
+      ? and(eq(channelConnections.id, id), eq(channelConnections.accountId, accountId))
+      : eq(channelConnections.id, id);
+    const [row] = await db.select().from(channelConnections).where(conds);
+    return row ?? null;
+  }
+
+  async createChannelConnection(data: InsertChannelConnection & { accountId: string }): Promise<ChannelConnection> {
+    const [row] = await db.insert(channelConnections).values(data as any).returning();
+    return row;
+  }
+
+  async updateChannelConnection(id: string, accountId: string, data: Partial<ChannelConnection>): Promise<ChannelConnection> {
+    const [row] = await db.update(channelConnections)
+      .set({ ...data, updatedAt: new Date() } as any)
+      .where(and(eq(channelConnections.id, id), eq(channelConnections.accountId, accountId)))
+      .returning();
+    if (!row) throw new Error("Conexão não encontrada");
+    return row;
+  }
+
+  async deleteChannelConnection(id: string, accountId: string): Promise<void> {
+    await db.delete(channelConnections)
+      .where(and(eq(channelConnections.id, id), eq(channelConnections.accountId, accountId)));
+  }
+
+  async getIntegrationByAccount(accountId: string, service: string): Promise<Integration | null> {
+    const [row] = await db.select().from(integrations)
+      .where(and(eq(integrations.accountId, accountId), eq(integrations.service, service)));
+    return row ?? null;
+  }
+
+  // ─── Attendance: Conversations ────────────────────────────────────────────────
+
+  async getConversations(accountId: string, filters: {
+    channel?: string;
+    status?: string;
+    search?: string;
+    assignedUserId?: string;
+    sectorId?: string;
+    queueId?: string;
+    mode?: string;
+    priority?: string;
+    from?: string;
+    to?: string;
+    archived?: boolean;
+  } = {}): Promise<AttConversation[]> {
+    const conds: any[] = [eq(attConversations.accountId, accountId)];
+    if (filters.channel) conds.push(eq(attConversations.channel, filters.channel));
+    if (filters.status) conds.push(eq(attConversations.status, filters.status));
+    if (filters.assignedUserId) conds.push(eq(attConversations.assignedUserId, filters.assignedUserId));
+    if (filters.sectorId) conds.push(eq(attConversations.sectorId, filters.sectorId));
+    if (filters.queueId) conds.push(eq(attConversations.queueId, filters.queueId));
+    if (filters.mode) conds.push(eq(attConversations.mode, filters.mode));
+    if (filters.priority) conds.push(eq(attConversations.priority, filters.priority));
+    if (filters.from) conds.push(sql`${attConversations.createdAt} >= ${new Date(filters.from)}`);
+    if (filters.to) conds.push(sql`${attConversations.createdAt} <= ${new Date(filters.to)}`);
+    if (filters.archived === true) {
+      conds.push(sql`coalesce((${attConversations.metadata}->'flags'->>'archived')::boolean, false) = true`);
+      conds.push(sql`${attConversations.metadata}->'tombstone' is null`);
+    } else {
+      conds.push(sql`coalesce((${attConversations.metadata}->'flags'->>'archived')::boolean, false) = false`);
+      conds.push(sql`${attConversations.metadata}->'tombstone' is null`);
+    }
+    if (filters.search) {
+      conds.push(or(
+        ilike(attConversations.contactName, `%${filters.search}%`),
+        ilike(attConversations.contactPhone, `%${filters.search}%`),
+        ilike(attConversations.contactEmail, `%${filters.search}%`),
+        ilike(attConversations.protocol, `%${filters.search}%`),
+        ilike(attConversations.attendanceCode, `%${filters.search}%`)
+      ));
+    }
+    return db.select().from(attConversations)
+      .where(and(...conds))
+      .orderBy(desc(attConversations.lastMessageAt));
+  }
+
+  async getConversation(id: string, accountId: string): Promise<AttConversation | null> {
+    const [row] = await db.select().from(attConversations)
+      .where(and(eq(attConversations.id, id), eq(attConversations.accountId, accountId)));
+    return row ?? null;
+  }
+
+  async getConversationByExternal(accountId: string, externalThreadId: string): Promise<AttConversation | null> {
+    const [row] = await db.select().from(attConversations)
+      .where(and(eq(attConversations.accountId, accountId), eq(attConversations.externalThreadId, externalThreadId)));
+    return row ?? null;
+  }
+
+  async createConversation(data: Partial<InsertAttConversation> & { accountId: string; channel: string }): Promise<AttConversation> {
+    const now = new Date();
+    for (let attempt = 0; attempt < 5; attempt++) {
+      try {
+        const [row] = await db.insert(attConversations).values({
+          mode: "automatic",
+          status: "automatic",
+          statusChangedAt: now,
+          attendanceCode: buildAttendanceCode(now),
+          ...data,
+        } as any).returning();
+        return row;
+      } catch (error: any) {
+        const message = String(error?.message ?? "");
+        if (!message.includes("attendance_code") && !message.includes("duplicate") && !message.includes("unique")) {
+          throw error;
+        }
+      }
+    }
+    throw new Error("Não foi possível gerar código único do atendimento");
+  }
+
+  async updateConversation(id: string, accountId: string, data: Partial<AttConversation>): Promise<AttConversation> {
+    const patch: Record<string, any> = { ...data };
+    if (data.status !== undefined) patch.statusChangedAt = new Date();
+    delete patch.attendanceCode;
+    const [row] = await db.update(attConversations)
+      .set({ ...patch, updatedAt: new Date() } as any)
+      .where(and(eq(attConversations.id, id), eq(attConversations.accountId, accountId)))
+      .returning();
+    if (!row) throw new Error("Conversa não encontrada");
+    return row;
+  }
+
+  async assumeConversation(id: string, accountId: string, userId: string, assignedByUserId: string): Promise<{ conversation: AttConversation | null; conflict: AttConversation | null }> {
+    const now = new Date();
+    const [row] = await db.update(attConversations)
+      .set({
+        assignedUserId: userId,
+        assignedByUserId,
+        assignedAt: now,
+        mode: "manual",
+        status: "in_progress",
+        statusChangedAt: now,
+        lastOperatorActivityAt: now,
+        updatedAt: now,
+      } as any)
+      .where(and(
+        eq(attConversations.id, id),
+        eq(attConversations.accountId, accountId),
+        sql`${attConversations.assignedUserId} is null`,
+        sql`${attConversations.status} not in ('finalized', 'closed', 'resolved')`
+      ))
+      .returning();
+
+    if (row) return { conversation: row, conflict: null };
+    const conflict = await this.getConversation(id, accountId);
+    return { conversation: null, conflict };
+  }
+
+  async releaseConversation(id: string, accountId: string, data: { status?: string; metadata?: Record<string, any> } = {}): Promise<AttConversation> {
+    const now = new Date();
+    const [row] = await db.update(attConversations)
+      .set({
+        assignedUserId: null,
+        assignedAt: null,
+        assignedByUserId: null,
+        mode: "automatic",
+        status: data.status ?? "waiting_agent",
+        statusChangedAt: now,
+        lockExpiresAt: null,
+        metadata: data.metadata as any,
+        updatedAt: now,
+      } as any)
+      .where(and(eq(attConversations.id, id), eq(attConversations.accountId, accountId)))
+      .returning();
+    if (!row) throw new Error("Conversa não encontrada");
+    return row;
+  }
+
+  // ─── Attendance: Messages ─────────────────────────────────────────────────────
+
+  async getMessages(conversationId: string, accountId: string): Promise<AttMessage[]> {
+    return db.select().from(attMessages)
+      .where(and(eq(attMessages.conversationId, conversationId), eq(attMessages.accountId, accountId)))
+      .orderBy(attMessages.createdAt);
+  }
+
+  async createMessage(data: Partial<InsertAttMessage> & { accountId: string; conversationId: string; direction: string }): Promise<AttMessage> {
+    const [row] = await db.insert(attMessages).values(data as any).returning();
+    return row;
+  }
+
+  async getMessageByExternalId(externalId: string, accountId: string): Promise<AttMessage | null> {
+    const [row] = await db.select().from(attMessages)
+      .where(and(eq(attMessages.externalMessageId, externalId), eq(attMessages.accountId, accountId)));
+    return row ?? null;
+  }
+
+  async searchMessages(accountId: string, filters: { q?: string; conversationId?: string; from?: string; to?: string; limit?: number } = {}): Promise<AttMessage[]> {
+    const conds: any[] = [eq(attMessages.accountId, accountId)];
+    if (filters.conversationId) conds.push(eq(attMessages.conversationId, filters.conversationId));
+    if (filters.q) conds.push(ilike(attMessages.body, `%${filters.q}%`));
+    if (filters.from) conds.push(sql`${attMessages.createdAt} >= ${new Date(filters.from)}`);
+    if (filters.to) conds.push(sql`${attMessages.createdAt} <= ${new Date(filters.to)}`);
+    return db.select().from(attMessages)
+      .where(and(...conds))
+      .orderBy(desc(attMessages.createdAt))
+      .limit(Math.min(Math.max(filters.limit ?? 100, 1), 500));
+  }
+
+  // ─── Attendance: Attachments ──────────────────────────────────────────────────
+
+  async createAttachment(data: Partial<InsertAttAttachment> & { accountId: string; conversationId: string; fileName: string; url: string }): Promise<AttAttachment> {
+    const [row] = await db.insert(attAttachments).values(data as any).returning();
+    return row;
+  }
+
+  // ─── Attendance: Quick Replies ────────────────────────────────────────────────
+
+  async getQuickReplies(accountId: string): Promise<QuickReply[]> {
+    return db.select().from(quickReplies)
+      .where(and(eq(quickReplies.accountId, accountId), eq(quickReplies.active, true)))
+      .orderBy(quickReplies.title);
+  }
+
+  async createQuickReply(data: InsertQuickReply & { accountId: string; userId: string }): Promise<QuickReply> {
+    const [row] = await db.insert(quickReplies).values(data as any).returning();
+    return row;
+  }
+
+  async updateQuickReply(id: string, accountId: string, data: Partial<QuickReply>): Promise<QuickReply> {
+    const [row] = await db.update(quickReplies)
+      .set({ ...data, updatedAt: new Date() } as any)
+      .where(and(eq(quickReplies.id, id), eq(quickReplies.accountId, accountId)))
+      .returning();
+    if (!row) throw new Error("Resposta rápida não encontrada");
+    return row;
+  }
+
+  async deleteQuickReply(id: string, accountId: string): Promise<void> {
+    await db.delete(quickReplies)
+      .where(and(eq(quickReplies.id, id), eq(quickReplies.accountId, accountId)));
+  }
+
+  // ─── Attendance: Sectors ──────────────────────────────────────────────────────
+
+  async getSectors(accountId: string): Promise<AttSector[]> {
+    return db.select().from(attSectors)
+      .where(eq(attSectors.accountId, accountId))
+      .orderBy(attSectors.name);
+  }
+
+  async createSector(data: InsertAttSector & { accountId: string }): Promise<AttSector> {
+    const [row] = await db.insert(attSectors).values(data as any).returning();
+    return row;
+  }
+
+  async updateSector(id: string, accountId: string, data: Partial<AttSector>): Promise<AttSector> {
+    const [row] = await db.update(attSectors)
+      .set({ ...data, updatedAt: new Date() } as any)
+      .where(and(eq(attSectors.id, id), eq(attSectors.accountId, accountId)))
+      .returning();
+    if (!row) throw new Error("Setor não encontrado");
+    return row;
+  }
+
+  async deleteSector(id: string, accountId: string): Promise<void> {
+    await db.delete(attSectors)
+      .where(and(eq(attSectors.id, id), eq(attSectors.accountId, accountId)));
+  }
+
+  // ─── Attendance: Queues ─────────────────────────────────────────────────────
+
+  async getQueues(accountId: string): Promise<AttQueue[]> {
+    return db.select().from(attQueues)
+      .where(eq(attQueues.accountId, accountId))
+      .orderBy(attQueues.priority, attQueues.name);
+  }
+
+  async getQueue(id: string, accountId: string): Promise<AttQueue | null> {
+    const [row] = await db.select().from(attQueues)
+      .where(and(eq(attQueues.id, id), eq(attQueues.accountId, accountId)));
+    return row ?? null;
+  }
+
+  async createQueue(data: InsertAttQueue & { accountId: string }): Promise<AttQueue> {
+    const [row] = await db.insert(attQueues).values(data as any).returning();
+    return row;
+  }
+
+  async updateQueue(id: string, accountId: string, data: Partial<AttQueue>): Promise<AttQueue> {
+    const [row] = await db.update(attQueues)
+      .set({ ...data, updatedAt: new Date() } as any)
+      .where(and(eq(attQueues.id, id), eq(attQueues.accountId, accountId)))
+      .returning();
+    if (!row) throw new Error("Fila não encontrada");
+    return row;
+  }
+
+  async deleteQueue(id: string, accountId: string): Promise<void> {
+    await db.update(attQueues)
+      .set({ active: false, updatedAt: new Date() } as any)
+      .where(and(eq(attQueues.id, id), eq(attQueues.accountId, accountId)));
+  }
+
+  async getQueueMembers(queueId: string, accountId: string): Promise<AttQueueMember[]> {
+    return db.select().from(attQueueMembers)
+      .where(and(eq(attQueueMembers.queueId, queueId), eq(attQueueMembers.accountId, accountId), eq(attQueueMembers.active, true)));
+  }
+
+  async createQueueMember(data: InsertAttQueueMember & { accountId: string }): Promise<AttQueueMember> {
+    const [row] = await db.insert(attQueueMembers).values(data as any).returning();
+    return row;
+  }
+
+  async deleteQueueMember(id: string, accountId: string): Promise<void> {
+    await db.update(attQueueMembers)
+      .set({ active: false } as any)
+      .where(and(eq(attQueueMembers.id, id), eq(attQueueMembers.accountId, accountId)));
+  }
+
+  // ─── Attendance: Notes ────────────────────────────────────────────────────────
+
+  async getNotes(conversationId: string, accountId: string): Promise<AttNote[]> {
+    return db.select().from(attNotes)
+      .where(and(eq(attNotes.conversationId, conversationId), eq(attNotes.accountId, accountId)))
+      .orderBy(desc(attNotes.createdAt));
+  }
+
+  async createNote(data: InsertAttNote & { accountId: string; userId: string }): Promise<AttNote> {
+    const [row] = await db.insert(attNotes).values(data as any).returning();
+    return row;
+  }
+
+  // ─── Attendance: Permanent Events / Audit Trail ─────────────────────────────
+
+  async createAttendanceEvent(data: Partial<InsertAttConversationEvent> & { accountId: string; action: string }): Promise<AttConversationEvent> {
+    const [row] = await db.insert(attConversationEvents).values(data as any).returning();
+    return row;
+  }
+
+  async getAttendanceEvents(accountId: string, filters: { conversationId?: string; userId?: string; action?: string; from?: string; to?: string; limit?: number } = {}): Promise<AttConversationEvent[]> {
+    const conds: any[] = [eq(attConversationEvents.accountId, accountId)];
+    if (filters.conversationId) conds.push(eq(attConversationEvents.conversationId, filters.conversationId));
+    if (filters.userId) conds.push(eq(attConversationEvents.userId, filters.userId));
+    if (filters.action) conds.push(eq(attConversationEvents.action, filters.action));
+    if (filters.from) conds.push(sql`${attConversationEvents.createdAt} >= ${new Date(filters.from)}`);
+    if (filters.to) conds.push(sql`${attConversationEvents.createdAt} <= ${new Date(filters.to)}`);
+    return db.select().from(attConversationEvents)
+      .where(and(...conds))
+      .orderBy(desc(attConversationEvents.createdAt))
+      .limit(Math.min(Math.max(filters.limit ?? 200, 1), 1000));
+  }
+
+  async createTransfer(data: Partial<InsertAttTransfer> & { accountId: string; conversationId: string }): Promise<AttTransfer> {
+    const [row] = await db.insert(attTransfers).values(data as any).returning();
+    return row;
+  }
+
+  async getTransfers(conversationId: string, accountId: string): Promise<AttTransfer[]> {
+    return db.select().from(attTransfers)
+      .where(and(eq(attTransfers.conversationId, conversationId), eq(attTransfers.accountId, accountId)))
+      .orderBy(desc(attTransfers.createdAt));
+  }
+
+  // ─── Attendance: Automation ───────────────────────────────────────────────────
+
+  async getLabels(accountId: string): Promise<AttLabel[]> {
+    return db.select().from(attLabels)
+      .where(and(eq(attLabels.accountId, accountId), eq(attLabels.active, true)))
+      .orderBy(attLabels.name);
+  }
+
+  async upsertLabel(accountId: string, data: Partial<InsertAttLabel> & { name: string }): Promise<AttLabel> {
+    const name = data.name.trim();
+    const [existing] = await db.select().from(attLabels)
+      .where(and(eq(attLabels.accountId, accountId), sql`lower(${attLabels.name}) = ${name.toLowerCase()}`))
+      .limit(1);
+    if (existing) {
+      const [row] = await db.update(attLabels)
+        .set({ name, color: data.color ?? existing.color, active: true, updatedAt: new Date() } as any)
+        .where(and(eq(attLabels.id, existing.id), eq(attLabels.accountId, accountId)))
+        .returning();
+      return row;
+    }
+    const [row] = await db.insert(attLabels).values({
+      accountId,
+      name,
+      color: data.color ?? "#14b8a6",
+      active: data.active ?? true,
+    } as any).returning();
+    return row;
+  }
+
+  async updateLabel(id: string, accountId: string, data: Partial<AttLabel>): Promise<AttLabel> {
+    const [row] = await db.update(attLabels)
+      .set({ ...data, updatedAt: new Date() } as any)
+      .where(and(eq(attLabels.id, id), eq(attLabels.accountId, accountId)))
+      .returning();
+    if (!row) throw new Error("Etiqueta nÃ£o encontrada");
+    return row;
+  }
+
+  async deleteLabel(id: string, accountId: string): Promise<void> {
+    await db.update(attLabels)
+      .set({ active: false, updatedAt: new Date() } as any)
+      .where(and(eq(attLabels.id, id), eq(attLabels.accountId, accountId)));
+  }
+
+  private async ensureLabels(accountId: string, names: string[]): Promise<AttLabel[]> {
+    const uniqueNames = Array.from(new Set(names.map(name => name.trim()).filter(Boolean)));
+    const labels: AttLabel[] = [];
+    for (const name of uniqueNames) labels.push(await this.upsertLabel(accountId, { name }));
+    return labels;
+  }
+
+  async setConversationLabels(accountId: string, conversationId: string, labelNames: string[]): Promise<AttLabel[]> {
+    const labels = await this.ensureLabels(accountId, labelNames);
+    await db.delete(attConversationLabels)
+      .where(and(eq(attConversationLabels.accountId, accountId), eq(attConversationLabels.conversationId, conversationId)));
+    if (labels.length > 0) {
+      await db.insert(attConversationLabels).values(labels.map(label => ({ accountId, conversationId, labelId: label.id })) as any);
+    }
+    await this.updateConversation(conversationId, accountId, { tags: labels.map(label => label.name) } as any);
+    return labels;
+  }
+
+  async setContactLabels(accountId: string, contactId: string, labelNames: string[]): Promise<AttLabel[]> {
+    const labels = await this.ensureLabels(accountId, labelNames);
+    await db.delete(attContactLabels)
+      .where(and(eq(attContactLabels.accountId, accountId), eq(attContactLabels.contactId, contactId)));
+    if (labels.length > 0) {
+      await db.insert(attContactLabels).values(labels.map(label => ({ accountId, contactId, labelId: label.id })) as any);
+    }
+    await this.updateContact(contactId, accountId, { interests: labels.map(label => label.name) } as any);
+    return labels;
+  }
+
+  async getConversationLabelNames(accountId: string, conversationId: string): Promise<string[]> {
+    const rows = await db.select({ name: attLabels.name })
+      .from(attConversationLabels)
+      .innerJoin(attLabels, eq(attConversationLabels.labelId, attLabels.id))
+      .where(and(eq(attConversationLabels.accountId, accountId), eq(attConversationLabels.conversationId, conversationId), eq(attLabels.active, true)));
+    return rows.map((row: { name: string }) => row.name);
+  }
+
+  async getContactLabelNames(accountId: string, contactId: string): Promise<string[]> {
+    const rows = await db.select({ name: attLabels.name })
+      .from(attContactLabels)
+      .innerJoin(attLabels, eq(attContactLabels.labelId, attLabels.id))
+      .where(and(eq(attContactLabels.accountId, accountId), eq(attContactLabels.contactId, contactId), eq(attLabels.active, true)));
+    return rows.map((row: { name: string }) => row.name);
+  }
+
+  async createImportJob(data: Partial<InsertAttImportJob> & { accountId: string; userId?: string | null }): Promise<AttImportJob> {
+    const [row] = await db.insert(attImportJobs).values(data as any).returning();
+    return row;
+  }
+
+  async updateImportJob(id: string, accountId: string, data: Partial<AttImportJob>): Promise<AttImportJob> {
+    const [row] = await db.update(attImportJobs)
+      .set({ ...data, updatedAt: new Date() } as any)
+      .where(and(eq(attImportJobs.id, id), eq(attImportJobs.accountId, accountId)))
+      .returning();
+    if (!row) throw new Error("ImportaÃ§Ã£o nÃ£o encontrada");
+    return row;
+  }
+
+  async getImportJob(id: string, accountId: string): Promise<AttImportJob | null> {
+    const [row] = await db.select().from(attImportJobs)
+      .where(and(eq(attImportJobs.id, id), eq(attImportJobs.accountId, accountId)));
+    return row ?? null;
+  }
+
+  async createIntegrationLog(data: Partial<InsertIntegrationLog> & { accountId: string; service: string; action: string; status: string; userId?: string | null }): Promise<IntegrationLog> {
+    const [row] = await db.insert(integrationLogs).values(data as any).returning();
+    return row;
+  }
+
+  async getAutomation(accountId: string): Promise<AttAutomation | null> {
+    const [row] = await db.select().from(attAutomation)
+      .where(eq(attAutomation.accountId, accountId));
+    return row ?? null;
+  }
+
+  async upsertAutomation(data: Partial<InsertAttAutomation> & { accountId: string }): Promise<AttAutomation> {
+    const existing = await this.getAutomation(data.accountId);
+    if (existing) {
+      const [row] = await db.update(attAutomation)
+        .set({ ...data, updatedAt: new Date() } as any)
+        .where(eq(attAutomation.id, existing.id))
+        .returning();
+      return row;
+    }
+    const [row] = await db.insert(attAutomation).values(data as any).returning();
+    return row;
+  }
+
+  // ─── Attendance: Reports ──────────────────────────────────────────────────────
+
+  async getAttendanceReport(accountId: string, filters: { channel?: string; from?: string; to?: string } = {}): Promise<Record<string, any>> {
+    const conds: any[] = [eq(attConversations.accountId, accountId)];
+    if (filters.channel) conds.push(eq(attConversations.channel, filters.channel));
+    if (filters.from) conds.push(sql`${attConversations.createdAt} >= ${new Date(filters.from)}`);
+    if (filters.to) conds.push(sql`${attConversations.createdAt} <= ${new Date(filters.to)}`);
+
+    const all = await db.select().from(attConversations).where(and(...conds));
+
+    const total = all.length;
+    const resolved = all.filter((c: AttConversation) => ["resolved", "closed", "finalized"].includes(c.status)).length;
+    const waiting = all.filter((c: AttConversation) => ["waiting", "new", "waiting_agent", "waiting_customer"].includes(c.status)).length;
+    const inProgress = all.filter((c: AttConversation) => c.status === "in_progress").length;
+    const automatic = all.filter((c: AttConversation) => c.mode === "automatic" || c.status === "automatic").length;
+    const manual = all.filter((c: AttConversation) => c.mode === "manual").length;
+
+    const byChannel: Record<string, number> = {};
+    const byStatus: Record<string, number> = {};
+    const byMode: Record<string, number> = {};
+    const bySector: Record<string, number> = {};
+    const byQueue: Record<string, number> = {};
+    const byPriority: Record<string, number> = {};
+    const byAssignee: Record<string, number> = {};
+    const dailyVolume: Record<string, number> = {};
+    const now = Date.now();
+    let totalWaitSeconds = 0;
+    let waitSamples = 0;
+    let totalServiceSeconds = 0;
+    let serviceSamples = 0;
+    let slaBreached = 0;
+
+    for (const c of all) {
+      byChannel[c.channel] = (byChannel[c.channel] ?? 0) + 1;
+      byStatus[c.status] = (byStatus[c.status] ?? 0) + 1;
+      byMode[c.mode ?? "automatic"] = (byMode[c.mode ?? "automatic"] ?? 0) + 1;
+      bySector[c.sectorId ?? "sem_setor"] = (bySector[c.sectorId ?? "sem_setor"] ?? 0) + 1;
+      byQueue[c.queueId ?? "sem_fila"] = (byQueue[c.queueId ?? "sem_fila"] ?? 0) + 1;
+      byPriority[c.priority ?? "normal"] = (byPriority[c.priority ?? "normal"] ?? 0) + 1;
+      byAssignee[c.assignedUserId ?? "sem_responsavel"] = (byAssignee[c.assignedUserId ?? "sem_responsavel"] ?? 0) + 1;
+      const day = c.createdAt.toISOString().slice(0, 10);
+      dailyVolume[day] = (dailyVolume[day] ?? 0) + 1;
+
+      const remote = (c.metadata as any)?.remote ?? {};
+      const wait = Number(remote.timeInWaiting ?? 0);
+      if (Number.isFinite(wait) && wait > 0) {
+        totalWaitSeconds += wait;
+        waitSamples++;
+      }
+
+      const end = c.closedAt ?? c.resolvedAt;
+      if (end) {
+        totalServiceSeconds += Math.max(0, (end.getTime() - c.createdAt.getTime()) / 1000);
+        serviceSamples++;
+      }
+
+      if (c.slaDueAt && c.slaDueAt.getTime() < now && c.status !== "resolved" && c.status !== "closed") {
+        slaBreached++;
+      }
+    }
+
+    const avgWaitSeconds = waitSamples > 0 ? Math.round(totalWaitSeconds / waitSamples) : 0;
+    const avgServiceSeconds = serviceSamples > 0 ? Math.round(totalServiceSeconds / serviceSamples) : 0;
+    const resolutionRate = total > 0 ? Math.round((resolved / total) * 100) : 0;
+
+    return {
+      total,
+      resolved,
+      waiting,
+      inProgress,
+      automatic,
+      manual,
+      byChannel,
+      byStatus,
+      byMode,
+      bySector,
+      byQueue,
+      byPriority,
+      byAssignee,
+      dailyVolume,
+      avgWaitSeconds,
+      avgServiceSeconds,
+      slaBreached,
+      resolutionRate,
+    };
   }
 }
 

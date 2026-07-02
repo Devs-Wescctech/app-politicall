@@ -20,6 +20,14 @@ const DEFAULT_USER_PERMISSIONS: UserPermissions = {
   petitions: false,
   users: false,
   settings: false,
+  whatsappAttendance: false,
+  emailAttendance: false,
+  socialAttendance: false,
+  whatsappBroadcast: false,
+  emailBroadcast: false,
+  smsBroadcast: false,
+  attendanceReports: false,
+  attendanceSettings: false,
 };
 
 // Extended request interface with user data
@@ -91,6 +99,23 @@ export function requirePermission(permission: keyof UserPermissions) {
       return res.status(403).json({ error: "Você não tem permissão para acessar este recurso" });
     }
     
+    next();
+  };
+}
+
+// Allow access if user has ANY of the listed permissions (OR logic)
+export function requireAnyPermission(...permissions: (keyof UserPermissions)[]) {
+  return async (req: AuthRequest, res: Response, next: NextFunction) => {
+    if (!req.user) {
+      return res.status(401).json({ error: "Usuário não autenticado" });
+    }
+    if (req.user.role === "admin") {
+      return next();
+    }
+    const hasAny = permissions.some(p => req.user!.permissions?.[p]);
+    if (!hasAny) {
+      return res.status(403).json({ error: "Você não tem permissão para acessar este recurso" });
+    }
     next();
   };
 }

@@ -33,7 +33,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { UserPlus, ArrowLeft, Mail, Lock, User as UserIcon, MoreVertical, Phone, Pencil, Trash2, Inbox, LogIn, Search, Key, Eye, EyeOff, Sun, Moon, CheckCircle2, AlertCircle } from "lucide-react";
+import { UserPlus, ArrowLeft, Mail, Lock, User as UserIcon, MoreVertical, Phone, Pencil, Trash2, Inbox, LogIn, Search, Key, Eye, EyeOff, Sun, Moon, CheckCircle2, AlertCircle, PlugZap } from "lucide-react";
 import { AdminBottomNav } from "@/components/admin-bottom-nav";
 import AdminSales from "@/pages/admin-sales";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -41,11 +41,13 @@ import { setAuthToken, setAuthUser } from "@/lib/auth";
 import { Checkbox } from "@/components/ui/checkbox";
 import { FaWhatsapp } from "react-icons/fa";
 import logoUrl from "@assets/logo pol_1763308638963.png";
-import type { Lead } from "@shared/schema";
+import { ATTENDANCE_MODULES, BROADCAST_MODULES, type Lead, type UserPermissions } from "@shared/schema";
+import AdminIntegrationsDialog from "@/components/admin/AdminIntegrationsDialog";
 
 // User type from backend
 type User = {
   id: string;
+  accountId: string;
   email: string;
   name: string;
   role: "admin" | "coordenador" | "assessor";
@@ -106,6 +108,7 @@ export default function ContractsPage() {
   const [inboxDialogOpen, setInboxDialogOpen] = useState(false);
   const [showSalesPage, setShowSalesPage] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [integrationAccount, setIntegrationAccount] = useState<{ id: string; name: string } | null>(null);
   const [isEditingUser, setIsEditingUser] = useState(false);
   const [editPlanValue, setEditPlanValue] = useState("");
   const [editExpiryDate, setEditExpiryDate] = useState("");
@@ -143,7 +146,7 @@ export default function ContractsPage() {
   };
   
   // Module permissions state
-  const [editPermissions, setEditPermissions] = useState({
+  const [editPermissions, setEditPermissions] = useState<UserPermissions>({
     dashboard: true,
     contacts: true,
     alliances: true,
@@ -154,6 +157,14 @@ export default function ContractsPage() {
     petitions: true,
     users: true,
     settings: true,
+    whatsappAttendance: false,
+    emailAttendance: false,
+    socialAttendance: false,
+    whatsappBroadcast: false,
+    emailBroadcast: false,
+    smsBroadcast: false,
+    attendanceReports: false,
+    attendanceSettings: false,
   });
 
   // Reset visible count when filters change
@@ -307,6 +318,14 @@ export default function ContractsPage() {
       petitions: user.permissions?.petitions ?? true,
       users: user.permissions?.users ?? true,
       settings: user.permissions?.settings ?? true,
+      whatsappAttendance: user.permissions?.whatsappAttendance ?? false,
+      emailAttendance: user.permissions?.emailAttendance ?? false,
+      socialAttendance: user.permissions?.socialAttendance ?? false,
+      whatsappBroadcast: user.permissions?.whatsappBroadcast ?? false,
+      emailBroadcast: user.permissions?.emailBroadcast ?? false,
+      smsBroadcast: user.permissions?.smsBroadcast ?? false,
+      attendanceReports: user.permissions?.attendanceReports ?? false,
+      attendanceSettings: user.permissions?.attendanceSettings ?? false,
     });
   };
 
@@ -333,6 +352,14 @@ export default function ContractsPage() {
         petitions: selectedUser.permissions?.petitions ?? true,
         users: selectedUser.permissions?.users ?? true,
         settings: selectedUser.permissions?.settings ?? true,
+        whatsappAttendance: selectedUser.permissions?.whatsappAttendance ?? false,
+        emailAttendance: selectedUser.permissions?.emailAttendance ?? false,
+        socialAttendance: selectedUser.permissions?.socialAttendance ?? false,
+        whatsappBroadcast: selectedUser.permissions?.whatsappBroadcast ?? false,
+        emailBroadcast: selectedUser.permissions?.emailBroadcast ?? false,
+        smsBroadcast: selectedUser.permissions?.smsBroadcast ?? false,
+        attendanceReports: selectedUser.permissions?.attendanceReports ?? false,
+        attendanceSettings: selectedUser.permissions?.attendanceSettings ?? false,
       });
     }
   };
@@ -343,18 +370,7 @@ export default function ContractsPage() {
       whatsapp: string; 
       planValue: string; 
       expiryDate: string;
-      permissions: {
-        dashboard: boolean;
-        contacts: boolean;
-        alliances: boolean;
-        demands: boolean;
-        agenda: boolean;
-        ai: boolean;
-        marketing: boolean;
-        petitions: boolean;
-        users: boolean;
-        settings: boolean;
-      };
+      permissions: UserPermissions;
     }) => {
       const token = localStorage.getItem('admin_token');
       const response = await fetch(`/api/admin/users/${data.userId}/contract`, {
@@ -997,6 +1013,28 @@ export default function ContractsPage() {
               </div>
             </div>
 
+            {/* Integrations */}
+            <div className="space-y-3 pt-4 border-t">
+              <label className="text-sm font-medium">Integrações da empresa</label>
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full justify-start gap-2 rounded-xl"
+                disabled={!selectedUser?.accountId}
+                onClick={() => {
+                  if (!selectedUser?.accountId) return;
+                  setIntegrationAccount({ id: selectedUser.accountId, name: selectedUser.name });
+                }}
+                data-testid="button-open-account-integrations"
+              >
+                <PlugZap className="h-4 w-4 text-primary" />
+                Configurar WhatsApp, SMS e E-mail
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                Tokens e chaves das APIs ficam centralizados no Admin Master por empresa.
+              </p>
+            </div>
+
             {/* Modules Section */}
             <div className="space-y-3 pt-4 border-t">
               <label className="text-sm font-medium">Módulos da conta</label>
@@ -1084,6 +1122,42 @@ export default function ContractsPage() {
                   </label>
                 </div>
               </div>
+
+              <p className="text-xs font-medium text-muted-foreground pt-2">Atendimentos</p>
+              <div className="grid grid-cols-2 gap-3">
+                {ATTENDANCE_MODULES.map((module) => (
+                  <div key={module.key} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`module-${module.key}`}
+                      checked={editPermissions[module.key]}
+                      onCheckedChange={(checked) => setEditPermissions(prev => ({ ...prev, [module.key]: checked === true }))}
+                      disabled={!isEditingUser}
+                      data-testid={`checkbox-module-${module.key}`}
+                    />
+                    <label htmlFor={`module-${module.key}`} className={`text-sm ${!isEditingUser ? 'text-muted-foreground' : ''}`}>
+                      {module.label}
+                    </label>
+                  </div>
+                ))}
+              </div>
+
+              <p className="text-xs font-medium text-muted-foreground pt-2">Disparos</p>
+              <div className="grid grid-cols-2 gap-3">
+                {BROADCAST_MODULES.map((module) => (
+                  <div key={module.key} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`module-${module.key}`}
+                      checked={editPermissions[module.key]}
+                      onCheckedChange={(checked) => setEditPermissions(prev => ({ ...prev, [module.key]: checked === true }))}
+                      disabled={!isEditingUser}
+                      data-testid={`checkbox-module-${module.key}`}
+                    />
+                    <label htmlFor={`module-${module.key}`} className={`text-sm ${!isEditingUser ? 'text-muted-foreground' : ''}`}>
+                      {module.label}
+                    </label>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
 
@@ -1145,6 +1219,13 @@ export default function ContractsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <AdminIntegrationsDialog
+        account={integrationAccount}
+        open={Boolean(integrationAccount)}
+        onOpenChange={(open) => {
+          if (!open) setIntegrationAccount(null);
+        }}
+      />
       {/* Payment Confirmation Dialog */}
       <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
         <DialogContent data-testid="dialog-payment">

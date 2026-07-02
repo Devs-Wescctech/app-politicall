@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription as DialogDesc } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -13,7 +14,8 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
-import { User, Edit, Camera, Key, Copy, Trash2, Calendar, Clock, CheckCircle2, XCircle, Plus, Code2, AlertCircle, Terminal, Globe, ChevronDown, ExternalLink, RefreshCw, Settings2, Link, Lock, Users, Handshake, ClipboardList, FileCheck, Bot, BarChart3 } from "lucide-react";
+import { User, Edit, Camera, Key, Copy, Trash2, Calendar, Clock, CheckCircle2, XCircle, Plus, Code2, AlertCircle, Terminal, Globe, ChevronDown, ExternalLink, RefreshCw, Settings2, Link, Lock, Unlock, Eye, EyeOff, Users, Handshake, ClipboardList, FileCheck, Bot, BarChart3, MessagesSquare, MessageCircle, Smartphone, Mail, Phone, Wifi, WifiOff } from "lucide-react";
+import { SiWhatsapp } from "react-icons/si";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { getAuthUser, setAuthUser } from "@/lib/auth";
 import { useForm } from "react-hook-form";
@@ -90,6 +92,523 @@ type ProfileForm = z.infer<typeof profileSchema>;
 type ApiKeyForm = z.infer<typeof apiKeySchema>;
 type GoogleCalendarForm = z.infer<typeof googleCalendarSchema>;
 
+type IntegrationRecord = {
+  id?: string; service?: string; enabled?: boolean;
+  // legacy
+  sendgridApiKey?: string | null; fromEmail?: string | null; fromName?: string | null;
+  twilioAccountSid?: string | null; twilioAuthToken?: string | null; twilioPhoneNumber?: string | null;
+  // whatsapp / whu
+  whatsappToken?: string | null; whatsappPhoneNumber?: string | null;
+  // sms (oktor)
+  smsAccount?: string | null; smsCode?: string | null; smsClient?: string | null;
+  // email imap/smtp
+  smtpHost?: string | null; smtpPort?: number | null; smtpUser?: string | null; smtpPassword?: string | null; smtpSecurity?: string | null;
+  imapHost?: string | null; imapPort?: number | null; imapUser?: string | null; imapPassword?: string | null; imapSecurity?: string | null;
+};
+
+// ---- Shared: secret input with show/hide toggle ----
+function SecretInput({
+  value,
+  onChange,
+  onBlur,
+  name,
+  placeholder,
+  testId,
+  disabled,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  onBlur?: () => void;
+  name?: string;
+  placeholder?: string;
+  testId: string;
+  disabled?: boolean;
+}) {
+  const [show, setShow] = useState(false);
+  return (
+    <div className="relative">
+      <Input
+        type={show ? "text" : "password"}
+        placeholder={placeholder}
+        className="pr-10"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onBlur={onBlur}
+        name={name}
+        disabled={disabled}
+        data-testid={testId}
+      />
+      <Button
+        type="button"
+        size="icon"
+        variant="ghost"
+        className="absolute right-1 top-1/2 -translate-y-1/2"
+        onClick={() => setShow((s) => !s)}
+        tabIndex={-1}
+        aria-label={show ? "Ocultar" : "Mostrar"}
+        data-testid={`${testId}-toggle`}
+      >
+        {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+      </Button>
+    </div>
+  );
+}
+
+const keepHint = (
+  <span className="text-muted-foreground font-normal">(deixe em branco para manter)</span>
+);
+
+// ---- WhatsApp / WHU Form ----
+const whatsappSchema = z.object({
+  whatsappToken: z.string().optional(),
+  whatsappPhoneNumber: z.string().optional(),
+  enabled: z.boolean().default(true),
+});
+type WhatsappFormData = z.infer<typeof whatsappSchema>;
+
+function WhatsappForm({ current, onSaved }: { current?: IntegrationRecord | null; onSaved: () => void }) {
+  const { toast } = useToast();
+  const hasToken = !!current?.whatsappToken;
+  const form = useForm<WhatsappFormData>({
+    resolver: zodResolver(whatsappSchema),
+    defaultValues: {
+      whatsappToken: "",
+      whatsappPhoneNumber: current?.whatsappPhoneNumber || "",
+      enabled: current?.enabled ?? true,
+    },
+  });
+
+  const mutation = useMutation({
+    mutationFn: (data: WhatsappFormData) =>
+      apiRequest("POST", "/api/integrations", { service: "whatsapp", ...data }),
+    onSuccess: onSaved,
+    onError: (err: any) => toast({ title: "Erro ao salvar", description: err.message, variant: "destructive" }),
+  });
+
+  const testMutation = useMutation({
+    mutationFn: () => apiRequest("POST", "/api/integrations/whatsapp/test", {}),
+    onSuccess: (data: any) => {
+      const status = data?.provider?.status ? `Status: ${data.provider.status}` : undefined;
+      toast({ title: "WhatsApp conectado", description: status });
+    },
+    onError: (err: any) => toast({ title: "Falha no teste", description: err.message, variant: "destructive" }),
+  });
+
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit((d) => mutation.mutate(d))} className="space-y-4">
+        <FormField control={form.control} name="whatsappToken" render={({ field }) => (
+          <FormItem>
+            <FormLabel className="text-xs">Token do canal WHU/WhatsApp {hasToken && keepHint}</FormLabel>
+            <FormControl>
+              <SecretInput
+                value={field.value || ""}
+                onChange={field.onChange}
+                onBlur={field.onBlur}
+                name={field.name}
+                placeholder="61d49d8b20f435a8e6631bf6"
+                testId="input-whatsapp-token"
+              />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )} />
+        <FormField control={form.control} name="whatsappPhoneNumber" render={({ field }) => (
+          <FormItem>
+            <FormLabel className="text-xs">Número WhatsApp <span className="text-muted-foreground font-normal">(opcional)</span></FormLabel>
+            <FormControl><Input placeholder="+5511999999999" {...field} data-testid="input-whatsapp-phone" /></FormControl>
+            <FormMessage />
+          </FormItem>
+        )} />
+        <FormField control={form.control} name="enabled" render={({ field }) => (
+          <FormItem className="flex items-center gap-3">
+            <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} data-testid="switch-whatsapp-enabled" /></FormControl>
+            <FormLabel className="text-xs !mt-0">Integração ativa</FormLabel>
+          </FormItem>
+        )} />
+        <div className="flex flex-wrap items-center gap-2">
+          <Button type="submit" size="sm" className="rounded-full" disabled={mutation.isPending} data-testid="button-save-whatsapp">
+            {mutation.isPending ? "Salvando..." : "Salvar"}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="rounded-full"
+            disabled={!hasToken || testMutation.isPending}
+            onClick={() => testMutation.mutate()}
+            data-testid="button-test-whatsapp"
+          >
+            {testMutation.isPending ? "Testando..." : "Testar conexão"}
+          </Button>
+        </div>
+      </form>
+    </Form>
+  );
+}
+
+// ---- SMS (Oktor) Form ----
+const smsSchema = z.object({
+  smsAccount: z.string().min(1, "Conta é obrigatória"),
+  smsCode: z.string().optional(),
+  smsClient: z.string().optional(),
+  enabled: z.boolean().default(true),
+});
+type SmsFormData = z.infer<typeof smsSchema>;
+
+function SmsForm({ current, isAdmin, onSaved }: { current?: IntegrationRecord | null; isAdmin: boolean; onSaved: () => void }) {
+  const { toast } = useToast();
+  const hasCode = !!current?.smsCode;
+  const hasStoredClient = !!(current?.smsClient && current.smsClient.trim() !== "");
+  const [clientUnlocked, setClientUnlocked] = useState(!hasStoredClient);
+  const [showUnlockDialog, setShowUnlockDialog] = useState(false);
+  const [unlockPassword, setUnlockPassword] = useState("");
+  const [adminPassword, setAdminPassword] = useState<string | null>(null);
+  const [unlocking, setUnlocking] = useState(false);
+
+  const form = useForm<SmsFormData>({
+    resolver: zodResolver(smsSchema),
+    defaultValues: {
+      smsAccount: current?.smsAccount || "",
+      smsCode: "",
+      smsClient: current?.smsClient || "",
+      enabled: current?.enabled ?? true,
+    },
+  });
+
+  const mutation = useMutation({
+    mutationFn: (data: SmsFormData) =>
+      apiRequest("POST", "/api/integrations", {
+        service: "sms",
+        ...data,
+        ...(adminPassword ? { adminPassword } : {}),
+      }),
+    onSuccess: () => {
+      setAdminPassword(null);
+      onSaved();
+    },
+    onError: (err: any) => toast({ title: "Erro ao salvar", description: err.message, variant: "destructive" }),
+  });
+
+  const handleUnlock = async () => {
+    if (!unlockPassword) return;
+    setUnlocking(true);
+    try {
+      await apiRequest("POST", "/api/auth/validate-admin-password", { password: unlockPassword });
+      setAdminPassword(unlockPassword);
+      setClientUnlocked(true);
+      setShowUnlockDialog(false);
+      setUnlockPassword("");
+      toast({ title: "Campo desbloqueado", description: "Agora você pode editar o cliente de cobrança." });
+    } catch (err: any) {
+      toast({ title: "Senha incorreta", description: "A senha do admin master não confere.", variant: "destructive" });
+    } finally {
+      setUnlocking(false);
+    }
+  };
+
+  const clientLocked = hasStoredClient && !clientUnlocked;
+
+  return (
+    <>
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit((d) => mutation.mutate(d))} className="space-y-4">
+          <FormField control={form.control} name="smsAccount" render={({ field }) => (
+            <FormItem>
+              <FormLabel className="text-xs">Conta (account)</FormLabel>
+              <FormControl><Input placeholder="usuario@empresa.com.br" {...field} data-testid="input-sms-account" /></FormControl>
+              <FormMessage />
+            </FormItem>
+          )} />
+          <FormField control={form.control} name="smsCode" render={({ field }) => (
+            <FormItem>
+              <FormLabel className="text-xs">Código da API (code) {hasCode && keepHint}</FormLabel>
+              <FormControl>
+                <SecretInput
+                  value={field.value || ""}
+                  onChange={field.onChange}
+                  onBlur={field.onBlur}
+                  name={field.name}
+                  placeholder="@bC#eH+p4Ux8:[>"
+                  testId="input-sms-code"
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )} />
+          <FormField control={form.control} name="smsClient" render={({ field }) => (
+            <FormItem>
+              <FormLabel className="text-xs flex items-center gap-1.5">
+                Cliente de cobrança (client)
+                {clientLocked && <Lock className="w-3 h-3 text-muted-foreground" />}
+              </FormLabel>
+              <FormControl>
+                <Input
+                  placeholder="333"
+                  {...field}
+                  disabled={clientLocked}
+                  data-testid="input-sms-client"
+                />
+              </FormControl>
+              {clientLocked ? (
+                <p className="text-xs text-muted-foreground">
+                  Este campo controla o custo dos envios e está bloqueado.{" "}
+                  {isAdmin ? (
+                    <button
+                      type="button"
+                      className="text-primary underline-offset-2 hover:underline"
+                      onClick={() => setShowUnlockDialog(true)}
+                      data-testid="button-unlock-sms-client"
+                    >
+                      Desbloquear (admin master)
+                    </button>
+                  ) : (
+                    "Apenas o admin master pode alterá-lo."
+                  )}
+                </p>
+              ) : (
+                <FormMessage />
+              )}
+            </FormItem>
+          )} />
+          <FormField control={form.control} name="enabled" render={({ field }) => (
+            <FormItem className="flex items-center gap-3">
+              <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} data-testid="switch-sms-enabled" /></FormControl>
+              <FormLabel className="text-xs !mt-0">Integração ativa</FormLabel>
+            </FormItem>
+          )} />
+          <Button type="submit" size="sm" className="rounded-full" disabled={mutation.isPending} data-testid="button-save-sms">
+            {mutation.isPending ? "Salvando..." : "Salvar"}
+          </Button>
+        </form>
+      </Form>
+
+      <Dialog open={showUnlockDialog} onOpenChange={setShowUnlockDialog}>
+        <DialogContent className="max-w-sm" data-testid="dialog-unlock-sms-client">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Unlock className="w-4 h-4" />Desbloquear cliente de cobrança</DialogTitle>
+            <DialogDesc>
+              Informe a senha do admin master para liberar a edição do campo cliente.
+            </DialogDesc>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label className="text-xs">Senha do admin master</Label>
+            <Input
+              type="password"
+              value={unlockPassword}
+              onChange={(e) => setUnlockPassword(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleUnlock(); } }}
+              placeholder="••••••••"
+              data-testid="input-unlock-password"
+            />
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" className="rounded-full" onClick={() => { setShowUnlockDialog(false); setUnlockPassword(""); }} data-testid="button-cancel-unlock">
+              Cancelar
+            </Button>
+            <Button type="button" className="rounded-full" disabled={unlocking || !unlockPassword} onClick={handleUnlock} data-testid="button-confirm-unlock">
+              {unlocking ? "Validando..." : "Desbloquear"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+// ---- Email (IMAP / SMTP) Form ----
+const emailSchema = z.object({
+  smtpHost: z.string().optional(),
+  smtpPort: z.string().optional(),
+  smtpUser: z.string().optional(),
+  smtpPassword: z.string().optional(),
+  smtpSecurity: z.string().optional(),
+  imapHost: z.string().optional(),
+  imapPort: z.string().optional(),
+  imapUser: z.string().optional(),
+  imapPassword: z.string().optional(),
+  imapSecurity: z.string().optional(),
+  fromEmail: z.string().email("E-mail inválido").or(z.literal("")).optional(),
+  fromName: z.string().optional(),
+  enabled: z.boolean().default(true),
+});
+type EmailFormData = z.infer<typeof emailSchema>;
+
+function EmailForm({ current, onSaved }: { current?: IntegrationRecord | null; onSaved: () => void }) {
+  const { toast } = useToast();
+  const hasSmtpPass = !!current?.smtpPassword;
+  const hasImapPass = !!current?.imapPassword;
+  const form = useForm<EmailFormData>({
+    resolver: zodResolver(emailSchema),
+    defaultValues: {
+      smtpHost: current?.smtpHost || "",
+      smtpPort: current?.smtpPort != null ? String(current.smtpPort) : "",
+      smtpUser: current?.smtpUser || "",
+      smtpPassword: "",
+      smtpSecurity: current?.smtpSecurity || "ssl_tls",
+      imapHost: current?.imapHost || "",
+      imapPort: current?.imapPort != null ? String(current.imapPort) : "",
+      imapUser: current?.imapUser || "",
+      imapPassword: "",
+      imapSecurity: current?.imapSecurity || "ssl_tls",
+      fromEmail: current?.fromEmail || "",
+      fromName: current?.fromName || "",
+      enabled: current?.enabled ?? true,
+    },
+  });
+
+  const mutation = useMutation({
+    mutationFn: (data: EmailFormData) =>
+      apiRequest("POST", "/api/integrations", {
+        service: "email",
+        ...data,
+        smtpPort: data.smtpPort ? parseInt(data.smtpPort, 10) : undefined,
+        imapPort: data.imapPort ? parseInt(data.imapPort, 10) : undefined,
+      }),
+    onSuccess: onSaved,
+    onError: (err: any) => toast({ title: "Erro ao salvar", description: err.message, variant: "destructive" }),
+  });
+
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit((d) => mutation.mutate(d))} className="space-y-5">
+        {/* SMTP (envio) */}
+        <div className="space-y-4">
+          <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">SMTP — Envio</h4>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="sm:col-span-2">
+              <FormField control={form.control} name="smtpHost" render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-xs">Servidor SMTP</FormLabel>
+                  <FormControl><Input placeholder="smtp.seudominio.com.br" {...field} data-testid="input-smtp-host" /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+            </div>
+            <FormField control={form.control} name="smtpPort" render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-xs">Porta</FormLabel>
+                <FormControl><Input type="number" placeholder="465" {...field} data-testid="input-smtp-port" /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+          </div>
+          <FormField control={form.control} name="smtpUser" render={({ field }) => (
+            <FormItem>
+              <FormLabel className="text-xs">Usuário SMTP</FormLabel>
+              <FormControl><Input placeholder="contato@seudominio.com.br" {...field} data-testid="input-smtp-user" /></FormControl>
+              <FormMessage />
+            </FormItem>
+          )} />
+          <FormField control={form.control} name="smtpPassword" render={({ field }) => (
+            <FormItem>
+              <FormLabel className="text-xs">Senha SMTP {hasSmtpPass && keepHint}</FormLabel>
+              <FormControl>
+                <SecretInput value={field.value || ""} onChange={field.onChange} onBlur={field.onBlur} name={field.name} placeholder="••••••••" testId="input-smtp-password" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )} />
+          <FormField control={form.control} name="smtpSecurity" render={({ field }) => (
+            <FormItem>
+              <FormLabel className="text-xs">Segurança SMTP</FormLabel>
+              <Select value={field.value} onValueChange={field.onChange}>
+                <FormControl><SelectTrigger data-testid="select-smtp-security"><SelectValue placeholder="Selecione" /></SelectTrigger></FormControl>
+                <SelectContent>
+                  <SelectItem value="ssl_tls">SSL/TLS</SelectItem>
+                  <SelectItem value="starttls">STARTTLS</SelectItem>
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )} />
+        </div>
+
+        {/* IMAP (recebimento) */}
+        <div className="space-y-4">
+          <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">IMAP — Recebimento</h4>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="sm:col-span-2">
+              <FormField control={form.control} name="imapHost" render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-xs">Servidor IMAP</FormLabel>
+                  <FormControl><Input placeholder="imap.seudominio.com.br" {...field} data-testid="input-imap-host" /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+            </div>
+            <FormField control={form.control} name="imapPort" render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-xs">Porta</FormLabel>
+                <FormControl><Input type="number" placeholder="993" {...field} data-testid="input-imap-port" /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+          </div>
+          <FormField control={form.control} name="imapUser" render={({ field }) => (
+            <FormItem>
+              <FormLabel className="text-xs">Usuário IMAP</FormLabel>
+              <FormControl><Input placeholder="contato@seudominio.com.br" {...field} data-testid="input-imap-user" /></FormControl>
+              <FormMessage />
+            </FormItem>
+          )} />
+          <FormField control={form.control} name="imapPassword" render={({ field }) => (
+            <FormItem>
+              <FormLabel className="text-xs">Senha IMAP {hasImapPass && keepHint}</FormLabel>
+              <FormControl>
+                <SecretInput value={field.value || ""} onChange={field.onChange} onBlur={field.onBlur} name={field.name} placeholder="••••••••" testId="input-imap-password" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )} />
+          <FormField control={form.control} name="imapSecurity" render={({ field }) => (
+            <FormItem>
+              <FormLabel className="text-xs">Segurança IMAP</FormLabel>
+              <Select value={field.value} onValueChange={field.onChange}>
+                <FormControl><SelectTrigger data-testid="select-imap-security"><SelectValue placeholder="Selecione" /></SelectTrigger></FormControl>
+                <SelectContent>
+                  <SelectItem value="ssl_tls">SSL/TLS</SelectItem>
+                  <SelectItem value="starttls">STARTTLS</SelectItem>
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )} />
+        </div>
+
+        {/* Remetente */}
+        <div className="space-y-4">
+          <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Remetente</h4>
+          <FormField control={form.control} name="fromEmail" render={({ field }) => (
+            <FormItem>
+              <FormLabel className="text-xs">E-mail do remetente</FormLabel>
+              <FormControl><Input type="email" placeholder="contato@seugabinete.com.br" {...field} data-testid="input-email-from" /></FormControl>
+              <FormMessage />
+            </FormItem>
+          )} />
+          <FormField control={form.control} name="fromName" render={({ field }) => (
+            <FormItem>
+              <FormLabel className="text-xs">Nome do remetente</FormLabel>
+              <FormControl><Input placeholder="Gabinete do Deputado Fulano" {...field} data-testid="input-email-fromname" /></FormControl>
+              <FormMessage />
+            </FormItem>
+          )} />
+        </div>
+
+        <FormField control={form.control} name="enabled" render={({ field }) => (
+          <FormItem className="flex items-center gap-3">
+            <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} data-testid="switch-email-enabled" /></FormControl>
+            <FormLabel className="text-xs !mt-0">Integração ativa</FormLabel>
+          </FormItem>
+        )} />
+        <Button type="submit" size="sm" className="rounded-full" disabled={mutation.isPending} data-testid="button-save-email">
+          {mutation.isPending ? "Salvando..." : "Salvar"}
+        </Button>
+      </form>
+    </Form>
+  );
+}
+
 export default function Settings() {
   const user = getAuthUser();
   const { toast } = useToast();
@@ -136,6 +655,23 @@ export default function Settings() {
   const { data: apiKeys, isLoading: loadingKeys } = useQuery<ApiKey[]>({
     queryKey: ["/api/keys"],
     enabled: activeTab === "api",
+  });
+
+  type IntegrationData = IntegrationRecord & { id: string; service: string; enabled: boolean; testMode?: boolean };
+
+  const { data: whatsappData, isLoading: loadingWhatsapp } = useQuery<IntegrationData | null>({
+    queryKey: ["/api/integrations/whatsapp"],
+    enabled: activeTab === "omni",
+  });
+
+  const { data: smsData, isLoading: loadingSms } = useQuery<IntegrationData | null>({
+    queryKey: ["/api/integrations/sms"],
+    enabled: activeTab === "omni",
+  });
+
+  const { data: emailData, isLoading: loadingEmail } = useQuery<IntegrationData | null>({
+    queryKey: ["/api/integrations/email"],
+    enabled: activeTab === "omni",
   });
 
   const { data: googleCalendarConfig, isLoading: loadingGoogleCalendar } = useQuery<{
@@ -650,18 +1186,18 @@ export default function Settings() {
         <p className="text-muted-foreground mt-2">Gerencie suas preferências e informações da conta</p>
       </div>
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full max-w-full">
-        <TabsList className="grid w-full max-w-lg grid-cols-3 rounded-full p-1">
+        <TabsList className="grid w-full max-w-xl grid-cols-3 rounded-full p-1">
           <TabsTrigger value="profile" data-testid="tab-profile" className="rounded-full">
-            <User className="w-4 h-4 mr-2" />
+            <User className="w-4 h-4 mr-1" />
             Perfil
           </TabsTrigger>
           <TabsTrigger value="google-calendar" data-testid="tab-google-calendar" className="rounded-full">
-            <Calendar className="w-4 h-4 mr-2" />
-            Google Calendar
+            <Calendar className="w-4 h-4 mr-1" />
+            Calendário
           </TabsTrigger>
           <TabsTrigger value="api" data-testid="tab-api" className="rounded-full">
-            <Key className="w-4 h-4 mr-2" />
-            Integrações API
+            <Key className="w-4 h-4 mr-1" />
+            API
           </TabsTrigger>
         </TabsList>
 
@@ -1437,6 +1973,7 @@ export default function Settings() {
             </div>
           </div>
         </TabsContent>
+
       </Tabs>
       {/* Edit Profile Dialog */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>

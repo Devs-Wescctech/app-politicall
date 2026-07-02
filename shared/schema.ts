@@ -38,7 +38,113 @@ export type UserPermissions = {
   petitions: boolean;
   users: boolean;
   settings: boolean;
+  // Atendimento Omni — módulos de atendimento omnichannel
+  whatsappAttendance: boolean;
+  emailAttendance: boolean;
+  socialAttendance: boolean;
+  // Atendimento Omni — módulos de disparos
+  whatsappBroadcast: boolean;
+  emailBroadcast: boolean;
+  smsBroadcast: boolean;
+  // Atendimento Omni — permissões auxiliares
+  attendanceReports: boolean;
+  attendanceSettings: boolean;
+  attendanceView?: boolean;
+  attendanceAssume?: boolean;
+  attendanceRelease?: boolean;
+  attendanceTransfer?: boolean;
+  attendanceClose?: boolean;
+  attendanceReopen?: boolean;
+  attendancePause?: boolean;
+  attendanceReply?: boolean;
+  attendanceReplyAny?: boolean;
+  attendanceChangePriority?: boolean;
+  attendanceChangeAssignee?: boolean;
+  attendanceManageQueues?: boolean;
+  attendanceManageDepartments?: boolean;
+  attendanceManageTags?: boolean;
+  attendanceFullHistory?: boolean;
+  attendanceAudit?: boolean;
+  attendanceExport?: boolean;
+  attendanceEditMessages?: boolean;
+  attendanceDeleteMessages?: boolean;
 };
+
+// Zod schema for user permissions. New Atendimento Omni keys are optional with a
+// default of false to stay backward-compatible with users/payloads created before
+// these modules existed.
+export const userPermissionsSchema = z.object({
+  dashboard: z.boolean(),
+  contacts: z.boolean(),
+  alliances: z.boolean(),
+  demands: z.boolean(),
+  agenda: z.boolean(),
+  ai: z.boolean(),
+  marketing: z.boolean(),
+  petitions: z.boolean(),
+  users: z.boolean(),
+  settings: z.boolean(),
+  whatsappAttendance: z.boolean().optional().default(false),
+  emailAttendance: z.boolean().optional().default(false),
+  socialAttendance: z.boolean().optional().default(false),
+  whatsappBroadcast: z.boolean().optional().default(false),
+  emailBroadcast: z.boolean().optional().default(false),
+  smsBroadcast: z.boolean().optional().default(false),
+  attendanceReports: z.boolean().optional().default(false),
+  attendanceSettings: z.boolean().optional().default(false),
+  attendanceView: z.boolean().optional().default(false),
+  attendanceAssume: z.boolean().optional().default(false),
+  attendanceRelease: z.boolean().optional().default(false),
+  attendanceTransfer: z.boolean().optional().default(false),
+  attendanceClose: z.boolean().optional().default(false),
+  attendanceReopen: z.boolean().optional().default(false),
+  attendancePause: z.boolean().optional().default(false),
+  attendanceReply: z.boolean().optional().default(false),
+  attendanceReplyAny: z.boolean().optional().default(false),
+  attendanceChangePriority: z.boolean().optional().default(false),
+  attendanceChangeAssignee: z.boolean().optional().default(false),
+  attendanceManageQueues: z.boolean().optional().default(false),
+  attendanceManageDepartments: z.boolean().optional().default(false),
+  attendanceManageTags: z.boolean().optional().default(false),
+  attendanceFullHistory: z.boolean().optional().default(false),
+  attendanceAudit: z.boolean().optional().default(false),
+  attendanceExport: z.boolean().optional().default(false),
+  attendanceEditMessages: z.boolean().optional().default(false),
+  attendanceDeleteMessages: z.boolean().optional().default(false),
+});
+
+// Atendimento Omni module groups — used to render module toggles consistently
+// across the registration form and the Admin Master (Contratos) panel.
+export const ATTENDANCE_MODULES = [
+  { key: "whatsappAttendance", label: "Atendimento WhatsApp" },
+  { key: "emailAttendance", label: "Atendimento E-mail" },
+  { key: "socialAttendance", label: "Atendimento Redes Sociais" },
+] as const;
+
+export const BROADCAST_MODULES = [
+  { key: "whatsappBroadcast", label: "Disparos WhatsApp" },
+  { key: "emailBroadcast", label: "Disparos E-mail" },
+  { key: "smsBroadcast", label: "Disparos SMS" },
+] as const;
+
+// Permission keys that gate each sidebar parent group. A group is visible when the
+// user holds at least one of its submodule permissions.
+export const ATTENDANCE_PERMISSION_KEYS = ATTENDANCE_MODULES.map((m) => m.key);
+export const BROADCAST_PERMISSION_KEYS = BROADCAST_MODULES.map((m) => m.key);
+
+// Status of an Atendimento Omni module for a given account.
+// - inactive: the module is not enabled for the account
+// - pending_configuration: enabled, but no technical credential configured yet
+// - active: enabled and ready to use
+export type ModuleStatus = "inactive" | "pending_configuration" | "active";
+
+export function getModuleStatus(isEnabled: boolean, hasCredential: boolean): ModuleStatus {
+  if (!isEnabled) return "inactive";
+  return hasCredential ? "active" : "pending_configuration";
+}
+
+export const PENDING_CONFIGURATION_MESSAGE =
+  "Este módulo está ativo, mas aguardando configuração técnica pelo administrador da plataforma.";
 
 // Default permissions by role
 export const DEFAULT_PERMISSIONS = {
@@ -52,7 +158,34 @@ export const DEFAULT_PERMISSIONS = {
     marketing: true,
     petitions: true,
     users: true,
-    settings: true
+    settings: true,
+    whatsappAttendance: true,
+    emailAttendance: true,
+    socialAttendance: true,
+    whatsappBroadcast: true,
+    emailBroadcast: true,
+    smsBroadcast: true,
+    attendanceReports: true,
+    attendanceSettings: true,
+    attendanceView: true,
+    attendanceAssume: true,
+    attendanceRelease: true,
+    attendanceTransfer: true,
+    attendanceClose: true,
+    attendanceReopen: true,
+    attendancePause: true,
+    attendanceReply: true,
+    attendanceReplyAny: true,
+    attendanceChangePriority: true,
+    attendanceChangeAssignee: true,
+    attendanceManageQueues: true,
+    attendanceManageDepartments: true,
+    attendanceManageTags: true,
+    attendanceFullHistory: true,
+    attendanceAudit: true,
+    attendanceExport: true,
+    attendanceEditMessages: true,
+    attendanceDeleteMessages: true
   },
   coordenador: {
     dashboard: true,
@@ -64,7 +197,34 @@ export const DEFAULT_PERMISSIONS = {
     marketing: true,
     petitions: true,
     users: false,  // Coordenador NÃO gerencia usuários
-    settings: true
+    settings: true,
+    whatsappAttendance: true,
+    emailAttendance: true,
+    socialAttendance: true,
+    whatsappBroadcast: true,
+    emailBroadcast: true,
+    smsBroadcast: true,
+    attendanceReports: true,
+    attendanceSettings: true,
+    attendanceView: true,
+    attendanceAssume: true,
+    attendanceRelease: true,
+    attendanceTransfer: true,
+    attendanceClose: true,
+    attendanceReopen: true,
+    attendancePause: true,
+    attendanceReply: true,
+    attendanceReplyAny: true,
+    attendanceChangePriority: true,
+    attendanceChangeAssignee: true,
+    attendanceManageQueues: true,
+    attendanceManageDepartments: true,
+    attendanceManageTags: true,
+    attendanceFullHistory: true,
+    attendanceAudit: true,
+    attendanceExport: true,
+    attendanceEditMessages: false,
+    attendanceDeleteMessages: false
   },
   assessor: {
     dashboard: true,
@@ -76,7 +236,34 @@ export const DEFAULT_PERMISSIONS = {
     marketing: false,   // Assessor NÃO faz marketing
     petitions: false,   // Assessor NÃO acessa petições
     users: false,       // Assessor NÃO gerencia usuários
-    settings: false     // Assessor NÃO acessa configurações
+    settings: false,    // Assessor NÃO acessa configurações
+    whatsappAttendance: true,   // Assessor é quem faz o atendimento
+    emailAttendance: true,
+    socialAttendance: true,
+    whatsappBroadcast: false,   // Disparos em massa são estratégicos
+    emailBroadcast: false,
+    smsBroadcast: false,
+    attendanceReports: false,   // Relatórios são gerenciais
+    attendanceSettings: false,  // Configuração técnica é do admin
+    attendanceView: true,
+    attendanceAssume: true,
+    attendanceRelease: true,
+    attendanceTransfer: false,
+    attendanceClose: true,
+    attendanceReopen: false,
+    attendancePause: true,
+    attendanceReply: true,
+    attendanceReplyAny: false,
+    attendanceChangePriority: false,
+    attendanceChangeAssignee: false,
+    attendanceManageQueues: false,
+    attendanceManageDepartments: false,
+    attendanceManageTags: false,
+    attendanceFullHistory: false,
+    attendanceAudit: false,
+    attendanceExport: false,
+    attendanceEditMessages: false,
+    attendanceDeleteMessages: false
   },
   voluntario: {
     dashboard: false,
@@ -88,7 +275,34 @@ export const DEFAULT_PERMISSIONS = {
     marketing: false,   // Voluntário NÃO faz marketing
     petitions: false,   // Voluntário NÃO acessa petições
     users: false,       // Voluntário NÃO gerencia usuários
-    settings: false     // Voluntário NÃO acessa configurações
+    settings: false,    // Voluntário NÃO acessa configurações
+    whatsappAttendance: false,
+    emailAttendance: false,
+    socialAttendance: false,
+    whatsappBroadcast: false,
+    emailBroadcast: false,
+    smsBroadcast: false,
+    attendanceReports: false,
+    attendanceSettings: false,
+    attendanceView: false,
+    attendanceAssume: false,
+    attendanceRelease: false,
+    attendanceTransfer: false,
+    attendanceClose: false,
+    attendanceReopen: false,
+    attendancePause: false,
+    attendanceReply: false,
+    attendanceReplyAny: false,
+    attendanceChangePriority: false,
+    attendanceChangeAssignee: false,
+    attendanceManageQueues: false,
+    attendanceManageDepartments: false,
+    attendanceManageTags: false,
+    attendanceFullHistory: false,
+    attendanceAudit: false,
+    attendanceExport: false,
+    attendanceEditMessages: false,
+    attendanceDeleteMessages: false
   }
 } as const;
 
@@ -500,18 +714,53 @@ export const integrations = pgTable("integrations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   accountId: varchar("account_id").notNull().references(() => accounts.id, { onDelete: 'cascade' }),
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  service: text("service").notNull(), // 'sendgrid' or 'twilio'
+  service: text("service").notNull(), // 'whatsapp' | 'sms' | 'email' (legacy: 'sendgrid' | 'twilio')
   enabled: boolean("enabled").default(false).notNull(),
   
-  // SendGrid fields
+  // SendGrid fields (legacy)
   sendgridApiKey: text("sendgrid_api_key"),
   fromEmail: text("from_email"),
   fromName: text("from_name"),
   
-  // Twilio fields  
+  // Twilio fields (legacy)
   twilioAccountSid: text("twilio_account_sid"),
   twilioAuthToken: text("twilio_auth_token"),
   twilioPhoneNumber: text("twilio_phone_number"), // Format: whatsapp:+5511999999999
+
+  // WhatsApp / WHU channel
+  whatsappToken: text("whatsapp_token"),
+  whatsappPhoneNumber: text("whatsapp_phone_number"),
+  whatsappPhoneNumberId: text("whatsapp_phone_number_id"),
+  whatsappBusinessAccountId: text("whatsapp_business_account_id"),
+  whatsappWebhookUrl: text("whatsapp_webhook_url"),
+
+  // SMS (Oktor) - integracao.oktor.com.br
+  smsAccount: text("sms_account"),
+  smsCode: text("sms_code"),
+  smsClient: text("sms_client"), // billing client id (e.g. 333) - locked after save
+  smsEndpoint: text("sms_endpoint"),
+  smsTipoEnvio: text("sms_tipo_envio"),
+
+  // Email - SMTP (send)
+  smtpHost: text("smtp_host"),
+  smtpPort: integer("smtp_port"),
+  smtpUser: text("smtp_user"),
+  smtpPassword: text("smtp_password"),
+  smtpSecurity: text("smtp_security"), // 'ssl_tls' | 'starttls'
+  // Email - IMAP (receive)
+  imapHost: text("imap_host"),
+  imapPort: integer("imap_port"),
+  imapUser: text("imap_user"),
+  imapPassword: text("imap_password"),
+  imapSecurity: text("imap_security"), // 'ssl_tls' | 'starttls'
+
+  // Email Marketing - Locaweb API
+  locawebBaseUrl: text("locaweb_base_url"),
+  locawebAccountId: text("locaweb_account_id"),
+  locawebApiKey: text("locaweb_api_key"),
+  locawebAuthHeader: text("locaweb_auth_header"),
+  locawebAuthScheme: text("locaweb_auth_scheme"),
+  metadata: jsonb("metadata"),
   
   testMode: boolean("test_mode").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -1368,3 +1617,328 @@ export const insertSystemSettingSchema = createInsertSchema(systemSettings).omit
 
 export type SystemSetting = typeof systemSettings.$inferSelect;
 export type InsertSystemSetting = z.infer<typeof insertSystemSettingSchema>;
+
+// ============ ATTENDANCE MODULE ============
+
+export const channelConnections = pgTable("channel_connections", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  accountId: varchar("account_id").notNull(),
+  name: text("name").notNull(),
+  channel: text("channel").notNull(),
+  provider: text("provider").notNull().default("wescctech"),
+  baseUrl: text("base_url").default("https://api.wescctech.com.br"),
+  token: text("token"),
+  status: text("status").default("pending").notNull(),
+  lastTestedAt: timestamp("last_tested_at"),
+  lastError: text("last_error"),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const attSectors = pgTable("att_sectors", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  accountId: varchar("account_id").notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  channel: text("channel"),
+  isDefault: boolean("is_default").default(false),
+  active: boolean("active").default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const sectorMembers = pgTable("sector_members", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sectorId: varchar("sector_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  accountId: varchar("account_id").notNull(),
+  active: boolean("active").default(true),
+});
+
+export const attQueues = pgTable("att_queues", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  accountId: varchar("account_id").notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  channel: text("channel"),
+  sectorId: varchar("sector_id"),
+  strategy: text("strategy").default("manual").notNull(),
+  maxWaitMinutes: integer("max_wait_minutes").default(30),
+  priority: integer("priority").default(0),
+  isDefault: boolean("is_default").default(false),
+  active: boolean("active").default(true),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const attQueueMembers = pgTable("att_queue_members", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  accountId: varchar("account_id").notNull(),
+  queueId: varchar("queue_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  active: boolean("active").default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const attConversations = pgTable("att_conversations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  accountId: varchar("account_id").notNull(),
+  attendanceCode: text("attendance_code"),
+  contactId: varchar("contact_id"),
+  connectionId: varchar("connection_id"),
+  channel: text("channel").notNull().default("whatsapp"),
+  provider: text("provider"),
+  externalThreadId: text("external_thread_id"),
+  externalContactId: text("external_contact_id"),
+  contactName: text("contact_name"),
+  contactPhone: text("contact_phone"),
+  contactEmail: text("contact_email"),
+  contactAvatar: text("contact_avatar"),
+  sectorId: varchar("sector_id"),
+  queueId: varchar("queue_id"),
+  mode: text("mode").default("automatic").notNull(),
+  status: text("status").default("automatic").notNull(),
+  statusChangedAt: timestamp("status_changed_at").defaultNow().notNull(),
+  assignedUserId: varchar("assigned_user_id"),
+  assignedAt: timestamp("assigned_at"),
+  assignedByUserId: varchar("assigned_by_user_id"),
+  lastOperatorActivityAt: timestamp("last_operator_activity_at"),
+  lastCustomerActivityAt: timestamp("last_customer_activity_at"),
+  firstResponseAt: timestamp("first_response_at"),
+  lockExpiresAt: timestamp("lock_expires_at"),
+  aiEnabled: boolean("ai_enabled").default(false),
+  priority: text("priority").default("normal"),
+  slaDueAt: timestamp("sla_due_at"),
+  lastMessageAt: timestamp("last_message_at"),
+  lastMessagePreview: text("last_message_preview"),
+  unreadCount: integer("unread_count").default(0),
+  resolvedAt: timestamp("resolved_at"),
+  closedAt: timestamp("closed_at"),
+  protocol: text("protocol"),
+  summary: text("summary"),
+  sentiment: text("sentiment"),
+  tags: text("tags").array(),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const attMessages = pgTable("att_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  accountId: varchar("account_id").notNull(),
+  conversationId: varchar("conversation_id").notNull(),
+  contactId: varchar("contact_id"),
+  userId: varchar("user_id"),
+  direction: text("direction").notNull().default("inbound"),
+  channel: text("channel"),
+  provider: text("provider"),
+  externalMessageId: text("external_message_id"),
+  body: text("body"),
+  messageType: text("message_type").default("text"),
+  status: text("status").default("received"),
+  errorMessage: text("error_message"),
+  aiGenerated: boolean("ai_generated").default(false),
+  mediaUrl: text("media_url"),
+  mimeType: text("mime_type"),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const attAttachments = pgTable("att_attachments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  accountId: varchar("account_id").notNull(),
+  conversationId: varchar("conversation_id").notNull(),
+  messageId: varchar("message_id"),
+  fileName: text("file_name").notNull(),
+  mimeType: text("mime_type"),
+  size: integer("size"),
+  url: text("url").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const quickReplies = pgTable("quick_replies", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  accountId: varchar("account_id").notNull(),
+  userId: varchar("user_id"),
+  title: text("title").notNull(),
+  message: text("message").notNull(),
+  channel: text("channel"),
+  attachmentUrl: text("attachment_url"),
+  attachmentType: text("attachment_type"),
+  attachmentName: text("attachment_name"),
+  active: boolean("active").default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const attNotes = pgTable("att_notes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  accountId: varchar("account_id").notNull(),
+  conversationId: varchar("conversation_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  note: text("note").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const attAutomation = pgTable("att_automation", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  accountId: varchar("account_id").notNull(),
+  connectionId: varchar("connection_id"),
+  welcomeEnabled: boolean("welcome_enabled").default(false),
+  welcomeMessage: text("welcome_message"),
+  awayEnabled: boolean("away_enabled").default(false),
+  awayMessage: text("away_message"),
+  inactivityEnabled: boolean("inactivity_enabled").default(false),
+  inactivityMinutes: integer("inactivity_minutes").default(60),
+  inactivityMessage: text("inactivity_message"),
+  keywordRules: jsonb("keyword_rules"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const attLabels = pgTable("att_labels", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  accountId: varchar("account_id").notNull(),
+  name: text("name").notNull(),
+  color: text("color").default("#14b8a6").notNull(),
+  active: boolean("active").default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const attContactLabels = pgTable("att_contact_labels", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  accountId: varchar("account_id").notNull(),
+  contactId: varchar("contact_id").notNull(),
+  labelId: varchar("label_id").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const attConversationLabels = pgTable("att_conversation_labels", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  accountId: varchar("account_id").notNull(),
+  conversationId: varchar("conversation_id").notNull(),
+  labelId: varchar("label_id").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const attImportJobs = pgTable("att_import_jobs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  accountId: varchar("account_id").notNull(),
+  userId: varchar("user_id"),
+  type: text("type").default("contacts").notNull(),
+  fileName: text("file_name"),
+  status: text("status").default("pending").notNull(),
+  totalRows: integer("total_rows").default(0),
+  processedRows: integer("processed_rows").default(0),
+  importedRows: integer("imported_rows").default(0),
+  updatedRows: integer("updated_rows").default(0),
+  failedRows: integer("failed_rows").default(0),
+  mapping: jsonb("mapping"),
+  errors: jsonb("errors"),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const integrationLogs = pgTable("integration_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  accountId: varchar("account_id").notNull(),
+  userId: varchar("user_id"),
+  service: text("service").notNull(),
+  action: text("action").notNull(),
+  status: text("status").notNull(),
+  request: jsonb("request"),
+  response: jsonb("response"),
+  error: text("error"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const attConversationEvents = pgTable("att_conversation_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  accountId: varchar("account_id").notNull(),
+  conversationId: varchar("conversation_id"),
+  messageId: varchar("message_id"),
+  userId: varchar("user_id"),
+  action: text("action").notNull(),
+  entityType: text("entity_type").default("conversation").notNull(),
+  entityId: varchar("entity_id"),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  before: jsonb("before"),
+  after: jsonb("after"),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const attTransfers = pgTable("att_transfers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  accountId: varchar("account_id").notNull(),
+  conversationId: varchar("conversation_id").notNull(),
+  fromUserId: varchar("from_user_id"),
+  toUserId: varchar("to_user_id"),
+  fromSectorId: varchar("from_sector_id"),
+  toSectorId: varchar("to_sector_id"),
+  fromQueueId: varchar("from_queue_id"),
+  toQueueId: varchar("to_queue_id"),
+  reason: text("reason"),
+  createdByUserId: varchar("created_by_user_id"),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Insert schemas
+export const insertChannelConnectionSchema = createInsertSchema(channelConnections).omit({ id: true, accountId: true, createdAt: true, updatedAt: true });
+export const insertAttSectorSchema = createInsertSchema(attSectors).omit({ id: true, accountId: true, createdAt: true, updatedAt: true });
+export const insertSectorMemberSchema = createInsertSchema(sectorMembers).omit({ id: true, accountId: true });
+export const insertAttQueueSchema = createInsertSchema(attQueues).omit({ id: true, accountId: true, createdAt: true, updatedAt: true });
+export const insertAttQueueMemberSchema = createInsertSchema(attQueueMembers).omit({ id: true, accountId: true, createdAt: true });
+export const insertAttConversationSchema = createInsertSchema(attConversations).omit({ id: true, accountId: true, createdAt: true, updatedAt: true });
+export const insertAttMessageSchema = createInsertSchema(attMessages).omit({ id: true, accountId: true, createdAt: true });
+export const insertAttAttachmentSchema = createInsertSchema(attAttachments).omit({ id: true, accountId: true, createdAt: true });
+export const insertQuickReplySchema = createInsertSchema(quickReplies).omit({ id: true, accountId: true, userId: true, createdAt: true, updatedAt: true });
+export const insertAttNoteSchema = createInsertSchema(attNotes).omit({ id: true, accountId: true, userId: true, createdAt: true });
+export const insertAttAutomationSchema = createInsertSchema(attAutomation).omit({ id: true, accountId: true, createdAt: true, updatedAt: true });
+export const insertAttLabelSchema = createInsertSchema(attLabels).omit({ id: true, accountId: true, createdAt: true, updatedAt: true });
+export const insertAttImportJobSchema = createInsertSchema(attImportJobs).omit({ id: true, accountId: true, userId: true, createdAt: true, updatedAt: true });
+export const insertIntegrationLogSchema = createInsertSchema(integrationLogs).omit({ id: true, accountId: true, userId: true, createdAt: true });
+export const insertAttConversationEventSchema = createInsertSchema(attConversationEvents).omit({ id: true, accountId: true, createdAt: true });
+export const insertAttTransferSchema = createInsertSchema(attTransfers).omit({ id: true, accountId: true, createdAt: true });
+
+// Types
+export type ChannelConnection = typeof channelConnections.$inferSelect;
+export type InsertChannelConnection = z.infer<typeof insertChannelConnectionSchema>;
+export type AttSector = typeof attSectors.$inferSelect;
+export type InsertAttSector = z.infer<typeof insertAttSectorSchema>;
+export type SectorMember = typeof sectorMembers.$inferSelect;
+export type InsertSectorMember = z.infer<typeof insertSectorMemberSchema>;
+export type AttQueue = typeof attQueues.$inferSelect;
+export type InsertAttQueue = z.infer<typeof insertAttQueueSchema>;
+export type AttQueueMember = typeof attQueueMembers.$inferSelect;
+export type InsertAttQueueMember = z.infer<typeof insertAttQueueMemberSchema>;
+export type AttConversation = typeof attConversations.$inferSelect;
+export type InsertAttConversation = z.infer<typeof insertAttConversationSchema>;
+export type AttMessage = typeof attMessages.$inferSelect;
+export type InsertAttMessage = z.infer<typeof insertAttMessageSchema>;
+export type AttAttachment = typeof attAttachments.$inferSelect;
+export type InsertAttAttachment = z.infer<typeof insertAttAttachmentSchema>;
+export type QuickReply = typeof quickReplies.$inferSelect;
+export type InsertQuickReply = z.infer<typeof insertQuickReplySchema>;
+export type AttNote = typeof attNotes.$inferSelect;
+export type InsertAttNote = z.infer<typeof insertAttNoteSchema>;
+export type AttAutomation = typeof attAutomation.$inferSelect;
+export type InsertAttAutomation = z.infer<typeof insertAttAutomationSchema>;
+export type AttLabel = typeof attLabels.$inferSelect;
+export type InsertAttLabel = z.infer<typeof insertAttLabelSchema>;
+export type AttContactLabel = typeof attContactLabels.$inferSelect;
+export type AttConversationLabel = typeof attConversationLabels.$inferSelect;
+export type AttImportJob = typeof attImportJobs.$inferSelect;
+export type InsertAttImportJob = z.infer<typeof insertAttImportJobSchema>;
+export type IntegrationLog = typeof integrationLogs.$inferSelect;
+export type InsertIntegrationLog = z.infer<typeof insertIntegrationLogSchema>;
+export type AttConversationEvent = typeof attConversationEvents.$inferSelect;
+export type InsertAttConversationEvent = z.infer<typeof insertAttConversationEventSchema>;
+export type AttTransfer = typeof attTransfers.$inferSelect;
+export type InsertAttTransfer = z.infer<typeof insertAttTransferSchema>;

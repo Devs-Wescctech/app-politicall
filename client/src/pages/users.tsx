@@ -135,6 +135,14 @@ export default function UsersManagement() {
         users: roleDefaults.users && adminPermissions.users,
         petitions: roleDefaults.petitions && adminPermissions.petitions,
         settings: roleDefaults.settings && adminPermissions.settings,
+        whatsappAttendance: roleDefaults.whatsappAttendance && adminPermissions.whatsappAttendance,
+        emailAttendance: roleDefaults.emailAttendance && adminPermissions.emailAttendance,
+        socialAttendance: roleDefaults.socialAttendance && adminPermissions.socialAttendance,
+        whatsappBroadcast: roleDefaults.whatsappBroadcast && adminPermissions.whatsappBroadcast,
+        emailBroadcast: roleDefaults.emailBroadcast && adminPermissions.emailBroadcast,
+        smsBroadcast: roleDefaults.smsBroadcast && adminPermissions.smsBroadcast,
+        attendanceReports: roleDefaults.attendanceReports && adminPermissions.attendanceReports,
+        attendanceSettings: roleDefaults.attendanceSettings && adminPermissions.attendanceSettings,
       };
       setCustomPermissions(limitedPermissions);
     }
@@ -166,6 +174,14 @@ export default function UsersManagement() {
         users: roleDefaults.users && adminPermissions.users,
         petitions: roleDefaults.petitions && adminPermissions.petitions,
         settings: roleDefaults.settings && adminPermissions.settings,
+        whatsappAttendance: roleDefaults.whatsappAttendance && adminPermissions.whatsappAttendance,
+        emailAttendance: roleDefaults.emailAttendance && adminPermissions.emailAttendance,
+        socialAttendance: roleDefaults.socialAttendance && adminPermissions.socialAttendance,
+        whatsappBroadcast: roleDefaults.whatsappBroadcast && adminPermissions.whatsappBroadcast,
+        emailBroadcast: roleDefaults.emailBroadcast && adminPermissions.emailBroadcast,
+        smsBroadcast: roleDefaults.smsBroadcast && adminPermissions.smsBroadcast,
+        attendanceReports: roleDefaults.attendanceReports && adminPermissions.attendanceReports,
+        attendanceSettings: roleDefaults.attendanceSettings && adminPermissions.attendanceSettings,
       };
       setEditPermissions(limitedPermissions);
     }

@@ -18,7 +18,7 @@ import multer from "multer";
 import { google } from "googleapis";
 import crypto from "crypto";
 import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
-import { insertUserSchema, loginSchema, insertContactSchema, insertPoliticalAllianceSchema, insertAllianceInviteSchema, insertDemandSchema, insertDemandCommentSchema, insertEventSchema, insertAiConfigurationSchema, insertAiTrainingExampleSchema, insertAiResponseTemplateSchema, insertMarketingCampaignSchema, insertNotificationSchema, insertIntegrationSchema, insertSurveyCampaignSchema, insertSurveyLandingPageSchema, insertSurveyResponseSchema, insertLeadSchema, insertPetitionSchema, insertPetitionSignatureSchema, insertPetitionCampaignSchema, insertPetitionCampaignLogSchema, insertPetitionMessageTemplateSchema, insertLinkBioPageSchema, insertLinkTreePageSchema, DEFAULT_PERMISSIONS } from "@shared/schema";
+import { insertUserSchema, loginSchema, insertContactSchema, insertPoliticalAllianceSchema, insertAllianceInviteSchema, insertDemandSchema, insertDemandCommentSchema, insertEventSchema, insertAiConfigurationSchema, insertAiTrainingExampleSchema, insertAiResponseTemplateSchema, insertMarketingCampaignSchema, insertNotificationSchema, insertIntegrationSchema, insertSurveyCampaignSchema, insertSurveyLandingPageSchema, insertSurveyResponseSchema, insertLeadSchema, insertPetitionSchema, insertPetitionSignatureSchema, insertPetitionCampaignSchema, insertPetitionCampaignLogSchema, insertPetitionMessageTemplateSchema, insertLinkBioPageSchema, insertLinkTreePageSchema, DEFAULT_PERMISSIONS, userPermissionsSchema } from "@shared/schema";
 
 // Configure multer for file uploads with disk storage for better performance
 const uploadDir = path.join(process.cwd(), 'uploads', 'temp');
@@ -48,12 +48,14 @@ import { accounts, politicalParties, politicalAlliances, surveyTemplates, survey
 import { sql, eq, desc, and } from "drizzle-orm";
 import { generateAiResponse, testOpenAiApiKey } from "./openai";
 import { requireRole } from "./authorization";
-import { authenticateToken, requirePermission, type AuthRequest } from "./auth";
+import { authenticateToken, requirePermission, requireAnyPermission, type AuthRequest } from "./auth";
 import { authenticateApiKey, apiRateLimit, type AuthenticatedApiRequest } from "./auth-api";
 import { encryptApiKey, decryptApiKey } from "./crypto";
 import { z } from "zod";
 import { groupTextResponses } from "@shared/text-normalization";
 import { calculateGenderDistribution } from "./utils/gender-detector";
+import { sendOktorSms, queryOktorSms } from "./services/oktor-sms";
+import { locawebEmail } from "./services/locaweb-email-marketing";
 import fs from "fs";
 import path from "path";
 import { createRequire } from "module";
@@ -86,6 +88,120 @@ async function getAdminPasswordHash(): Promise<string> {
 async function updateAdminPasswordHash(newPassword: string): Promise<void> {
   const hash = await bcrypt.hash(newPassword, 10);
   fs.writeFileSync(ADMIN_CONFIG_FILE, JSON.stringify({ passwordHash: hash }));
+}
+
+// Sensitive integration fields that must never be returned in plaintext.
+const INTEGRATION_SENSITIVE_FIELDS = [
+  "sendgridApiKey",
+  "twilioAuthToken",
+  "whatsappToken",
+  "smsCode",
+  "smtpPassword",
+  "imapPassword",
+  "locawebApiKey",
+] as const;
+
+// Mask sensitive integration fields ("***" when set, null when empty) before sending to client.
+function maskIntegration<T extends Record<string, any>>(integration: T): T {
+  const masked: Record<string, any> = { ...integration };
+  for (const key of INTEGRATION_SENSITIVE_FIELDS) {
+    masked[key] = masked[key] ? "***" : null;
+  }
+  return masked as T;
+}
+
+function decryptSecretIfNeeded(value: unknown): unknown {
+  if (typeof value !== "string" || !value) return value;
+  if (!value.includes(":")) return value;
+  try {
+    return decryptApiKey(value);
+  } catch {
+    return value;
+  }
+}
+
+function encryptSecretIfNeeded(value: unknown): unknown {
+  if (typeof value !== "string") return value;
+  const trimmed = value.trim();
+  if (!trimmed || trimmed === "***" || trimmed.includes(":")) return value;
+  return encryptApiKey(trimmed);
+}
+
+function decryptIntegrationForUse<T extends Record<string, any> | null | undefined>(integration: T): T {
+  if (!integration) return integration;
+  const decrypted: Record<string, any> = { ...integration };
+  for (const key of INTEGRATION_SENSITIVE_FIELDS) {
+    decrypted[key] = decryptSecretIfNeeded(decrypted[key]);
+  }
+  return decrypted as T;
+}
+
+function oktorConfigFromIntegration(integration: Record<string, any>) {
+  return {
+    endpoint: integration.smsEndpoint || process.env.OKTOR_SMS_ENDPOINT,
+    account: integration.smsAccount || process.env.OKTOR_SMS_ACCOUNT,
+    code: integration.smsCode || process.env.OKTOR_SMS_CODE,
+    client: integration.smsClient,
+    tipoEnvio: integration.smsTipoEnvio || process.env.OKTOR_SMS_TIPO_ENVIO || "7",
+  };
+}
+
+function hasOktorSmsCredentials(integration: Record<string, any> | null | undefined) {
+  if (!integration?.enabled) return false;
+  const config = oktorConfigFromIntegration(integration);
+  return Boolean(config.account && config.code && config.client);
+}
+
+function locawebConfigFromIntegration(integration: Record<string, any>) {
+  return {
+    baseUrl: integration.locawebBaseUrl || "https://emailmarketing.locaweb.com.br/api/v1",
+    accountId: integration.locawebAccountId,
+    apiKey: integration.locawebApiKey,
+    authHeader: integration.locawebAuthHeader || "Authorization",
+    authScheme: integration.locawebAuthScheme || "Bearer",
+  };
+}
+
+async function syncWhatsappIntegrationConnection(accountId: string, integration: Record<string, any>) {
+  if (integration.service !== "whatsapp") return;
+
+  const connections = await storage.getChannelConnections(accountId).catch(() => []);
+  const existing = connections.find(
+    c => c.channel === "whatsapp" && c.provider === "wescctech" && (c.metadata as any)?.source === "settings-omni"
+  );
+  const token = integration.whatsappToken ?? null;
+  const status = integration.enabled && token ? "pending" : "disabled";
+  const metadata = {
+    source: "settings-omni",
+    phoneNumber: integration.whatsappPhoneNumber ?? null,
+    phoneNumberId: integration.whatsappPhoneNumberId ?? null,
+    businessAccountId: integration.whatsappBusinessAccountId ?? null,
+    webhookUrl: integration.whatsappWebhookUrl ?? null,
+  };
+
+  if (existing) {
+    await storage.updateChannelConnection(existing.id, accountId, {
+      name: "WhatsApp / WHU",
+      channel: "whatsapp",
+      provider: "wescctech",
+      baseUrl: "https://api.wescctech.com.br",
+      token,
+      status,
+      metadata,
+    } as any);
+    return;
+  }
+
+  await storage.createChannelConnection({
+    accountId,
+    name: "WhatsApp / WHU",
+    channel: "whatsapp",
+    provider: "wescctech",
+    baseUrl: "https://api.wescctech.com.br",
+    token,
+    status,
+    metadata,
+  } as any);
 }
 
 if (!process.env.SESSION_SECRET) {
@@ -591,7 +707,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const token = jwt.sign({ 
         userId: user.id, 
         accountId: user.accountId,
-        role: user.role 
+        role: user.role,
+        isAdmin: user.role === "admin"
       }, JWT_SECRET, { expiresIn: "30d" });
 
       res.json({
@@ -627,7 +744,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const token = jwt.sign({ 
         userId: user.id, 
         accountId: user.accountId,
-        role: user.role 
+        role: user.role,
+        isAdmin: user.role === "admin"
       }, JWT_SECRET, { expiresIn: "30d" });
 
       res.json({
@@ -1580,6 +1698,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Restructure with party as nested object
           return {
             id: row.userId,
+            accountId: row.accountId,
             email: row.email,
             name: row.name,
             role: row.role,
@@ -1624,18 +1743,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         password: z.string().min(6),
         name: z.string().min(2),
         role: z.enum(["admin", "coordenador", "assessor", "voluntario"]),
-        permissions: z.object({
-          dashboard: z.boolean(),
-          contacts: z.boolean(),
-          alliances: z.boolean(),
-          demands: z.boolean(),
-          agenda: z.boolean(),
-          ai: z.boolean(),
-          marketing: z.boolean(),
-          petitions: z.boolean(),
-          users: z.boolean(),
-          settings: z.boolean(),
-        }).optional(),
+        permissions: userPermissionsSchema.optional(),
       });
       
       const validatedData = adminCreateUserSchema.parse(req.body);
@@ -1689,18 +1797,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         whatsapp: z.string().optional(),
         planValue: z.string().optional(),
         expiryDate: z.string().optional(),
-        permissions: z.object({
-          dashboard: z.boolean(),
-          contacts: z.boolean(),
-          alliances: z.boolean(),
-          demands: z.boolean(),
-          agenda: z.boolean(),
-          ai: z.boolean(),
-          marketing: z.boolean(),
-          petitions: z.boolean(),
-          users: z.boolean(),
-          settings: z.boolean(),
-        }).optional(),
+        permissions: userPermissionsSchema.optional(),
       });
 
       const validatedData = schema.parse(req.body);
@@ -1805,7 +1902,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const token = jwt.sign({ 
         userId: user.id, 
         accountId: user.accountId,
-        role: user.role 
+        role: user.role,
+        isAdmin: user.role === "admin"
       }, JWT_SECRET, { expiresIn: "30d" });
       
       const { password, ...sanitizedUser } = user;
@@ -2126,18 +2224,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         password: z.string().min(6),
         name: z.string().min(2),
         role: z.enum(["admin", "coordenador", "assessor", "voluntario"]),
-        permissions: z.object({
-          dashboard: z.boolean(),
-          contacts: z.boolean(),
-          alliances: z.boolean(),
-          demands: z.boolean(),
-          agenda: z.boolean(),
-          ai: z.boolean(),
-          marketing: z.boolean(),
-          petitions: z.boolean(),
-          users: z.boolean(),
-          settings: z.boolean(),
-        }).optional(),
+        permissions: userPermissionsSchema.optional(),
       });
       
       const validatedData = adminCreateUserSchema.parse(req.body);
@@ -2188,18 +2275,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         email: z.string().email().optional(),
         password: z.string().min(6).optional(),
         avatar: z.string().nullable().optional(),
-        permissions: z.object({
-          dashboard: z.boolean(),
-          contacts: z.boolean(),
-          alliances: z.boolean(),
-          demands: z.boolean(),
-          agenda: z.boolean(),
-          ai: z.boolean(),
-          marketing: z.boolean(),
-          petitions: z.boolean(),
-          users: z.boolean(),
-          settings: z.boolean(),
-        }).optional(),
+        permissions: userPermissionsSchema.optional(),
       });
       
       const validatedData = updateSchema.parse(req.body);
@@ -3226,7 +3302,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // AI Conversations
-  app.get("/api/ai-conversations", authenticateToken, requirePermission("ai"), async (req: AuthRequest, res) => {
+  app.get("/api/ai-conversations", authenticateToken, requireAnyPermission("ai", "socialAttendance"), async (req: AuthRequest, res) => {
     try {
       const conversations = await storage.getAiConversations(req.accountId!);
       res.json(conversations);
@@ -3400,19 +3476,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ==================== MARKETING CAMPAIGNS ====================
-  
-  app.get("/api/campaigns", authenticateToken, requirePermission("marketing"), async (req: AuthRequest, res) => {
+
+  // Per-channel permission helper: maps campaign type → required permission key
+  function getCampaignTypePermission(type: string): string {
+    if (type === "whatsapp") return "whatsappBroadcast";
+    if (type === "email") return "emailBroadcast";
+    if (type === "sms") return "smsBroadcast";
+    return "marketing";
+  }
+
+  function userHasCampaignTypePermission(req: AuthRequest, type: string): boolean {
+    if (req.user?.role === "admin") return true;
+    if (req.user?.permissions?.marketing) return true;
+    const perm = getCampaignTypePermission(type);
+    return !!(req.user?.permissions as Record<string, boolean> | undefined)?.[perm];
+  }
+
+  // Module status endpoint — computes pending_configuration for Omni modules
+  app.get("/api/modules/status", authenticateToken, async (req: AuthRequest, res) => {
     try {
-      const campaigns = await storage.getCampaigns(req.accountId!);
-      res.json(campaigns);
+      const [whatsapp, sms, email, sendgrid] = await Promise.all([
+        storage.getIntegration(req.userId!, req.accountId!, "whatsapp").catch(() => null),
+        storage.getIntegration(req.userId!, req.accountId!, "sms").catch(() => null),
+        storage.getIntegration(req.userId!, req.accountId!, "email").catch(() => null),
+        storage.getIntegration(req.userId!, req.accountId!, "sendgrid").catch(() => null),
+      ]);
+      const perms = req.user?.permissions as Record<string, boolean> | undefined;
+      const isAdmin = req.user?.role === "admin";
+
+      const has = (key: string) => isAdmin || !!perms?.[key];
+      const hasWhatsapp = !!(whatsapp?.enabled && (whatsapp as any).whatsappToken);
+      const hasSms = hasOktorSmsCredentials(sms as any);
+      // E-mail can be configured via IMAP/SMTP or legacy SendGrid
+      const hasEmail = !!(
+        (email?.enabled && (email as any).smtpHost) ||
+        (sendgrid?.enabled && (sendgrid as any).sendgridApiKey)
+      );
+
+      const status: Record<string, string> = {};
+      if (has("whatsappBroadcast")) status.whatsappBroadcast = hasWhatsapp ? "active" : "pending_configuration";
+      if (has("emailBroadcast")) status.emailBroadcast = hasEmail ? "active" : "pending_configuration";
+      if (has("smsBroadcast")) status.smsBroadcast = hasSms ? "active" : "pending_configuration";
+      if (has("whatsappAttendance")) status.whatsappAttendance = hasWhatsapp ? "active" : "pending_configuration";
+      if (has("emailAttendance")) status.emailAttendance = hasEmail ? "active" : "pending_configuration";
+      if (has("socialAttendance")) status.socialAttendance = "active";
+
+      res.json(status);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
   });
 
-  app.post("/api/campaigns", authenticateToken, requirePermission("marketing"), async (req: AuthRequest, res) => {
+  app.get("/api/campaigns", authenticateToken, requireAnyPermission("marketing", "whatsappBroadcast", "emailBroadcast", "smsBroadcast"), async (req: AuthRequest, res) => {
+    try {
+      const all = await storage.getCampaigns(req.accountId!);
+      // Filter to only campaign types the user has permission for
+      const allowed = all.filter(c => userHasCampaignTypePermission(req, c.type));
+      res.json(allowed);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/campaigns", authenticateToken, requireAnyPermission("marketing", "whatsappBroadcast", "emailBroadcast", "smsBroadcast"), async (req: AuthRequest, res) => {
     try {
       const validatedData = insertMarketingCampaignSchema.parse(req.body);
+      if (!userHasCampaignTypePermission(req, validatedData.type)) {
+        return res.status(403).json({ error: "Você não tem permissão para criar campanhas deste tipo" });
+      }
       const campaign = await storage.createCampaign({
         ...validatedData,
         userId: req.userId!,
@@ -3424,61 +3555,149 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/campaigns/:id/send", authenticateToken, requirePermission("marketing"), async (req: AuthRequest, res) => {
+  app.delete("/api/campaigns/:id", authenticateToken, requireAnyPermission("marketing", "whatsappBroadcast", "emailBroadcast", "smsBroadcast"), async (req: AuthRequest, res) => {
+    try {
+      const campaign = await storage.getCampaign(req.params.id, req.accountId!);
+      if (!campaign) return res.status(404).json({ error: "Campanha não encontrada" });
+      if (!userHasCampaignTypePermission(req, campaign.type)) return res.status(403).json({ error: "Acesso negado" });
+      if (campaign.userId !== req.userId!) return res.status(403).json({ error: "Acesso negado" });
+      await storage.deleteCampaign(req.params.id, req.accountId!);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/campaigns/:id/send", authenticateToken, requireAnyPermission("marketing", "whatsappBroadcast", "emailBroadcast", "smsBroadcast"), async (req: AuthRequest, res) => {
     try {
       const campaign = await storage.getCampaign(req.params.id, req.accountId!);
       
       if (!campaign || campaign.userId !== req.userId!) {
         return res.status(404).json({ error: "Campanha não encontrada" });
       }
-      
-      const service = campaign.type === 'email' ? 'sendgrid' : 'twilio';
-      const integration = await storage.getIntegration(req.userId!, req.accountId!, service);
-      
-      if (!integration || !integration.enabled) {
-        return res.status(400).json({ 
-          error: `Integração ${campaign.type === 'email' ? 'de email' : 'do WhatsApp'} não configurada` 
-        });
+
+      if (!userHasCampaignTypePermission(req, campaign.type)) {
+        return res.status(403).json({ error: "Você não tem permissão para enviar campanhas deste tipo" });
       }
       
+      // Map each campaign type to its own integration service
+      const serviceMap: Record<string, string> = { email: "email", whatsapp: "whatsapp", sms: "sms" };
+      const service = serviceMap[campaign.type] ?? campaign.type;
+      const integration = decryptIntegrationForUse(await storage.getIntegration(req.userId!, req.accountId!, service));
+
+      const channelLabels: Record<string, string> = { email: "de e-mail", whatsapp: "do WhatsApp/WHU", sms: "de SMS" };
+      const channelLabel = channelLabels[campaign.type] ?? campaign.type;
+
+      if (!integration || !integration.enabled) {
+        return res.status(400).json({ error: `Integração ${channelLabel} não configurada` });
+      }
+
       try {
-        if (campaign.type === 'email' && integration.sendgridApiKey) {
-          const sgMail = require('@sendgrid/mail');
-          sgMail.setApiKey(integration.sendgridApiKey);
-          
-          await sgMail.sendMultiple({
-            to: campaign.recipients as string[],
-            from: {
-              email: integration.fromEmail!,
-              name: integration.fromName || 'Politicall'
-            },
-            subject: campaign.subject || 'Mensagem do Politicall',
-            html: campaign.message.replace(/\n/g, '<br>')
-          });
-        } else if (campaign.type === 'whatsapp' && integration.twilioAccountSid) {
-          const twilio = require('twilio');
-          const client = twilio(integration.twilioAccountSid, integration.twilioAuthToken);
-          
-          const promises = (campaign.recipients as string[]).map((phone: string) => 
-            client.messages.create({
-              from: integration.twilioPhoneNumber,
-              to: phone.startsWith('whatsapp:') ? phone : `whatsapp:${phone}`,
-              body: campaign.message
+        if (campaign.type === "sms") {
+          // Oktor SMS API — GET request with query params
+          const smsIntegration = integration as any;
+          if (!hasOktorSmsCredentials(smsIntegration)) {
+            return res.status(400).json({ error: "Credenciais SMS (account/code/client) incompletas" });
+          }
+          const smsConfig = oktorConfigFromIntegration(smsIntegration);
+          console.log(`[SMS] Sending to ${(campaign.recipients as string[]).length} recipient(s) via Oktor. account=${smsConfig.account} client=${smsConfig.client}`);
+          const results = await Promise.allSettled(
+            (campaign.recipients as string[]).map((phone: string) =>
+              sendOktorSms(smsConfig, { to: phone, msg: campaign.message })
+            )
+          );
+          const failures = results.filter(r => r.status === "rejected");
+          if (failures.length > 0) {
+            console.error("[SMS] Some sends failed:", failures);
+            const firstFailure = failures[0] as PromiseRejectedResult;
+            throw new Error(`Falha ao enviar ${failures.length} SMS: ${firstFailure.reason?.message ?? firstFailure.reason}`);
+          }
+
+        } else if (campaign.type === "whatsapp") {
+          // WHU — WhatsApp channel via token
+          const whuIntegration = integration as any;
+          if (!whuIntegration.whatsappToken) {
+            return res.status(400).json({ error: "Token WHU/WhatsApp não configurado" });
+          }
+          console.log(`[WHU] Sending to ${(campaign.recipients as string[]).length} recipient(s). channel configured.`);
+          const results = await Promise.allSettled(
+            (campaign.recipients as string[]).map(async (phone: string) => {
+              const resp = await fetch("https://api.wescctech.com.br/core/v2/api/chats/send-text", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  "Accept": "application/json",
+                  "access-token": whuIntegration.whatsappToken,
+                },
+                body: JSON.stringify({
+                  forceSend: true,
+                  verifyContact: false,
+                  linkPreview: true,
+                  isWhisper: false,
+                  number: phone.replace(/\D/g, ""),
+                  message: campaign.message,
+                }),
+              });
+              const text = await resp.text();
+              console.log(`[WHU] Response for ${phone}: status=${resp.status}`);
+              return text;
             })
           );
-          
-          await Promise.allSettled(promises);
+          const failures = results.filter(r => r.status === "rejected");
+          if (failures.length > 0) {
+            console.error("[WHU] Some sends failed:", failures);
+          }
+
+        } else if (campaign.type === "email") {
+          // E-mail via SMTP (nodemailer) — falls back to legacy SendGrid if no SMTP config
+          const emailIntegration = integration as any;
+          if (emailIntegration.locawebApiKey) {
+            await locawebEmail.createMessage(locawebConfigFromIntegration(emailIntegration), {
+              name: campaign.name ?? campaign.subject ?? "Campanha Politicall",
+              subject: campaign.subject || "Mensagem do Politicall",
+              html: campaign.message.replace(/\n/g, "<br>"),
+              recipients: campaign.recipients,
+            });
+          } else if (emailIntegration.smtpHost) {
+            const nodemailer = require("nodemailer");
+            const transporter = nodemailer.createTransport({
+              host: emailIntegration.smtpHost,
+              port: emailIntegration.smtpPort ?? 587,
+              secure: emailIntegration.smtpSecurity === "ssl_tls",
+              auth: { user: emailIntegration.smtpUser, pass: emailIntegration.smtpPassword },
+            });
+            console.log(`[EMAIL] Sending via SMTP host=${emailIntegration.smtpHost}`);
+            await Promise.allSettled(
+              (campaign.recipients as string[]).map((to: string) =>
+                transporter.sendMail({
+                  from: emailIntegration.fromEmail
+                    ? `"${emailIntegration.fromName || "Politicall"}" <${emailIntegration.fromEmail}>`
+                    : emailIntegration.smtpUser,
+                  to,
+                  subject: campaign.subject || "Mensagem do Politicall",
+                  html: campaign.message.replace(/\n/g, "<br>"),
+                })
+              )
+            );
+          } else if ((integration as any).sendgridApiKey) {
+            const sgMail = require("@sendgrid/mail");
+            sgMail.setApiKey((integration as any).sendgridApiKey);
+            await sgMail.sendMultiple({
+              to: campaign.recipients as string[],
+              from: { email: emailIntegration.fromEmail!, name: emailIntegration.fromName || "Politicall" },
+              subject: campaign.subject || "Mensagem do Politicall",
+              html: campaign.message.replace(/\n/g, "<br>"),
+            });
+          } else {
+            return res.status(400).json({ error: "Configuração Locaweb/SMTP/SendGrid incompleta" });
+          }
         }
-        
-        await storage.updateCampaign(campaign.id, req.accountId!, {
-          status: "sent",
-          sentAt: new Date(),
-        });
-        
-        res.json({ success: true, message: 'Campanha enviada com sucesso!' });
+
+        await storage.updateCampaign(campaign.id, req.accountId!, { status: "sent", sentAt: new Date() });
+        res.json({ success: true, message: "Campanha enviada com sucesso!" });
       } catch (sendError: any) {
-        console.error('Send error:', sendError);
-        res.status(500).json({ error: 'Falha ao enviar campanha', details: sendError.message });
+        console.error("[CAMPAIGN SEND] Error:", sendError);
+        res.status(500).json({ error: "Falha ao enviar campanha", details: sendError.message });
       }
     } catch (error: any) {
       res.status(400).json({ error: error.message });
@@ -3486,17 +3705,168 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ==================== INTEGRATIONS ====================
+
+  app.get("/api/admin/accounts/:accountId/integrations/:service", authenticateAdminToken, async (req: AuthRequest, res) => {
+    try {
+      const integration = await storage.getIntegrationByAccount(req.params.accountId, req.params.service);
+      res.json(integration ? maskIntegration(integration) : null);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.patch("/api/admin/accounts/:accountId/integrations/:service", authenticateAdminToken, async (req: AuthRequest, res) => {
+    try {
+      const accountId = req.params.accountId;
+      const service = req.params.service;
+      const existing = await storage.getIntegrationByAccount(accountId, service);
+      const validatedData = insertIntegrationSchema.parse({ ...req.body, service });
+
+      for (const key of INTEGRATION_SENSITIVE_FIELDS) {
+        const incoming = (validatedData as any)[key];
+        if (incoming === undefined || incoming === "" || incoming === "***") {
+          if (existing && (existing as any)[key] != null) {
+            (validatedData as any)[key] = (existing as any)[key];
+          } else {
+            delete (validatedData as any)[key];
+          }
+        }
+      }
+
+      for (const key of INTEGRATION_SENSITIVE_FIELDS) {
+        if ((validatedData as any)[key] !== undefined) {
+          (validatedData as any)[key] = encryptSecretIfNeeded((validatedData as any)[key]);
+        }
+      }
+
+      const owner = req.userId || existing?.userId || (await storage.getAccountAdmin(accountId))?.id;
+      if (!owner) return res.status(400).json({ error: "Nao foi possivel identificar usuario responsavel pela integracao" });
+
+      const integration = await storage.upsertIntegration({ ...validatedData, userId: owner, accountId });
+      await syncWhatsappIntegrationConnection(accountId, integration as any);
+      await storage.createIntegrationLog({
+        accountId,
+        userId: req.userId,
+        service,
+        action: "admin.integration.saved",
+        status: "success",
+        request: { service, fields: Object.keys(req.body ?? {}) },
+        response: { id: integration.id },
+      } as any);
+      res.json(maskIntegration(integration));
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/admin/accounts/:accountId/integrations/:service", authenticateAdminToken, async (req: AuthRequest, res) => {
+    try {
+      req.method = "PATCH";
+      const accountId = req.params.accountId;
+      const service = req.params.service;
+      const existing = await storage.getIntegrationByAccount(accountId, service);
+      const validatedData = insertIntegrationSchema.parse({ ...req.body, service });
+
+      for (const key of INTEGRATION_SENSITIVE_FIELDS) {
+        const incoming = (validatedData as any)[key];
+        if (incoming === undefined || incoming === "" || incoming === "***") {
+          if (existing && (existing as any)[key] != null) {
+            (validatedData as any)[key] = (existing as any)[key];
+          } else {
+            delete (validatedData as any)[key];
+          }
+        }
+      }
+      for (const key of INTEGRATION_SENSITIVE_FIELDS) {
+        if ((validatedData as any)[key] !== undefined) {
+          (validatedData as any)[key] = encryptSecretIfNeeded((validatedData as any)[key]);
+        }
+      }
+      const owner = req.userId || existing?.userId || (await storage.getAccountAdmin(accountId))?.id;
+      if (!owner) return res.status(400).json({ error: "Nao foi possivel identificar usuario responsavel pela integracao" });
+      const integration = await storage.upsertIntegration({ ...validatedData, userId: owner, accountId });
+      await syncWhatsappIntegrationConnection(accountId, integration as any);
+      await storage.createIntegrationLog({
+        accountId,
+        userId: req.userId,
+        service,
+        action: "admin.integration.saved",
+        status: "success",
+        request: { service, fields: Object.keys(req.body ?? {}) },
+        response: { id: integration.id },
+      } as any);
+      res.json(maskIntegration(integration));
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/admin/accounts/:accountId/integrations/:service/test", authenticateAdminToken, async (req: AuthRequest, res) => {
+    const accountId = req.params.accountId;
+    const service = req.params.service;
+    try {
+      const integration = decryptIntegrationForUse(await storage.getIntegrationByAccount(accountId, service));
+      if (!integration) return res.status(404).json({ error: "Integracao nao encontrada" });
+
+      let result: unknown;
+      if (service === "sms") {
+        if (!hasOktorSmsCredentials(integration as any)) {
+          return res.status(400).json({ error: "Credenciais SMS (account/code/client) incompletas" });
+        }
+        if (req.body?.action === "query") {
+          result = await queryOktorSms(oktorConfigFromIntegration(integration as any), String(req.body.ids ?? "").split(/[;,]/));
+        } else if (req.body?.to && req.body?.msg) {
+          result = await sendOktorSms(oktorConfigFromIntegration(integration as any), { to: req.body.to, msg: req.body.msg });
+        } else {
+          result = { success: true, message: "Credenciais SMS preenchidas. Informe to/msg para testar envio ou action=query e ids para consulta." };
+        }
+      } else if (service === "email") {
+        result = await locawebEmail.listAccounts(locawebConfigFromIntegration(integration as any));
+      } else if (service === "whatsapp") {
+        if (!(integration as any).whatsappToken) return res.status(400).json({ error: "Token WHU/WhatsApp nao configurado" });
+        const response = await fetch("https://api.wescctech.com.br/core/v2/api/channel/status", {
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+            "access-token": (integration as any).whatsappToken,
+          },
+        });
+        const text = await response.text();
+        if (!response.ok) throw new Error(`Wescctech ${response.status}: ${text}`);
+        result = text ? JSON.parse(text) : { success: true };
+      } else {
+        return res.status(400).json({ error: "Servico nao suportado" });
+      }
+
+      await storage.createIntegrationLog({
+        accountId,
+        userId: req.userId,
+        service,
+        action: "admin.integration.test",
+        status: "success",
+        request: { body: req.body },
+        response: result as any,
+      } as any);
+      res.json({ success: true, result });
+    } catch (error: any) {
+      await storage.createIntegrationLog({
+        accountId,
+        userId: req.userId,
+        service,
+        action: "admin.integration.test",
+        status: "error",
+        request: { body: req.body },
+        error: error.message,
+      } as any).catch(() => undefined);
+      res.status(400).json({ error: error.message });
+    }
+  });
   
   // Get all integrations for user
-  app.get("/api/integrations", authenticateToken, requirePermission("marketing"), async (req: AuthRequest, res) => {
+  app.get("/api/integrations", authenticateToken, requireAnyPermission("marketing", "attendanceSettings"), async (req: AuthRequest, res) => {
     try {
       const integrations = await storage.getIntegrations(req.userId!, req.accountId!);
-      // Remove sensitive data from response for security
-      const sanitized = integrations.map(i => ({
-        ...i,
-        sendgridApiKey: i.sendgridApiKey ? '***' : null,
-        twilioAuthToken: i.twilioAuthToken ? '***' : null
-      }));
+      const sanitized = integrations.map(i => maskIntegration(i));
       res.json(sanitized);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -3504,51 +3874,139 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get specific integration
-  app.get("/api/integrations/:service", authenticateToken, requirePermission("marketing"), async (req: AuthRequest, res) => {
+  app.get("/api/integrations/:service", authenticateToken, requireAnyPermission("marketing", "attendanceSettings"), async (req: AuthRequest, res) => {
     try {
       const integration = await storage.getIntegration(req.userId!, req.accountId!, req.params.service);
-      if (integration) {
-        // Mask sensitive fields
-        integration.sendgridApiKey = integration.sendgridApiKey ? '***' : null;
-        integration.twilioAuthToken = integration.twilioAuthToken ? '***' : null;
-      }
-      res.json(integration);
+      res.json(integration ? maskIntegration(integration) : integration);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
   });
 
   // Save/update integration
-  app.post("/api/integrations", authenticateToken, requirePermission("marketing"), async (req: AuthRequest, res) => {
+  app.post("/api/integrations", authenticateToken, requireAnyPermission("marketing", "attendanceSettings"), async (req: AuthRequest, res) => {
     try {
-      const validatedData = insertIntegrationSchema.parse(req.body);
+      const { adminPassword, ...body } = req.body ?? {};
+      const validatedData = insertIntegrationSchema.parse(body);
+
+      const existing = await storage.getIntegration(req.userId!, req.accountId!, validatedData.service);
+
+      // Preserve sensitive fields when left blank or sent masked ("***")
+      for (const key of INTEGRATION_SENSITIVE_FIELDS) {
+        const incoming = (validatedData as any)[key];
+        if (incoming === undefined || incoming === "" || incoming === "***") {
+          if (existing && (existing as any)[key] != null) {
+            (validatedData as any)[key] = (existing as any)[key];
+          } else {
+            delete (validatedData as any)[key];
+          }
+        }
+      }
+
+      for (const key of INTEGRATION_SENSITIVE_FIELDS) {
+        if ((validatedData as any)[key] !== undefined) {
+          (validatedData as any)[key] = encryptSecretIfNeeded((validatedData as any)[key]);
+        }
+      }
+
+      // SMS "client" billing field lock: once set, only the account admin (admin master)
+      // may change it, and only by providing the correct admin password. Enforced server-side
+      // so it cannot be bypassed via direct API calls.
+      if (validatedData.service === "sms") {
+        const existingClient = existing?.smsClient?.trim() || "";
+        const incomingClient = (validatedData.smsClient ?? "").toString().trim();
+        const isChangingClient = existingClient !== "" && incomingClient !== existingClient;
+
+        if (existingClient !== "") {
+          if (incomingClient === "" || incomingClient === existingClient) {
+            // Not changing the locked field — keep the stored value regardless of payload.
+            validatedData.smsClient = existingClient;
+          } else if (isChangingClient) {
+            // Attempting to change a locked field — require admin master authentication.
+            const adminUser = await storage.getAccountAdmin(req.accountId!);
+            if (!adminUser) {
+              return res.status(403).json({ error: "Apenas o admin master pode alterar o cliente de cobrança do SMS." });
+            }
+            if (!adminPassword || typeof adminPassword !== "string") {
+              return res.status(403).json({
+                error: "O campo cliente está bloqueado. Informe a senha do admin master para alterá-lo.",
+                requiresAdminPassword: true,
+              });
+            }
+            const valid = await bcrypt.compare(adminPassword, adminUser.password);
+            if (!valid) {
+              return res.status(401).json({ error: "Senha do admin master incorreta." });
+            }
+          }
+        }
+      }
+
       const integration = await storage.upsertIntegration({
         ...validatedData,
         userId: req.userId!,
         accountId: req.accountId!
       });
-      // Mask sensitive fields in response
-      const sanitized = {
-        ...integration,
-        sendgridApiKey: integration.sendgridApiKey ? '***' : null,
-        twilioAuthToken: integration.twilioAuthToken ? '***' : null
-      };
-      res.json(sanitized);
+      await syncWhatsappIntegrationConnection(req.accountId!, integration as any);
+      res.json(maskIntegration(integration));
     } catch (error: any) {
       res.status(400).json({ error: error.message });
     }
   });
 
   // Test integration
-  app.post("/api/integrations/:service/test", authenticateToken, requirePermission("marketing"), async (req: AuthRequest, res) => {
+  app.post("/api/integrations/:service/test", authenticateToken, requireAnyPermission("marketing", "attendanceSettings"), async (req: AuthRequest, res) => {
     try {
-      const integration = await storage.getIntegration(req.userId!, req.accountId!, req.params.service);
+      const integration = decryptIntegrationForUse(await storage.getIntegration(req.userId!, req.accountId!, req.params.service));
       
       if (!integration) {
         return res.status(404).json({ error: 'Integração não encontrada' });
       }
       
-      if (req.params.service === 'sendgrid') {
+      if (req.params.service === 'whatsapp') {
+        if (!integration.whatsappToken) {
+          return res.status(400).json({ error: 'Token WHU/WhatsApp nao configurado' });
+        }
+        const resp = await fetch("https://api.wescctech.com.br/core/v2/api/channel/status", {
+          headers: {
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            "access-token": integration.whatsappToken,
+          },
+        });
+        const body = await resp.text();
+        if (!resp.ok) throw new Error(`Wescctech ${resp.status}: ${body}`);
+        res.json({ success: true, message: 'WhatsApp/WHU configurado corretamente!', provider: body ? JSON.parse(body) : null });
+      } else if (req.params.service === 'sms') {
+        if (!hasOktorSmsCredentials(integration as any)) {
+          return res.status(400).json({ error: 'Credenciais SMS (account/code/client) incompletas' });
+        }
+        if (req.body?.action === "query") {
+          const result = await queryOktorSms(oktorConfigFromIntegration(integration as any), String(req.body.ids ?? "").split(/[;,]/));
+          return res.json({ success: true, result });
+        }
+        if (req.body?.to && req.body?.msg) {
+          const result = await sendOktorSms(oktorConfigFromIntegration(integration as any), { to: req.body.to, msg: req.body.msg });
+          return res.json({ success: true, result });
+        }
+        res.json({ success: true, message: 'Credenciais SMS preenchidas. Informe to/msg para testar envio ou action=query e ids para consulta.' });
+      } else if (req.params.service === 'email') {
+        if ((integration as any).locawebApiKey) {
+          const result = await locawebEmail.listAccounts(locawebConfigFromIntegration(integration as any));
+          return res.json({ success: true, message: 'Locaweb Email Marketing configurado corretamente!', result });
+        }
+        if (!integration.smtpHost || !integration.smtpUser || !integration.smtpPassword) {
+          return res.status(400).json({ error: 'Configuracao Locaweb/SMTP incompleta' });
+        }
+        const nodemailer = require('nodemailer');
+        const transporter = nodemailer.createTransport({
+          host: integration.smtpHost,
+          port: integration.smtpPort ?? 587,
+          secure: integration.smtpSecurity === "ssl_tls",
+          auth: { user: integration.smtpUser, pass: integration.smtpPassword },
+        });
+        await transporter.verify();
+        res.json({ success: true, message: 'SMTP configurado corretamente!' });
+      } else if (req.params.service === 'sendgrid') {
         // Test SendGrid by verifying API key
         const sgMail = require('@sendgrid/mail');
         sgMail.setApiKey(integration.sendgridApiKey);
@@ -7278,6 +7736,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.type('text/html').send(html);
   });
 
+  // Attendance omnichannel routes
+  const { registerAttendanceRoutes } = await import("./attendance-routes");
+  registerAttendanceRoutes(app);
+
   const httpServer = createServer(app);
+  const { setupAttendanceRealtime } = await import("./attendance-events");
+  setupAttendanceRealtime(httpServer);
   return httpServer;
 }

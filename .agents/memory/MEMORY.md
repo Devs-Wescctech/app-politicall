@@ -2,3 +2,4 @@
 - [drizzle-kit + PG18 push churn](drizzle-pg18.md) — db:push 42P16 "id is in a primary key" = drizzle-kit/PG18 bug, not schema; bump drizzle-kit, re-add rolled-back FKs. Dev uses user's external PG.
 - [GitHub push hangs/403 on org repo](github-push-org-oauth-restriction.md) — org's "restrict OAuth app access" policy blocks push even with valid token+permissions; check org settings.
 - [Replit npm registry leaking into lockfile](replit-npm-registry-in-lockfile.md) — package-lock.json generated in Replit can point to internal-only proxy URLs, breaking `npm ci` outside Replit (e.g. CI) with EAI_AGAIN.
+- [External DB unreachable from workspace](attendance-external-db-access.md) — prod PG pg_hba rejects workspace egress IP in all SSL modes; apply migrations via deployment. EMIT_SQL generator writes idempotent SQL offline.

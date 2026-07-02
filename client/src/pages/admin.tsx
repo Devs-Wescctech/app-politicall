@@ -1095,7 +1095,7 @@ export default function Admin() {
         {error && (
           <Card className="p-6" data-testid="card-error">
             <p className="text-center text-destructive" data-testid="text-error">
-              Erro ao carregar campanhas: {error.message}
+              Não foi possível carregar as campanhas. Verifique a conexão com o banco de dados.
             </p>
           </Card>
         )}

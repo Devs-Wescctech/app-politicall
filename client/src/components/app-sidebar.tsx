@@ -10,7 +10,9 @@ import {
   LogOut,
   Shield,
   ScrollText,
-  Info
+  Info,
+  MessagesSquare,
+  Send
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
@@ -29,7 +31,7 @@ import { removeAuthToken } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { useQuery } from "@tanstack/react-query";
-import { DEFAULT_PERMISSIONS, type UserPermissions } from "@shared/schema";
+import { DEFAULT_PERMISSIONS, type UserPermissions, ATTENDANCE_PERMISSION_KEYS, BROADCAST_PERMISSION_KEYS } from "@shared/schema";
 import logoUrl from "@assets/icon politicall_1763309153389.png";
 
 type MenuItem = {
@@ -37,6 +39,7 @@ type MenuItem = {
   url: string;
   icon: any;
   permissionKey?: keyof UserPermissions;
+  anyPermissionKeys?: (keyof UserPermissions)[];
   adminOnly?: boolean;
   alwaysVisible?: boolean;
 };
@@ -52,20 +55,11 @@ export function AppSidebar() {
     enabled: !!user, // Only fetch when user is logged in
   });
   
-  // Get permissions from backend user - NO fallback to default permissions
-  // Non-admin users see ONLY modules they have explicit permission for
-  const permissions: UserPermissions = user?.permissions || {
-    dashboard: false,
-    contacts: false,
-    alliances: false,
-    demands: false,
-    agenda: false,
-    ai: false,
-    marketing: false,
-    petitions: false,
-    users: false,
-    settings: false,
-  };
+  const isAdmin = user?.role === "admin";
+  const permissions: UserPermissions =
+    user?.permissions ||
+    DEFAULT_PERMISSIONS[user?.role as keyof typeof DEFAULT_PERMISSIONS] ||
+    DEFAULT_PERMISSIONS.assessor;
 
   // Define menu items with permission mappings
   const menuItems: MenuItem[] = [
@@ -118,6 +112,18 @@ export function AppSidebar() {
       permissionKey: "petitions",
     },
     {
+      title: "Atendimentos",
+      url: "/attendance",
+      icon: MessagesSquare,
+      anyPermissionKeys: [...ATTENDANCE_PERMISSION_KEYS],
+    },
+    {
+      title: "Disparos",
+      url: "/broadcasts",
+      icon: Send,
+      anyPermissionKeys: [...BROADCAST_PERMISSION_KEYS],
+    },
+    {
       title: "Usuários",
       url: "/users",
       icon: Shield,
@@ -141,13 +147,22 @@ export function AppSidebar() {
     // Itens exclusivos para admin (Usuários, Configurações)
     // Admins sempre veem estes itens
     if (item.adminOnly) {
-      return user?.role === "admin";
+      return isAdmin;
+    }
+
+    if (isAdmin) {
+      return true;
     }
 
     // Verifica se o usuário tem permissão explícita para este menu
     // Isso vale para TODOS os usuários, incluindo admins
     if (item.permissionKey) {
       return permissions[item.permissionKey] === true;
+    }
+
+    // Itens de grupo: visíveis se o usuário tiver QUALQUER uma das permissões
+    if (item.anyPermissionKeys) {
+      return item.anyPermissionKeys.some(key => permissions[key] === true);
     }
 
     // Se não tem permissionKey, alwaysVisible ou adminOnly, não mostra
