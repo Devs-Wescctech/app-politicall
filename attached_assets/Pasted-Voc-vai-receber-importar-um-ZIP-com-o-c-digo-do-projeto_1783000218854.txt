@@ -1,0 +1,64 @@
+Você vai receber/importar um ZIP com o código do projeto Political CRM. Preciso que implemente/integre esse código mantendo o BANCO DE DADOS ATUAL do Replit.
+
+Regras obrigatórias:
+1. NÃO substitua, restaure, sobrescreva ou importe o banco local do ZIP.
+2. NÃO use a pasta `.data`, dumps, snapshots ou qualquer banco vindo do ZIP.
+3. Preserve o `DATABASE_URL` atual do Replit.
+4. Se o ZIP tiver `.data`, banco SQLite/PGlite, dump SQL ou arquivos temporários de banco, ignore/remova esses arquivos.
+5. Antes de rodar qualquer migração, analise o schema atual e aplique apenas alterações incrementais necessárias.
+6. Nunca execute comando destrutivo como drop database, reset, truncate geral ou recriação completa do banco.
+7. Mantenha os dados atuais de usuários, contas, atendimentos, contatos, campanhas, integrações e histórico.
+
+Objetivo:
+Atualizar o sistema com as melhorias do módulo de Atendimentos, Disparos e integrações presentes no ZIP, sem perder dados existentes.
+
+Passos:
+1. Extraia o ZIP no projeto Replit preservando arquivos do ambiente, principalmente `.env`, `DATABASE_URL` e secrets.
+2. Instale dependências com:
+   npm install
+3. Configure secrets no Replit, sem commitar credenciais:
+   OKTOR_SMS_ACCOUNT
+   OKTOR_SMS_CODE
+   OKTOR_SMS_ENDPOINT=http://integracao.oktor.com.br/integracao3.do
+   OKTOR_SMS_TIPO_ENVIO=7
+4. Para cada empresa, o SMS deve usar o `client/centro de custo` salvo no Admin Master, sem hardcode.
+5. Rode validações:
+   npm run check
+   npm run build
+   npm run test:attendance
+6. Se houver erro de schema, crie migrações incrementais compatíveis com o banco existente.
+7. Depois suba o app mantendo o banco atual.
+
+Funcionalidades que devem permanecer/funcionar:
+- Módulo de atendimentos omnichannel.
+- Abas Caixa, Relatórios, Contatos, Arquivados, Histórico, Configurações e Automações.
+- Atendimentos em tempo real.
+- Manual apenas para atendente responsável.
+- Manual sem responsável deve ir para Aguardando.
+- Transferência externa por API/WHU deve tirar conversa de Automático.
+- Mensagem de sistema quando atendimento é assumido/transferido.
+- Histórico de atendimentos com visualização da conversa.
+- Etiquetas com cores.
+- Contatos com importação/exportação.
+- Arquivados com restauração e tombstone auditável.
+- Integrações por empresa no Admin Master.
+- WHU/WhatsApp normal e oficial.
+- Templates oficiais ao iniciar atendimento quando a conexão for API oficial.
+- Ícones corretos:
+  WhatsApp normal verde,
+  WhatsApp oficial azul,
+  Facebook com ícone Facebook,
+  Instagram com ícone Instagram.
+- SMS Oktor usando:
+  endpoint integracao3.do,
+  type=E,
+  dispatch=sendmsg,
+  msg,
+  to,
+  tipoEnvio=7,
+  client da empresa.
+- Se a Oktor retornar IP não autorizado, mostrar erro claro:
+  “IP não autorizado. Libere o IP público do servidor na Oktor/Wescctech.”
+
+Importante:
+O banco atual do Replit é a fonte da verdade. O ZIP serve apenas como código-fonte atualizado, não como fonte de dados.
