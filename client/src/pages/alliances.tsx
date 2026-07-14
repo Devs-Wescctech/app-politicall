@@ -17,9 +17,8 @@ import { Plus, Trash2, Mail, MessageCircle, Edit, UserPlus, Users, TrendingUp, S
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Skeleton } from "@/components/ui/skeleton";
-import pdfMake from "pdfmake/build/pdfmake";
-import * as pdfFonts from "pdfmake/build/vfs_fonts";
-import * as XLSX from 'xlsx';
+import { downloadWorkbookAsXlsx } from "@/lib/excel";
+import { downloadPdf } from "@/lib/pdfmake";
 import logoUrl from "@assets/logo pol_1763308638963_1763559095972.png";
 
 const IDEOLOGY_COLORS = {
@@ -754,7 +753,7 @@ export default function Alliances() {
       }
     };
 
-    pdfMake.createPdf(docDefinition).download(`aliancas-${new Date().toISOString().split('T')[0]}.pdf`);
+    await downloadPdf(docDefinition, `aliancas-${new Date().toISOString().split('T')[0]}.pdf`);
     toast({ title: `PDF gerado com ${filteredAlliances.length} alianças!` });
     setIsExportDialogOpen(false);
   };
@@ -802,32 +801,12 @@ export default function Alliances() {
       })
     ];
 
-    // Criar workbook e worksheet
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.aoa_to_sheet(worksheetData);
-
-    // Definir larguras das colunas
-    ws['!cols'] = [
-      { wch: 30 }, // Nome
-      { wch: 15 }, // Partido
-      { wch: 25 }, // Cargo
-      { wch: 10 }, // Estado
-      { wch: 20 }, // Cidade
-      { wch: 18 }, // Telefone
-      { wch: 30 }, // Email
-      { wch: 40 }  // Observações
-    ];
-
-    // Mesclar células para o título
-    ws['!merges'] = [
-      { s: { r: 0, c: 0 }, e: { r: 0, c: 7 } }, // Título principal
-    ];
-
-    // Adicionar worksheet ao workbook
-    XLSX.utils.book_append_sheet(wb, ws, 'Alianças');
-
-    // Baixar arquivo
-    XLSX.writeFile(wb, `aliancas-${new Date().toISOString().split('T')[0]}.xlsx`);
+    await downloadWorkbookAsXlsx(`aliancas-${new Date().toISOString().split('T')[0]}.xlsx`, [{
+      name: "Alianças",
+      rows: worksheetData,
+      columnWidths: [30, 15, 25, 10, 20, 18, 30, 40],
+      merges: [{ top: 1, left: 1, bottom: 1, right: 8 }],
+    }]);
     toast({ title: `Excel gerado com ${filteredAlliances.length} alianças!` });
     setIsExportDialogOpen(false);
   };

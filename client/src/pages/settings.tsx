@@ -329,7 +329,7 @@ function SmsForm({ current, isAdmin, onSaved }: { current?: IntegrationRecord | 
                   onChange={field.onChange}
                   onBlur={field.onBlur}
                   name={field.name}
-                  placeholder="@bC#eH+p4Ux8:[>"
+                  placeholder="Código/token fornecido pela Oktor"
                   testId="input-sms-code"
                 />
               </FormControl>

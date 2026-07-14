@@ -2,6 +2,7 @@ import { useParams } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2, ExternalLink } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { getPublicResourceState } from "@/lib/public-resource-state";
 
 interface TreeLink {
   id: string;
@@ -24,16 +25,35 @@ interface PublicTreePage {
 
 export default function LinkTreePublic() {
   const { slug } = useParams<{ slug: string }>();
-  const { data: page, isLoading } = useQuery<PublicTreePage>({
+  const { data: page, isLoading, isError } = useQuery<PublicTreePage>({
     queryKey: ["/api/public/linktree", slug],
     enabled: !!slug,
   });
 
-  if (isLoading || !page) {
+  const resourceState = getPublicResourceState({
+    isLoading,
+    isError,
+    hasData: !!page,
+  });
+
+  if (resourceState === "loading") {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-700 to-slate-900">
         <Loader2 className="w-12 h-12 animate-spin text-white" />
       </div>
+    );
+  }
+
+  if (resourceState === "error" || !page) {
+    return (
+      <main className="min-h-screen flex items-center justify-center bg-slate-950 px-4">
+        <div className="max-w-md text-center text-white">
+          <h1 className="text-2xl font-bold" data-testid="text-public-tree-error-title">Página não encontrada</h1>
+          <p className="mt-2 text-sm text-white/70" data-testid="text-public-tree-error-description">
+            O link pode estar incorreto, indisponível ou a página pode ter sido retirada do ar.
+          </p>
+        </div>
+      </main>
     );
   }
 

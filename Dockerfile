@@ -45,8 +45,8 @@ COPY --from=builder /app/drizzle.config.ts ./drizzle.config.ts
 COPY --from=builder /app/shared ./shared
 COPY --from=builder /app/tsconfig.json ./tsconfig.json
 
-# Create uploads directories (avatars, backgrounds, temp)
-RUN mkdir -p uploads/avatars uploads/backgrounds uploads/temp && chown -R nodejs:nodejs /app
+# Create runtime-writable and optional static directories
+RUN mkdir -p attached_assets uploads/avatars uploads/backgrounds uploads/temp && chown -R nodejs:nodejs /app
 
 # Switch to non-root user
 USER nodejs

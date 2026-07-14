@@ -1,5 +1,5 @@
 import { type ElementType, useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import {
   Bot,
   ChevronRight,
@@ -33,6 +33,8 @@ import { getAuthUser } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { labelColor, useAttendanceLabels } from "./TagSelector";
+import { isOfficialAttendanceChannel } from "@shared/attendance-meta-window";
+import { AttendanceViewSwitcher, type AttendanceView } from "./AttendanceViewSwitcher";
 
 const STATUS_LABELS: Record<string, { label: string; dot: string }> = {
   new: { label: "Novo", dot: "bg-sky-500" },
@@ -70,12 +72,6 @@ const CHANNEL_META: Record<string, { label: string; icon: JSX.Element; className
   },
 };
 
-function isOfficialConnection(connection?: ChannelConnection | null) {
-  const provider = String(connection?.provider ?? "").toLowerCase();
-  const metadata = (connection?.metadata as any) ?? {};
-  return provider.includes("official") || metadata.apiType === "official" || metadata.official === true || metadata.whatsappOfficial === true;
-}
-
 function channelMetaForConversation(conversation: AttConversation, connection?: ChannelConnection | null) {
   const provider = String(connection?.provider ?? conversation.provider ?? "").toLowerCase();
   const channel = String(connection?.channel ?? conversation.channel ?? "").toLowerCase();
@@ -94,7 +90,7 @@ function channelMetaForConversation(conversation: AttConversation, connection?: 
     remote.apiType === "official" ||
     remoteChannelObject.official ||
     remoteChannelObject.apiType === "official" ||
-    remoteChannelType === 0
+    remoteChannelType === 3
   );
   const value = `${provider} ${channel} ${remoteChannel} ${String(remoteChannelObject.description ?? "")} ${String(remoteChannelObject.identifier ?? "")}`.toLowerCase();
 
@@ -112,7 +108,7 @@ function channelMetaForConversation(conversation: AttConversation, connection?: 
       className: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/30 dark:text-blue-300 dark:border-blue-900",
     };
   }
-  if (isOfficialConnection(connection) || metadataOfficial || value.includes("official") || value.includes("oficial") || value.includes("cloud")) {
+  if (isOfficialAttendanceChannel({ connection, conversation }) || metadataOfficial || value.includes("official") || value.includes("oficial") || value.includes("cloud")) {
     return {
       label: "WhatsApp Oficial",
       icon: <SiWhatsapp className="h-3.5 w-3.5" />,
@@ -134,7 +130,11 @@ const LANE_DEFS = [
     value: "automatic",
     label: "Automático",
     icon: Bot,
-    matcher: (conv: AttConversation) => !isGroupConversation(conv) && ((conv as any).mode === "automatic" || ["automatic", "bot", "new"].includes(conv.status)),
+    matcher: (conv: AttConversation) =>
+      !isGroupConversation(conv) &&
+      (conv as any).mode !== "manual" &&
+      !conv.assignedUserId &&
+      ((conv as any).mode === "automatic" || ["automatic", "bot", "new"].includes(conv.status)),
   },
   {
     value: "waiting",
@@ -175,9 +175,12 @@ interface Props {
   selected: AttConversation | null;
   onSelect: (c: AttConversation) => void;
   onNewConversation: () => void;
+  activeView: AttendanceView;
+  onViewChange: (view: AttendanceView) => void;
 }
 
-export default function ConversationList({ selected, onSelect, onNewConversation }: Props) {
+export default function ConversationList({ selected, onSelect, onNewConversation, activeView, onViewChange }: Props) {
+  const [isSyncing, setIsSyncing] = useState(false);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [channelFilter, setChannelFilter] = useState<string>("all");
@@ -200,10 +203,23 @@ export default function ConversationList({ selected, onSelect, onNewConversation
   if (channelFilter !== "all") params.set("channel", channelFilter);
   const qs = params.toString();
 
-  const { data: conversations = [], isLoading, refetch, isFetching } = useQuery<AttConversation[]>({
-    queryKey: ["/api/attendance/conversations", qs],
+  const { data: conversationPages, isLoading, refetch, isFetching, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery<{ data: AttConversation[]; page: number; pageSize: number; hasNextPage: boolean }>({
+    queryKey: ["/api/attendance/conversations", "paged", qs],
+    initialPageParam: 1,
+    queryFn: async ({ pageParam }) => {
+      const requestParams = new URLSearchParams(qs);
+      requestParams.set("page", String(pageParam));
+      requestParams.set("pageSize", "50");
+      const response = await apiRequest("GET", "/api/attendance/conversations?" + requestParams.toString());
+      return response.json();
+    },
+    getNextPageParam: lastPage => lastPage.hasNextPage ? lastPage.page + 1 : undefined,
     refetchInterval: 10000,
   });
+  const conversations = useMemo(
+    () => conversationPages?.pages.flatMap(page => page.data) ?? [],
+    [conversationPages],
+  );
   const { data: connections = [] } = useQuery<ChannelConnection[]>({
     queryKey: ["/api/attendance/connections/available"],
   });
@@ -273,12 +289,15 @@ export default function ConversationList({ selected, onSelect, onNewConversation
   };
 
   const handleSync = async (silent = false) => {
+    setIsSyncing(true);
     try {
       await apiRequest("POST", "/api/attendance/sync", { page: 0 });
       await queryClient.invalidateQueries({ queryKey: ["/api/attendance/conversations"] });
       if (!silent) toast({ title: "Sincronizado com sucesso" });
     } catch (e: any) {
       if (!silent) toast({ title: "Erro ao sincronizar", description: e.message, variant: "destructive" });
+    } finally {
+      setIsSyncing(false);
     }
   };
 
@@ -290,16 +309,16 @@ export default function ConversationList({ selected, onSelect, onNewConversation
   }, []);
 
   return (
-    <div className="flex h-full flex-col border-r border-border bg-sidebar" data-testid="panel-conversation-list">
-      <div className="border-b border-sidebar-border bg-sidebar px-3 py-3">
+    <div className="flex h-full flex-col bg-card" data-testid="panel-conversation-list">
+      <div className="border-b bg-card px-4 py-4">
         <div className="mb-3 flex items-center justify-between gap-2">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-normal text-muted-foreground">Atendimentos</p>
-            <h2 className="text-base font-semibold text-sidebar-foreground">Central omnichannel</h2>
+          <div className="min-w-0">
+            <AttendanceViewSwitcher value={activeView} onValueChange={onViewChange} compact />
+            <h2 className="text-lg font-semibold text-foreground">Conversas e solicitações</h2>
           </div>
           <div className="flex items-center gap-1">
-            <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => refetch()} disabled={isFetching} data-testid="button-refresh-conversations">
-              <RefreshCw className={cn("h-4 w-4", isFetching && "animate-spin")} />
+            <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => handleSync(false)} disabled={isFetching || isSyncing} data-testid="button-refresh-conversations" title="Sincronizar atendimentos">
+              <RefreshCw className={cn("h-4 w-4", (isFetching || isSyncing) && "animate-spin")} />
             </Button>
             <Button
               size="icon"
@@ -321,7 +340,7 @@ export default function ConversationList({ selected, onSelect, onNewConversation
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="Pesquisar"
-            className="h-10 rounded-md border-input bg-background pl-9 text-sm"
+            className="h-10 rounded-full border-input bg-muted/40 pl-9 text-sm focus:bg-background"
             value={search}
             onChange={e => setSearch(e.target.value)}
             data-testid="input-search-conversations"
@@ -359,7 +378,7 @@ export default function ConversationList({ selected, onSelect, onNewConversation
         </div> : null}
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto bg-background">
+      <div className="min-h-0 flex-1 overflow-y-auto bg-card">
         {isLoading ? (
           <div className="space-y-3 p-3">
             {[...Array(7)].map((_, i) => (
@@ -379,7 +398,7 @@ export default function ConversationList({ selected, onSelect, onNewConversation
             <p>Nenhuma conversa encontrada</p>
           </div>
         ) : (
-          <div className="space-y-1 p-2" data-testid="attendance-lanes">
+          <div className="space-y-2 p-3" data-testid="attendance-lanes">
             <LaneSection
               value="all"
               label="Todos"
@@ -411,6 +430,18 @@ export default function ConversationList({ selected, onSelect, onNewConversation
                 />
               );
             })}
+            {hasNextPage ? (
+              <Button
+                type="button"
+                variant="outline"
+                className="mt-2 w-full rounded-full"
+                onClick={() => fetchNextPage()}
+                disabled={isFetchingNextPage}
+                data-testid="button-load-more-conversations"
+              >
+                {isFetchingNextPage ? "Carregando..." : "Carregar mais atendimentos"}
+              </Button>
+            ) : null}
           </div>
         )}
       </div>
@@ -546,12 +577,12 @@ function LaneSection({
   onSelect: (conversation: AttConversation) => void;
 }) {
   return (
-    <div className={cn("overflow-hidden rounded-md border border-transparent", expanded && "border-border bg-sidebar/40")}>
+    <div className={cn("overflow-hidden rounded-xl border border-transparent", expanded && "border-border bg-sidebar/40")}>
       <button
         type="button"
         onClick={onToggle}
         className={cn(
-          "flex h-10 w-full items-center gap-2 rounded-md px-2 text-left text-sm transition-colors",
+          "flex h-11 w-full items-center gap-2 rounded-xl px-2 text-left text-sm transition-colors",
           expanded ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:bg-accent/70 hover:text-foreground",
         )}
         data-testid={`lane-${value}`}

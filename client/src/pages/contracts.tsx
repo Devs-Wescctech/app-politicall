@@ -165,6 +165,8 @@ export default function ContractsPage() {
     smsBroadcast: false,
     attendanceReports: false,
     attendanceSettings: false,
+    reports: false,
+    campaignReports: false,
   });
 
   // Reset visible count when filters change
@@ -326,6 +328,8 @@ export default function ContractsPage() {
       smsBroadcast: user.permissions?.smsBroadcast ?? false,
       attendanceReports: user.permissions?.attendanceReports ?? false,
       attendanceSettings: user.permissions?.attendanceSettings ?? false,
+      reports: user.permissions?.reports ?? false,
+      campaignReports: user.permissions?.campaignReports ?? false,
     });
   };
 
@@ -360,6 +364,8 @@ export default function ContractsPage() {
         smsBroadcast: selectedUser.permissions?.smsBroadcast ?? false,
         attendanceReports: selectedUser.permissions?.attendanceReports ?? false,
         attendanceSettings: selectedUser.permissions?.attendanceSettings ?? false,
+        reports: selectedUser.permissions?.reports ?? false,
+        campaignReports: selectedUser.permissions?.campaignReports ?? false,
       });
     }
   };

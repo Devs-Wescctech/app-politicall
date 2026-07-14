@@ -12,7 +12,8 @@ import {
   ScrollText,
   Info,
   MessagesSquare,
-  Send
+  Send,
+  BarChart3
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
@@ -31,7 +32,7 @@ import { removeAuthToken } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { useQuery } from "@tanstack/react-query";
-import { DEFAULT_PERMISSIONS, type UserPermissions, ATTENDANCE_PERMISSION_KEYS, BROADCAST_PERMISSION_KEYS } from "@shared/schema";
+import { DEFAULT_PERMISSIONS, type UserPermissions, ATTENDANCE_PERMISSION_KEYS, BROADCAST_PERMISSION_KEYS, REPORT_PERMISSION_KEYS } from "@shared/schema";
 import logoUrl from "@assets/icon politicall_1763309153389.png";
 
 type MenuItem = {
@@ -118,10 +119,16 @@ export function AppSidebar() {
       anyPermissionKeys: [...ATTENDANCE_PERMISSION_KEYS],
     },
     {
-      title: "Disparos",
+      title: "Campanhas",
       url: "/broadcasts",
       icon: Send,
       anyPermissionKeys: [...BROADCAST_PERMISSION_KEYS],
+    },
+    {
+      title: "Relatórios",
+      url: "/reports",
+      icon: BarChart3,
+      anyPermissionKeys: [...REPORT_PERMISSION_KEYS],
     },
     {
       title: "Usuários",

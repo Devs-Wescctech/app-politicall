@@ -1,0 +1,78 @@
+Agora faça uma revisão final completa da Central de Campanhas Multicanal.
+
+Objetivo:
+Auditar tudo que foi implementado nas Fases 1 a 6, corrigir inconsistências, bugs, fluxos quebrados, problemas visuais e lacunas de integração antes de considerar pronto para produção.
+
+Checklist obrigatório:
+
+1. Fluxo completo:
+- criar campanha WhatsApp;
+- criar campanha WhatsApp API Oficial com template;
+- criar campanha SMS;
+- criar campanha E-mail;
+- criar campanha multicanal;
+- importar contatos;
+- usar lista fixa;
+- usar lista dinâmica;
+- segmentar por etiqueta/cidade/status;
+- agendar campanha;
+- enviar agora;
+- pausar;
+- retomar;
+- cancelar;
+- duplicar;
+- exportar relatório.
+
+2. Banco e dados:
+- confirmar que todas as migrações foram incrementais;
+- confirmar que não há dados órfãos;
+- confirmar índices necessários;
+- confirmar integridade entre campaign, recipients, events, exports, lists e templates;
+- confirmar compatibilidade com campanhas antigas.
+
+3. Integrações:
+- SMS via proxy n8n;
+- WhatsApp normal;
+- WhatsApp API Oficial;
+- templates oficiais;
+- E-mail;
+- mensagens de erro claras para integração ausente ou inválida.
+
+4. UI/UX:
+- wizard em desktop e mobile;
+- textos sem caracteres quebrados;
+- estados vazios;
+- skeleton/loading;
+- botões desabilitados durante ações;
+- confirmação antes de ações críticas;
+- badges de status/canal padronizados;
+- responsividade;
+- sem sobreposição visual.
+
+5. Relatórios:
+- métricas corretas;
+- exportações CSV/Excel/PDF;
+- filtros;
+- detalhes por campanha;
+- destinatários por status;
+- auditoria de exportações.
+
+6. Segurança/permissões:
+- validar permissões para criar, disparar, cancelar, exportar e ver relatórios;
+- impedir acesso indevido entre empresas;
+- não expor tokens/secrets no frontend;
+- logs sem credenciais.
+
+7. Testes:
+- revisar testes existentes;
+- adicionar testes para lacunas encontradas;
+- garantir que todos passem.
+
+No final, rodar obrigatoriamente:
+npm run check
+npm run build
+npm run test
+
+Se encontrar qualquer erro, corrigir antes de finalizar.
+Não fazer reset/drop/truncate no banco.
+Não quebrar dados existentes.

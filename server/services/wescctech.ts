@@ -59,6 +59,45 @@ export interface WesccTemplate {
   components?: any[];
 }
 
+export interface WesccActionCardTemplate {
+  id?: string;
+  description?: string;
+  canEdit?: boolean;
+  messages?: Array<{
+    id?: string;
+    typeMessage?: number;
+    typeFile?: number;
+    text?: string;
+    extension?: string;
+    file?: string;
+    order?: number;
+  }>;
+  staticComponents?: Array<{ type?: string; text?: string; format?: string; buttons?: any[] }>;
+  dynamicComponents?: Array<{ type?: string; text?: string; format?: string; buttons?: any[] }>;
+}
+
+export function normalizeActionCardTemplate(template: WesccActionCardTemplate) {
+  const orderedMessageText = [...(template.messages ?? [])]
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+    .map(message => message.text?.trim())
+    .filter((text): text is string => Boolean(text))
+    .join("\n");
+  const body = template.staticComponents?.find(component => component.type?.toUpperCase() === "BODY")?.text?.trim();
+  const name = template.description?.trim() || template.id || "Template WHU";
+
+  return {
+    id: template.id ?? name,
+    name,
+    title: name,
+    preview: orderedMessageText || body || name,
+    source: "whu_action_card",
+    canEdit: template.canEdit ?? Boolean(template.dynamicComponents?.length),
+    messages: template.messages ?? [],
+    staticComponents: template.staticComponents ?? [],
+    dynamicComponents: template.dynamicComponents ?? [],
+  };
+}
+
 export interface WesccListResponse<T> {
   data?: T[];
   chats?: T[];
@@ -279,6 +318,57 @@ export const wescctech = {
         forceSend: params.forceSend ?? true,
         verifyContact: params.verifyContact ?? false,
         ...params,
+      }),
+    });
+  },
+
+  /** List action-card templates available in the connected WHU channel. */
+  async listActionCardTemplates(token: string): Promise<WesccActionCardTemplate[]> {
+    const response = await wesccFetch<WesccActionCardTemplate[] | { data?: WesccActionCardTemplate[] }>(
+      token,
+      "/core/v2/api/action-cards/templates",
+    );
+    return Array.isArray(response) ? response : response.data ?? [];
+  },
+
+  /** Send a WHU action-card template to a number/contact. */
+  async sendActionCard(
+    token: string,
+    params: { number?: string; contactId?: string; actionCardId: string; forceSend?: boolean; verifyContact?: boolean },
+  ): Promise<WesccMessage> {
+    return wesccFetch<WesccMessage>(token, "/core/v2/api/chats/send-action-card", {
+      method: "POST",
+      body: JSON.stringify({
+        number: params.number,
+        contactId: params.contactId,
+        action_card_id: params.actionCardId,
+        forceSend: params.forceSend ?? true,
+        verifyContact: params.verifyContact ?? false,
+      }),
+    });
+  },
+
+  /** Send an approved Meta template through a WHU WACLOUD channel. */
+  async sendCloudTemplate(
+    token: string,
+    params: {
+      number?: string;
+      contactId?: string;
+      templateId: string;
+      templateComponents?: any[];
+      forceSend?: boolean;
+      verifyContact?: boolean;
+    },
+  ): Promise<any> {
+    return wesccFetch(token, "/core/v2/api/chats/send-template", {
+      method: "POST",
+      body: JSON.stringify({
+        number: params.number,
+        contactId: params.contactId,
+        templateId: params.templateId,
+        ...(params.templateComponents ? { templateComponents: params.templateComponents } : {}),
+        forceSend: params.forceSend ?? true,
+        verifyContact: params.verifyContact ?? false,
       }),
     });
   },

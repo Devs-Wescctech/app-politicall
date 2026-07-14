@@ -4,12 +4,19 @@
 import type { Express, Response } from "express";
 import { storage } from "./storage";
 import { authenticateToken, requireAnyPermission, requirePermission, type AuthRequest } from "./auth";
-import { mapWesccStatus, wescctech } from "./services/wescctech";
+import { mapWesccStatus, normalizeActionCardTemplate, wescctech } from "./services/wescctech";
+import { assertAttendanceTransition, isFinalAttendanceStatus, statusForSyncedConversation } from "./services/attendance-state";
+import { selectRoutingCandidate } from "./services/attendance-routing";
 import { decryptApiKey, encryptApiKey } from "./crypto";
 import { publishAttendanceEvent } from "./attendance-events";
+import { getMetaWindowState, isDirectMetaConnection, isOfficialAttendanceChannel, isWhuCloudChannelInfo } from "@shared/attendance-meta-window";
+import { evaluatePublicReplyPolicy, resolveLastCustomerActivityAt } from "./services/attendance-meta-policy";
+import { selectTemplateConnections } from "./services/attendance-template-selection";
+import { prepareAttendanceTemplateSend, TemplateVariablesRequiredError } from "./services/attendance-template-variables";
+import { extractAttendanceExternalMessageId } from "./services/attendance-message-identity";
 import multer from "multer";
-import * as XLSX from "xlsx";
 import PDFDocument from "pdfkit";
+import { rowsToXlsxBuffer, xlsxBufferToObjectRows } from "./services/excel";
 import {
   insertChannelConnectionSchema,
   insertAttSectorSchema,
@@ -23,11 +30,36 @@ import {
   insertAttQueueMemberSchema,
   insertContactSchema,
   type AttConversation,
+  type AttMessage,
   type UserPermissions,
 } from "@shared/schema";
 import { z } from "zod";
 
 const attendanceUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+
+type WebhookRateBucket = { count: number; resetAt: number };
+const attendanceWebhookRate = new Map<string, WebhookRateBucket>();
+const ATTENDANCE_WEBHOOK_MAX_REQUESTS = 120;
+const ATTENDANCE_WEBHOOK_WINDOW_MS = 60_000;
+const ATTENDANCE_WEBHOOK_MAX_BODY_BYTES = 2 * 1024 * 1024;
+
+function consumeAttendanceWebhookRate(key: string): boolean {
+  const now = Date.now();
+  const current = attendanceWebhookRate.get(key);
+  if (!current || current.resetAt <= now) {
+    attendanceWebhookRate.set(key, { count: 1, resetAt: now + ATTENDANCE_WEBHOOK_WINDOW_MS });
+    return true;
+  }
+  if (current.count >= ATTENDANCE_WEBHOOK_MAX_REQUESTS) return false;
+  current.count += 1;
+  return true;
+}
+
+function attendancePayloadSize(req: any): number {
+  const rawBody = req.rawBody;
+  if (Buffer.isBuffer(rawBody)) return rawBody.length;
+  return Buffer.byteLength(JSON.stringify(req.body ?? {}), "utf8");
+}
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -69,10 +101,59 @@ function canReplyConversation(req: AuthRequest, conversation: AttConversation): 
   return hasPermission(req, "attendanceReplyAny");
 }
 
+function canManageConversation(req: AuthRequest, conversation: AttConversation): boolean {
+  return conversation.assignedUserId === req.userId || hasPermission(req, "attendanceReplyAny");
+}
+
+function manageBlockedMessage(conversation: AttConversation): string {
+  return conversation.assignedUserId
+    ? "Somente o responsável ou supervisor pode realizar esta ação."
+    : "Assuma o atendimento antes de realizar esta ação.";
+}
+
 function replyBlockedMessage(conversation: AttConversation): string {
   return conversation.assignedUserId
     ? "Este atendimento pertence a outro operador."
     : "Assuma o atendimento antes de responder.";
+}
+
+async function autoRouteConversation(accountId: string, conversation: AttConversation): Promise<AttConversation> {
+  if (conversation.assignedUserId || conversation.status !== "waiting_agent") return conversation;
+
+  const queues = await storage.getQueues(accountId);
+  const queue = conversation.queueId
+    ? queues.find(item => item.id === conversation.queueId && item.active !== false)
+    : queues.find(item => item.active !== false && item.isDefault && (!item.channel || item.channel === conversation.channel))
+      ?? queues.find(item => item.active !== false && item.strategy !== "manual" && (!item.channel || item.channel === conversation.channel));
+  if (!queue || queue.strategy === "manual") return conversation;
+
+  const members = await storage.getQueueMembers(queue.id, accountId);
+  const users = await storage.getAllUsers(accountId);
+  const eligibleIds = members
+    .map(member => member.userId)
+    .filter(userId => users.some(user => user.id === userId && (user.role === "admin" || Boolean((user.permissions as any)?.attendanceReply))));
+  const counts = await storage.getOpenConversationCounts(accountId, eligibleIds);
+  const metadata = (queue.metadata as any) ?? {};
+  const capacity = Math.min(100, Math.max(1, Number(metadata.maxConcurrentPerAgent) || 3));
+  const candidate = selectRoutingCandidate(
+    queue.strategy,
+    eligibleIds.map(userId => ({ userId, openCount: counts[userId] ?? 0, capacity })),
+    metadata.lastAssignedUserId,
+  );
+  if (!candidate) return conversation;
+
+  const result = await storage.assumeConversation(conversation.id, accountId, candidate.userId, candidate.userId);
+  if (!result.conversation) return result.conflict ?? conversation;
+  await storage.updateQueue(queue.id, accountId, {
+    metadata: { ...metadata, lastAssignedUserId: candidate.userId, lastAssignedAt: new Date().toISOString() },
+  } as any);
+  await recordSystemAttendanceEvent(accountId, "conversation.auto_assigned", {
+    conversationId: conversation.id,
+    after: result.conversation,
+    metadata: { queueId: queue.id, strategy: queue.strategy, assignedUserId: candidate.userId },
+    realtimeType: "attendance.conversation.updated",
+  });
+  return result.conversation;
 }
 
 type AttendanceLabel = { id: string; name: string; color: string };
@@ -200,7 +281,7 @@ function remoteContactName(chat: any): string | null {
 }
 
 function remoteMessageId(message: any): string | null {
-  return String(message?.messageSentId || message?.messagesSentIds?.[0] || message?.id || message?.IdMessage || "").trim() || null;
+  return extractAttendanceExternalMessageId(message);
 }
 
 function remoteMessageText(message: any): string | null {
@@ -357,7 +438,7 @@ async function syncConversationMessages(accountId: string, conversation: any): P
     const existing = await storage.getMessageByExternalId(externalMessageId, accountId);
     if (existing) continue;
 
-    const createdAt = remote?.dhMessage || remote?.utcDhMessage ? new Date(remote.dhMessage ?? remote.utcDhMessage) : new Date();
+    const createdAt = remote?.utcDhMessage || remote?.dhMessage ? new Date(remote.utcDhMessage ?? remote.dhMessage) : new Date();
     const dataMedia = remote?.dataMedia ?? {};
     const dataLocation = remote?.dataLocation ?? null;
     const dataVcard = Array.isArray(remote?.dataVcard) ? remote.dataVcard : null;
@@ -389,11 +470,34 @@ async function syncConversationMessages(accountId: string, conversation: any): P
     created++;
   }
 
-  const last = messages[messages.length - 1];
-  if (last) {
+  const latest = messages.reduce((current: any, candidate: any) => {
+    if (!current) return candidate;
+    const currentTime = new Date(current?.utcDhMessage ?? current?.dhMessage ?? 0).getTime();
+    const candidateTime = new Date(candidate?.utcDhMessage ?? candidate?.dhMessage ?? 0).getTime();
+    return candidateTime > currentTime ? candidate : current;
+  }, null as any);
+  const localMessages = await storage.getMessages(conversation.id, accountId);
+  const latestLocal = localMessages[localMessages.length - 1];
+  const lastCustomerActivityAt = resolveLastCustomerActivityAt({
+    remoteChat,
+    messages: localMessages,
+    current: conversation.lastCustomerActivityAt,
+  });
+  if (latest || latestLocal) {
+    const latestRemoteDate = new Date(latest?.utcDhMessage ?? latest?.dhMessage ?? 0);
+    const remoteTime = Number.isNaN(latestRemoteDate.getTime()) ? 0 : latestRemoteDate.getTime();
+    const localTime = latestLocal?.createdAt ? new Date(latestLocal.createdAt).getTime() : 0;
+    const currentTime = conversation.lastMessageAt ? new Date(conversation.lastMessageAt).getTime() : 0;
+    const localIsLatest = localTime >= remoteTime && localTime >= currentTime;
+    const remoteIsLatest = remoteTime > localTime && remoteTime >= currentTime;
     await storage.updateConversation(conversation.id, accountId, {
-      lastMessageAt: remoteLastMessageDate(remoteChat) ?? (last?.dhMessage ? new Date(last.dhMessage) : conversation.lastMessageAt),
-      lastMessagePreview: remoteMessageText(last) ?? conversation.lastMessagePreview,
+      lastMessageAt: localIsLatest ? latestLocal.createdAt : remoteIsLatest ? latestRemoteDate : conversation.lastMessageAt,
+      lastMessagePreview: localIsLatest
+        ? (latestLocal.body ?? conversation.lastMessagePreview)
+        : remoteIsLatest
+          ? (remoteMessageText(latest) ?? remoteLastMessagePreview(remoteChat) ?? conversation.lastMessagePreview)
+          : conversation.lastMessagePreview,
+      lastCustomerActivityAt: lastCustomerActivityAt ?? conversation.lastCustomerActivityAt,
       metadata: {
         ...((conversation.metadata as any) ?? {}),
         remote: remoteChat,
@@ -450,13 +554,11 @@ function parseDelimitedRows(text: string): Record<string, string>[] {
   });
 }
 
-function uploadedRows(file?: { originalname: string; mimetype?: string; buffer: Buffer }): Record<string, string>[] {
+async function uploadedRows(file?: { originalname: string; mimetype?: string; buffer: Buffer }): Promise<Record<string, string>[]> {
   if (!file) return [];
   const name = file.originalname.toLowerCase();
   if (name.endsWith(".xlsx") || name.endsWith(".xls")) {
-    const workbook = XLSX.read(file.buffer, { type: "buffer" });
-    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-    return XLSX.utils.sheet_to_json<Record<string, string>>(firstSheet, { defval: "" });
+    return xlsxBufferToObjectRows(file.buffer);
   }
   return parseDelimitedRows(file.buffer.toString("utf8"));
 }
@@ -495,9 +597,7 @@ async function syncLegacyLabels(accountId: string) {
 }
 
 function isOfficialConnection(connection: any): boolean {
-  const provider = String(connection?.provider ?? "").toLowerCase();
-  const metadata = (connection?.metadata as any) ?? {};
-  return provider.includes("official") || metadata.apiType === "official" || metadata.official === true || metadata.whatsappOfficial === true;
+  return isOfficialAttendanceChannel({ connection });
 }
 
 function officialConfig(connection: any) {
@@ -552,17 +652,36 @@ async function sendTemplateToConversation(req: AuthRequest, conv: AttConversatio
   templateComponents?: any[];
   fallbackText?: string;
 }) {
-  const connection = options.connection ?? (conv.connectionId ? await storage.getChannelConnection(conv.connectionId, req.accountId!) : null);
-  const token = await getWesccToken(req.accountId!, conv.connectionId ?? connection?.id);
-  const templates = await resolveAttendanceTemplates(req.accountId!, connection?.id);
+  const initialConnection = options.connection ?? (conv.connectionId ? await storage.getChannelConnection(conv.connectionId, req.accountId!) : null);
+  const templates = await resolveAttendanceTemplates(req.accountId!, initialConnection?.id);
   const selected = templates.find((template: any) => template.id === options.templateId || template.name === options.templateName);
+  if (!selected) throw new Error("Template não encontrado ou indisponível para esta conexão");
+  const prepared = prepareAttendanceTemplateSend(selected, options.templateComponents, options.fallbackText);
+  const connection = initialConnection ?? (selected?.connectionId ? await storage.getChannelConnection(selected.connectionId, req.accountId!) : null);
+  const token = await getWesccToken(req.accountId!, connection?.id ?? conv.connectionId ?? undefined);
   const name = options.templateName ?? selected?.name;
   const language = options.templateLanguage ?? selected?.language ?? "pt_BR";
-  const body = options.fallbackText || selected?.preview || selected?.message || name || "Template enviado";
+  const body = prepared.preview;
   let externalMsgId: string | null = null;
   let sendError: string | null = null;
 
-  if (token && connection && isOfficialConnection(connection) && name && conv.externalContactId) {
+  if (token && selected?.source === "whu_action_card" && selected?.id && conv.externalContactId) {
+    try {
+      const sent = connection && isOfficialConnection(connection)
+        ? await wescctech.sendCloudTemplate(token, {
+          number: conv.externalContactId,
+          templateId: selected.id,
+          templateComponents: prepared.components,
+        })
+        : await wescctech.sendActionCard(token, {
+          number: conv.externalContactId,
+          actionCardId: selected.id,
+        });
+      externalMsgId = remoteMessageId(sent);
+    } catch (err: any) {
+      sendError = err.message;
+    }
+  } else if (token && connection && isOfficialConnection(connection) && name && conv.externalContactId) {
     const cfg = officialConfig(connection);
     if (cfg.phoneNumberId) {
       try {
@@ -571,7 +690,7 @@ async function sendTemplateToConversation(req: AuthRequest, conv: AttConversatio
           to: conv.externalContactId,
           name,
           language,
-          components: options.templateComponents ?? selected?.components,
+          components: prepared.components,
           graphBaseUrl: cfg.graphBaseUrl,
         });
         externalMsgId = String(sent?.messages?.[0]?.id ?? sent?.id ?? "").trim() || null;
@@ -602,7 +721,13 @@ async function sendTemplateToConversation(req: AuthRequest, conv: AttConversatio
     messageType: "template",
     status: sendError ? "failed" : "sent",
     errorMessage: sendError,
-    metadata: { templateId: options.templateId, templateName: name, language, official: Boolean(connection && isOfficialConnection(connection)) },
+    metadata: {
+      templateId: options.templateId,
+      templateName: name,
+      templateSource: selected?.source,
+      language,
+      official: Boolean(connection && isOfficialConnection(connection)),
+    },
   });
 
   await storage.updateConversation(conv.id, req.accountId!, {
@@ -637,58 +762,85 @@ async function resolveAttendanceTemplates(accountId: string, connectionId?: stri
     source: "quick_reply",
   }));
 
-  if (!connectionId) return internal;
-  const connection = await storage.getChannelConnection(connectionId, accountId);
-  const metadata = (connection?.metadata as any) ?? {};
-  const configured = Array.isArray(metadata.templates)
-    ? metadata.templates.map((template: any) => ({
-      id: template.id ?? template.name,
-      name: template.name,
-      title: template.title ?? template.name,
-      preview: templatePreview(template),
-      language: template.language ?? template.languageCode ?? "pt_BR",
-      components: template.components,
-      source: "official",
-      status: template.status,
-      category: template.category,
-    }))
-    : [];
+  const connections = selectTemplateConnections(await storage.getChannelConnections(accountId), connectionId);
+  const collected: any[] = [];
 
-  if (connection && isOfficialConnection(connection)) {
+  for (const connection of connections) {
+    const metadata = (connection.metadata as any) ?? {};
+    const configured = Array.isArray(metadata.templates)
+      ? metadata.templates.map((template: any) => ({
+        id: template.id ?? template.name,
+        name: template.name,
+        title: template.title ?? template.name,
+        preview: templatePreview(template),
+        language: template.language ?? template.languageCode ?? "pt_BR",
+        components: template.components,
+        source: "official",
+        connectionId: connection.id,
+        status: template.status,
+        category: template.category,
+      }))
+      : [];
     const token = decryptTokenIfNeeded(connection.token);
-    const cfg = officialConfig(connection);
-    if (token && cfg.businessAccountId) {
+
+    if (token && isDirectMetaConnection(connection)) {
+      const cfg = officialConfig(connection);
+      if (cfg.businessAccountId) {
+        try {
+          const remote = await wescctech.listOfficialTemplates(token, cfg);
+          collected.push(...remote
+            .filter(template => !template.status || String(template.status).toUpperCase() === "APPROVED")
+            .map(template => ({
+              id: template.id ?? template.name,
+              name: template.name,
+              title: template.name,
+              preview: templatePreview(template),
+              language: template.language ?? "pt_BR",
+              components: template.components,
+              source: "official",
+              connectionId: connection.id,
+              status: template.status,
+              category: template.category,
+            })));
+        } catch (err: any) {
+          console.error("[ATT] official templates error:", String(err.message ?? "Falha ao listar templates").slice(0, 300));
+        }
+      }
+    } else if (token) {
       try {
-        const remote = await wescctech.listOfficialTemplates(token, cfg);
-        return [
-          ...remote.map(template => ({
-            id: template.id ?? template.name,
-            name: template.name,
-            title: template.name,
-            preview: templatePreview(template),
-            language: template.language ?? "pt_BR",
-            components: template.components,
-            source: "official",
-            status: template.status,
-            category: template.category,
-          })),
-          ...internal,
-        ];
+        const remote = await wescctech.listActionCardTemplates(token);
+        collected.push(...remote.filter(template => Boolean(template.id)).map(template => ({
+          ...normalizeActionCardTemplate(template),
+          connectionId: connection.id,
+        })));
       } catch (err: any) {
-        console.error("[ATT] official templates error:", err.message);
+        console.error("[ATT] WHU action-card templates error:", String(err.message ?? "Falha ao listar templates").slice(0, 300));
       }
     }
+
+    collected.push(...configured);
   }
 
-  return [...configured, ...internal];
+  const unique = new Map<string, any>();
+  for (const template of [...collected, ...internal]) {
+    unique.set(`${template.source ?? "template"}:${template.id}`, template);
+  }
+  return Array.from(unique.values());
 }
 
 /** Get Wescctech token for an account (from channelConnections or integrations fallback) */
+async function resolveAttendanceConnection(accountId: string, connectionId?: string) {
+  if (connectionId) return storage.getChannelConnection(connectionId, accountId);
+  const connections = await storage.getChannelConnections(accountId).catch(() => []);
+  return connections.find(connection => connection.status !== "disabled" && (connection.metadata as any)?.source === "settings-omni")
+    ?? connections.find(connection => connection.status !== "disabled" && String(connection.channel).toLowerCase().includes("whatsapp"))
+    ?? null;
+}
+
 async function getWesccToken(accountId: string, connectionId?: string): Promise<string | null> {
-  if (connectionId) {
-    const conn = await storage.getChannelConnection(connectionId, accountId);
-    return decryptTokenIfNeeded(conn?.token);
-  }
+  const connection = await resolveAttendanceConnection(accountId, connectionId);
+  const connectionToken = decryptTokenIfNeeded(connection?.token);
+  if (connectionToken) return connectionToken;
   const whatsappIntegration = await storage
     .getIntegrationByAccount(accountId, "whatsapp")
     .catch(() => null);
@@ -764,7 +916,7 @@ export function registerAttendanceRoutes(app: Express) {
     } catch (e: any) { res.status(400).json({ error: e.message }); }
   });
 
-  /** Test connection — calls Wescctech /channel/status */
+  /** Test connection against the configured provider without exposing credentials. */
   app.post("/api/attendance/connections/:id/test", authenticateToken, requirePermission("attendanceSettings"), async (req: AuthRequest, res: Response) => {
     try {
       const conn = await storage.getChannelConnection(req.params.id, req.accountId!);
@@ -774,11 +926,20 @@ export function registerAttendanceRoutes(app: Express) {
       let status = "error";
       let error: string | undefined;
       try {
-        const result = await wescctech.getStatus(token);
-        status = result.status === "CONNECTED" ? "connected" : "error";
-        if (status === "error") error = `Status remoto: ${result.status}`;
+        if (isDirectMetaConnection(conn)) {
+          const cfg = officialConfig(conn);
+          if (!cfg.businessAccountId || !cfg.phoneNumberId) {
+            throw new Error("Business Account ID e Phone Number ID são obrigatórios para WhatsApp Cloud");
+          }
+          await wescctech.listOfficialTemplates(token, cfg);
+          status = "connected";
+        } else {
+          const result = await wescctech.getStatus(token);
+          status = result.status === "CONNECTED" ? "connected" : "error";
+          if (status === "error") error = `Status remoto: ${result.status}`;
+        }
       } catch (err: any) {
-        error = err.message;
+        error = String(err.message ?? "Falha de conexão").replace(/(access_token|token)=[^&\s]+/gi, "$1=***");
       }
 
       const updated = await storage.updateChannelConnection(conn.id, req.accountId!, {
@@ -832,8 +993,37 @@ export function registerAttendanceRoutes(app: Express) {
   app.post("/api/attendance/sync", authenticateToken, requireAttendanceRead(), async (req: AuthRequest, res: Response) => {
     try {
       const { connectionId, page = 0, status: requestedStatus } = req.body;
-      const token = await getWesccToken(req.accountId!, connectionId);
+      let effectiveConnection = await resolveAttendanceConnection(req.accountId!, connectionId);
+      const effectiveConnectionId = effectiveConnection?.id ?? connectionId ?? null;
+      const token = await getWesccToken(req.accountId!, effectiveConnectionId ?? undefined);
       if (!token) return res.status(400).json({ error: "Token não configurado" });
+
+      if (effectiveConnection && !isDirectMetaConnection(effectiveConnection)) {
+        try {
+          const channelResult: any = await wescctech.getChannel(token);
+          const channelInfo = channelResult?.data ?? channelResult?.result ?? channelResult;
+          const channelType = Number(channelInfo?.type ?? channelInfo?.channelType ?? channelInfo?.typeChannel);
+          if (Number.isFinite(channelType)) {
+            const official = channelType === 3 || isWhuCloudChannelInfo(channelInfo);
+            const metadata = {
+              ...((effectiveConnection.metadata as any) ?? {}),
+              channelType,
+              official,
+              whatsappOfficial: official,
+              apiType: official ? "official" : "whu",
+              externalChannelId: channelInfo?.id ?? null,
+              businessAccountId: channelInfo?.wabaId ?? (effectiveConnection.metadata as any)?.businessAccountId ?? null,
+              phoneNumberId: channelInfo?.numberId ?? (effectiveConnection.metadata as any)?.phoneNumberId ?? null,
+            };
+            effectiveConnection = await storage.updateChannelConnection(effectiveConnection.id, req.accountId!, {
+              provider: official ? "wescctech_cloud" : "wescctech",
+              metadata,
+            });
+          }
+        } catch (err: any) {
+          console.error("[ATT] channel type detection error:", String(err.message ?? "Falha ao identificar canal").slice(0, 300));
+        }
+      }
 
       const statuses = requestedStatus === undefined || requestedStatus === null || requestedStatus === "all"
         ? [0, 1, 2, 3, 4, 5]
@@ -864,30 +1054,45 @@ export function registerAttendanceRoutes(app: Express) {
         if (!externalThreadId) continue;
         const contactNumber = remoteContactNumber(chat);
         const existing = await storage.getConversationByExternal(req.accountId!, externalThreadId);
-        const localStatus = mapWesccStatus(Number(chat.status ?? chat.attendance?.status ?? 1));
+        const remoteStatus = mapWesccStatus(Number(chat.status ?? chat.attendance?.status ?? 1));
 
         if (existing) {
+          const localStatus = statusForSyncedConversation(remoteStatus, existing.assignedUserId);
           await storage.updateConversation(existing.id, req.accountId!, {
+            connectionId: existing.connectionId ?? effectiveConnectionId,
+            provider: effectiveConnection?.provider ?? existing.provider,
             status: localStatus,
             mode: modeForStatus(localStatus, existing.assignedUserId),
             lastMessagePreview: remoteLastMessagePreview(chat) ?? existing.lastMessagePreview,
             lastMessageAt: remoteLastMessageDate(chat) ?? existing.lastMessageAt,
+            lastCustomerActivityAt: resolveLastCustomerActivityAt({ remoteChat: chat, current: existing.lastCustomerActivityAt }) ?? existing.lastCustomerActivityAt,
             unreadCount: chat.unread ?? chat.countUnreadMessages ?? 0,
             contactName: remoteContactName(chat) ?? existing.contactName,
             contactPhone: contactNumber ?? existing.contactPhone,
             contactAvatar: chat.photo ?? chat.linkImage ?? chat.contact?.linkImage ?? existing.contactAvatar,
             protocol: chat.protocol ?? existing.protocol,
             sectorId: chat.currentSector?.id ?? existing.sectorId,
-            metadata: { ...((existing.metadata as any) ?? {}), remote: chat, queue: remoteQueue(chat) },
+            metadata: {
+              ...((existing.metadata as any) ?? {}),
+              remote: chat,
+              queue: remoteQueue(chat),
+              connection: effectiveConnection ? {
+                id: effectiveConnection.id,
+                provider: effectiveConnection.provider,
+                channel: effectiveConnection.channel,
+                official: isOfficialConnection(effectiveConnection),
+              } : undefined,
+            },
             updatedAt: new Date(),
           });
           updated++;
         } else {
+          const localStatus = remoteStatus;
           await storage.createConversation({
             accountId: req.accountId!,
-            connectionId: connectionId ?? null,
+            connectionId: effectiveConnectionId,
             channel: "whatsapp",
-            provider: "wescctech",
+            provider: effectiveConnection?.provider ?? "wescctech",
             externalThreadId,
             externalContactId: contactNumber ?? externalThreadId,
             contactName: remoteContactName(chat) ?? "Desconhecido",
@@ -897,10 +1102,20 @@ export function registerAttendanceRoutes(app: Express) {
             mode: modeForStatus(localStatus),
             lastMessagePreview: remoteLastMessagePreview(chat),
             lastMessageAt: remoteLastMessageDate(chat),
+            lastCustomerActivityAt: resolveLastCustomerActivityAt({ remoteChat: chat }),
             unreadCount: chat.unread ?? chat.countUnreadMessages ?? 0,
             protocol: chat.protocol ?? null,
             sectorId: chat.currentSector?.id ?? null,
-            metadata: { remote: chat, queue: remoteQueue(chat) },
+            metadata: {
+              remote: chat,
+              queue: remoteQueue(chat),
+              connection: effectiveConnection ? {
+                id: effectiveConnection.id,
+                provider: effectiveConnection.provider,
+                channel: effectiveConnection.channel,
+                official: isOfficialConnection(effectiveConnection),
+              } : undefined,
+            },
           });
           created++;
         }
@@ -920,8 +1135,11 @@ export function registerAttendanceRoutes(app: Express) {
 
   app.get("/api/attendance/conversations", authenticateToken, requireAttendanceRead(), async (req: AuthRequest, res: Response) => {
     try {
-      const { channel, status, search, assignedUserId, sectorId, queueId, mode, priority, from, to, queue, includeArchived } = req.query as Record<string, string>;
-      let convs = await storage.getConversations(req.accountId!, { channel, status, search, assignedUserId, sectorId, queueId, mode, priority, from, to });
+      const { channel, status, search, assignedUserId, sectorId, queueId, mode, priority, from, to, queue, includeArchived, page, pageSize } = req.query as Record<string, string>;
+      const requestedPage = Math.max(1, Number(page) || 1);
+      const requestedPageSize = pageSize ? Math.min(200, Math.max(1, Number(pageSize) || 50)) : null;
+      const offset = requestedPageSize ? (requestedPage - 1) * requestedPageSize : undefined;
+      let convs = await storage.getConversations(req.accountId!, { channel, status, search, assignedUserId, sectorId, queueId, mode, priority, from, to, limit: requestedPageSize ? requestedPageSize + 1 : undefined, offset });
       if (includeArchived !== "true") {
         convs = convs.filter(conv => !((conv.metadata as any)?.flags?.archived));
       }
@@ -929,6 +1147,10 @@ export function registerAttendanceRoutes(app: Express) {
         convs = convs.filter(conv => ((conv.metadata as any)?.queue ?? remoteQueue((conv.metadata as any)?.remote)) === queue);
       }
       convs = convs.sort((a, b) => Number(Boolean((b.metadata as any)?.flags?.pinned)) - Number(Boolean((a.metadata as any)?.flags?.pinned)));
+      if (requestedPageSize) {
+        const hasNextPage = convs.length > requestedPageSize;
+        return res.json({ data: convs.slice(0, requestedPageSize), page: requestedPage, pageSize: requestedPageSize, hasNextPage });
+      }
       res.json(convs);
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
@@ -937,6 +1159,13 @@ export function registerAttendanceRoutes(app: Express) {
     try {
       const { phone, name, connectionId, sectorId, message, sendInitialMessage, templateId, templateName, templateLanguage, templateComponents } = req.body;
       if (!phone) return res.status(400).json({ error: "Telefone obrigatório" });
+
+      if (templateId || templateName) {
+        const availableTemplates = await resolveAttendanceTemplates(req.accountId!, connectionId);
+        const selectedTemplate = availableTemplates.find((template: any) => template.id === templateId || template.name === templateName);
+        if (!selectedTemplate) return res.status(400).json({ error: "Template não encontrado ou indisponível para esta conexão" });
+        prepareAttendanceTemplateSend(selectedTemplate, templateComponents, message);
+      }
 
       let externalId: string | null = null;
       const token = await getWesccToken(req.accountId!, connectionId);
@@ -950,6 +1179,7 @@ export function registerAttendanceRoutes(app: Express) {
         }
       }
 
+      const initiatedAt = new Date();
       const conv = await storage.createConversation({
         accountId: req.accountId!,
         connectionId: connectionId ?? null,
@@ -960,8 +1190,12 @@ export function registerAttendanceRoutes(app: Express) {
         contactName: name ?? phone,
         contactPhone: phone,
         sectorId: sectorId || null,
-        mode: "automatic",
-        status: "automatic",
+        mode: "manual",
+        status: "in_progress",
+        assignedUserId: req.userId!,
+        assignedByUserId: req.userId!,
+        assignedAt: initiatedAt,
+        lastOperatorActivityAt: initiatedAt,
         metadata: connection ? {
           connection: {
             id: connection.id,
@@ -1023,9 +1257,20 @@ export function registerAttendanceRoutes(app: Express) {
         realtimeType: "attendance.conversation.created",
       });
       res.json(conv);
-    } catch (e: any) { res.status(400).json({ error: e.message }); }
+    } catch (e: any) {
+      if (e instanceof TemplateVariablesRequiredError || e?.code === "TEMPLATE_VARIABLES_REQUIRED") {
+        return res.status(400).json({ error: e.message, code: "TEMPLATE_VARIABLES_REQUIRED", missingVariables: e.missingVariables ?? [] });
+      }
+      res.status(400).json({ error: e.message });
+    }
   });
 
+  /**
+   * GET /api/attendance/templates?connectionId=<uuid>
+   * Lists templates normalized for the attendance UI. The selected connection
+   * determines whether the source is Meta Official, WHU action cards, or local
+   * quick replies. Requires an authenticated user with attendance read access.
+   */
   app.get("/api/attendance/templates", authenticateToken, requireAttendanceRead(), async (req: AuthRequest, res: Response) => {
     try {
       const connectionId = typeof req.query.connectionId === "string" ? req.query.connectionId : undefined;
@@ -1101,7 +1346,7 @@ export function registerAttendanceRoutes(app: Express) {
       const mapping = typeof req.body.mapping === "string"
         ? JSON.parse(req.body.mapping || "{}")
         : (req.body.mapping ?? {});
-      const rows = uploadedRows(req.file);
+      const rows = await uploadedRows(req.file);
       const job = await storage.createImportJob({
         accountId: req.accountId!,
         userId: req.userId!,
@@ -1367,9 +1612,7 @@ export function registerAttendanceRoutes(app: Express) {
 
       if (format === "json") return res.json(finished);
       if (format === "xlsx" || format === "excel") {
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(rows), "Historico");
-        const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
+        const buffer = await rowsToXlsxBuffer(rows, "Historico");
         res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
         res.setHeader("Content-Disposition", "attachment; filename=historico-atendimentos.xlsx");
         return res.send(buffer);
@@ -1384,7 +1627,7 @@ export function registerAttendanceRoutes(app: Express) {
 
   app.post("/api/attendance/history/import", authenticateToken, requirePermission("attendanceSettings"), attendanceUpload.single("file"), async (req: AuthRequest, res: Response) => {
     try {
-      const rows = uploadedRows(req.file);
+      const rows = await uploadedRows(req.file);
       const job = await storage.createImportJob({
         accountId: req.accountId!,
         userId: req.userId!,
@@ -1521,19 +1764,45 @@ export function registerAttendanceRoutes(app: Express) {
     } catch (e: any) { res.status(400).json({ error: e.message }); }
   });
 
-  app.get("/api/attendance/conversations/:id", authenticateToken, requireAttendanceRead(), async (req: AuthRequest, res: Response) => {
+  app.get("/api/attendance/conversations/:id/messages", authenticateToken, requireAttendanceRead(), async (req: AuthRequest, res: Response) => {
     try {
       const conv = await storage.getConversation(req.params.id, req.accountId!);
       if (!conv) return res.status(404).json({ error: "Conversa não encontrada" });
-      const [messages, notes] = await Promise.all([
-        storage.getMessages(req.params.id, req.accountId!),
-        storage.getNotes(req.params.id, req.accountId!),
-      ]);
-      res.json({ ...conv, messages, notes });
+      const beforeRaw = typeof req.query.before === "string" ? req.query.before : undefined;
+      const before = beforeRaw ? new Date(beforeRaw) : undefined;
+      if (before && Number.isNaN(before.getTime())) return res.status(400).json({ error: "Cursor de mensagens inválido" });
+      const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 50));
+      res.json(await storage.getMessagesPage(conv.id, req.accountId!, { before, limit }));
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
 
-      syncConversationMessages(req.accountId!, conv).catch((err) => {
-        console.error("[ATT] message sync error:", err.message);
-      });
+  app.get("/api/attendance/conversations/:id", authenticateToken, requireAttendanceRead(), async (req: AuthRequest, res: Response) => {
+    try {
+      let conv = await storage.getConversation(req.params.id, req.accountId!);
+      if (!conv) return res.status(404).json({ error: "Conversa não encontrada" });
+      const requestedMessagePageSize = req.query.messagePageSize ? Math.min(100, Math.max(1, Number(req.query.messagePageSize) || 50)) : null;
+      if (conv.externalThreadId) {
+        await syncConversationMessages(req.accountId!, conv).catch((err) => {
+          console.error("[ATT] message sync error:", err.message);
+        });
+        conv = await storage.getConversation(req.params.id, req.accountId!) ?? conv;
+      }
+      const [messageResult, notes, connection] = await Promise.all([
+        requestedMessagePageSize
+          ? storage.getMessagesPage(req.params.id, req.accountId!, { limit: requestedMessagePageSize })
+          : storage.getMessages(req.params.id, req.accountId!),
+        storage.getNotes(req.params.id, req.accountId!),
+        conv.connectionId ? storage.getChannelConnection(conv.connectionId, req.accountId!) : Promise.resolve(null),
+      ]);
+      const metaWindow = getMetaWindowState({ connection, conversation: conv });
+      if (requestedMessagePageSize) {
+        const page = messageResult as { data: AttMessage[]; hasMore: boolean; nextCursor: string | null };
+        res.json({ ...conv, metaWindow, messages: page.data, notes, hasOlderMessages: page.hasMore, messageCursor: page.nextCursor });
+      } else {
+        res.json({ ...conv, metaWindow, messages: messageResult, notes });
+      }
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
@@ -1541,6 +1810,7 @@ export function registerAttendanceRoutes(app: Express) {
     try {
       const before = await storage.getConversation(req.params.id, req.accountId!);
       if (!before) return res.status(404).json({ error: "Conversa não encontrada" });
+      assertAttendanceTransition(before.status, "in_progress");
       if (before.assignedUserId === req.userId) return res.json(before);
       const { conversation: conv, conflict } = await storage.assumeConversation(req.params.id, req.accountId!, req.userId!, req.userId!);
       if (!conv) {
@@ -1587,11 +1857,13 @@ export function registerAttendanceRoutes(app: Express) {
     try {
       const before = await storage.getConversation(req.params.id, req.accountId!);
       if (!before) return res.status(404).json({ error: "Conversa não encontrada" });
+      assertAttendanceTransition(before.status, "waiting_agent");
       if (before.assignedUserId && before.assignedUserId !== req.userId && !hasPermission(req, "attendanceReplyAny")) {
         return res.status(403).json({ error: "Somente o responsável ou supervisor pode liberar este atendimento" });
       }
       const metadata = { ...((before.metadata as any) ?? {}), releasedAt: new Date().toISOString(), releasedBy: req.userId };
-      const updated = await storage.releaseConversation(req.params.id, req.accountId!, { status: "waiting_agent", metadata });
+      let updated = await storage.releaseConversation(req.params.id, req.accountId!, { status: "waiting_agent", metadata });
+      updated = await autoRouteConversation(req.accountId!, updated);
       await recordAttendanceEvent(req, "conversation.released", {
         conversationId: updated.id,
         before,
@@ -1606,6 +1878,7 @@ export function registerAttendanceRoutes(app: Express) {
     try {
       const before = await storage.getConversation(req.params.id, req.accountId!);
       if (!before) return res.status(404).json({ error: "Conversa não encontrada" });
+      assertAttendanceTransition(before.status, "paused");
       if (before.assignedUserId && before.assignedUserId !== req.userId && !hasPermission(req, "attendanceReplyAny")) {
         return res.status(403).json({ error: "Somente o responsável ou supervisor pode pausar este atendimento" });
       }
@@ -1659,15 +1932,57 @@ export function registerAttendanceRoutes(app: Express) {
         return res.status(403).json({ error: replyBlockedMessage(conv) });
       }
 
-      const msg = await storage.createMessage({
+      const normalizedMessage = String(message ?? "").trim();
+      if (!normalizedMessage) {
+        return res.status(400).json({ error: "Mensagem não pode ser vazia" });
+      }
+
+      const connection = conv.connectionId
+        ? await storage.getChannelConnection(conv.connectionId, req.accountId!)
+        : null;
+      const replyPolicy = evaluatePublicReplyPolicy({ conversation: conv, connection, isWhisper });
+      if (!replyPolicy.allowed) {
+        return res.status(409).json({
+          error: replyPolicy.error,
+          code: replyPolicy.code,
+          metaWindow: replyPolicy.metaWindow,
+        });
+      }
+
+      let externalMessageId: string | null = null;
+      if (!isWhisper) {
+        if (!conv.externalContactId) {
+          return res.status(400).json({ error: "Contato externo não identificado para envio" });
+        }
+        const token = await getWesccToken(req.accountId!, conv.connectionId ?? undefined);
+        if (!token) {
+          return res.status(400).json({ error: "Conexão WHU não configurada para este atendimento" });
+        }
+        try {
+          const remoteMessage = await wescctech.sendText(token, {
+            number: conv.externalContactId,
+            message: normalizedMessage,
+            isWhisper: false,
+          });
+          externalMessageId = remoteMessageId(remoteMessage);
+        } catch (error: any) {
+          console.error("[ATT] send error:", error.message);
+          return res.status(502).json({ error: "Não foi possível enviar a mensagem pelo WHU. Tente novamente." });
+        }
+      }
+
+      const existingRemoteMessage = externalMessageId
+        ? await storage.getMessageByExternalId(externalMessageId, req.accountId!)
+        : null;
+      const msg = existingRemoteMessage ?? await storage.createMessage({
         accountId: req.accountId!,
         conversationId: req.params.id,
         userId: req.userId!,
         direction: isWhisper ? "internal" : "outbound",
         channel: conv.channel,
         provider: conv.provider,
-        externalMessageId: null,
-        body: message,
+        externalMessageId,
+        body: normalizedMessage,
         messageType: isWhisper ? "whisper" : "text",
         status: "sent",
         errorMessage: null,
@@ -1675,7 +1990,7 @@ export function registerAttendanceRoutes(app: Express) {
 
       await storage.updateConversation(req.params.id, req.accountId!, {
         lastMessageAt: new Date(),
-        lastMessagePreview: message.slice(0, 100),
+        lastMessagePreview: normalizedMessage.slice(0, 100),
         lastOperatorActivityAt: new Date(),
         firstResponseAt: conv.firstResponseAt ?? new Date(),
         updatedAt: new Date(),
@@ -1693,24 +2008,13 @@ export function registerAttendanceRoutes(app: Express) {
 
       res.json(msg);
 
-      if (!isWhisper && conv.externalContactId) {
-        getWesccToken(req.accountId!, conv.connectionId ?? undefined)
-          .then((token) => token ? wescctech.sendText(token, {
-            number: conv.externalContactId!,
-            message,
-            isWhisper: false,
-          }) : null)
-          .catch((err: any) => {
-            console.error("[ATT] send error:", err.message);
-          });
-      }
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
   app.post("/api/attendance/conversations/:id/send-template", authenticateToken, requirePermission("attendanceReply"), async (req: AuthRequest, res: Response) => {
     try {
       const conv = await storage.getConversation(req.params.id, req.accountId!);
-      if (!conv) return res.status(404).json({ error: "Conversa nÃ£o encontrada" });
+      if (!conv) return res.status(404).json({ error: "Conversa não encontrada" });
       if (!canReplyConversation(req, conv)) {
         return res.status(403).json({ error: replyBlockedMessage(conv) });
       }
@@ -1722,7 +2026,12 @@ export function registerAttendanceRoutes(app: Express) {
         fallbackText: req.body.message,
       });
       res.json(msg);
-    } catch (e: any) { res.status(500).json({ error: e.message }); }
+    } catch (e: any) {
+      if (e instanceof TemplateVariablesRequiredError || e?.code === "TEMPLATE_VARIABLES_REQUIRED") {
+        return res.status(400).json({ error: e.message, code: "TEMPLATE_VARIABLES_REQUIRED", missingVariables: e.missingVariables ?? [] });
+      }
+      res.status(500).json({ error: e.message });
+    }
   });
 
   app.post("/api/attendance/conversations/:id/send-whisper", authenticateToken, requirePermission("attendanceReply"), async (req: AuthRequest, res: Response) => {
@@ -1988,6 +2297,25 @@ export function registerAttendanceRoutes(app: Express) {
       const { sectorId, queueId, userId: targetUserId, reason } = req.body;
       const conv = await storage.getConversation(req.params.id, req.accountId!);
       if (!conv) return res.status(404).json({ error: "Conversa não encontrada" });
+      if (!canManageConversation(req, conv)) {
+        return res.status(403).json({ error: manageBlockedMessage(conv) });
+      }
+      assertAttendanceTransition(conv.status, "transferred");
+      if (targetUserId) {
+        const targetUser = await storage.getUser(targetUserId);
+        if (!targetUser || targetUser.accountId !== req.accountId) {
+          return res.status(400).json({ error: "Responsável de destino inválido para esta conta" });
+        }
+      }
+      if (queueId && !(await storage.getQueue(queueId, req.accountId!))) {
+        return res.status(400).json({ error: "Fila de destino inválida para esta conta" });
+      }
+      if (sectorId) {
+        const sectors = await storage.getSectors(req.accountId!);
+        if (!sectors.some(sector => sector.id === sectorId)) {
+          return res.status(400).json({ error: "Setor de destino inválido para esta conta" });
+        }
+      }
       if (!sectorId && conv.provider === "wescctech") {
         return res.status(400).json({ error: "Setor de destino é obrigatório para transferência WHU" });
       }
@@ -1999,6 +2327,7 @@ export function registerAttendanceRoutes(app: Express) {
             await wescctech.transferChat(token, conv.externalThreadId, { sectorId, userId: targetUserId });
           } catch (err: any) {
             console.error("[ATT] transfer remote error:", err.message);
+            return res.status(502).json({ error: "Não foi possível transferir o atendimento no WHU. Nenhuma alteração local foi realizada." });
           }
         }
       }
@@ -2068,6 +2397,10 @@ export function registerAttendanceRoutes(app: Express) {
     try {
       const conv = await storage.getConversation(req.params.id, req.accountId!);
       if (!conv) return res.status(404).json({ error: "Conversa não encontrada" });
+      if (!canManageConversation(req, conv)) {
+        return res.status(403).json({ error: manageBlockedMessage(conv) });
+      }
+      assertAttendanceTransition(conv.status, "finalized");
 
       if (conv.externalThreadId) {
         const token = await getWesccToken(req.accountId!, conv.connectionId ?? undefined);
@@ -2076,6 +2409,7 @@ export function registerAttendanceRoutes(app: Express) {
             await wescctech.finalizeChat(token, conv.externalThreadId);
           } catch (err: any) {
             console.error("[ATT] finalize remote error:", err.message);
+            return res.status(502).json({ error: "Não foi possível finalizar o atendimento no WHU. Nenhuma alteração local foi realizada." });
           }
         }
       }
@@ -2101,6 +2435,13 @@ export function registerAttendanceRoutes(app: Express) {
     try {
       const before = await storage.getConversation(req.params.id, req.accountId!);
       if (!before) return res.status(404).json({ error: "Conversa não encontrada" });
+      if (!canManageConversation(req, before)) {
+        return res.status(403).json({ error: manageBlockedMessage(before) });
+      }
+      if (!isFinalAttendanceStatus(before.status)) {
+        return res.status(409).json({ error: "Somente atendimentos finalizados podem ser reabertos" });
+      }
+      assertAttendanceTransition(before.status, "reopened");
       const updated = await storage.updateConversation(req.params.id, req.accountId!, {
         status: "reopened",
         mode: "manual",
@@ -2191,7 +2532,7 @@ export function registerAttendanceRoutes(app: Express) {
   app.patch("/api/attendance/conversations/:id/labels", authenticateToken, requirePermission("attendanceManageTags"), async (req: AuthRequest, res: Response) => {
     try {
       const before = await storage.getConversation(req.params.id, req.accountId!);
-      if (!before) return res.status(404).json({ error: "Conversa nÃ£o encontrada" });
+      if (!before) return res.status(404).json({ error: "Conversa não encontrada" });
       const tags = z.array(z.string()).parse(req.body.tags ?? req.body.labels ?? []);
       const labels = await storage.setConversationLabels(req.accountId!, req.params.id, tags);
       if (before.contactId) await storage.setContactLabels(req.accountId!, before.contactId, tags);
@@ -2500,6 +2841,15 @@ export function registerAttendanceRoutes(app: Express) {
     } catch (e: any) { res.status(400).json({ error: e.message }); }
   });
 
+  app.get("/api/attendance/operators", authenticateToken, requirePermission("attendanceManageQueues"), async (req: AuthRequest, res: Response) => {
+    try {
+      const users = await storage.getAllUsers(req.accountId!);
+      res.json(users.filter(user => user.role === "admin" || Boolean((user.permissions as any)?.attendanceReply)).map(user => ({ id: user.id, name: user.name, email: user.email, role: user.role })));
+    } catch (e: any) {
+      res.status(500).json({ error: "Não foi possível carregar os atendentes" });
+    }
+  });
+
   app.get("/api/attendance/queues/:id/members", authenticateToken, requireAttendanceRead(), async (req: AuthRequest, res: Response) => {
     try {
       const members = await storage.getQueueMembers(req.params.id, req.accountId!);
@@ -2509,6 +2859,13 @@ export function registerAttendanceRoutes(app: Express) {
 
   app.post("/api/attendance/queues/:id/members", authenticateToken, requirePermission("attendanceManageQueues"), async (req: AuthRequest, res: Response) => {
     try {
+      const queue = await storage.getQueue(req.params.id, req.accountId!);
+      if (!queue || queue.active === false) return res.status(404).json({ error: "Fila não encontrada" });
+      const targetUser = await storage.getUser(String(req.body?.userId ?? ""));
+      if (!targetUser || targetUser.accountId !== req.accountId) return res.status(400).json({ error: "Atendente inválido para esta conta" });
+      if (targetUser.role !== "admin" && !(targetUser.permissions as any)?.attendanceReply) return res.status(400).json({ error: "O usuário não possui permissão para responder atendimentos" });
+      const existingMembers = await storage.getQueueMembers(queue.id, req.accountId!);
+      if (existingMembers.some(member => member.userId === targetUser.id)) return res.status(409).json({ error: "Atendente já pertence a esta fila" });
       const data = insertAttQueueMemberSchema.parse({ ...req.body, queueId: req.params.id });
       const member = await storage.createQueueMember({ ...data, accountId: req.accountId!, queueId: req.params.id });
       await recordAttendanceEvent(req, "queue.member.created", {
@@ -2558,6 +2915,14 @@ export function registerAttendanceRoutes(app: Express) {
 
   // ===================== REPORTS =====================
 
+  app.get("/api/attendance/supervision", authenticateToken, requirePermission("attendanceReports"), async (req: AuthRequest, res: Response) => {
+    try {
+      res.json(await storage.getAttendanceSupervision(req.accountId!));
+    } catch (e: any) {
+      res.status(500).json({ error: "Não foi possível carregar a supervisão de atendimentos" });
+    }
+  });
+
   app.get("/api/attendance/reports/summary", authenticateToken, requirePermission("attendanceReports"), async (req: AuthRequest, res: Response) => {
     try {
       const { channel, from, to } = req.query as Record<string, string>;
@@ -2597,9 +2962,7 @@ export function registerAttendanceRoutes(app: Express) {
 
       if (normalizedFormat === "json") return res.json(report);
       if (normalizedFormat === "xlsx" || normalizedFormat === "excel") {
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(rows), "Relatorio");
-        const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
+        const buffer = await rowsToXlsxBuffer(rows, "Relatorio");
         res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
         res.setHeader("Content-Disposition", "attachment; filename=relatorio-atendimentos.xlsx");
         return res.send(buffer);
@@ -2628,6 +2991,15 @@ export function registerAttendanceRoutes(app: Express) {
       const conn = await storage.getChannelConnection(connectionId, undefined);
       if (!conn) return res.status(404).json({ error: "Connection not found" });
       if (conn.channel !== channel) return res.status(400).json({ error: "Channel mismatch" });
+
+      if (attendancePayloadSize(req) > ATTENDANCE_WEBHOOK_MAX_BODY_BYTES) {
+        return res.status(413).json({ error: "Payload too large" });
+      }
+      const rateKey = connectionId + ":" + (requestIp(req as AuthRequest) ?? "unknown");
+      if (!consumeAttendanceWebhookRate(rateKey)) {
+        res.setHeader("Retry-After", "60");
+        return res.status(429).json({ error: "Too many webhook requests" });
+      }
 
       const secret = req.headers["x-attendance-secret"];
       if ((conn.metadata as any)?.webhookSecret && secret !== (conn.metadata as any).webhookSecret) {
@@ -2683,13 +3055,13 @@ export function registerAttendanceRoutes(app: Express) {
       const msg = await storage.createMessage({
         accountId: conn.accountId,
         conversationId: conv.id,
-        direction: "inbound",
+        direction: remotePayload?.isPrivate ? "internal" : remotePayload?.isSentByMe ? "outbound" : "inbound",
         channel,
         provider: conn.provider,
         externalMessageId: externalMessageId ?? null,
         body: body ?? null,
         messageType,
-        status: "received",
+        status: remotePayload?.isSentByMe ? remoteMessageStatus(remotePayload) : "received",
         mediaUrl: dataMedia.urlFile ?? req.body.mediaUrl ?? null,
         mimeType: dataMedia.mimetype ?? req.body.mimeType ?? null,
         metadata: { remote: req.body },
@@ -2714,6 +3086,8 @@ export function registerAttendanceRoutes(app: Express) {
           : conv.metadata,
         updatedAt: new Date(),
       });
+
+      conv = await autoRouteConversation(conn.accountId, conv);
 
       if (isManualTransfer && (previousConversation.mode !== conv.mode || previousConversation.status !== conv.status)) {
         await recordSystemAttendanceEvent(conn.accountId, "conversation.external_manual_transfer", {

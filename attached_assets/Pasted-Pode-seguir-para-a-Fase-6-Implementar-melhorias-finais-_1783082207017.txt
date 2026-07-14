@@ -1,0 +1,85 @@
+Pode seguir para a Fase 6.
+
+Implementar melhorias finais de UX/UI, refinamento visual, performance e experiência operacional da Central de Campanhas Multicanal, mantendo tudo incremental e sem quebrar as Fases 1 a 5.
+
+Escopo da Fase 6:
+
+1. Wizard completo de campanha:
+- transformar a criação de campanha em wizard por etapas;
+- etapas:
+  1. Dados da campanha
+  2. Canais
+  3. Público/lista/filtros
+  4. Mensagem/template
+  5. Agendamento e limites
+  6. Revisão final
+  7. Confirmação
+- mostrar progresso visual das etapas;
+- permitir voltar e avançar sem perder dados;
+- validar cada etapa antes de avançar;
+- mostrar resumo final antes de criar/enviar/agendar.
+
+2. UX de revisão:
+- preview da audiência selecionada;
+- preview da mensagem por canal;
+- preview personalizado com contato de exemplo;
+- resumo de custos estimados, principalmente SMS;
+- alerta para canais sem integração configurada;
+- alerta para templates inválidos ou rejeitados;
+- alerta para contatos inválidos.
+
+3. Performance:
+- paginação nas listas grandes;
+- loading skeletons;
+- evitar re-render pesado;
+- otimizar busca/filtros;
+- manter envio assíncrono sem travar a tela;
+- polling controlado para progresso;
+- evitar chamadas duplicadas à API.
+
+4. Interface:
+- manter identidade visual atual do Political;
+- melhorar layout da Central de Campanhas;
+- melhorar cards de métricas;
+- melhorar botões de ação;
+- melhorar estados vazios;
+- melhorar feedback de erros;
+- melhorar responsividade desktop/mobile;
+- melhorar acessibilidade básica;
+- padronizar badges/status/canais.
+
+5. Operação:
+- confirmar antes de disparar campanhas grandes;
+- confirmar antes de cancelar campanha;
+- impedir duplo clique em ações críticas;
+- mostrar mensagens claras de sucesso/erro;
+- mostrar detalhes técnicos apenas quando necessário;
+- adicionar botão “duplicar campanha” se for simples e seguro.
+
+6. Relatórios:
+- melhorar modal/tela de detalhes da campanha;
+- permitir abrir lista de destinatários por status;
+- melhorar exportações visíveis na UI;
+- manter auditoria de exportações.
+
+7. Testes:
+- manter todos os testes existentes;
+- adicionar testes para validações do wizard;
+- adicionar testes para revisão final;
+- adicionar testes para estados de erro/sucesso quando possível.
+
+Regras obrigatórias:
+- preservar banco atual;
+- evitar migração se não for necessária;
+- não executar drop/reset/truncate;
+- manter compatibilidade com campanhas existentes;
+- não quebrar relatórios da Fase 5;
+- não quebrar agendamento da Fase 4;
+- não quebrar templates da Fase 3;
+- não quebrar listas/importação da Fase 2;
+- não quebrar rastreio/auditoria da Fase 1.
+
+No final, rodar:
+npm run check
+npm run build
+npm run test

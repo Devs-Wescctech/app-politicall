@@ -1,0 +1,70 @@
+Pode seguir para a Fase 4.
+
+Implementar Agendamento e Controle de Envio das campanhas multicanal, mantendo tudo incremental e sem quebrar as Fases 1, 2 e 3.
+
+Escopo da Fase 4:
+
+1. Agendamento:
+- permitir enviar agora;
+- permitir agendar data e hora;
+- salvar campanha como agendada;
+- processar campanhas agendadas automaticamente;
+- impedir envio duplicado de campanha já processada.
+
+2. Controle operacional:
+- pausar campanha;
+- retomar campanha;
+- cancelar campanha;
+- registrar motivo de cancelamento, quando informado;
+- bloquear edição crítica de campanha em envio/finalizada/cancelada.
+
+3. Limites de envio:
+- limite por minuto;
+- limite por hora;
+- intervalo configurável entre mensagens;
+- envio em lotes;
+- não travar a interface durante o envio;
+- persistir progresso por destinatário.
+
+4. Janela de horário:
+- permitir configurar horário permitido de envio;
+- impedir envio fora da janela configurada;
+- opção de respeitar horário comercial;
+- se estiver fora do horário, manter campanha pendente/agendada para próxima janela.
+
+5. Retry:
+- retry automático para falha temporária;
+- limite máximo de tentativas por destinatário;
+- registrar tentativas no histórico/auditoria;
+- não repetir envio para destinatário já entregue/enviado com sucesso.
+
+6. Interface:
+- adicionar campos de agendamento e limites no wizard da campanha;
+- mostrar status operacional:
+  Rascunho, Agendada, Em envio, Pausada, Enviada, Parcialmente enviada, Falhou, Cancelada;
+- mostrar progresso de envio em tempo quase real;
+- botões Pausar, Retomar e Cancelar quando aplicável.
+
+7. Auditoria:
+- registrar agendamento;
+- registrar início do envio;
+- registrar pausa;
+- registrar retomada;
+- registrar cancelamento;
+- registrar retry;
+- registrar finalização.
+
+Regras obrigatórias:
+- preservar banco atual;
+- somente migrações incrementais;
+- não executar drop/reset/truncate;
+- manter compatibilidade com campanhas já criadas;
+- não quebrar SMS via proxy n8n;
+- não quebrar WhatsApp normal/oficial;
+- não quebrar templates e previews da Fase 3;
+- manter testes existentes passando.
+
+No final, rodar:
+npm run check
+npm run build
+npm run test

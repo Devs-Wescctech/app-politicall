@@ -44,51 +44,75 @@ const upload = multer({
   }
 });
 import { db } from "./db";
-import { accounts, politicalParties, politicalAlliances, surveyTemplates, surveyCampaigns, surveyLandingPages, surveyResponses, users, events, demands, demandComments, contacts, aiConfigurations, systemSettings, type SurveyTemplate, type SurveyCampaign, type InsertSurveyCampaign, type SurveyLandingPage, type InsertSurveyLandingPage, type SurveyResponse, type InsertSurveyResponse } from "@shared/schema";
+import { accounts, politicalParties, politicalAlliances, surveyTemplates, surveyCampaigns, surveyLandingPages, surveyResponses, users, events, demands, demandComments, contacts, aiConfigurations, systemSettings, type SurveyTemplate, type SurveyCampaign, type InsertSurveyCampaign, type SurveyLandingPage, type InsertSurveyLandingPage, type SurveyResponse, type InsertSurveyResponse, type AudienceFilters, insertContactListSchema, CONTACT_LIST_KINDS, insertMessageTemplateSchema, MESSAGE_TEMPLATE_CHANNELS, type CampaignTemplateConfig } from "@shared/schema";
+import { normalizeActionCardTemplate, wescctech } from "./services/wescctech";
+import { isDirectMetaConnection } from "@shared/attendance-meta-window";
+import { buildWhatsappConnectionConfig } from "./services/whatsapp-connection-config";
+import { renderTemplate, extractVariables, unknownVariables, isBlankMessage, smsSegments, isWaTemplateUsable, waTemplateBlockReason, waTemplateBodyVariables, contactTemplateContext, type TemplateContext } from "@shared/templates";
+import { extractWhatsAppTemplateVariables } from "@shared/whatsapp-template-variables";
+import { prepareCampaignTemplateComponents, selectCampaignOfficialConnection, validateCampaignTemplateConfiguration } from "./services/campaign-template-variables";
+import { listCampaignWhatsappConnectionOptions, requireCampaignWhatsappConnection } from "./services/campaign-whatsapp-connections";
+import { toRecipientRecords, toRecipientStrings } from "@shared/recipients";
+import { parsePaginationParams, makePaginatedResult, paginateInMemory } from "@shared/pagination";
+import { workbookSheetsToXlsxBuffer, xlsxBufferToObjectRows } from "./services/excel";
+import {
+  buildAudiencePreview,
+  resolveRecipients as resolveAudienceRecipients,
+  applyAudienceFilters,
+  normalizePhone as audienceNormalizePhone,
+  type AudienceContact,
+  type AudienceContext,
+  type AttendanceSummary,
+} from "./services/audience";
+import {
+  detectDelimiter,
+  parseDelimited,
+  suggestMapping,
+  processImport,
+  type ImportRow,
+  type ImportField,
+} from "./services/import";
 import { sql, eq, desc, and } from "drizzle-orm";
 import { generateAiResponse, testOpenAiApiKey } from "./openai";
 import { requireRole } from "./authorization";
 import { authenticateToken, requirePermission, requireAnyPermission, type AuthRequest } from "./auth";
 import { authenticateApiKey, apiRateLimit, type AuthenticatedApiRequest } from "./auth-api";
 import { encryptApiKey, decryptApiKey } from "./crypto";
+import { sanitizeAiConfiguration } from "./services/ai-config-security";
+import { decryptAiConfigProviderSecrets } from "./services/ai-config-secrets";
+import {
+  extractMetaWebhookTargetIds,
+  redactWebhookHeaders,
+  summarizeWebhookPayload,
+  verifyMetaWebhookSignature,
+  verifyTwitterWebhookSignature,
+} from "./services/webhook-security";
 import { z } from "zod";
 import { groupTextResponses } from "@shared/text-normalization";
 import { calculateGenderDistribution } from "./utils/gender-detector";
 import { sendOktorSms, queryOktorSms } from "./services/oktor-sms";
 import { locawebEmail } from "./services/locaweb-email-marketing";
+import { resolveChannels, channelToService, channelLabel, computeFinalStatus, canCancel, canSend, normalizeCampaignStatus, canPause, canResume, canEditCritical, normalizeSendConfig, isWithinSendWindow, classifyFailure, canRetry, shouldRetryDispatch, retryBackoffMs, computeRateBudget, buildRecipientCounts, computeRecipientMetrics, estimateSmsCost, friendlyErrorMessage, groupErrorsByReason, summarizeChannels, computeSendTiming, parseWhatsAppStatusEvents, type RecipientLite } from "./services/campaigns";
+import {
+  allowFixedWindowAttempt,
+  filterPublishedPetitions,
+  type FixedWindowEntry,
+  isPublicPetitionOpenForSignature,
+  isPublicPetitionVisible,
+  normalizePetitionCampaignLogStatus,
+  normalizePetitionCollectionConfig,
+  sanitizePetitionCampaign,
+  sanitizePublicPetition,
+  validatePublicSignatureRequirements,
+} from "./services/petitions";
+import { isSystemSyncEnabled } from "./services/system-sync-security";
+import { IMAGE_MIME_TYPES, hasPdfMagic, validateImageBuffer } from "./services/upload-security";
+import { CAMPAIGN_EXPORT_FORMATS } from "@shared/schema";
 import fs from "fs";
 import path from "path";
 import { createRequire } from "module";
+import { getAdminPasswordHash, updateAdminPasswordHash } from "./admin-credentials";
 const require = createRequire(import.meta.url);
-
-// Admin master password management
-const ADMIN_CONFIG_FILE = path.join(process.cwd(), '.admin-config.json');
-const DEFAULT_ADMIN_PASSWORD = "politicall123";
-
-// Get admin password hash (creates default if not exists)
-async function getAdminPasswordHash(): Promise<string> {
-  try {
-    if (fs.existsSync(ADMIN_CONFIG_FILE)) {
-      const config = JSON.parse(fs.readFileSync(ADMIN_CONFIG_FILE, 'utf-8'));
-      if (config.passwordHash) {
-        return config.passwordHash;
-      }
-    }
-    // Create default config with hashed password
-    const hash = await bcrypt.hash(DEFAULT_ADMIN_PASSWORD, 10);
-    fs.writeFileSync(ADMIN_CONFIG_FILE, JSON.stringify({ passwordHash: hash }));
-    return hash;
-  } catch {
-    // Fallback to hashing default password on each request
-    return bcrypt.hash(DEFAULT_ADMIN_PASSWORD, 10);
-  }
-}
-
-// Update admin password hash
-async function updateAdminPasswordHash(newPassword: string): Promise<void> {
-  const hash = await bcrypt.hash(newPassword, 10);
-  fs.writeFileSync(ADMIN_CONFIG_FILE, JSON.stringify({ passwordHash: hash }));
-}
 
 // Sensitive integration fields that must never be returned in plaintext.
 const INTEGRATION_SENSITIVE_FIELDS = [
@@ -100,6 +124,12 @@ const INTEGRATION_SENSITIVE_FIELDS = [
   "imapPassword",
   "locawebApiKey",
 ] as const;
+
+const MASKED_SECRET_VALUES = new Set(["***", "configurado. deixe em branco para manter."]);
+function isMaskedOrEmptySecret(value: unknown) {
+  if (value == null) return true;
+  return typeof value === "string" && (!value.trim() || MASKED_SECRET_VALUES.has(value.trim().toLowerCase()));
+}
 
 // Mask sensitive integration fields ("***" when set, null when empty) before sending to client.
 function maskIntegration<T extends Record<string, any>>(integration: T): T {
@@ -138,10 +168,10 @@ function decryptIntegrationForUse<T extends Record<string, any> | null | undefin
 
 function oktorConfigFromIntegration(integration: Record<string, any>) {
   return {
-    endpoint: integration.smsEndpoint || process.env.OKTOR_SMS_ENDPOINT,
+    endpoint: process.env.OKTOR_SMS_ENDPOINT || integration.smsEndpoint,
     account: integration.smsAccount || process.env.OKTOR_SMS_ACCOUNT,
     code: integration.smsCode || process.env.OKTOR_SMS_CODE,
-    client: integration.smsClient,
+    client: integration.smsClient || process.env.OKTOR_SMS_CLIENT || "",
     tipoEnvio: integration.smsTipoEnvio || process.env.OKTOR_SMS_TIPO_ENVIO || "7",
   };
 }
@@ -150,6 +180,112 @@ function hasOktorSmsCredentials(integration: Record<string, any> | null | undefi
   if (!integration?.enabled) return false;
   const config = oktorConfigFromIntegration(integration);
   return Boolean(config.account && config.code && config.client);
+}
+
+type AiConfigurationRecord = typeof aiConfigurations.$inferSelect;
+type MetaWebhookPlatform = "facebook" | "instagram" | "whatsapp";
+
+function normalizeStoredSecret(value: unknown): string | null {
+  const decrypted = decryptSecretIfNeeded(value);
+  if (typeof decrypted !== "string") return null;
+  const trimmed = decrypted.trim();
+  return trimmed ? trimmed : null;
+}
+
+function aiConfigMatchesMetaWebhookTarget(
+  config: AiConfigurationRecord,
+  platform: MetaWebhookPlatform,
+  targetIds: Set<string>,
+): boolean {
+  if (platform === "facebook") {
+    return Boolean(config.facebookPageId && targetIds.has(config.facebookPageId));
+  }
+
+  if (platform === "instagram") {
+    return Boolean(
+      (config.instagramBusinessAccountId && targetIds.has(config.instagramBusinessAccountId)) ||
+      (config.instagramFacebookPageId && targetIds.has(config.instagramFacebookPageId)),
+    );
+  }
+
+  return Boolean(
+    (config.whatsappBusinessAccountId && targetIds.has(config.whatsappBusinessAccountId)) ||
+    (config.whatsappPhoneNumberId && targetIds.has(config.whatsappPhoneNumberId)),
+  );
+}
+
+function metaWebhookAppSecret(config: AiConfigurationRecord, platform: MetaWebhookPlatform): string | null {
+  if (platform === "facebook") return normalizeStoredSecret(config.facebookAppSecret);
+  if (platform === "instagram") return normalizeStoredSecret(config.instagramAppSecret);
+  return normalizeStoredSecret(config.whatsappAppSecret);
+}
+
+function decryptAiConfigurationRecord(config: AiConfigurationRecord): AiConfigurationRecord {
+  return decryptAiConfigProviderSecrets(config);
+}
+
+async function validateSignedMetaWebhook(
+  req: Request,
+  platform: MetaWebhookPlatform,
+  body: any,
+): Promise<{
+  ok: boolean;
+  reason?: string;
+  targetIds: Set<string>;
+  matchingConfigCount: number;
+}> {
+  const targetIds = extractMetaWebhookTargetIds(body);
+  if (targetIds.size === 0) {
+    return { ok: false, reason: "missing_target_ids", targetIds, matchingConfigCount: 0 };
+  }
+
+  const configs: AiConfigurationRecord[] = (await db.select().from(aiConfigurations)).map(decryptAiConfigurationRecord);
+  const matchingConfigs = configs.filter((config: AiConfigurationRecord) =>
+    aiConfigMatchesMetaWebhookTarget(config, platform, targetIds),
+  );
+
+  if (matchingConfigs.length === 0) {
+    return { ok: false, reason: "unknown_target", targetIds, matchingConfigCount: 0 };
+  }
+
+  const rawBody = (req as Request & { rawBody?: unknown }).rawBody;
+  const signatureHeader = req.headers["x-hub-signature-256"];
+  const hasValidSignature = matchingConfigs.some((config: AiConfigurationRecord) => {
+    const appSecret = metaWebhookAppSecret(config, platform);
+    if (!appSecret) return false;
+    return verifyMetaWebhookSignature({ rawBody, signatureHeader, appSecret });
+  });
+
+  return {
+    ok: hasValidSignature,
+    reason: hasValidSignature ? undefined : "invalid_signature",
+    targetIds,
+    matchingConfigCount: matchingConfigs.length,
+  };
+}
+
+async function requireValidMetaWebhookSignature(
+  req: Request,
+  res: Response,
+  platform: MetaWebhookPlatform,
+  body: any,
+): Promise<boolean> {
+  try {
+    const validation = await validateSignedMetaWebhook(req, platform, body);
+    if (validation.ok) return true;
+
+    console.warn(`✗ ${platform} webhook rejected`, {
+      reason: validation.reason,
+      targetIds: Array.from(validation.targetIds),
+      matchingConfigCount: validation.matchingConfigCount,
+    });
+    res.sendStatus(403);
+    return false;
+  } catch (error) {
+    console.error(`Error validating ${platform} webhook signature:`, error);
+    res.sendStatus(500);
+    return false;
+  }
 }
 
 function locawebConfigFromIntegration(integration: Record<string, any>) {
@@ -167,40 +303,20 @@ async function syncWhatsappIntegrationConnection(accountId: string, integration:
 
   const connections = await storage.getChannelConnections(accountId).catch(() => []);
   const existing = connections.find(
-    c => c.channel === "whatsapp" && c.provider === "wescctech" && (c.metadata as any)?.source === "settings-omni"
+    c => c.channel === "whatsapp" && (c.metadata as any)?.source === "settings-omni"
   );
-  const token = integration.whatsappToken ?? null;
-  const status = integration.enabled && token ? "pending" : "disabled";
-  const metadata = {
-    source: "settings-omni",
-    phoneNumber: integration.whatsappPhoneNumber ?? null,
-    phoneNumberId: integration.whatsappPhoneNumberId ?? null,
-    businessAccountId: integration.whatsappBusinessAccountId ?? null,
-    webhookUrl: integration.whatsappWebhookUrl ?? null,
-  };
+  const config = buildWhatsappConnectionConfig(integration);
 
   if (existing) {
     await storage.updateChannelConnection(existing.id, accountId, {
-      name: "WhatsApp / WHU",
-      channel: "whatsapp",
-      provider: "wescctech",
-      baseUrl: "https://api.wescctech.com.br",
-      token,
-      status,
-      metadata,
+      ...config,
     } as any);
     return;
   }
 
   await storage.createChannelConnection({
     accountId,
-    name: "WhatsApp / WHU",
-    channel: "whatsapp",
-    provider: "wescctech",
-    baseUrl: "https://api.wescctech.com.br",
-    token,
-    status,
-    metadata,
+    ...config,
   } as any);
 }
 
@@ -263,6 +379,42 @@ function authenticateAdminToken(req: AuthRequest, res: Response, next: NextFunct
   } catch (error) {
     return res.status(401).json({ error: "Token inválido" });
   }
+}
+
+const authAttemptRateLimitStore = new Map<string, FixedWindowEntry>();
+const AUTH_ATTEMPT_WINDOW_MS = 15 * 60 * 1000;
+const USER_LOGIN_ATTEMPT_LIMIT = 10;
+const ADMIN_LOGIN_ATTEMPT_LIMIT = 5;
+const ADMIN_PASSWORD_ATTEMPT_LIMIT = 5;
+
+function authAttemptIp(req: Request): string {
+  return req.ip || req.socket.remoteAddress || "unknown";
+}
+
+function authAttemptKey(req: Request, scope: string, identifier?: string | null): string {
+  const normalizedIdentifier = identifier?.trim().toLowerCase() || "anonymous";
+  return `${scope}:${authAttemptIp(req)}:${normalizedIdentifier}`;
+}
+
+function enforceAuthAttemptLimit(
+  req: Request,
+  res: Response,
+  key: string,
+  limit: number,
+  windowMs = AUTH_ATTEMPT_WINDOW_MS,
+): boolean {
+  const result = allowFixedWindowAttempt(authAttemptRateLimitStore, key, limit, windowMs);
+
+  res.setHeader("X-RateLimit-Limit", String(limit));
+  res.setHeader("X-RateLimit-Remaining", String(result.remaining));
+  res.setHeader("X-RateLimit-Reset", String(Math.ceil(result.resetAt / 1000)));
+
+  if (result.allowed) return true;
+
+  res.status(429).json({
+    error: "Muitas tentativas. Aguarde alguns minutos antes de tentar novamente.",
+  });
+  return false;
 }
 
 // Seed political parties data - All 29 Brazilian political parties from 2025
@@ -530,24 +682,25 @@ async function seedSurveyTemplates() {
   }
 }
 
-// Seed default admin user - ALWAYS updates password on every startup
+// Seed the default admin only when it does not exist. Never reset existing credentials.
 async function seedAdminUser() {
   try {
     const adminEmail = 'adm@politicall.com.br';
-    const adminPassword = 'admin123';
-    const hashedPassword = await bcrypt.hash(adminPassword, 10);
     const adminAccountId = 'a1111111-1111-1111-1111-111111111111'; // Fixed account ID for demo admin
     
     const existingAdmin = await storage.getUserByEmail(adminEmail);
     if (existingAdmin) {
-      // ONLY update password - PRESERVE existing permissions set by Admin Master
-      await db.update(users).set({ 
-        password: hashedPassword
-        // DO NOT reset role or permissions - they are managed by Admin Master
-      }).where(eq(users.email, adminEmail));
-      console.log("✓ Admin user password ALWAYS updated to: admin123 (permissions preserved)");
+      console.log("✓ Admin user already exists; password preserved");
       return;
     }
+
+    const configuredPassword = process.env.ADMIN_SEED_PASSWORD;
+    if (process.env.NODE_ENV === "production" && !configuredPassword) {
+      console.warn("Admin seed skipped: configure ADMIN_SEED_PASSWORD for first-time production setup");
+      return;
+    }
+    const adminPassword = configuredPassword ?? "admin123";
+    const hashedPassword = await bcrypt.hash(adminPassword, 10);
     
     // First, create or get the account for this admin
     await db.execute(sql`
@@ -575,13 +728,10 @@ async function seedAdminUser() {
         'carlosnedel',
         NOW()
       )
-      ON CONFLICT (email) DO UPDATE SET
-        password = EXCLUDED.password,
-        role = EXCLUDED.role,
-        permissions = EXCLUDED.permissions
+      ON CONFLICT (email) DO NOTHING
     `);
     
-    console.log("✓ Admin user created with email: adm@politicall.com.br and password: admin123");
+    console.log("Default admin user created; initial password came from the configured environment");
   } catch (error) {
     console.error("❌ ERROR seeding admin user:", error);
   }
@@ -730,6 +880,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/auth/login", async (req, res) => {
     try {
       const validatedData = loginSchema.parse(req.body);
+      const rateLimitKey = authAttemptKey(req, "user-login", validatedData.email);
+      if (!enforceAuthAttemptLimit(req, res, rateLimitKey, USER_LOGIN_ATTEMPT_LIMIT)) {
+        return;
+      }
       
       const user = await storage.getUserByEmail(validatedData.email);
       if (!user) {
@@ -740,6 +894,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!validPassword) {
         return res.status(401).json({ error: "Email ou senha incorretos" });
       }
+
+      authAttemptRateLimitStore.delete(rateLimitKey);
 
       const token = jwt.sign({ 
         userId: user.id, 
@@ -929,18 +1085,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Allowed image MIME types
-  const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-  
-  // Get safe file extension from validated mimetype
-  function getSafeExtension(mimetype: string): string | null {
-    const mimeToExt: Record<string, string> = {
-      'image/jpeg': 'jpg',
-      'image/png': 'png', 
-      'image/webp': 'webp',
-      'image/gif': 'gif'
-    };
-    return mimeToExt[mimetype] || null;
-  }
+  const ALLOWED_IMAGE_TYPES: string[] = [...IMAGE_MIME_TYPES];
   
   // Safely delete old user files from a directory
   function deleteOldUserFiles(directory: string, userId: string): void {
@@ -981,19 +1126,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Nenhuma imagem enviada" });
       }
 
-      // Validate MIME type
-      if (!ALLOWED_IMAGE_TYPES.includes(req.file.mimetype)) {
+      // userId comes from authenticated JWT token - safe UUID
+      const userId = req.userId!;
+      const image = validateImageBuffer(fs.readFileSync(tempFilePath));
+      if (!image) {
         cleanupTempFile(tempFilePath);
         return res.status(400).json({ error: "Tipo de arquivo não permitido. Use JPG, PNG, WebP ou GIF." });
       }
-
-      // userId comes from authenticated JWT token - safe UUID
-      const userId = req.userId!;
-      const ext = getSafeExtension(req.file.mimetype);
-      if (!ext) {
-        cleanupTempFile(tempFilePath);
-        return res.status(400).json({ error: "Tipo de imagem inválido" });
-      }
+      const ext = image.extension;
       
       // Add timestamp to filename for cache-busting (browser won't use cached old image)
       const timestamp = Date.now();
@@ -1036,19 +1176,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Nenhuma imagem enviada" });
       }
 
-      // Validate MIME type
-      if (!ALLOWED_IMAGE_TYPES.includes(req.file.mimetype)) {
+      // userId comes from authenticated JWT token - safe UUID
+      const userId = req.userId!;
+      const image = validateImageBuffer(fs.readFileSync(tempFilePath));
+      if (!image) {
         cleanupTempFile(tempFilePath);
         return res.status(400).json({ error: "Tipo de arquivo não permitido. Use JPG, PNG, WebP ou GIF." });
       }
-
-      // userId comes from authenticated JWT token - safe UUID
-      const userId = req.userId!;
-      const ext = getSafeExtension(req.file.mimetype);
-      if (!ext) {
-        cleanupTempFile(tempFilePath);
-        return res.status(400).json({ error: "Tipo de imagem inválido" });
-      }
+      const ext = image.extension;
       
       // Add timestamp to filename for cache-busting
       const timestamp = Date.now();
@@ -1231,11 +1366,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Combine all chunks
       const completeBuffer = Buffer.concat(upload.chunks);
       
-      const ext = getSafeExtension(upload.mimetype);
-      if (!ext) {
+      const image = validateImageBuffer(completeBuffer);
+      if (!image) {
         chunkedUploads.delete(uploadId);
-        return res.status(400).json({ error: "Tipo de imagem inválido" });
+        return res.status(400).json({ error: "Tipo de arquivo não permitido. Use JPG, PNG, WebP ou GIF." });
       }
+      const ext = image.extension;
       
       // Add timestamp to filename for cache-busting
       const timestamp = Date.now();
@@ -1282,6 +1418,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       const validatedData = validateSchema.parse(req.body);
+      const rateLimitKey = authAttemptKey(req, "account-admin-password", `${req.accountId}:${req.userId}`);
+      if (!enforceAuthAttemptLimit(req, res, rateLimitKey, ADMIN_PASSWORD_ATTEMPT_LIMIT)) {
+        return;
+      }
       
       // Find the admin of this account
       const adminUser = await storage.getAccountAdmin(req.accountId!);
@@ -1296,6 +1436,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!isValid) {
         return res.status(401).json({ error: "Senha incorreta" });
       }
+
+      authAttemptRateLimitStore.delete(rateLimitKey);
       
       res.json({ valid: true });
     } catch (error: any) {
@@ -1309,10 +1451,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/admin/login", async (req, res) => {
     try {
       const adminLoginSchema = z.object({
-        password: z.string(),
+        password: z.string().min(1, "Senha é obrigatória"),
       });
       
       const validatedData = adminLoginSchema.parse(req.body);
+      const rateLimitKey = authAttemptKey(req, "admin-login");
+      if (!enforceAuthAttemptLimit(req, res, rateLimitKey, ADMIN_LOGIN_ATTEMPT_LIMIT)) {
+        return;
+      }
       
       // Get stored password hash and verify
       const passwordHash = await getAdminPasswordHash();
@@ -1322,8 +1468,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Senha incorreta" });
       }
 
+      authAttemptRateLimitStore.delete(rateLimitKey);
+
       // Generate JWT token with isAdmin flag
-      const token = jwt.sign({ isAdmin: true }, JWT_SECRET, { expiresIn: '24h' });
+      const token = jwt.sign({ isAdmin: true }, JWT_SECRET, { expiresIn: '30d' });
 
       res.json({ token });
     } catch (error: any) {
@@ -1921,10 +2069,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Import system sync service dynamically to avoid circular dependencies
   const { executeSystemSync, validateSyncConfig, getSyncConfig, generateExportPackage, importFromSource } = await import("./services/systemSync");
+
+  const requireSystemSyncEnabled = (_req: Request, res: Response, next: NextFunction) => {
+    if (!isSystemSyncEnabled(process.env)) {
+      return res.status(404).json({ error: "Sincronização do sistema não habilitada" });
+    }
+    next();
+  };
   
   // Export endpoint for pull-based sync (external servers call this to get data)
   // Authenticated with Bearer token (apiKey)
-  app.get("/api/admin/system-sync/export", async (req: Request, res: Response) => {
+  app.get("/api/admin/system-sync/export", requireSystemSyncEnabled, async (req: Request, res: Response) => {
     try {
       const authHeader = req.headers.authorization;
       if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -1959,7 +2114,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Pull endpoint - pulls data from a source server
   // Authenticated with admin token
-  app.post("/api/admin/system-sync/pull", authenticateAdminToken, async (req: AuthRequest, res) => {
+  app.post("/api/admin/system-sync/pull", requireSystemSyncEnabled, authenticateAdminToken, async (req: AuthRequest, res) => {
     try {
       const { sourceUrl, apiKey } = req.body;
       
@@ -1997,7 +2152,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Validate sync configuration
-  app.get("/api/admin/system-sync/validate", authenticateAdminToken, async (req: AuthRequest, res) => {
+  app.get("/api/admin/system-sync/validate", requireSystemSyncEnabled, authenticateAdminToken, async (req: AuthRequest, res) => {
     try {
       const validation = validateSyncConfig();
       res.json(validation);
@@ -2007,7 +2162,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Execute system sync
-  app.post("/api/admin/system-sync", authenticateAdminToken, async (req: AuthRequest, res) => {
+  app.post("/api/admin/system-sync", requireSystemSyncEnabled, authenticateAdminToken, async (req: AuthRequest, res) => {
     try {
       const { targetUrl, apiKey } = req.body;
       
@@ -2346,18 +2501,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.get("/api/contacts", authenticateToken, requirePermission("contacts"), async (req: AuthRequest, res) => {
     try {
-      // Get current user to check role
       const currentUser = await storage.getUser(req.userId!);
-      
-      // Volunteers only see contacts they registered themselves
-      if (currentUser?.role === "voluntario") {
-        const contacts = await storage.getContactsByUser(req.accountId!, req.userId!);
-        return res.json(contacts);
+      const isVolunteer = currentUser?.role === "voluntario";
+
+      // When pagination params are present → return paginated response
+      if (req.query.page !== undefined) {
+        const { page, pageSize } = parsePaginationParams(req.query as any);
+        const search = req.query.search ? String(req.query.search) : undefined;
+        const { data, total } = await storage.getContactsPaginated(req.accountId!, {
+          page, pageSize, search,
+          userId: isVolunteer ? req.userId! : undefined,
+        });
+        return res.json(makePaginatedResult(data, total, page, pageSize));
       }
-      
-      // All other roles see all contacts
-      const contacts = await storage.getContacts(req.accountId!);
-      res.json(contacts);
+
+      // Backward-compat flat array (used by alliances picker and other internal callers)
+      if (isVolunteer) {
+        return res.json(await storage.getContactsByUser(req.accountId!, req.userId!));
+      }
+      res.json(await storage.getContacts(req.accountId!));
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -2398,17 +2560,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Parse PDF file and extract contact data
   app.post("/api/contacts/parse-pdf", authenticateToken, requirePermission("contacts"), upload.single('file'), async (req: AuthRequest, res) => {
+    const tempFilePath = req.file?.path;
     try {
       if (!req.file) {
         return res.status(400).json({ error: "Nenhum arquivo enviado" });
       }
 
-      if (req.file.mimetype !== 'application/pdf') {
+      const fileBuffer = tempFilePath ? fs.readFileSync(tempFilePath) : req.file.buffer;
+      if (!fileBuffer || !hasPdfMagic(fileBuffer)) {
         return res.status(400).json({ error: "O arquivo deve ser um PDF" });
       }
 
       // Parse PDF using pdfjs-dist
-      const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(req.file.buffer) });
+      const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(fileBuffer) });
       const pdf = await loadingTask.promise;
       
       const allLines: string[] = [];
@@ -2460,6 +2624,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error('Erro ao processar PDF:', error);
       res.status(500).json({ error: "Erro ao processar o PDF. Verifique se o arquivo não está corrompido." });
+    } finally {
+      if (tempFilePath) cleanupTempFile(tempFilePath);
     }
   });
 
@@ -3007,19 +3173,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const config = await storage.getAiConfig(req.userId!, req.accountId!);
       
-      // Include API key status but never the actual key
-      const response = config ? {
-        ...config,
-        openaiApiKey: undefined, // Never send the actual key
-        hasCustomKey: !!config.openaiApiKey,
-        openaiApiKeyLast4: config.openaiApiKeyLast4 || null
-      } : { 
-        mode: "compliance",
-        hasCustomKey: false,
-        openaiApiKeyLast4: null
-      };
-      
-      res.json(response);
+      res.json(sanitizeAiConfiguration(config));
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -3033,7 +3187,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userId: req.userId!,
         accountId: req.accountId!,
       });
-      res.json(config);
+      res.json(sanitizeAiConfiguration(config));
     } catch (error: any) {
       res.status(400).json({ error: error.message });
     }
@@ -3047,7 +3201,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userId: req.userId!,
         accountId: req.accountId!,
       });
-      res.json(config);
+      res.json(sanitizeAiConfiguration(config));
     } catch (error: any) {
       res.status(400).json({ error: error.message });
     }
@@ -3074,7 +3228,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const config = await storage.upsertAiConfig(updateData);
-      res.json(config);
+      res.json(sanitizeAiConfiguration(config));
     } catch (error: any) {
       res.status(400).json({ error: error.message });
     }
@@ -3477,9 +3631,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ==================== MARKETING CAMPAIGNS ====================
 
+  function campaignTemplateErrorBody(error: any) {
+    return {
+      error: error?.message ?? "Erro ao validar template da campanha",
+      ...(error?.code ? { code: error.code } : {}),
+      ...(Array.isArray(error?.missingVariables) ? { missingVariables: error.missingVariables } : {}),
+    };
+  }
+
   // Per-channel permission helper: maps campaign type → required permission key
   function getCampaignTypePermission(type: string): string {
-    if (type === "whatsapp") return "whatsappBroadcast";
+    if (type === "whatsapp" || type === "whatsapp_oficial") return "whatsappBroadcast";
     if (type === "email") return "emailBroadcast";
     if (type === "sms") return "smsBroadcast";
     return "marketing";
@@ -3492,20 +3654,539 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return !!(req.user?.permissions as Record<string, boolean> | undefined)?.[perm];
   }
 
+  function getAllowedCampaignTypes(req: AuthRequest): string[] {
+    if (req.user?.role === "admin" || req.user?.permissions?.marketing) return [];
+    const types: string[] = [];
+    if (req.user?.permissions?.whatsappBroadcast) types.push("whatsapp", "whatsapp_oficial");
+    if (req.user?.permissions?.emailBroadcast) types.push("email");
+    if (req.user?.permissions?.smsBroadcast) types.push("sms");
+    return types;
+  }
+
+  // Dispatch a single message on one channel to one recipient.
+  // Returns a per-recipient outcome for tracking; never throws.
+  async function dispatchCampaignMessage(
+    channel: string,
+    recipient: string,
+    campaign: { message: string; subject?: string | null; name?: string | null },
+    integration: any,
+    templateConfig?: CampaignTemplateConfig | null,
+    contactContext: TemplateContext = {},
+    accountId?: string,
+    whatsappConnectionId?: string,
+  ): Promise<{ ok: boolean; providerMessageId?: string; response?: string; error?: string }> {
+    try {
+      if (channel === "sms") {
+        if (!hasOktorSmsCredentials(integration)) {
+          return { ok: false, error: "Credenciais SMS (account/code/client) incompletas" };
+        }
+        const smsConfig = oktorConfigFromIntegration(integration);
+        const result: any = await sendOktorSms(smsConfig, { to: recipient, msg: campaign.message });
+        return { ok: true, response: safeStringify(result), providerMessageId: result?.id ? String(result.id) : undefined };
+      }
+
+      if (channel === "whatsapp" || channel === "whatsapp_oficial") {
+        const connections = accountId ? await storage.getChannelConnections(accountId).catch(() => []) : [];
+        const selectedConnection = requireCampaignWhatsappConnection(
+          connections,
+          whatsappConnectionId ?? templateConfig?.waConnectionId,
+          channel,
+        );
+        const selectedToken = decryptSecretIfNeeded((selectedConnection as any).token) as string | undefined;
+        if (!selectedToken) return { ok: false, error: "A conexão WhatsApp selecionada não possui token configurado" };
+
+        // WhatsApp API Oficial template send (via Meta Graph) when a template is selected.
+        if (channel === "whatsapp_oficial" && templateConfig?.waTemplateName) {
+          if (!isWaTemplateUsable(templateConfig.waTemplateStatus)) {
+            return { ok: false, error: waTemplateBlockReason(templateConfig.waTemplateStatus) ?? "Template não utilizável" };
+          }
+          validateCampaignTemplateConfiguration(templateConfig);
+          const preparedTemplate = prepareCampaignTemplateComponents({
+            preview: templateConfig.waTemplatePreview ?? campaign.message,
+            components: templateConfig.waTemplateComponents as any[],
+          }, templateConfig.variables ?? {}, contactContext);
+
+          const officialConnection = selectCampaignOfficialConnection(connections, selectedConnection.id);
+          const connectionToken = selectedToken;
+
+          if (officialConnection && connectionToken && !isDirectMetaConnection(officialConnection)) {
+            const result: any = await wescctech.sendCloudTemplate(connectionToken, {
+              number: recipient,
+              templateId: templateConfig.waTemplateId ?? templateConfig.waTemplateName,
+              templateComponents: preparedTemplate.components,
+            });
+            const providerMessageId = String(result?.messageId ?? result?.id ?? result?.data?.id ?? "").trim() || undefined;
+            return { ok: true, response: safeStringify(result), providerMessageId };
+          }
+
+          const metadata = ((officialConnection as any)?.metadata ?? {}) as Record<string, any>;
+          const officialToken = connectionToken;
+          const phoneNumberId = metadata.phoneNumberId ?? metadata.whatsappPhoneNumberId;
+          if (!officialToken || !phoneNumberId) {
+            return { ok: false, error: "WhatsApp API Oficial não configurado (canal/token/Phone Number ID ausente)" };
+          }
+          const result: any = await wescctech.sendOfficialTemplate(officialToken, {
+            phoneNumberId,
+            to: recipient,
+            name: templateConfig.waTemplateName,
+            language: templateConfig.waTemplateLanguage ?? "pt_BR",
+            components: preparedTemplate.components,
+            graphBaseUrl: metadata.graphBaseUrl ?? metadata.baseUrl,
+          });
+          const providerMessageId = result?.messages?.[0]?.id ? String(result.messages[0].id) : undefined;
+          return { ok: true, response: safeStringify(result), providerMessageId };
+        }
+        const resp = await fetch("https://api.wescctech.com.br/core/v2/api/chats/send-text", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            "access-token": selectedToken,
+          },
+          body: JSON.stringify({
+            forceSend: true,
+            verifyContact: false,
+            linkPreview: true,
+            isWhisper: false,
+            number: recipient.replace(/\D/g, ""),
+            message: campaign.message,
+          }),
+        });
+        const text = await resp.text();
+        if (!resp.ok) {
+          return { ok: false, error: `WHU HTTP ${resp.status}`, response: text?.slice(0, 1000) };
+        }
+        return { ok: true, response: text?.slice(0, 1000) };
+      }
+
+      if (channel === "email") {
+        const html = campaign.message.replace(/\n/g, "<br>");
+        const subject = campaign.subject || "Mensagem do Politicall";
+        if (integration?.locawebApiKey) {
+          await locawebEmail.createMessage(locawebConfigFromIntegration(integration), {
+            name: campaign.name ?? subject ?? "Campanha Politicall",
+            subject,
+            html,
+            recipients: [recipient],
+          });
+          return { ok: true };
+        }
+        if (integration?.smtpHost) {
+          const nodemailer = require("nodemailer");
+          const transporter = nodemailer.createTransport({
+            host: integration.smtpHost,
+            port: integration.smtpPort ?? 587,
+            secure: integration.smtpSecurity === "ssl_tls",
+            auth: { user: integration.smtpUser, pass: integration.smtpPassword },
+          });
+          const info = await transporter.sendMail({
+            from: integration.fromEmail
+              ? `"${integration.fromName || "Politicall"}" <${integration.fromEmail}>`
+              : integration.smtpUser,
+            to: recipient,
+            subject,
+            html,
+          });
+          return { ok: true, providerMessageId: info?.messageId };
+        }
+        if (integration?.sendgridApiKey) {
+          const sgMail = require("@sendgrid/mail");
+          sgMail.setApiKey(integration.sendgridApiKey);
+          await sgMail.send({
+            to: recipient,
+            from: { email: integration.fromEmail, name: integration.fromName || "Politicall" },
+            subject,
+            html,
+          });
+          return { ok: true };
+        }
+        return { ok: false, error: "Configuração Locaweb/SMTP/SendGrid incompleta" };
+      }
+
+      if (channel === "instagram" || channel === "facebook") {
+        return { ok: false, error: "Canal ainda não suportado para disparo" };
+      }
+
+      return { ok: false, error: `Canal desconhecido: ${channel}` };
+    } catch (err: any) {
+      return { ok: false, error: err?.message ? String(err.message).slice(0, 500) : "Erro desconhecido no envio" };
+    }
+  }
+
+  function safeStringify(value: unknown): string | undefined {
+    try {
+      if (value == null) return undefined;
+      if (typeof value === "string") return value.slice(0, 1000);
+      return JSON.stringify(value).slice(0, 1000);
+    } catch {
+      return undefined;
+    }
+  }
+
+  async function validateCampaignWhatsappConnection(
+    accountId: string,
+    type: string,
+    sendConfig: unknown,
+    templateConfig?: CampaignTemplateConfig | null,
+  ) {
+    if (type !== "whatsapp" && type !== "whatsapp_oficial") return null;
+    const normalized = normalizeSendConfig(sendConfig);
+    const connectionId = normalized?.waConnectionId ?? templateConfig?.waConnectionId;
+    const connections = await storage.getChannelConnections(accountId).catch(() => []);
+    return requireCampaignWhatsappConnection(connections, connectionId, type);
+  }
+
+  // ==================== Phase 4 — scheduling & send control ====================
+
+  // Prevents a single campaign from being processed by two overlapping ticks.
+  const campaignProcessing = new Set<string>();
+  let schedulerRunning = false;
+
+  // Build a per-recipient contact resolver for variable rendering.
+  async function buildContactFinder(accountId: string): Promise<(recipient: string) => any | null> {
+    const allContacts = await storage.getContacts(accountId);
+    const byPhone = new Map<string, any>();
+    const byEmail = new Map<string, any>();
+    for (const c of allContacts as any[]) {
+      if (c.phone) {
+        const key = String(c.phone).replace(/\D/g, "").slice(-8);
+        if (key) byPhone.set(key, c);
+      }
+      if (c.email) byEmail.set(String(c.email).toLowerCase(), c);
+    }
+    return (recipient: string) => {
+      if (recipient.includes("@")) return byEmail.get(recipient.toLowerCase()) ?? null;
+      const key = recipient.replace(/\D/g, "").slice(-8);
+      return key ? byPhone.get(key) ?? null : null;
+    };
+  }
+
+  // Resolve integrations for the campaign's channels; splits usable vs skipped.
+  async function resolveCampaignIntegrations(campaign: any) {
+    const channels = resolveChannels(campaign);
+    const services = Array.from(new Set(channels.map(channelToService)));
+    const integrationByService: Record<string, any> = {};
+    for (const svc of services) {
+      integrationByService[svc] = decryptIntegrationForUse(await storage.getIntegration(campaign.userId, campaign.accountId, svc));
+    }
+    const connections = await storage.getChannelConnections(campaign.accountId).catch(() => []);
+    const sendConfig = normalizeSendConfig(campaign.sendConfig);
+    const usableChannels = channels.filter((ch) => {
+      if (ch === "whatsapp" || ch === "whatsapp_oficial") {
+        try {
+          requireCampaignWhatsappConnection(
+            connections,
+            sendConfig?.waConnectionId ?? campaign.templateConfig?.waConnectionId,
+            ch,
+          );
+          return true;
+        } catch {
+          return false;
+        }
+      }
+      const integ = integrationByService[channelToService(ch)];
+      return integ && integ.enabled;
+    });
+    const skippedChannels = channels.filter((ch) => !usableChannels.includes(ch));
+    return { channels, usableChannels, skippedChannels, integrationByService };
+  }
+
+  // (Re)create pending recipient rows, move the campaign to em_envio and record
+  // the send_started audit event. Shared by the /send endpoint and the scheduler.
+  async function prepareCampaignForSending(
+    campaign: any,
+    actorUserId: string,
+  ): Promise<{ ok: true; usableChannels: string[] } | { ok: false; error: string }> {
+    // Recipients may be legacy bare strings or {recipient,name} objects. Parse
+    // per channel so stored names survive into the pending rows for {nome}.
+    const primaryChannel = Array.isArray(campaign.channels) && campaign.channels.length
+      ? String(campaign.channels[0])
+      : String(campaign.type ?? "sms");
+    const recipientRecords = toRecipientRecords(campaign.recipients, primaryChannel);
+    if (recipientRecords.length === 0) return { ok: false, error: "Nenhum destinatário na campanha" };
+
+    const { usableChannels, skippedChannels } = await resolveCampaignIntegrations(campaign);
+    if (usableChannels.length === 0) {
+      return { ok: false, error: "Integração não configurada para os canais da campanha" };
+    }
+
+    const fromStatus = normalizeCampaignStatus(campaign.status);
+    const templateConfig = (campaign.templateConfig ?? null) as CampaignTemplateConfig | null;
+
+    // Clean any previous recipient rows for an accurate (re)send; audit preserved.
+    await storage.deleteCampaignRecipients(campaign.id, campaign.accountId);
+    await storage.updateCampaign(campaign.id, campaign.accountId, { status: "em_envio" });
+    await storage.createCampaignEvent({
+      accountId: campaign.accountId,
+      campaignId: campaign.id,
+      userId: actorUserId,
+      action: "send_started",
+      fromStatus,
+      toStatus: "em_envio",
+      detail: {
+        channels: usableChannels,
+        skippedChannels,
+        recipientCount: recipientRecords.length,
+        integrations: usableChannels.map((ch) => channelToService(ch)),
+        templateId: campaign.templateId ?? null,
+        waTemplateName: templateConfig?.waTemplateName ?? null,
+        waTemplateStatus: templateConfig?.waTemplateStatus ?? null,
+        templateVariables: templateConfig?.variables ?? null,
+      },
+    });
+
+    const pendingRows = usableChannels.flatMap((ch) =>
+      recipientRecords.map((r) => ({
+        accountId: campaign.accountId,
+        campaignId: campaign.id,
+        channel: ch,
+        recipient: r.recipient,
+        name: r.name ?? null,
+        status: "pending" as const,
+      }))
+    );
+    await storage.createCampaignRecipients(pendingRows);
+    return { ok: true, usableChannels };
+  }
+
+  // Apply WhatsApp Cloud API delivery/read receipts to campaign recipient rows.
+  // Matches by providerMessageId (wamid). Never throws — webhook must always ACK.
+  async function applyWhatsAppStatusEvents(body: any): Promise<void> {
+    try {
+      // Status progression rank — never downgrade a recipient to an earlier state.
+      const rank: Record<string, number> = {
+        pending: 0, sent: 1, delivered: 2, read: 3, responded: 4, failed: 5,
+      };
+      const events = parseWhatsAppStatusEvents(body);
+      for (const ev of events) {
+        try {
+          const row = await storage.getCampaignRecipientByProviderMessageId(ev.providerMessageId);
+          if (!row) continue;
+          const when = ev.timestamp ? new Date(ev.timestamp * 1000) : new Date();
+          const current = rank[row.status] ?? 0;
+          if (ev.status === "delivered" || ev.status === "read") {
+            if ((rank[ev.status] ?? 0) < current && row.status !== "sent") continue; // don't downgrade
+            await storage.updateCampaignRecipient(row.id, row.accountId, {
+              status: ev.status,
+              deliveredAt: (row as any).deliveredAt ?? when,
+            });
+          } else if (ev.status === "failed") {
+            await storage.updateCampaignRecipient(row.id, row.accountId, {
+              status: "failed",
+              errorReason: ev.error ?? "Falha na entrega (WhatsApp)",
+            });
+          }
+          // "sent" receipts carry no new info beyond what dispatch already set.
+        } catch (err) {
+          console.error("Failed to apply WhatsApp status event", ev.providerMessageId, err);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to parse WhatsApp status events", err);
+    }
+  }
+
+  // Dispatch one rate-limited batch for an em_envio campaign. Honors the send
+  // window, per-minute/hour limits, interval, retries and pause/cancel; finalizes
+  // when nothing remains pending. Never throws.
+  async function processCampaignBatch(campaignId: string, accountId: string): Promise<void> {
+    if (campaignProcessing.has(campaignId)) return;
+    campaignProcessing.add(campaignId);
+    try {
+      const campaign = await storage.getCampaign(campaignId, accountId);
+      if (!campaign) return;
+      if (normalizeCampaignStatus(campaign.status) !== "em_envio") return;
+
+      const cfg = normalizeSendConfig(campaign.sendConfig) ?? {};
+      const now = new Date();
+      if (!isWithinSendWindow(now, cfg.window)) return; // outside window — wait
+
+      const rows = await storage.getCampaignRecipients(campaignId, accountId);
+      const minuteAgo = now.getTime() - 60000;
+      const hourAgo = now.getTime() - 3600000;
+      let sentLastMinute = 0, sentLastHour = 0;
+      for (const r of rows as any[]) {
+        if (r.sentAt) {
+          const t = new Date(r.sentAt).getTime();
+          if (t >= minuteAgo) sentLastMinute++;
+          if (t >= hourAgo) sentLastHour++;
+        }
+      }
+      const budget = computeRateBudget({
+        ratePerMinute: cfg.ratePerMinute,
+        ratePerHour: cfg.ratePerHour,
+        batchSize: cfg.batchSize,
+        sentLastMinute,
+        sentLastHour,
+      });
+
+      const dispatchable = (rows as any[])
+        .filter((r) => r.status === "pending" && (!r.nextRetryAt || new Date(r.nextRetryAt) <= now))
+        .slice(0, budget);
+
+      if (dispatchable.length > 0) {
+        const templateConfig = (campaign.templateConfig ?? null) as CampaignTemplateConfig | null;
+        const findContact = await buildContactFinder(accountId);
+        const { integrationByService } = await resolveCampaignIntegrations(campaign);
+        const intervalMs = cfg.intervalMs ?? 0;
+        let retriedCount = 0;
+
+        for (let i = 0; i < dispatchable.length; i++) {
+          // Respect pause/cancel issued mid-batch.
+          const fresh = await storage.getCampaign(campaignId, accountId);
+          if (!fresh || normalizeCampaignStatus(fresh.status) !== "em_envio") break;
+
+          const row = dispatchable[i];
+          const integ = integrationByService[channelToService(row.channel)];
+          const contact = findContact(row.recipient);
+          // Prefer the name stored on the recipient row (manual/imported entries),
+          // then the matched contact. {protocolo} = short campaign id; {link} stays
+          // safe/empty unless provided in the template config.
+          const ctx = contactTemplateContext(
+            {
+              name: row.name ?? contact?.name ?? "",
+              phone: contact?.phone ?? row.recipient,
+              city: contact?.city ?? "",
+              protocol: campaign.id ? String(campaign.id).slice(0, 8) : "",
+              link: (templateConfig as any)?.link ?? "",
+            },
+            templateConfig?.variables ?? {},
+          );
+          const perContactCampaign = {
+            name: campaign.name,
+            message: renderTemplate(campaign.message ?? "", ctx),
+            subject: campaign.subject ? renderTemplate(campaign.subject, ctx) : campaign.subject,
+          };
+          const dispatchIntegration = (row.channel === "email" && (templateConfig?.fromEmail || templateConfig?.fromName))
+            ? { ...integ, fromEmail: templateConfig?.fromEmail || integ?.fromEmail, fromName: templateConfig?.fromName || integ?.fromName }
+            : integ;
+
+          const attempts = (row.attempts ?? 0) + 1;
+          if (attempts > 1) retriedCount++;
+          const outcome = await dispatchCampaignMessage(row.channel, row.recipient, perContactCampaign, dispatchIntegration, templateConfig, ctx, campaign.accountId, cfg.waConnectionId);
+
+          if (outcome.ok) {
+            await storage.updateCampaignRecipient(row.id, accountId, {
+              status: "sent",
+              errorReason: null,
+              providerMessageId: outcome.providerMessageId ?? null,
+              providerResponse: outcome.response ?? null,
+              sentAt: new Date(),
+              attempts,
+              lastAttemptAt: new Date(),
+              nextRetryAt: null,
+            });
+          } else {
+            const willRetry = shouldRetryDispatch(row.channel, outcome.error, attempts, cfg.maxRetries);
+            await storage.updateCampaignRecipient(row.id, accountId, {
+              status: willRetry ? "pending" : "failed",
+              errorReason: outcome.error ?? "Falha no envio",
+              providerResponse: outcome.response ?? null,
+              attempts,
+              lastAttemptAt: new Date(),
+              nextRetryAt: willRetry ? new Date(now.getTime() + retryBackoffMs(attempts)) : null,
+            });
+          }
+
+          if (intervalMs > 0 && i < dispatchable.length - 1) {
+            await new Promise((resolve) => setTimeout(resolve, intervalMs));
+          }
+        }
+
+        if (retriedCount > 0) {
+          await storage.createCampaignEvent({
+            accountId, campaignId, userId: campaign.userId,
+            action: "retry", fromStatus: "em_envio", toStatus: "em_envio",
+            detail: { retried: retriedCount },
+          });
+        }
+      }
+
+      // Finalize when no pending rows remain (all sent or permanently failed).
+      const after = await storage.getCampaignRecipients(campaignId, accountId);
+      const stillPending = (after as any[]).some((r) => r.status === "pending");
+      const current = await storage.getCampaign(campaignId, accountId);
+      if (!current || normalizeCampaignStatus(current.status) !== "em_envio") return;
+      if (!stillPending) {
+        const isOk = (s: string) => s === "sent" || s === "delivered" || s === "read" || s === "responded";
+        const results = (after as any[]).map((r) => ({ ok: isOk(String(r.status)) }));
+        const finalStatus = computeFinalStatus(results);
+        const okCount = results.filter((r) => r.ok).length;
+        await storage.updateCampaign(campaignId, accountId, {
+          status: finalStatus,
+          sentAt: finalStatus === "falhou" ? undefined : new Date(),
+        });
+        await storage.createCampaignEvent({
+          accountId, campaignId, userId: campaign.userId,
+          action: finalStatus === "enviada" ? "sent" : finalStatus === "parcialmente_enviada" ? "partially_sent" : "failed",
+          fromStatus: "em_envio", toStatus: finalStatus,
+          detail: { total: results.length, sent: okCount, failed: results.length - okCount },
+        });
+      }
+    } catch (err: any) {
+      console.error("[CAMPAIGN PROCESS] Error:", campaignId, err?.message ?? err);
+    } finally {
+      campaignProcessing.delete(campaignId);
+    }
+  }
+
+  // One scheduler pass: promote due scheduled campaigns and process in-flight ones.
+  async function schedulerTick(): Promise<void> {
+    if (schedulerRunning) return;
+    schedulerRunning = true;
+    try {
+      const active = await storage.getActiveCampaigns();
+      const now = new Date();
+      for (const c of active as any[]) {
+        const status = normalizeCampaignStatus(c.status);
+        if (status === "agendada") {
+          const due = !c.scheduledFor || new Date(c.scheduledFor) <= now;
+          const cfg = normalizeSendConfig(c.sendConfig);
+          if (!due || !isWithinSendWindow(now, cfg?.window)) continue;
+          if (campaignProcessing.has(c.id)) continue;
+          const prep = await prepareCampaignForSending(c, c.userId).catch(
+            (e) => ({ ok: false as const, error: String(e?.message ?? e) }),
+          );
+          if (!prep.ok) {
+            await storage.updateCampaign(c.id, c.accountId, { status: "falhou" }).catch(() => {});
+            await storage.createCampaignEvent({
+              accountId: c.accountId, campaignId: c.id, userId: c.userId,
+              action: "failed", fromStatus: "agendada", toStatus: "falhou",
+              detail: { error: prep.error },
+            }).catch(() => {});
+            continue;
+          }
+          void processCampaignBatch(c.id, c.accountId);
+        } else if (status === "em_envio") {
+          void processCampaignBatch(c.id, c.accountId);
+        }
+      }
+    } catch (err: any) {
+      console.error("[CAMPAIGN SCHEDULER] tick error:", err?.message ?? err);
+    } finally {
+      schedulerRunning = false;
+    }
+  }
+
   // Module status endpoint — computes pending_configuration for Omni modules
   app.get("/api/modules/status", authenticateToken, async (req: AuthRequest, res) => {
     try {
-      const [whatsapp, sms, email, sendgrid] = await Promise.all([
+      const [whatsapp, sms, email, sendgrid, channelConnections] = await Promise.all([
         storage.getIntegration(req.userId!, req.accountId!, "whatsapp").catch(() => null),
         storage.getIntegration(req.userId!, req.accountId!, "sms").catch(() => null),
         storage.getIntegration(req.userId!, req.accountId!, "email").catch(() => null),
         storage.getIntegration(req.userId!, req.accountId!, "sendgrid").catch(() => null),
+        storage.getChannelConnections(req.accountId!).catch(() => []),
       ]);
       const perms = req.user?.permissions as Record<string, boolean> | undefined;
       const isAdmin = req.user?.role === "admin";
 
       const has = (key: string) => isAdmin || !!perms?.[key];
-      const hasWhatsapp = !!(whatsapp?.enabled && (whatsapp as any).whatsappToken);
+      const hasWhatsappConnection = channelConnections.some((connection: any) => {
+        const descriptor = `${connection.channel ?? ""} ${connection.provider ?? ""}`.toLowerCase();
+        return Boolean(connection.token) && (descriptor.includes("whatsapp") || descriptor.includes("whu") || descriptor.includes("wacloud"));
+      });
+      const hasWhatsapp = !!(whatsapp?.enabled && (whatsapp as any).whatsappToken) || hasWhatsappConnection;
       const hasSms = hasOktorSmsCredentials(sms as any);
       // E-mail can be configured via IMAP/SMTP or legacy SendGrid
       const hasEmail = !!(
@@ -3529,10 +4210,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/campaigns", authenticateToken, requireAnyPermission("marketing", "whatsappBroadcast", "emailBroadcast", "smsBroadcast"), async (req: AuthRequest, res) => {
     try {
-      const all = await storage.getCampaigns(req.accountId!);
-      // Filter to only campaign types the user has permission for
-      const allowed = all.filter(c => userHasCampaignTypePermission(req, c.type));
-      res.json(allowed);
+      const { page, pageSize } = parsePaginationParams(req.query as any);
+      const search = req.query.search ? String(req.query.search) : undefined;
+      // "type" is the active channel tab (whatsapp/email/sms). Ignore "all"/empty.
+      const rawType = req.query.type ? String(req.query.type) : undefined;
+      const type = rawType && rawType !== "all" ? rawType : undefined;
+      // Compute allowed types from user permissions so the DB count is accurate
+      const allowedTypes = getAllowedCampaignTypes(req);
+      const [{ data, total }, statusRows] = await Promise.all([
+        storage.getCampaignsPaginated(req.accountId!, { page, pageSize, search, type, allowedTypes }),
+        storage.getCampaignStatusCounts(req.accountId!, { search, type, allowedTypes }),
+      ]);
+      // Aggregate status counts across ALL matching campaigns (not just this page)
+      // so the stat cards stay correct regardless of pagination.
+      const statusCounts = { total: 0, sent: 0, draft: 0, failed: 0 };
+      for (const { status, count } of statusRows) {
+        const s = normalizeCampaignStatus(status);
+        statusCounts.total += count;
+        if (s === "enviada" || s === "parcialmente_enviada") statusCounts.sent += count;
+        else if (s === "rascunho") statusCounts.draft += count;
+        else if (s === "falhou") statusCounts.failed += count;
+      }
+      res.json({ ...makePaginatedResult(data, total, page, pageSize), statusCounts });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -3541,6 +4240,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/campaigns", authenticateToken, requireAnyPermission("marketing", "whatsappBroadcast", "emailBroadcast", "smsBroadcast"), async (req: AuthRequest, res) => {
     try {
       const validatedData = insertMarketingCampaignSchema.parse(req.body);
+      if (validatedData.type === "whatsapp_oficial") validateCampaignTemplateConfiguration(validatedData.templateConfig as CampaignTemplateConfig | null);
+      await validateCampaignWhatsappConnection(req.accountId!, validatedData.type, validatedData.sendConfig, validatedData.templateConfig as CampaignTemplateConfig | null);
       if (!userHasCampaignTypePermission(req, validatedData.type)) {
         return res.status(403).json({ error: "Você não tem permissão para criar campanhas deste tipo" });
       }
@@ -3549,9 +4250,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userId: req.userId!,
         accountId: req.accountId!,
       });
+      await storage.createCampaignEvent({
+        accountId: req.accountId!,
+        campaignId: campaign.id,
+        userId: req.userId!,
+        action: "created",
+        toStatus: normalizeCampaignStatus(campaign.status),
+        detail: { name: campaign.name, type: campaign.type, channels: resolveChannels(campaign) },
+      });
       res.json(campaign);
     } catch (error: any) {
-      res.status(400).json({ error: error.message });
+      res.status(400).json(campaignTemplateErrorBody(error));
+    }
+  });
+
+  // Edit an existing campaign (drafts / scheduled / fully-failed only). Additive:
+  // reuses the create schema (partial) and never touches in-flight/finalized/paused ones.
+  app.patch("/api/campaigns/:id", authenticateToken, requireAnyPermission("marketing", "whatsappBroadcast", "emailBroadcast", "smsBroadcast"), async (req: AuthRequest, res) => {
+    try {
+      const existing = await storage.getCampaign(req.params.id, req.accountId!);
+      if (!existing || existing.userId !== req.userId!) return res.status(404).json({ error: "Campanha não encontrada" });
+      if (!userHasCampaignTypePermission(req, existing.type)) return res.status(403).json({ error: "Acesso negado" });
+      if (!canEditCritical(existing.status)) {
+        return res.status(409).json({ error: "Esta campanha não pode mais ser editada" });
+      }
+      const validatedData = insertMarketingCampaignSchema.partial().parse(req.body);
+      const nextType = validatedData.type ?? existing.type;
+      const nextTemplateConfig = (validatedData.templateConfig ?? existing.templateConfig) as CampaignTemplateConfig | null;
+      const nextSendConfig = validatedData.sendConfig ?? existing.sendConfig;
+      if (nextType === "whatsapp_oficial") validateCampaignTemplateConfiguration(nextTemplateConfig);
+      await validateCampaignWhatsappConnection(req.accountId!, nextType, nextSendConfig, nextTemplateConfig);
+      if (validatedData.type && !userHasCampaignTypePermission(req, validatedData.type)) {
+        return res.status(403).json({ error: "Você não tem permissão para campanhas deste tipo" });
+      }
+      const updated = await storage.updateCampaign(req.params.id, req.accountId!, validatedData);
+      await storage.createCampaignEvent({
+        accountId: req.accountId!,
+        campaignId: updated.id,
+        userId: req.userId!,
+        action: "updated",
+        toStatus: normalizeCampaignStatus(updated.status),
+        detail: { name: updated.name, type: nextType, channels: resolveChannels(updated) },
+      });
+      res.json(updated);
+    } catch (error: any) {
+      res.status(400).json(campaignTemplateErrorBody(error));
     }
   });
 
@@ -3568,137 +4311,1150 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Duplicate a campaign as a new draft (copies name, type, message, recipients, config).
+  app.post("/api/campaigns/:id/duplicate", authenticateToken, requireAnyPermission("marketing", "whatsappBroadcast", "emailBroadcast", "smsBroadcast"), async (req: AuthRequest, res) => {
+    try {
+      const campaign = await storage.getCampaign(req.params.id, req.accountId!);
+      if (!campaign) return res.status(404).json({ error: "Campanha não encontrada" });
+      if (campaign.userId !== req.userId!) return res.status(403).json({ error: "Acesso negado" });
+      if (!userHasCampaignTypePermission(req, campaign.type)) return res.status(403).json({ error: "Acesso negado" });
+
+      const duplicated = await storage.createCampaign({
+        accountId: req.accountId!,
+        userId: req.userId!,
+        name: `${campaign.name} (cópia)`,
+        type: campaign.type,
+        subject: campaign.subject ?? null,
+        message: campaign.message,
+        recipients: (campaign.recipients as string[]) ?? [],
+        status: "rascunho",
+        templateId: campaign.templateId ?? null,
+        templateConfig: (campaign.templateConfig as any) ?? null,
+        sendConfig: (campaign.sendConfig as any) ?? null,
+        scheduledFor: null,
+      });
+      res.status(201).json(duplicated);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.post("/api/campaigns/:id/send", authenticateToken, requireAnyPermission("marketing", "whatsappBroadcast", "emailBroadcast", "smsBroadcast"), async (req: AuthRequest, res) => {
     try {
       const campaign = await storage.getCampaign(req.params.id, req.accountId!);
-      
+
       if (!campaign || campaign.userId !== req.userId!) {
         return res.status(404).json({ error: "Campanha não encontrada" });
       }
+      if (campaign.type === "whatsapp_oficial") validateCampaignTemplateConfiguration(campaign.templateConfig as CampaignTemplateConfig | null);
+      await validateCampaignWhatsappConnection(req.accountId!, campaign.type, campaign.sendConfig, campaign.templateConfig as CampaignTemplateConfig | null);
 
-      if (!userHasCampaignTypePermission(req, campaign.type)) {
-        return res.status(403).json({ error: "Você não tem permissão para enviar campanhas deste tipo" });
-      }
-      
-      // Map each campaign type to its own integration service
-      const serviceMap: Record<string, string> = { email: "email", whatsapp: "whatsapp", sms: "sms" };
-      const service = serviceMap[campaign.type] ?? campaign.type;
-      const integration = decryptIntegrationForUse(await storage.getIntegration(req.userId!, req.accountId!, service));
-
-      const channelLabels: Record<string, string> = { email: "de e-mail", whatsapp: "do WhatsApp/WHU", sms: "de SMS" };
-      const channelLabel = channelLabels[campaign.type] ?? campaign.type;
-
-      if (!integration || !integration.enabled) {
-        return res.status(400).json({ error: `Integração ${channelLabel} não configurada` });
+      const channels = resolveChannels(campaign);
+      if (channels.length === 0) {
+        return res.status(400).json({ error: "Nenhum canal válido definido para a campanha" });
       }
 
-      try {
-        if (campaign.type === "sms") {
-          // Oktor SMS API — GET request with query params
-          const smsIntegration = integration as any;
-          if (!hasOktorSmsCredentials(smsIntegration)) {
-            return res.status(400).json({ error: "Credenciais SMS (account/code/client) incompletas" });
-          }
-          const smsConfig = oktorConfigFromIntegration(smsIntegration);
-          console.log(`[SMS] Sending to ${(campaign.recipients as string[]).length} recipient(s) via Oktor. account=${smsConfig.account} client=${smsConfig.client}`);
-          const results = await Promise.allSettled(
-            (campaign.recipients as string[]).map((phone: string) =>
-              sendOktorSms(smsConfig, { to: phone, msg: campaign.message })
-            )
-          );
-          const failures = results.filter(r => r.status === "rejected");
-          if (failures.length > 0) {
-            console.error("[SMS] Some sends failed:", failures);
-            const firstFailure = failures[0] as PromiseRejectedResult;
-            throw new Error(`Falha ao enviar ${failures.length} SMS: ${firstFailure.reason?.message ?? firstFailure.reason}`);
-          }
-
-        } else if (campaign.type === "whatsapp") {
-          // WHU — WhatsApp channel via token
-          const whuIntegration = integration as any;
-          if (!whuIntegration.whatsappToken) {
-            return res.status(400).json({ error: "Token WHU/WhatsApp não configurado" });
-          }
-          console.log(`[WHU] Sending to ${(campaign.recipients as string[]).length} recipient(s). channel configured.`);
-          const results = await Promise.allSettled(
-            (campaign.recipients as string[]).map(async (phone: string) => {
-              const resp = await fetch("https://api.wescctech.com.br/core/v2/api/chats/send-text", {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  "Accept": "application/json",
-                  "access-token": whuIntegration.whatsappToken,
-                },
-                body: JSON.stringify({
-                  forceSend: true,
-                  verifyContact: false,
-                  linkPreview: true,
-                  isWhisper: false,
-                  number: phone.replace(/\D/g, ""),
-                  message: campaign.message,
-                }),
-              });
-              const text = await resp.text();
-              console.log(`[WHU] Response for ${phone}: status=${resp.status}`);
-              return text;
-            })
-          );
-          const failures = results.filter(r => r.status === "rejected");
-          if (failures.length > 0) {
-            console.error("[WHU] Some sends failed:", failures);
-          }
-
-        } else if (campaign.type === "email") {
-          // E-mail via SMTP (nodemailer) — falls back to legacy SendGrid if no SMTP config
-          const emailIntegration = integration as any;
-          if (emailIntegration.locawebApiKey) {
-            await locawebEmail.createMessage(locawebConfigFromIntegration(emailIntegration), {
-              name: campaign.name ?? campaign.subject ?? "Campanha Politicall",
-              subject: campaign.subject || "Mensagem do Politicall",
-              html: campaign.message.replace(/\n/g, "<br>"),
-              recipients: campaign.recipients,
-            });
-          } else if (emailIntegration.smtpHost) {
-            const nodemailer = require("nodemailer");
-            const transporter = nodemailer.createTransport({
-              host: emailIntegration.smtpHost,
-              port: emailIntegration.smtpPort ?? 587,
-              secure: emailIntegration.smtpSecurity === "ssl_tls",
-              auth: { user: emailIntegration.smtpUser, pass: emailIntegration.smtpPassword },
-            });
-            console.log(`[EMAIL] Sending via SMTP host=${emailIntegration.smtpHost}`);
-            await Promise.allSettled(
-              (campaign.recipients as string[]).map((to: string) =>
-                transporter.sendMail({
-                  from: emailIntegration.fromEmail
-                    ? `"${emailIntegration.fromName || "Politicall"}" <${emailIntegration.fromEmail}>`
-                    : emailIntegration.smtpUser,
-                  to,
-                  subject: campaign.subject || "Mensagem do Politicall",
-                  html: campaign.message.replace(/\n/g, "<br>"),
-                })
-              )
-            );
-          } else if ((integration as any).sendgridApiKey) {
-            const sgMail = require("@sendgrid/mail");
-            sgMail.setApiKey((integration as any).sendgridApiKey);
-            await sgMail.sendMultiple({
-              to: campaign.recipients as string[],
-              from: { email: emailIntegration.fromEmail!, name: emailIntegration.fromName || "Politicall" },
-              subject: campaign.subject || "Mensagem do Politicall",
-              html: campaign.message.replace(/\n/g, "<br>"),
-            });
-          } else {
-            return res.status(400).json({ error: "Configuração Locaweb/SMTP/SendGrid incompleta" });
-          }
+      // Permission check per resolved channel
+      for (const ch of channels) {
+        const permType = ch === "whatsapp_oficial" ? "whatsapp" : ch;
+        if (!userHasCampaignTypePermission(req, permType)) {
+          return res.status(403).json({ error: `Você não tem permissão para enviar campanhas de ${channelLabel(ch)}` });
         }
-
-        await storage.updateCampaign(campaign.id, req.accountId!, { status: "sent", sentAt: new Date() });
-        res.json({ success: true, message: "Campanha enviada com sucesso!" });
-      } catch (sendError: any) {
-        console.error("[CAMPAIGN SEND] Error:", sendError);
-        res.status(500).json({ error: "Falha ao enviar campanha", details: sendError.message });
       }
+
+      if (!canSend(campaign.status)) {
+        return res.status(400).json({ error: `Campanha não pode ser enviada no status atual (${normalizeCampaignStatus(campaign.status)})` });
+      }
+
+      const primaryChannel = channels.length ? String(channels[0]) : String(campaign.type ?? "sms");
+      const recipientsList = toRecipientStrings(campaign.recipients, primaryChannel);
+      if (recipientsList.length === 0) {
+        return res.status(400).json({ error: "Nenhum destinatário na campanha" });
+      }
+
+      // Prepare recipient rows + move to em_envio, then dispatch in the background
+      // (rate-limited, batched, with retry) so the request/UI is never blocked.
+      const prep = await prepareCampaignForSending(campaign, req.userId!);
+      if (!prep.ok) {
+        return res.status(400).json({ error: prep.error });
+      }
+      void processCampaignBatch(campaign.id, req.accountId!);
+
+      return res.json({
+        success: true,
+        status: "em_envio",
+        message: "Disparo iniciado. Acompanhe o progresso na lista de campanhas.",
+      });
+    } catch (error: any) {
+      console.error("[CAMPAIGN SEND] Error:", error);
+      res.status(400).json(campaignTemplateErrorBody(error));
+    }
+  });
+
+  // Per-recipient tracking for a campaign
+  app.get("/api/campaigns/:id/recipients", authenticateToken, requireAnyPermission("marketing", "whatsappBroadcast", "emailBroadcast", "smsBroadcast"), async (req: AuthRequest, res) => {
+    try {
+      const campaign = await storage.getCampaign(req.params.id, req.accountId!);
+      if (!campaign || campaign.userId !== req.userId!) return res.status(404).json({ error: "Campanha não encontrada" });
+      if (!userHasCampaignTypePermission(req, campaign.type)) return res.status(403).json({ error: "Acesso negado" });
+
+      const { page, pageSize } = parsePaginationParams(req.query as any);
+      const statusFilter = req.query.status ? String(req.query.status) : "all";
+
+      const enrich = (r: any) => ({
+        ...r,
+        friendlyError: r.errorReason ? friendlyErrorMessage(r.errorReason) : null,
+        failureKind: r.errorReason ? classifyFailure(r.errorReason) : null,
+      });
+
+      // group:temporary and group:permanent require in-memory failureKind filtering
+      if (statusFilter === "group:temporary" || statusFilter === "group:permanent") {
+        const { data: allFailed } = await storage.getCampaignRecipientsPaginated(
+          campaign.id, req.accountId!, { page: 1, pageSize: 10000, statuses: ["failed", "invalid"] },
+        );
+        const enriched = allFailed.map(enrich);
+        const filtered = enriched.filter((r) =>
+          statusFilter === "group:temporary"
+            ? r.failureKind === "temporary"
+            : r.failureKind === "permanent" || r.status === "invalid",
+        );
+        return res.json(paginateInMemory(filtered, page, pageSize));
+      }
+
+      let statuses: string[] | undefined;
+      if (statusFilter === "group:failures") statuses = ["failed", "invalid"];
+      else if (statusFilter !== "all") statuses = [statusFilter];
+
+      const { data, total } = await storage.getCampaignRecipientsPaginated(
+        campaign.id, req.accountId!, { page, pageSize, statuses },
+      );
+      res.json(makePaginatedResult(data.map(enrich), total, page, pageSize));
+    } catch (error: any) {
+      res.status(500).json({ error: "Não foi possível carregar os destinatários. Tente novamente em alguns instantes." });
+    }
+  });
+
+  // Export a campaign's recipients (optionally filtered by status/channel) as CSV/XLSX/PDF
+  app.get("/api/campaigns/:id/recipients/export", authenticateToken, requireAnyPermission("marketing", "whatsappBroadcast", "emailBroadcast", "smsBroadcast"), async (req: AuthRequest, res) => {
+    try {
+      const campaign = await storage.getCampaign(req.params.id, req.accountId!);
+      if (!campaign || campaign.userId !== req.userId!) return res.status(404).json({ error: "Campanha não encontrada" });
+      if (!userHasCampaignTypePermission(req, campaign.type)) return res.status(403).json({ error: "Acesso negado" });
+      const format = resolveExportFormat(req.query);
+      const status = req.query.status ? String(req.query.status) : undefined;
+      const channel = req.query.channel ? String(req.query.channel) : undefined;
+      const recipients = await storage.getRecipientsForExport(campaign.id, req.accountId!, { status, channel });
+
+      const rows: (string | number)[][] = (recipients as any[]).map((r) => [
+        r.name ?? "",
+        r.recipient,
+        channelLabel(r.channel),
+        RECIPIENT_STATUS_LABELS[r.status] ?? r.status,
+        r.sentAt ? new Date(r.sentAt).toISOString() : "",
+        r.deliveredAt ? new Date(r.deliveredAt).toISOString() : "",
+        r.errorReason ? friendlyErrorMessage(r.errorReason) : "",
+        r.errorReason ?? "",
+      ]);
+
+      await storage.createCampaignExport({
+        accountId: req.accountId!,
+        userId: req.userId!,
+        campaignId: campaign.id,
+        scope: "recipients",
+        format,
+        filters: (status || channel) ? { status, channel } : null,
+        rowCount: rows.length,
+      });
+
+      await sendSectionedExport(res, format, safeFileName(`destinatarios_${campaign.name}`), `Destinatários: ${campaign.name}`, [
+        { title: "Destinatários", headers: ["Nome", "Destinatário", "Canal", "Status", "Enviado em", "Entregue em", "Motivo", "Erro técnico"], rows },
+      ]);
+    } catch (error: any) {
+      if (!res.headersSent) res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Full audit trail for a campaign
+  app.get("/api/campaigns/:id/events", authenticateToken, requireAnyPermission("marketing", "whatsappBroadcast", "emailBroadcast", "smsBroadcast"), async (req: AuthRequest, res) => {
+    try {
+      const campaign = await storage.getCampaign(req.params.id, req.accountId!);
+      if (!campaign || campaign.userId !== req.userId!) return res.status(404).json({ error: "Campanha não encontrada" });
+      if (!userHasCampaignTypePermission(req, campaign.type)) return res.status(403).json({ error: "Acesso negado" });
+      const events = await storage.getCampaignEvents(campaign.id, req.accountId!);
+      res.json(events);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Cancel a campaign (records audit; never deletes history)
+  app.post("/api/campaigns/:id/cancel", authenticateToken, requireAnyPermission("marketing", "whatsappBroadcast", "emailBroadcast", "smsBroadcast"), async (req: AuthRequest, res) => {
+    try {
+      const campaign = await storage.getCampaign(req.params.id, req.accountId!);
+      if (!campaign || campaign.userId !== req.userId!) return res.status(404).json({ error: "Campanha não encontrada" });
+      if (!userHasCampaignTypePermission(req, campaign.type)) return res.status(403).json({ error: "Acesso negado" });
+      if (!canCancel(campaign.status)) {
+        return res.status(400).json({ error: `Campanha não pode ser cancelada no status atual (${normalizeCampaignStatus(campaign.status)})` });
+      }
+      const reason = typeof req.body?.reason === "string" ? req.body.reason.trim().slice(0, 500) : null;
+      const fromStatus = normalizeCampaignStatus(campaign.status);
+      const updated = await storage.updateCampaign(campaign.id, req.accountId!, { status: "cancelada", cancelReason: reason });
+      // Mark any still-pending recipients as cancelled so nothing is sent later.
+      const recips = await storage.getCampaignRecipients(campaign.id, req.accountId!);
+      for (const r of recips as any[]) {
+        if (r.status === "pending") {
+          await storage.updateCampaignRecipient(r.id, req.accountId!, { status: "cancelled", nextRetryAt: null });
+        }
+      }
+      await storage.createCampaignEvent({
+        accountId: req.accountId!,
+        campaignId: campaign.id,
+        userId: req.userId!,
+        action: "cancelled",
+        fromStatus,
+        toStatus: "cancelada",
+        detail: reason ? { reason } : null,
+      });
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Pause an in-flight campaign (stops the scheduler from dispatching more)
+  app.post("/api/campaigns/:id/pause", authenticateToken, requireAnyPermission("marketing", "whatsappBroadcast", "emailBroadcast", "smsBroadcast"), async (req: AuthRequest, res) => {
+    try {
+      const campaign = await storage.getCampaign(req.params.id, req.accountId!);
+      if (!campaign || campaign.userId !== req.userId!) return res.status(404).json({ error: "Campanha não encontrada" });
+      if (!userHasCampaignTypePermission(req, campaign.type)) return res.status(403).json({ error: "Acesso negado" });
+      if (!canPause(campaign.status)) {
+        return res.status(400).json({ error: `Campanha não pode ser pausada no status atual (${normalizeCampaignStatus(campaign.status)})` });
+      }
+      const fromStatus = normalizeCampaignStatus(campaign.status);
+      const reason = typeof req.body?.reason === "string" ? req.body.reason.trim().slice(0, 500) : null;
+      const updated = await storage.updateCampaign(campaign.id, req.accountId!, { status: "pausada" });
+      await storage.createCampaignEvent({
+        accountId: req.accountId!, campaignId: campaign.id, userId: req.userId!,
+        action: "paused", fromStatus, toStatus: "pausada", detail: reason ? { reason } : null,
+      });
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Resume a paused campaign (scheduler picks it up again)
+  app.post("/api/campaigns/:id/resume", authenticateToken, requireAnyPermission("marketing", "whatsappBroadcast", "emailBroadcast", "smsBroadcast"), async (req: AuthRequest, res) => {
+    try {
+      const campaign = await storage.getCampaign(req.params.id, req.accountId!);
+      if (!campaign || campaign.userId !== req.userId!) return res.status(404).json({ error: "Campanha não encontrada" });
+      if (!userHasCampaignTypePermission(req, campaign.type)) return res.status(403).json({ error: "Acesso negado" });
+      if (!canResume(campaign.status)) {
+        return res.status(400).json({ error: `Campanha não pode ser retomada no status atual (${normalizeCampaignStatus(campaign.status)})` });
+      }
+      const fromStatus = normalizeCampaignStatus(campaign.status);
+      const updated = await storage.updateCampaign(campaign.id, req.accountId!, { status: "em_envio" });
+      await storage.createCampaignEvent({
+        accountId: req.accountId!, campaignId: campaign.id, userId: req.userId!,
+        action: "resumed", fromStatus, toStatus: "em_envio", detail: null,
+      });
+      void processCampaignBatch(campaign.id, req.accountId!);
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Schedule a campaign to be sent later (or save as scheduled)
+  app.post("/api/campaigns/:id/schedule", authenticateToken, requireAnyPermission("marketing", "whatsappBroadcast", "emailBroadcast", "smsBroadcast"), async (req: AuthRequest, res) => {
+    try {
+      const campaign = await storage.getCampaign(req.params.id, req.accountId!);
+      if (!campaign || campaign.userId !== req.userId!) return res.status(404).json({ error: "Campanha não encontrada" });
+      if (!userHasCampaignTypePermission(req, campaign.type)) return res.status(403).json({ error: "Acesso negado" });
+      if (!canSend(campaign.status)) {
+        return res.status(400).json({ error: `Campanha não pode ser agendada no status atual (${normalizeCampaignStatus(campaign.status)})` });
+      }
+      if (campaign.type === "whatsapp_oficial") validateCampaignTemplateConfiguration(campaign.templateConfig as CampaignTemplateConfig | null);
+      const channels = resolveChannels(campaign);
+      if (channels.length === 0) return res.status(400).json({ error: "Nenhum canal válido definido para a campanha" });
+
+      const rawWhen = req.body?.scheduledFor;
+      const when = rawWhen ? new Date(rawWhen) : null;
+      if (!when || isNaN(when.getTime())) {
+        return res.status(400).json({ error: "Data de agendamento inválida" });
+      }
+      const sendConfig = normalizeSendConfig(req.body?.sendConfig) ?? normalizeSendConfig(campaign.sendConfig);
+      await validateCampaignWhatsappConnection(req.accountId!, campaign.type, sendConfig, campaign.templateConfig as CampaignTemplateConfig | null);
+      const fromStatus = normalizeCampaignStatus(campaign.status);
+      const updated = await storage.updateCampaign(campaign.id, req.accountId!, {
+        status: "agendada",
+        scheduledFor: when,
+        sendConfig: sendConfig ?? null,
+      });
+      await storage.createCampaignEvent({
+        accountId: req.accountId!, campaignId: campaign.id, userId: req.userId!,
+        action: "scheduled", fromStatus, toStatus: "agendada",
+        detail: { scheduledFor: when.toISOString(), sendConfig: sendConfig ?? null },
+      });
+      res.json(updated);
+    } catch (error: any) {
+      res.status(400).json(campaignTemplateErrorBody(error));
+    }
+  });
+
+  // Near-real-time progress for the account's campaigns (per-recipient counts)
+  app.get("/api/campaigns/progress", authenticateToken, requireAnyPermission("marketing", "whatsappBroadcast", "emailBroadcast", "smsBroadcast"), async (req: AuthRequest, res) => {
+    try {
+      const progress = await storage.getCampaignProgress(req.accountId!);
+      res.json(progress);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ==================== CAMPAIGN REPORTS & EXPORTS (Phase 5) ====================
+
+  const RECIPIENT_STATUS_LABELS: Record<string, string> = {
+    pending: "Pendente", sent: "Enviado", delivered: "Entregue", read: "Lido",
+    responded: "Respondeu", failed: "Falhou", invalid: "Inválido", cancelled: "Cancelado",
+  };
+
+  const csvEscapeReport = (v: any): string => {
+    const s = v == null ? "" : String(v);
+    return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+
+  const safeFileName = (name: string): string =>
+    String(name || "relatorio").replace(/[^a-z0-9\-_]+/gi, "_").slice(0, 60) || "relatorio";
+
+  const parseReportFilters = (query: any) => {
+    const out: { from?: Date; to?: Date; channel?: string; status?: string; creatorId?: string } = {};
+    if (query?.from) { const d = new Date(String(query.from)); if (!isNaN(d.getTime())) out.from = d; }
+    if (query?.to) { const d = new Date(String(query.to)); if (!isNaN(d.getTime())) out.to = d; }
+    if (query?.channel) out.channel = String(query.channel);
+    if (query?.status) out.status = String(query.status);
+    if (query?.creatorId) out.creatorId = String(query.creatorId);
+    return out;
+  };
+
+  const resolveExportFormat = (query: any): "csv" | "xlsx" | "pdf" => {
+    const f = String(query?.format ?? "csv").toLowerCase();
+    return (CAMPAIGN_EXPORT_FORMATS as readonly string[]).includes(f) ? (f as any) : "csv";
+  };
+
+  type ExportSection = { title: string; headers: string[]; rows: (string | number)[][] };
+
+  const sendSectionedExport = async (
+    res: any,
+    format: "csv" | "xlsx" | "pdf",
+    filename: string,
+    docTitle: string,
+    sections: ExportSection[],
+  ): Promise<void> => {
+    if (format === "csv") {
+      const blocks: string[] = [];
+      for (const sec of sections) {
+        const lines: string[] = [csvEscapeReport(sec.title)];
+        lines.push(sec.headers.map(csvEscapeReport).join(","));
+        for (const row of sec.rows) lines.push(row.map(csvEscapeReport).join(","));
+        blocks.push(lines.join("\r\n"));
+      }
+      const csv = "\uFEFF" + blocks.join("\r\n\r\n");
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}.csv"`);
+      res.send(csv);
+      return;
+    }
+    if (format === "xlsx") {
+      const buf = await workbookSheetsToXlsxBuffer(sections.map((sec, index) => ({
+        name: sec.title || `Aba ${index + 1}`,
+        rows: [sec.headers, ...sec.rows],
+      })));
+      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}.xlsx"`);
+      res.send(buf);
+      return;
+    }
+    // pdf
+    const PDFDocument = require("pdfkit");
+    const doc = new PDFDocument({ margin: 40, size: "A4" });
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}.pdf"`);
+    doc.pipe(res);
+    doc.fontSize(18).fillColor("#111111").text(docTitle, { align: "center" });
+    doc.moveDown(0.3);
+    doc.fontSize(8).fillColor("#999999").text(`Gerado em ${new Date().toLocaleString("pt-BR")}`, { align: "center" });
+    doc.moveDown(1);
+    for (const sec of sections) {
+      if (doc.y > 740) doc.addPage();
+      doc.fontSize(12).fillColor("#000000").text(sec.title, { underline: true });
+      doc.moveDown(0.4);
+      doc.fontSize(9).fillColor("#444444").text(sec.headers.join("  |  "));
+      doc.moveDown(0.2);
+      for (const row of sec.rows) {
+        if (doc.y > 780) doc.addPage();
+        doc.fontSize(8).fillColor("#222222").text(row.map((c) => String(c)).join("  |  "));
+      }
+      doc.moveDown(0.8);
+    }
+    doc.end();
+  };
+
+  const metricsToRows = (m: ReturnType<typeof computeRecipientMetrics>, smsCost?: number): (string | number)[][] => {
+    const pct = (v: number) => `${(v * 100).toFixed(1)}%`;
+    const rows: (string | number)[][] = [
+      ["Total", m.counts.total],
+      ["Enviados", m.sentLike],
+      ["Entregues", m.deliveredLike],
+      ["Lidos", m.readLike],
+      ["Responderam", m.counts.responded],
+      ["Falharam", m.failedLike],
+      ["Pendentes", m.counts.pending],
+      ["Cancelados", m.counts.cancelled],
+      ["Taxa de entrega", pct(m.deliveryRate)],
+      ["Taxa de resposta", pct(m.responseRate)],
+      ["Taxa de falha", pct(m.failureRate)],
+    ];
+    if (smsCost != null) rows.push(["Custo SMS estimado (R$)", smsCost.toFixed(2)]);
+    return rows;
+  };
+
+  // Dashboard/summary report across campaigns (with optional filters).
+  app.get("/api/campaigns/reports/summary", authenticateToken, requireAnyPermission("marketing", "reports", "campaignReports", "whatsappBroadcast", "emailBroadcast", "smsBroadcast"), async (req: AuthRequest, res) => {
+    try {
+      const filters = parseReportFilters(req.query);
+      const { campaigns, recipients } = await storage.getCampaignsReportSummary(req.accountId!, filters);
+      const allowed = campaigns.filter((c) => userHasCampaignTypePermission(req, c.type));
+      const allowedIds = new Set(allowed.map((c) => c.id));
+      const recs = recipients.filter((r) => allowedIds.has(r.campaignId)) as RecipientLite[];
+
+      const overall = computeRecipientMetrics(buildRecipientCounts(recs));
+      const channels = summarizeChannels(recs);
+      const errors = groupErrorsByReason(recs);
+      const smsReached = channels.find((c) => c.channel === "sms")?.metrics.sentLike ?? 0;
+      const smsCost = estimateSmsCost(smsReached);
+
+      const byCampaign = new Map<string, RecipientLite[]>();
+      for (const r of recipients as (RecipientLite & { campaignId: string })[]) {
+        if (!allowedIds.has(r.campaignId)) continue;
+        const arr = byCampaign.get(r.campaignId) ?? [];
+        arr.push(r);
+        byCampaign.set(r.campaignId, arr);
+      }
+
+      const statusDistribution: Record<string, number> = {};
+      const campaignRows = allowed.map((c) => {
+        const list = byCampaign.get(c.id) ?? [];
+        const metrics = computeRecipientMetrics(buildRecipientCounts(list));
+        const status = normalizeCampaignStatus(c.status);
+        statusDistribution[status] = (statusDistribution[status] ?? 0) + 1;
+        return {
+          id: c.id,
+          name: c.name,
+          status,
+          channels: resolveChannels(c),
+          createdAt: c.createdAt,
+          sentAt: c.sentAt,
+          metrics,
+        };
+      });
+
+      res.json({
+        overall,
+        channels,
+        errors,
+        smsCost,
+        totals: { campaigns: allowed.length },
+        statusDistribution,
+        campaigns: campaignRows,
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Export the dashboard/summary report.
+  app.get("/api/campaigns/reports/summary/export", authenticateToken, requireAnyPermission("marketing", "reports", "campaignReports", "whatsappBroadcast", "emailBroadcast", "smsBroadcast"), async (req: AuthRequest, res) => {
+    try {
+      const filters = parseReportFilters(req.query);
+      const format = resolveExportFormat(req.query);
+      const { campaigns, recipients } = await storage.getCampaignsReportSummary(req.accountId!, filters);
+      const allowed = campaigns.filter((c) => userHasCampaignTypePermission(req, c.type));
+      const allowedIds = new Set(allowed.map((c) => c.id));
+      const recs = recipients.filter((r) => allowedIds.has(r.campaignId)) as RecipientLite[];
+
+      const overall = computeRecipientMetrics(buildRecipientCounts(recs));
+      const channels = summarizeChannels(recs);
+      const errors = groupErrorsByReason(recs);
+      const smsReached = channels.find((c) => c.channel === "sms")?.metrics.sentLike ?? 0;
+      const smsCost = estimateSmsCost(smsReached);
+
+      const byCampaign = new Map<string, RecipientLite[]>();
+      for (const r of recipients as (RecipientLite & { campaignId: string })[]) {
+        if (!allowedIds.has(r.campaignId)) continue;
+        const arr = byCampaign.get(r.campaignId) ?? [];
+        arr.push(r);
+        byCampaign.set(r.campaignId, arr);
+      }
+
+      const pct = (v: number) => `${(v * 100).toFixed(1)}%`;
+      const campaignRows: (string | number)[][] = allowed.map((c) => {
+        const m = computeRecipientMetrics(buildRecipientCounts(byCampaign.get(c.id) ?? []));
+        return [
+          c.name,
+          normalizeCampaignStatus(c.status),
+          resolveChannels(c).join(" / "),
+          m.counts.total,
+          m.sentLike,
+          m.deliveredLike,
+          m.counts.responded,
+          m.failedLike,
+          pct(m.deliveryRate),
+          pct(m.responseRate),
+          c.createdAt ? new Date(c.createdAt).toISOString() : "",
+        ];
+      });
+
+      const sections: ExportSection[] = [
+        { title: "Resumo geral", headers: ["Métrica", "Valor"], rows: metricsToRows(overall, smsCost) },
+        {
+          title: "Por canal",
+          headers: ["Canal", "Total", "Enviados", "Entregues", "Falhas", "Taxa entrega", "Taxa resposta"],
+          rows: channels.map((ch) => [
+            ch.label, ch.metrics.counts.total, ch.metrics.sentLike, ch.metrics.deliveredLike,
+            ch.metrics.failedLike, pct(ch.metrics.deliveryRate), pct(ch.metrics.responseRate),
+          ]),
+        },
+        {
+          title: "Campanhas",
+          headers: ["Campanha", "Status", "Canais", "Total", "Enviados", "Entregues", "Resp.", "Falhas", "Entrega", "Resposta", "Criada em"],
+          rows: campaignRows,
+        },
+        {
+          title: "Erros por motivo",
+          headers: ["Motivo", "Técnico", "Ocorrências"],
+          rows: errors.map((e) => [e.friendly, e.reason, e.count]),
+        },
+      ];
+
+      await storage.createCampaignExport({
+        accountId: req.accountId!,
+        userId: req.userId!,
+        campaignId: null,
+        scope: "summary",
+        format,
+        filters: filters as any,
+        rowCount: allowed.length,
+      });
+
+      await sendSectionedExport(res, format, safeFileName("relatorio_campanhas"), "Relatório de Campanhas", sections);
+    } catch (error: any) {
+      if (!res.headersSent) res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Full report for a single campaign.
+  app.get("/api/campaigns/:id/report", authenticateToken, requireAnyPermission("marketing", "reports", "campaignReports", "whatsappBroadcast", "emailBroadcast", "smsBroadcast"), async (req: AuthRequest, res) => {
+    try {
+      const data = await storage.getCampaignReportData(req.params.id, req.accountId!);
+      if (!data || data.campaign.userId !== req.userId!) return res.status(404).json({ error: "Campanha não encontrada" });
+      if (!userHasCampaignTypePermission(req, data.campaign.type)) return res.status(403).json({ error: "Acesso negado" });
+
+      const recs = data.recipients as RecipientLite[];
+      const metrics = computeRecipientMetrics(buildRecipientCounts(recs));
+      const channels = summarizeChannels(recs);
+      const errors = groupErrorsByReason(recs);
+      const timing = computeSendTiming(recs);
+      const smsReached = channels.find((c) => c.channel === "sms")?.metrics.sentLike ?? 0;
+      const smsCost = estimateSmsCost(smsReached);
+
+      res.json({
+        campaign: {
+          id: data.campaign.id,
+          name: data.campaign.name,
+          status: normalizeCampaignStatus(data.campaign.status),
+          channels: resolveChannels(data.campaign),
+          createdAt: data.campaign.createdAt,
+          scheduledFor: data.campaign.scheduledFor,
+          sentAt: data.campaign.sentAt,
+        },
+        metrics,
+        channels,
+        errors,
+        timing,
+        smsCost,
+        events: data.events,
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Export a single campaign's full report.
+  app.get("/api/campaigns/:id/report/export", authenticateToken, requireAnyPermission("marketing", "reports", "campaignReports", "whatsappBroadcast", "emailBroadcast", "smsBroadcast"), async (req: AuthRequest, res) => {
+    try {
+      const data = await storage.getCampaignReportData(req.params.id, req.accountId!);
+      if (!data || data.campaign.userId !== req.userId!) return res.status(404).json({ error: "Campanha não encontrada" });
+      if (!userHasCampaignTypePermission(req, data.campaign.type)) return res.status(403).json({ error: "Acesso negado" });
+      const format = resolveExportFormat(req.query);
+
+      const recs = data.recipients as RecipientLite[];
+      const metrics = computeRecipientMetrics(buildRecipientCounts(recs));
+      const channels = summarizeChannels(recs);
+      const errors = groupErrorsByReason(recs);
+      const timing = computeSendTiming(recs);
+      const smsReached = channels.find((c) => c.channel === "sms")?.metrics.sentLike ?? 0;
+      const smsCost = estimateSmsCost(smsReached);
+      const pct = (v: number) => `${(v * 100).toFixed(1)}%`;
+
+      const sections: ExportSection[] = [
+        {
+          title: "Campanha",
+          headers: ["Campo", "Valor"],
+          rows: [
+            ["Nome", data.campaign.name],
+            ["Status", normalizeCampaignStatus(data.campaign.status)],
+            ["Canais", resolveChannels(data.campaign).join(" / ")],
+            ["Início do envio", timing.startedAt ? new Date(timing.startedAt).toLocaleString("pt-BR") : "-"],
+            ["Fim do envio", timing.finishedAt ? new Date(timing.finishedAt).toLocaleString("pt-BR") : "-"],
+            ["Duração (min)", timing.durationMs != null ? (timing.durationMs / 60000).toFixed(1) : "-"],
+            ["Média por minuto", timing.avgPerMinute ?? "-"],
+          ],
+        },
+        { title: "Métricas", headers: ["Métrica", "Valor"], rows: metricsToRows(metrics, smsCost) },
+        {
+          title: "Por canal",
+          headers: ["Canal", "Total", "Enviados", "Entregues", "Falhas", "Taxa entrega", "Taxa resposta"],
+          rows: channels.map((ch) => [
+            ch.label, ch.metrics.counts.total, ch.metrics.sentLike, ch.metrics.deliveredLike,
+            ch.metrics.failedLike, pct(ch.metrics.deliveryRate), pct(ch.metrics.responseRate),
+          ]),
+        },
+        {
+          title: "Erros por motivo",
+          headers: ["Motivo", "Técnico", "Ocorrências"],
+          rows: errors.map((e) => [e.friendly, e.reason, e.count]),
+        },
+      ];
+
+      await storage.createCampaignExport({
+        accountId: req.accountId!,
+        userId: req.userId!,
+        campaignId: data.campaign.id,
+        scope: "campaign_report",
+        format,
+        filters: null,
+        rowCount: metrics.counts.total,
+      });
+
+      await sendSectionedExport(res, format, safeFileName(`relatorio_${data.campaign.name}`), `Relatório: ${data.campaign.name}`, sections);
+    } catch (error: any) {
+      if (!res.headersSent) res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Export failed recipients for a campaign (technical + friendly reason).
+  app.get("/api/campaigns/:id/failures/export", authenticateToken, requireAnyPermission("marketing", "whatsappBroadcast", "emailBroadcast", "smsBroadcast"), async (req: AuthRequest, res) => {
+    try {
+      const campaign = await storage.getCampaign(req.params.id, req.accountId!);
+      if (!campaign || campaign.userId !== req.userId!) return res.status(404).json({ error: "Campanha não encontrada" });
+      if (!userHasCampaignTypePermission(req, campaign.type)) return res.status(403).json({ error: "Acesso negado" });
+      const format = resolveExportFormat(req.query);
+      const channel = req.query.channel ? String(req.query.channel) : undefined;
+      const recipients = await storage.getRecipientsForExport(campaign.id, req.accountId!, { status: "failures", channel });
+
+      const rows: (string | number)[][] = (recipients as any[]).map((r) => [
+        r.name ?? "",
+        r.recipient,
+        channelLabel(r.channel),
+        RECIPIENT_STATUS_LABELS[r.status] ?? r.status,
+        friendlyErrorMessage(r.errorReason),
+        r.errorReason ?? "",
+        r.sentAt ? new Date(r.sentAt).toISOString() : "",
+      ]);
+
+      await storage.createCampaignExport({
+        accountId: req.accountId!,
+        userId: req.userId!,
+        campaignId: campaign.id,
+        scope: "failures",
+        format,
+        filters: channel ? { channel } : null,
+        rowCount: rows.length,
+      });
+
+      await sendSectionedExport(res, format, safeFileName(`falhas_${campaign.name}`), `Falhas: ${campaign.name}`, [
+        { title: "Falhas de envio", headers: ["Nome", "Destinatário", "Canal", "Status", "Motivo", "Erro técnico", "Enviado em"], rows },
+      ]);
+    } catch (error: any) {
+      if (!res.headersSent) res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ==================== CAMPAIGN AUDIENCE (Phase 2) ====================
+
+  // Map a CRM contact row to the shape the audience service expects.
+  const toAudienceContact = (c: any): AudienceContact => ({
+    id: c.id,
+    name: c.name,
+    email: c.email,
+    phone: c.phone,
+    age: typeof c.age === "number" ? c.age : c.age != null ? parseInt(String(c.age).replace(/\D/g, ""), 10) || null : null,
+    gender: c.gender,
+    state: c.state,
+    city: c.city,
+    neighborhood: c.neighborhood,
+    interests: Array.isArray(c.interests) ? c.interests : c.tags ?? [],
+    source: c.source,
+  });
+
+  // Build the AudienceContext (attendance index + previous campaign recipients).
+  const buildAudienceContext = async (accountId: string, filters: AudienceFilters): Promise<AudienceContext> => {
+    const ctx: AudienceContext = {};
+
+    const needsAttendance =
+      (filters.originChannels && filters.originChannels.length > 0) ||
+      (filters.attendanceStatuses && filters.attendanceStatuses.length > 0) ||
+      !!filters.lastAttendanceAfter ||
+      !!filters.lastAttendanceBefore ||
+      filters.responded !== undefined;
+
+    if (needsAttendance) {
+      const conversations = await storage.getConversations(accountId);
+      const attendanceByPhone = new Map<string, AttendanceSummary>();
+      for (const conv of conversations as any[]) {
+        const key = audienceNormalizePhone(conv.contactPhone);
+        if (!key) continue;
+        const responded = !!(conv.firstResponseAt || conv.lastMessageAt);
+        const summary: AttendanceSummary = {
+          channel: conv.channel,
+          status: conv.status,
+          lastMessageAt: conv.lastMessageAt ?? conv.updatedAt ?? null,
+          responded,
+        };
+        const existing = attendanceByPhone.get(key);
+        // Keep the most recent conversation per phone
+        if (!existing || (summary.lastMessageAt && existing.lastMessageAt && new Date(summary.lastMessageAt) > new Date(existing.lastMessageAt))) {
+          attendanceByPhone.set(key, summary);
+        } else if (!existing) {
+          attendanceByPhone.set(key, summary);
+        }
+      }
+      ctx.attendanceByPhone = attendanceByPhone;
+    }
+
+    if (filters.previousCampaignId) {
+      const prev = await storage.getCampaignRecipients(filters.previousCampaignId, accountId);
+      const keys = new Set<string>();
+      for (const r of prev as any[]) {
+        const phone = audienceNormalizePhone(r.recipient);
+        if (phone) keys.add(phone.length > 11 && phone.startsWith("55") ? phone.slice(2) : phone);
+        const email = String(r.recipient ?? "").trim().toLowerCase();
+        if (email.includes("@")) keys.add(email);
+      }
+      ctx.previousRecipientKeys = keys;
+    }
+
+    return ctx;
+  };
+
+  // Preview the audience for a set of filters (count + reachability + sample).
+  app.post("/api/campaigns/audience/preview", authenticateToken, requireAnyPermission("marketing", "whatsappBroadcast", "emailBroadcast", "smsBroadcast"), async (req: AuthRequest, res) => {
+    try {
+      const filters = (req.body?.filters ?? {}) as AudienceFilters;
+      const rows = await storage.getContacts(req.accountId!);
+      const audienceContacts = (rows as any[]).map(toAudienceContact);
+      const ctx = await buildAudienceContext(req.accountId!, filters);
+      const preview = buildAudiencePreview(audienceContacts, filters, ctx);
+      res.json(preview);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // Distinct tags/interests across the account's contacts, for chip-based segmentation.
+  app.get("/api/campaigns/audience/tags", authenticateToken, requireAnyPermission("marketing", "whatsappBroadcast", "emailBroadcast", "smsBroadcast"), async (req: AuthRequest, res) => {
+    try {
+      const rows = await storage.getContacts(req.accountId!);
+      const seen = new Map<string, string>(); // normalized → first-seen original label
+      for (const c of rows as any[]) {
+        const interests = Array.isArray(c.interests) ? c.interests : [];
+        for (const raw of interests) {
+          const label = String(raw ?? "").trim();
+          if (!label) continue;
+          const key = label.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+          if (!seen.has(key)) seen.set(key, label);
+        }
+      }
+      const tags = Array.from(seen.values()).sort((a, b) => a.localeCompare(b, "pt-BR"));
+      res.json({ tags });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // Resolve the audience into a concrete recipient list for a channel.
+  app.post("/api/campaigns/audience/resolve", authenticateToken, requireAnyPermission("marketing", "whatsappBroadcast", "emailBroadcast", "smsBroadcast"), async (req: AuthRequest, res) => {
+    try {
+      const filters = (req.body?.filters ?? {}) as AudienceFilters;
+      const channel = String(req.body?.channel ?? "whatsapp");
+      const rows = await storage.getContacts(req.accountId!);
+      const audienceContacts = (rows as any[]).map(toAudienceContact);
+      const ctx = await buildAudienceContext(req.accountId!, filters);
+      const matched = applyAudienceFilters(audienceContacts, filters, ctx);
+      const recipients = resolveAudienceRecipients(matched, channel);
+      res.json({ recipients, total: recipients.length });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // ==================== CAMPAIGN IMPORT (Phase 2) ====================
+
+  // Read raw text from either an uploaded file or a pasted body.
+  const readImportInput = async (req: AuthRequest): Promise<{ rows: ImportRow[]; headers: string[] }> => {
+    const file = (req as any).file as Express.Multer.File | undefined;
+    let text = "";
+    let sheetRows: ImportRow[] | null = null;
+
+    if (file) {
+      const name = (file.originalname || "").toLowerCase();
+      const buf = file.path ? fs.readFileSync(file.path) : (file.buffer as Buffer);
+      if (name.endsWith(".xlsx") || name.endsWith(".xls")) {
+        sheetRows = await xlsxBufferToObjectRows(buf) as ImportRow[];
+      } else {
+        text = buf.toString("utf-8");
+      }
+      if (file.path) { try { fs.unlinkSync(file.path); } catch { /* ignore */ } }
+    } else {
+      text = String(req.body?.text ?? "");
+    }
+
+    if (sheetRows) {
+      const headers = sheetRows.length > 0 ? Object.keys(sheetRows[0]) : [];
+      return { rows: sheetRows, headers };
+    }
+    const rows = parseDelimited(text);
+    const headers = rows.length > 0 ? Object.keys(rows[0]) : [];
+    return { rows, headers };
+  };
+
+  // Analyze an import: detect headers, sample rows and a suggested mapping.
+  app.post("/api/campaigns/import/analyze", authenticateToken, requireAnyPermission("marketing", "whatsappBroadcast", "emailBroadcast", "smsBroadcast"), upload.single("file"), async (req: AuthRequest, res) => {
+    try {
+      const { rows, headers } = await readImportInput(req);
+      const suggestedMapping = suggestMapping(headers);
+      const delimiter = req.body?.text ? detectDelimiter(String(req.body.text).split(/\r?\n/)[0] ?? "") : null;
+      res.json({
+        headers,
+        rowCount: rows.length,
+        sample: rows.slice(0, 10),
+        suggestedMapping,
+        delimiter,
+      });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // Process an import: apply mapping, validate, dedupe -> valid / invalid / duplicates.
+  app.post("/api/campaigns/import/process", authenticateToken, requireAnyPermission("marketing", "whatsappBroadcast", "emailBroadcast", "smsBroadcast"), upload.single("file"), async (req: AuthRequest, res) => {
+    try {
+      const { rows } = await readImportInput(req);
+      let mapping: Record<string, ImportField> = {};
+      const rawMapping = req.body?.mapping;
+      if (rawMapping) {
+        mapping = typeof rawMapping === "string" ? JSON.parse(rawMapping) : rawMapping;
+      } else {
+        mapping = suggestMapping(rows.length > 0 ? Object.keys(rows[0]) : []);
+      }
+      const channel = String(req.body?.channel ?? "");
+      const requiredChannel = channel === "email" ? "email" : channel ? "phone" : undefined;
+      const result = processImport(rows, mapping, requiredChannel);
+      res.json(result);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // ==================== CONTACT LISTS (Phase 2) ====================
+
+  app.get("/api/contact-lists", authenticateToken, requireAnyPermission("marketing", "whatsappBroadcast", "emailBroadcast", "smsBroadcast"), async (req: AuthRequest, res) => {
+    try {
+      const lists = await storage.getContactLists(req.accountId!);
+      res.json(lists);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/contact-lists", authenticateToken, requireAnyPermission("marketing", "whatsappBroadcast", "emailBroadcast", "smsBroadcast"), async (req: AuthRequest, res) => {
+    try {
+      const validated = insertContactListSchema.parse(req.body);
+      if (!CONTACT_LIST_KINDS.includes(validated.kind as any)) {
+        return res.status(400).json({ error: "Tipo de lista inválido" });
+      }
+      const list = await storage.createContactList({
+        ...validated,
+        accountId: req.accountId!,
+        userId: req.userId!,
+      });
+      // For a fixed list, materialize the provided contact ids as members.
+      const contactIds: string[] = Array.isArray(req.body?.contactIds) ? req.body.contactIds.map(String) : [];
+      if (validated.kind === "fixed" && contactIds.length > 0) {
+        await storage.setContactListMembers(list.id, req.accountId!, contactIds);
+      }
+      res.json(list);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.patch("/api/contact-lists/:id", authenticateToken, requireAnyPermission("marketing", "whatsappBroadcast", "emailBroadcast", "smsBroadcast"), async (req: AuthRequest, res) => {
+    try {
+      const existing = await storage.getContactList(req.params.id, req.accountId!);
+      if (!existing) return res.status(404).json({ error: "Lista não encontrada" });
+      const validated = insertContactListSchema.partial().parse(req.body);
+      const updated = await storage.updateContactList(req.params.id, req.accountId!, validated);
+      const contactIds: string[] | undefined = Array.isArray(req.body?.contactIds) ? req.body.contactIds.map(String) : undefined;
+      if (contactIds && (updated.kind === "fixed")) {
+        await storage.setContactListMembers(updated.id, req.accountId!, contactIds);
+      }
+      res.json(updated);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/contact-lists/:id", authenticateToken, requireAnyPermission("marketing", "whatsappBroadcast", "emailBroadcast", "smsBroadcast"), async (req: AuthRequest, res) => {
+    try {
+      const existing = await storage.getContactList(req.params.id, req.accountId!);
+      if (!existing) return res.status(404).json({ error: "Lista não encontrada" });
+      await storage.deleteContactList(req.params.id, req.accountId!);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Preview a list's members (fixed -> stored members, dynamic -> resolved from filters).
+  app.get("/api/contact-lists/:id/preview", authenticateToken, requireAnyPermission("marketing", "whatsappBroadcast", "emailBroadcast", "smsBroadcast"), async (req: AuthRequest, res) => {
+    try {
+      const list = await storage.getContactList(req.params.id, req.accountId!);
+      if (!list) return res.status(404).json({ error: "Lista não encontrada" });
+
+      if (list.kind === "dynamic") {
+        const filters = (list.filters ?? {}) as AudienceFilters;
+        const rows = await storage.getContacts(req.accountId!);
+        const audienceContacts = (rows as any[]).map(toAudienceContact);
+        const ctx = await buildAudienceContext(req.accountId!, filters);
+        const preview = buildAudiencePreview(audienceContacts, filters, ctx);
+        return res.json({ kind: "dynamic", ...preview });
+      }
+
+      const members = await storage.getContactListMembers(list.id, req.accountId!);
+      const allContacts = await storage.getContacts(req.accountId!);
+      const byId = new Map((allContacts as any[]).map((c) => [c.id, c]));
+      const resolved = members.map((m) => {
+        const c = m.contactId ? byId.get(m.contactId) : null;
+        return {
+          id: m.contactId,
+          name: c?.name ?? m.name ?? "",
+          phone: c?.phone ?? m.phone ?? null,
+          email: c?.email ?? m.email ?? null,
+          city: c?.city ?? null,
+          state: c?.state ?? null,
+        };
+      });
+      res.json({
+        kind: "fixed",
+        total: resolved.length,
+        withPhone: resolved.filter((r) => r.phone).length,
+        withEmail: resolved.filter((r) => r.email).length,
+        sample: resolved.slice(0, 20),
+      });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // ==================== MESSAGE TEMPLATES (Phase 3) ====================
+
+  // List saved message models (optionally filtered by channel).
+  app.get("/api/message-templates", authenticateToken, requireAnyPermission("marketing", "whatsappBroadcast", "emailBroadcast", "smsBroadcast"), async (req: AuthRequest, res) => {
+    try {
+      const channel = typeof req.query.channel === "string" ? req.query.channel : undefined;
+      const templates = await storage.getMessageTemplates(req.accountId!, channel);
+      res.json(templates);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/message-templates", authenticateToken, requireAnyPermission("marketing", "whatsappBroadcast", "emailBroadcast", "smsBroadcast"), async (req: AuthRequest, res) => {
+    try {
+      const validated = insertMessageTemplateSchema.parse(req.body);
+      if (!MESSAGE_TEMPLATE_CHANNELS.includes(validated.channel as any)) {
+        return res.status(400).json({ error: "Canal de modelo inválido" });
+      }
+      if (isBlankMessage(validated.body)) {
+        return res.status(400).json({ error: "A mensagem do modelo não pode ficar vazia" });
+      }
+      const unknown = unknownVariables(validated.body);
+      if (unknown.length > 0) {
+        return res.status(400).json({ error: `Variáveis não suportadas: ${unknown.map((v) => `{${v}}`).join(", ")}` });
+      }
+      const tpl = await storage.createMessageTemplate({
+        ...validated,
+        accountId: req.accountId!,
+        userId: req.userId!,
+      });
+      res.json(tpl);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.patch("/api/message-templates/:id", authenticateToken, requireAnyPermission("marketing", "whatsappBroadcast", "emailBroadcast", "smsBroadcast"), async (req: AuthRequest, res) => {
+    try {
+      const existing = await storage.getMessageTemplate(req.params.id, req.accountId!);
+      if (!existing) return res.status(404).json({ error: "Modelo não encontrado" });
+      const validated = insertMessageTemplateSchema.partial().parse(req.body);
+      if (validated.body !== undefined && isBlankMessage(validated.body)) {
+        return res.status(400).json({ error: "A mensagem do modelo não pode ficar vazia" });
+      }
+      if (validated.body !== undefined) {
+        const unknown = unknownVariables(validated.body);
+        if (unknown.length > 0) {
+          return res.status(400).json({ error: `Variáveis não suportadas: ${unknown.map((v) => `{${v}}`).join(", ")}` });
+        }
+      }
+      const updated = await storage.updateMessageTemplate(req.params.id, req.accountId!, validated);
+      res.json(updated);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/message-templates/:id", authenticateToken, requireAnyPermission("marketing", "whatsappBroadcast", "emailBroadcast", "smsBroadcast"), async (req: AuthRequest, res) => {
+    try {
+      const existing = await storage.getMessageTemplate(req.params.id, req.accountId!);
+      if (!existing) return res.status(404).json({ error: "Modelo não encontrado" });
+      await storage.deleteMessageTemplate(req.params.id, req.accountId!);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // List safe, active WhatsApp connections for the campaign wizard.
+  app.get("/api/campaigns/whatsapp/connections", authenticateToken, requireAnyPermission("marketing", "whatsappBroadcast"), async (req: AuthRequest, res) => {
+    try {
+      const connections = await storage.getChannelConnections(req.accountId!);
+      res.json({ connections: listCampaignWhatsappConnectionOptions(connections) });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message, connections: [] });
+    }
+  });
+
+  // List approved templates only from the exact official connection selected.
+  app.get("/api/campaigns/whatsapp/templates", authenticateToken, requireAnyPermission("marketing", "whatsappBroadcast"), async (req: AuthRequest, res) => {
+    try {
+      const collected: any[] = [];
+      const allConnections = await storage.getChannelConnections(req.accountId!).catch(() => []);
+      const connectionId = typeof req.query.connectionId === "string" ? req.query.connectionId : undefined;
+      const selectedConnection = requireCampaignWhatsappConnection(allConnections, connectionId, "whatsapp_oficial");
+      const connections = [selectedConnection];
+
+      for (const connection of connections as any[]) {
+        const token = decryptSecretIfNeeded(connection.token) as string | undefined;
+        if (!token) continue;
+        const metadata = (connection.metadata ?? {}) as Record<string, any>;
+        if (isDirectMetaConnection(connection)) {
+          const businessAccountId = metadata.businessAccountId ?? metadata.whatsappBusinessAccountId ?? metadata.wabaId;
+          if (!businessAccountId) continue;
+          const remote = await wescctech.listOfficialTemplates(token, {
+            businessAccountId,
+            graphBaseUrl: metadata.graphBaseUrl ?? metadata.baseUrl,
+          });
+          collected.push(...remote.map((template) => ({ ...template, source: "meta_graph", connectionId: connection.id })));
+        } else {
+          const remote = await wescctech.listActionCardTemplates(token);
+          collected.push(...remote.map((template) => {
+            const normalized = normalizeActionCardTemplate(template);
+            const components = normalized.dynamicComponents.length > 0
+              ? normalized.dynamicComponents
+              : normalized.staticComponents;
+            const body = components.find((component: any) => String(component?.type ?? "").toUpperCase() === "BODY")?.text;
+            return {
+              ...normalized,
+              preview: body ?? normalized.preview,
+              components,
+              status: "APPROVED",
+              source: "whu_action_card",
+              connectionId: connection.id,
+            };
+          }));
+        }
+      }
+
+      if (collected.length === 0) {
+        return res.status(400).json({ error: "Nenhum canal WhatsApp Oficial com templates foi encontrado", templates: [] });
+      }
+
+      const templates = collected.map((t) => ({
+        id: t.id ?? t.name,
+        name: t.name,
+        language: t.language ?? "pt_BR",
+        category: t.category ?? null,
+        status: t.status ?? null,
+        usable: isWaTemplateUsable(t.status),
+        blockReason: waTemplateBlockReason(t.status),
+        bodyVariables: waTemplateBodyVariables(t),
+        variables: extractWhatsAppTemplateVariables(t),
+        preview: (Array.isArray(t.components) ? t.components : []).find((c: any) => String(c?.type ?? "").toUpperCase() === "BODY")?.text ?? "",
+        components: t.components ?? [],
+        source: t.source,
+        connectionId: t.connectionId,
+      }));
+      res.json({ templates });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message, templates: [] });
+    }
+  });
+
+  // Preview a campaign message rendered for a sample audience contact.
+  app.post("/api/campaigns/preview", authenticateToken, requireAnyPermission("marketing", "whatsappBroadcast", "emailBroadcast", "smsBroadcast"), async (req: AuthRequest, res) => {
+    try {
+      const message: string = typeof req.body?.message === "string" ? req.body.message : "";
+      const subject: string | undefined = typeof req.body?.subject === "string" ? req.body.subject : undefined;
+      const recipient: string | undefined = typeof req.body?.recipient === "string" ? req.body.recipient : undefined;
+
+      // Resolve a sample contact: explicit recipient (phone/email) or first with contact data.
+      const contacts = await storage.getContacts(req.accountId!);
+      let sample: any = null;
+      if (recipient) {
+        const key = recipient.replace(/\D/g, "");
+        sample = (contacts as any[]).find((c) =>
+          (c.phone && c.phone.replace(/\D/g, "").endsWith(key.slice(-8))) ||
+          (c.email && c.email.toLowerCase() === recipient.toLowerCase())
+        ) ?? null;
+      }
+      if (!sample) sample = (contacts as any[])[0] ?? null;
+
+      const ctx = contactTemplateContext(
+        sample ? { name: sample.name, phone: sample.phone, city: sample.city } : null,
+        { protocolo: req.body?.protocolo ?? "", link: req.body?.link ?? "" },
+      );
+      const renderedMessage = renderTemplate(message, ctx);
+      const renderedSubject = subject ? renderTemplate(subject, ctx) : subject;
+      res.json({
+        message: renderedMessage,
+        subject: renderedSubject,
+        sample: sample ? { name: sample.name, phone: sample.phone, email: sample.email, city: sample.city } : null,
+        variables: extractVariables(message),
+        sms: smsSegments(renderedMessage),
+      });
     } catch (error: any) {
       res.status(400).json({ error: error.message });
     }
@@ -3724,7 +5480,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       for (const key of INTEGRATION_SENSITIVE_FIELDS) {
         const incoming = (validatedData as any)[key];
-        if (incoming === undefined || incoming === "" || incoming === "***") {
+        if (isMaskedOrEmptySecret(incoming)) {
           if (existing && (existing as any)[key] != null) {
             (validatedData as any)[key] = (existing as any)[key];
           } else {
@@ -3769,7 +5525,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       for (const key of INTEGRATION_SENSITIVE_FIELDS) {
         const incoming = (validatedData as any)[key];
-        if (incoming === undefined || incoming === "" || incoming === "***") {
+        if (isMaskedOrEmptySecret(incoming)) {
           if (existing && (existing as any)[key] != null) {
             (validatedData as any)[key] = (existing as any)[key];
           } else {
@@ -3894,7 +5650,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Preserve sensitive fields when left blank or sent masked ("***")
       for (const key of INTEGRATION_SENSITIVE_FIELDS) {
         const incoming = (validatedData as any)[key];
-        if (incoming === undefined || incoming === "" || incoming === "***") {
+        if (isMaskedOrEmptySecret(incoming)) {
           if (existing && (existing as any)[key] != null) {
             (validatedData as any)[key] = (existing as any)[key];
           } else {
@@ -4370,6 +6126,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return `${proto}://${host}`;
   };
 
+  const publicPetitionSignAttempts = new Map<string, { count: number; resetAt: number }>();
+  const PUBLIC_PETITION_SIGN_LIMIT = 20;
+  const PUBLIC_PETITION_SIGN_WINDOW_MS = 15 * 60 * 1000;
+
+  const publicPetitionSignRateLimit = (req: Request, res: Response, next: NextFunction) => {
+    const now = Date.now();
+    for (const [key, entry] of publicPetitionSignAttempts) {
+      if (entry.resetAt <= now) publicPetitionSignAttempts.delete(key);
+    }
+
+    const ipAddress = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
+      req.ip || req.socket.remoteAddress || 'unknown';
+    const key = `${ipAddress}:${req.params.slug || ""}`;
+    const result = allowFixedWindowAttempt(
+      publicPetitionSignAttempts,
+      key,
+      PUBLIC_PETITION_SIGN_LIMIT,
+      PUBLIC_PETITION_SIGN_WINDOW_MS,
+      now,
+    );
+
+    res.setHeader("X-RateLimit-Limit", String(PUBLIC_PETITION_SIGN_LIMIT));
+    res.setHeader("X-RateLimit-Remaining", String(result.remaining));
+    res.setHeader("X-RateLimit-Reset", String(Math.ceil(result.resetAt / 1000)));
+
+    if (!result.allowed) {
+      return res.status(429).json({ error: "Muitas tentativas de assinatura. Tente novamente em alguns minutos." });
+    }
+    next();
+  };
+
   // ---------- Petitions CRUD ----------
   app.get("/api/petitions", authenticateToken, requirePermission("petitions"), async (req: AuthRequest, res) => {
     try {
@@ -4417,7 +6204,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/petitions", authenticateToken, requirePermission("petitions"), async (req: AuthRequest, res) => {
     try {
-      const validated = insertPetitionSchema.parse(req.body);
+      const validated = normalizePetitionCollectionConfig(insertPetitionSchema.parse(req.body));
       const slug = await makeUniqueSlug(validated.slug, (s) => storage.getPetitionBySlug(s));
       const petition = await storage.createPetition({
         ...validated,
@@ -4440,7 +6227,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (validated.slug) {
         validated.slug = await makeUniqueSlug(validated.slug, (s) => storage.getPetitionBySlug(s), req.params.id);
       }
-      const petition = await storage.updatePetition(req.params.id, req.accountId!, validated);
+      const currentPetition = await storage.getPetition(req.params.id, req.accountId!);
+      if (!currentPetition) return res.status(404).json({ error: "Petição não encontrada" });
+      const normalized = normalizePetitionCollectionConfig({ ...currentPetition, ...validated });
+      const petition = await storage.updatePetition(req.params.id, req.accountId!, {
+        ...validated,
+        collectEmail: normalized.collectEmail,
+        collectPhone: normalized.collectPhone,
+        collectCity: normalized.collectCity,
+        collectState: normalized.collectState,
+        collectCpf: normalized.collectCpf,
+        collectComment: normalized.collectComment,
+      });
       res.json(petition);
     } catch (error: any) {
       if (error instanceof z.ZodError) {
@@ -4466,15 +6264,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!req.file || !tempFilePath) {
         return res.status(400).json({ error: "Nenhuma imagem enviada" });
       }
-      if (!ALLOWED_IMAGE_TYPES.includes(req.file.mimetype)) {
+      const image = validateImageBuffer(fs.readFileSync(tempFilePath));
+      if (!image) {
         cleanupTempFile(tempFilePath);
         return res.status(400).json({ error: "Tipo de arquivo não permitido. Use JPG, PNG, WebP ou GIF." });
       }
-      const ext = getSafeExtension(req.file.mimetype);
-      if (!ext) {
-        cleanupTempFile(tempFilePath);
-        return res.status(400).json({ error: "Tipo de imagem inválido" });
-      }
+      const ext = image.extension;
       const filename = `${req.accountId}_${Date.now()}_${Math.round(Math.random() * 1e9)}.${ext}`;
       const destDir = path.join(process.cwd(), 'uploads', 'petitions');
       if (!fs.existsSync(destDir)) fs.mkdirSync(destDir, { recursive: true });
@@ -4642,7 +6437,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ---------- Petition Campaigns ----------
   app.get("/api/petition-campaigns", authenticateToken, requirePermission("petitions"), async (req: AuthRequest, res) => {
     try {
-      res.json(await storage.getPetitionCampaigns(req.accountId!));
+      const campaigns = await storage.getPetitionCampaigns(req.accountId!);
+      res.json(campaigns.map(sanitizePetitionCampaign));
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -4652,7 +6448,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const campaign = await storage.getPetitionCampaign(req.params.id, req.accountId!);
       if (!campaign) return res.status(404).json({ error: "Campanha não encontrada" });
-      res.json(campaign);
+      res.json(sanitizePetitionCampaign(campaign));
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -4666,7 +6462,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userId: req.userId!,
         accountId: req.accountId!,
       });
-      res.status(201).json(campaign);
+      res.status(201).json(sanitizePetitionCampaign(campaign));
     } catch (error: any) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: "Dados inválidos", details: error.errors });
@@ -4679,7 +6475,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const validated = insertPetitionCampaignSchema.partial().parse(req.body);
       const campaign = await storage.updatePetitionCampaign(req.params.id, req.accountId!, validated);
-      res.json(campaign);
+      res.json(sanitizePetitionCampaign(campaign));
     } catch (error: any) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: "Dados inválidos", details: error.errors });
@@ -4707,8 +6503,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // WhatsApp dispatch goes through the gateway; the access token is provided
-      // by the user (per send) or stored on the campaign. No silent mock.
-      const accessToken = (req.body?.accessToken || campaign.apiToken || "").trim();
+      // by the user per send. Stored campaign tokens are not used or returned.
+      const accessToken = typeof req.body?.accessToken === "string" ? req.body.accessToken.trim() : "";
       if (campaign.type !== "whatsapp") {
         return res.status(400).json({ error: "Apenas campanhas de WhatsApp podem ser disparadas no momento." });
       }
@@ -4803,7 +6599,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           accountId: req.accountId!,
           recipientName: r.name,
           recipientContact: r.phone,
-          status: ok ? "enviado" : "falhou",
+          status: normalizePetitionCampaignLogStatus(ok),
           errorMessage,
         } as any);
 
@@ -4817,7 +6613,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         failedCount: failed,
       } as any);
 
-      res.json({ campaign: updated, total: recipients.length, success, failed });
+      res.json({ campaign: sanitizePetitionCampaign(updated), total: recipients.length, success, failed });
     } catch (error: any) {
       res.status(400).json({ error: error.message });
     }
@@ -5031,12 +6827,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/public/petitions/:slug", async (req, res) => {
     try {
       const petition = await storage.getPetitionBySlug(req.params.slug);
-      if (!petition || petition.status === "rascunho") {
+      if (!isPublicPetitionVisible(petition)) {
         return res.status(404).json({ error: "Petição não encontrada" });
       }
       await storage.incrementPetitionViews(petition.id);
       const signaturesCount = await storage.getPetitionSignatureCount(petition.id);
-      res.json({ ...petition, signaturesCount });
+      res.json(sanitizePublicPetition({ ...petition, signaturesCount }));
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -5046,7 +6842,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/public/petitions/:slug/count", async (req, res) => {
     try {
       const petition = await storage.getPetitionBySlug(req.params.slug);
-      if (!petition) return res.status(404).json({ error: "Petição não encontrada" });
+      if (!isPublicPetitionVisible(petition)) return res.status(404).json({ error: "Petição não encontrada" });
       const signaturesCount = await storage.getPetitionSignatureCount(petition.id);
       res.json({ signaturesCount, goal: petition.goal });
     } catch (error: any) {
@@ -5055,14 +6851,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Public sign petition
-  app.post("/api/public/petitions/:slug/sign", async (req, res) => {
+  app.post("/api/public/petitions/:slug/sign", publicPetitionSignRateLimit, async (req, res) => {
     try {
       const petition = await storage.getPetitionBySlug(req.params.slug);
-      if (!petition || petition.status === "rascunho") {
+      if (!isPublicPetitionVisible(petition)) {
         return res.status(404).json({ error: "Petição não encontrada" });
       }
-      if (petition.status === "pausada" || petition.status === "concluida") {
+      if (!isPublicPetitionOpenForSignature(petition)) {
         return res.status(400).json({ error: "Esta petição não está mais recebendo assinaturas." });
+      }
+
+      const requirementIssues = validatePublicSignatureRequirements(petition, req.body ?? {});
+      if (requirementIssues.length > 0) {
+        return res.status(400).json({
+          error: "Campos obrigatórios não preenchidos",
+          details: requirementIssues,
+        });
       }
 
       const validated = insertPetitionSignatureSchema.omit({ petitionId: true }).parse(req.body);
@@ -5088,7 +6892,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const ipAddress = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
         req.ip || req.socket.remoteAddress || 'unknown';
 
-      const signature = await storage.createPetitionSignature({
+      await storage.createPetitionSignature({
         ...validated,
         email,
         cpf,
@@ -5096,7 +6900,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ipAddress,
       });
       const signaturesCount = await storage.getPetitionSignatureCount(petition.id);
-      res.status(201).json({ success: true, signature, signaturesCount });
+      res.status(201).json({ success: true, signaturesCount });
     } catch (error: any) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: "Dados inválidos", details: error.errors });
@@ -5120,7 +6924,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const signaturesCount = await storage.getPetitionSignatureCount(p.id);
         return { ...p, signaturesCount };
       }));
-      res.json({ ...page, petitions: petitionsData.filter(Boolean) });
+      const publicPetitions = filterPublishedPetitions(petitionsData.filter(Boolean) as Record<string, any>[])
+        .map(sanitizePublicPetition);
+      const {
+        accountId: _accountId,
+        userId: _userId,
+        petitionIds: _petitionIds,
+        viewsCount: _viewsCount,
+        createdAt: _createdAt,
+        updatedAt: _updatedAt,
+        ...publicPage
+      } = page as any;
+      res.json({ ...publicPage, petitions: publicPetitions });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -5134,7 +6949,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Página não encontrada" });
       }
       await storage.incrementLinkTreeViews(page.id);
-      res.json(page);
+      const {
+        accountId: _accountId,
+        userId: _userId,
+        viewsCount: _viewsCount,
+        createdAt: _createdAt,
+        updatedAt: _updatedAt,
+        ...publicPage
+      } = page as any;
+      res.json(publicPage);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -5233,12 +7056,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.sendStatus(403);
       }
       
-      // Use filtered database query instead of in-memory filter
-      const [matchingConfig] = await db
-        .select()
-        .from(aiConfigurations)
-        .where(eq(aiConfigurations.facebookWebhookVerifyToken, token as string))
-        .limit(1);
+      const configs: AiConfigurationRecord[] = (await db.select().from(aiConfigurations)).map(decryptAiConfigurationRecord);
+      const matchingConfig = configs.find((config) => config.facebookWebhookVerifyToken === token);
       
       if (matchingConfig) {
         console.log('✓ Facebook webhook verified for account:', matchingConfig.accountId);
@@ -5270,12 +7089,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.sendStatus(403);
       }
       
-      // Use filtered database query for Instagram-specific token
-      const [matchingConfig] = await db
-        .select()
-        .from(aiConfigurations)
-        .where(eq(aiConfigurations.instagramWebhookVerifyToken, token as string))
-        .limit(1);
+      const configs: AiConfigurationRecord[] = (await db.select().from(aiConfigurations)).map(decryptAiConfigurationRecord);
+      const matchingConfig = configs.find((config) => config.instagramWebhookVerifyToken === token);
       
       if (matchingConfig) {
         console.log('✓ Instagram webhook verified for account:', matchingConfig.accountId);
@@ -5295,8 +7110,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const body = req.body;
     
     console.log('🔔 ========== INSTAGRAM WEBHOOK POST CHAMADO ==========');
-    console.log('📦 Body completo:', JSON.stringify(body, null, 2));
-    console.log('🔍 Headers:', JSON.stringify(req.headers, null, 2));
+    console.log('📦 Payload resumido:', JSON.stringify(summarizeWebhookPayload(body)));
+    console.log('🔍 Headers:', JSON.stringify(redactWebhookHeaders(req.headers as Record<string, unknown>)));
     console.log('⏰ Timestamp:', new Date().toISOString());
     console.log('======================================================');
     
@@ -5304,6 +7119,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (body.object !== 'instagram') {
       console.log('❌ Objeto não é "instagram", recebido:', body.object);
       return res.sendStatus(404);
+    }
+
+    if (!(await requireValidMetaWebhookSignature(req, res, "instagram", body))) {
+      return;
     }
     
     console.log('✅ Objeto validado como "instagram"');
@@ -5323,7 +7142,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             console.log('📥 Processando', entry.messaging.length, 'mensagens DM');
             
             for (const webhookEvent of entry.messaging) {
-              console.log('📨 DM event:', JSON.stringify(webhookEvent, null, 2));
+              console.log('📨 DM event:', JSON.stringify(summarizeWebhookPayload({ entry: [{ messaging: [webhookEvent] }] })));
               
               if (!webhookEvent.message || !webhookEvent.message.text) {
                 console.log('⏭️ Pulando evento não-texto');
@@ -5347,7 +7166,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               console.log(`📩 Instagram DM de ${senderId}: "${messageText}"`);
               
               // Find config by Instagram Business Account ID or Facebook Page ID
-              const configs = await db.select().from(aiConfigurations);
+              const configs = (await db.select().from(aiConfigurations)).map(decryptAiConfigurationRecord);
               const config = configs.find((c: any) => 
                 c.instagramBusinessAccountId === recipientId || 
                 c.instagramFacebookPageId === recipientId ||
@@ -5439,7 +7258,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             console.log('📥 Processando', entry.changes.length, 'changes (comentários)');
             
             for (const change of entry.changes) {
-              console.log('💬 Change event:', JSON.stringify(change, null, 2));
+              console.log('💬 Change event:', JSON.stringify(summarizeWebhookPayload({ entry: [{ changes: [change] }] })));
               
               // Only process comments
               if (change.field !== 'comments') {
@@ -5467,7 +7286,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               console.log(`💬 Instagram Comentário de ${fromId}: "${commentText}"`);
               
               // Find config by Instagram Business Account ID
-              const configs = await db.select().from(aiConfigurations);
+              const configs = (await db.select().from(aiConfigurations)).map(decryptAiConfigurationRecord);
               const config = configs.find((c: any) => 
                 c.instagramBusinessAccountId === entry.id ||
                 c.instagramFacebookPageId === entry.id
@@ -5569,8 +7388,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const body = req.body;
     
     console.log('🔔 ========== FACEBOOK WEBHOOK POST CHAMADO ==========');
-    console.log('📦 Body completo:', JSON.stringify(body, null, 2));
-    console.log('🔍 Headers:', JSON.stringify(req.headers, null, 2));
+    console.log('📦 Payload resumido:', JSON.stringify(summarizeWebhookPayload(body)));
+    console.log('🔍 Headers:', JSON.stringify(redactWebhookHeaders(req.headers as Record<string, unknown>)));
     console.log('⏰ Timestamp:', new Date().toISOString());
     console.log('======================================================');
     
@@ -5578,6 +7397,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (body.object !== 'page') {
       console.log('❌ Objeto não é "page", recebido:', body.object);
       return res.sendStatus(404);
+    }
+
+    if (!(await requireValidMetaWebhookSignature(req, res, "facebook", body))) {
+      return;
     }
     
     console.log('✅ Objeto validado como "page" (Facebook)');
@@ -5599,7 +7422,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             console.log('📥 Processando', entry.messaging.length, 'mensagens Messenger');
             
             for (const webhookEvent of entry.messaging) {
-              console.log('📨 Messenger event:', JSON.stringify(webhookEvent, null, 2));
+              console.log('📨 Messenger event:', JSON.stringify(summarizeWebhookPayload({ entry: [{ messaging: [webhookEvent] }] })));
               
               // Verificar se é uma mensagem echo (enviada pela própria página)
               if (webhookEvent.message?.is_echo) {
@@ -5641,7 +7464,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               console.log(`📩 Facebook Messenger de ${senderId}: "${messageText}"`);
               
               // Find config by Facebook Page ID
-              const configs = await db.select().from(aiConfigurations);
+              const configs = (await db.select().from(aiConfigurations)).map(decryptAiConfigurationRecord);
               const config = configs.find((c: any) => c.facebookPageId === recipientId || c.facebookPageId === pageId);
               
               if (!config) {
@@ -5756,7 +7579,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             console.log('📥 Processando', entry.changes.length, 'changes (comentários)');
             
             for (const change of entry.changes) {
-              console.log('💬 Change event:', JSON.stringify(change, null, 2));
+              console.log('💬 Change event:', JSON.stringify(summarizeWebhookPayload({ entry: [{ changes: [change] }] })));
               
               // Process feed changes (comments on posts)
               if (change.field !== 'feed') {
@@ -5799,7 +7622,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               console.log(`💬 Facebook Comentário de ${fromName} (${fromId}): "${commentText}"`);
               
               // Find config by Facebook Page ID
-              const configs = await db.select().from(aiConfigurations);
+              const configs = (await db.select().from(aiConfigurations)).map(decryptAiConfigurationRecord);
               const config = configs.find((c: any) => c.facebookPageId === pageId);
               
               if (!config) {
@@ -5944,12 +7767,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // WhatsApp Webhook - Receive Events (POST)
-  app.post("/api/webhook/whatsapp", (req, res) => {
+  app.post("/api/webhook/whatsapp", async (req, res) => {
     const body = req.body;
     
-    console.log('WhatsApp webhook event received:', JSON.stringify(body, null, 2));
+    console.log('WhatsApp webhook event received:', JSON.stringify(summarizeWebhookPayload(body)));
     
     if (body.object === 'whatsapp_business_account') {
+      if (!(await requireValidMetaWebhookSignature(req, res, "whatsapp", body))) {
+        return;
+      }
+
       body.entry?.forEach((entry: any) => {
         const changes = entry.changes?.[0];
         const value = changes?.value;
@@ -5961,6 +7788,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Implement AI response logic here
         }
       });
+
+      // Delivery/read receipts: update campaign recipient rows by providerMessageId.
+      // Processed asynchronously so we always ACK Meta quickly (avoids retries).
+      void applyWhatsAppStatusEvents(body);
+
       res.status(200).send('EVENT_RECEIVED');
     } else {
       res.sendStatus(404);
@@ -5972,7 +7804,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const crc_token = req.query.crc_token;
     
     if (crc_token) {
-      const consumer_secret = process.env.TWITTER_CONSUMER_SECRET || '';
+      const consumer_secret = process.env.TWITTER_CONSUMER_SECRET;
+      if (!consumer_secret) {
+        console.error('Twitter CRC rejected: TWITTER_CONSUMER_SECRET is not configured');
+        return res.sendStatus(503);
+      }
       
       const hmac = crypto.createHmac('sha256', consumer_secret).update(crc_token as string).digest('base64');
       const response_token = `sha256=${hmac}`;
@@ -5987,10 +7823,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Twitter/X Webhook - Receive Events (POST)
   app.post("/api/webhook/twitter", async (req, res) => {
     const body = req.body;
+    const consumerSecret = process.env.TWITTER_CONSUMER_SECRET;
     
     console.log('🔔 ========== TWITTER WEBHOOK POST CHAMADO ==========');
-    console.log('📦 Body completo:', JSON.stringify(body, null, 2));
+    console.log('📦 Payload resumido:', JSON.stringify(summarizeWebhookPayload(body)));
     console.log('======================================================');
+
+    if (!consumerSecret) {
+      console.error('Twitter webhook rejected: TWITTER_CONSUMER_SECRET is not configured');
+      return res.sendStatus(503);
+    }
+
+    if (!verifyTwitterWebhookSignature({
+      rawBody: (req as Request & { rawBody?: unknown }).rawBody,
+      signatureHeader: req.headers["x-twitter-webhooks-signature"],
+      consumerSecret,
+    })) {
+      console.warn('Twitter webhook rejected: invalid signature');
+      return res.sendStatus(403);
+    }
     
     // Respond immediately
     res.status(200).send('EVENT_RECEIVED');
@@ -6016,7 +7867,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             console.log(`📩 Twitter DM de ${senderId}: "${messageText}"`);
             
             // Find config by Twitter username
-            const configs = await db.select().from(aiConfigurations);
+            const configs = (await db.select().from(aiConfigurations)).map(decryptAiConfigurationRecord);
             const config = configs.find((c: any) => c.twitterUsername);
             
             if (!config) {
@@ -6088,7 +7939,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             console.log(`💬 Twitter menção/reply de @${userName}: "${tweetText}"`);
             
             // Find config
-            const configs = await db.select().from(aiConfigurations);
+            const configs = (await db.select().from(aiConfigurations)).map(decryptAiConfigurationRecord);
             const config = configs.find((c: any) => c.twitterUsername);
             
             if (!config) {
@@ -7739,6 +9590,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Attendance omnichannel routes
   const { registerAttendanceRoutes } = await import("./attendance-routes");
   registerAttendanceRoutes(app);
+
+  // Start the Phase 4 background scheduler (single instance per process).
+  // Promotes due scheduled campaigns and processes in-flight ones on each tick.
+  const SCHEDULER_INTERVAL_MS = 10000;
+  const schedulerTimer = setInterval(() => { void schedulerTick(); }, SCHEDULER_INTERVAL_MS);
+  schedulerTimer.unref?.();
 
   const httpServer = createServer(app);
   const { setupAttendanceRealtime } = await import("./attendance-events");

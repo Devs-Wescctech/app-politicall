@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "HlrHZ7gTmJ90su8484Twr"
+uri = "file://politicall.zip"
+type = "unspecified"
+title = "Politicall — Código-fonte completo"

@@ -10,7 +10,7 @@
  */
 
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, integer, boolean, jsonb, numeric, uuid } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, integer, boolean, jsonb, numeric, uuid, uniqueIndex } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -49,6 +49,9 @@ export type UserPermissions = {
   // Atendimento Omni — permissões auxiliares
   attendanceReports: boolean;
   attendanceSettings: boolean;
+  // Relatórios — permissões de acesso aos relatórios
+  reports: boolean;
+  campaignReports: boolean;
   attendanceView?: boolean;
   attendanceAssume?: boolean;
   attendanceRelease?: boolean;
@@ -92,6 +95,8 @@ export const userPermissionsSchema = z.object({
   smsBroadcast: z.boolean().optional().default(false),
   attendanceReports: z.boolean().optional().default(false),
   attendanceSettings: z.boolean().optional().default(false),
+  reports: z.boolean().optional().default(false),
+  campaignReports: z.boolean().optional().default(false),
   attendanceView: z.boolean().optional().default(false),
   attendanceAssume: z.boolean().optional().default(false),
   attendanceRelease: z.boolean().optional().default(false),
@@ -127,10 +132,26 @@ export const BROADCAST_MODULES = [
   { key: "smsBroadcast", label: "Disparos SMS" },
 ] as const;
 
+// Grupos de permissões exibidos na seção "Permissões de Acesso aos Menus" dos
+// modais de criação/edição de usuário.
+export const ATTENDANCE_PERMISSION_GROUP = [
+  { key: "whatsappAttendance", label: "Atendimento WhatsApp" },
+  { key: "emailAttendance", label: "Atendimento E-mail" },
+  { key: "socialAttendance", label: "Atendimento Redes Sociais" },
+  { key: "attendanceSettings", label: "Configurações de Atendimento" },
+] as const;
+
+export const REPORT_MODULES = [
+  { key: "reports", label: "Relatórios gerais" },
+  { key: "campaignReports", label: "Relatórios de campanhas" },
+  { key: "attendanceReports", label: "Relatórios de atendimentos" },
+] as const;
+
 // Permission keys that gate each sidebar parent group. A group is visible when the
 // user holds at least one of its submodule permissions.
 export const ATTENDANCE_PERMISSION_KEYS = ATTENDANCE_MODULES.map((m) => m.key);
 export const BROADCAST_PERMISSION_KEYS = BROADCAST_MODULES.map((m) => m.key);
+export const REPORT_PERMISSION_KEYS = REPORT_MODULES.map((m) => m.key);
 
 // Status of an Atendimento Omni module for a given account.
 // - inactive: the module is not enabled for the account
@@ -167,6 +188,8 @@ export const DEFAULT_PERMISSIONS = {
     smsBroadcast: true,
     attendanceReports: true,
     attendanceSettings: true,
+    reports: true,
+    campaignReports: true,
     attendanceView: true,
     attendanceAssume: true,
     attendanceRelease: true,
@@ -206,6 +229,8 @@ export const DEFAULT_PERMISSIONS = {
     smsBroadcast: true,
     attendanceReports: true,
     attendanceSettings: true,
+    reports: true,
+    campaignReports: true,
     attendanceView: true,
     attendanceAssume: true,
     attendanceRelease: true,
@@ -245,6 +270,8 @@ export const DEFAULT_PERMISSIONS = {
     smsBroadcast: false,
     attendanceReports: false,   // Relatórios são gerenciais
     attendanceSettings: false,  // Configuração técnica é do admin
+    reports: false,             // Relatórios são gerenciais
+    campaignReports: false,     // Relatórios são gerenciais
     attendanceView: true,
     attendanceAssume: true,
     attendanceRelease: true,
@@ -284,6 +311,8 @@ export const DEFAULT_PERMISSIONS = {
     smsBroadcast: false,
     attendanceReports: false,
     attendanceSettings: false,
+    reports: false,
+    campaignReports: false,
     attendanceView: false,
     attendanceAssume: false,
     attendanceRelease: false,
@@ -487,6 +516,7 @@ export const contacts = pgTable("contacts", {
   gender: text("gender"),
   state: text("state"),
   city: text("city"),
+  neighborhood: text("neighborhood"), // bairro
   interests: text("interests").array(),
   source: text("source"),
   notes: text("notes"),
@@ -679,21 +709,238 @@ export const aiResponseTemplates = pgTable("ai_response_templates", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// Marketing campaigns
+// Marketing campaigns (multichannel Campaign Center)
+// Supported channels for a campaign. Legacy campaigns use `type` (single channel);
+// new campaigns may set `channels` (array) for multichannel/mixed dispatch.
+export const CAMPAIGN_CHANNELS = [
+  "whatsapp",          // WhatsApp normal (WHU gateway)
+  "whatsapp_oficial",  // WhatsApp API Oficial (templates) — base support
+  "sms",               // SMS (Oktor via n8n proxy)
+  "email",             // E-mail (Locaweb / SMTP / SendGrid)
+  "instagram",         // when integration available
+  "facebook",          // when integration available
+] as const;
+export type CampaignChannel = (typeof CAMPAIGN_CHANNELS)[number];
+
+// Canonical campaign statuses (Portuguese). Legacy English values
+// (draft/scheduled/sent/failed) remain readable via normalizeCampaignStatus.
+export const CAMPAIGN_STATUSES = [
+  "rascunho",
+  "agendada",
+  "em_envio",
+  "pausada",
+  "enviada",
+  "parcialmente_enviada",
+  "falhou",
+  "cancelada",
+] as const;
+export type CampaignStatus = (typeof CAMPAIGN_STATUSES)[number];
+
+// Per-recipient delivery status.
+export const CAMPAIGN_RECIPIENT_STATUSES = [
+  "pending",
+  "sent",
+  "delivered",
+  "read",
+  "responded",
+  "failed",
+  "invalid",
+  "cancelled",
+] as const;
+export type CampaignRecipientStatus = (typeof CAMPAIGN_RECIPIENT_STATUSES)[number];
+
 export const marketingCampaigns = pgTable("marketing_campaigns", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   accountId: varchar("account_id").notNull().references(() => accounts.id, { onDelete: 'cascade' }),
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
-  type: text("type").notNull(), // email, whatsapp
+  type: text("type").notNull(), // legacy single channel: email, whatsapp, sms
+  channels: text("channels").array(), // multichannel: subset of CAMPAIGN_CHANNELS (falls back to [type])
   subject: text("subject"),
   message: text("message").notNull(),
   recipients: jsonb("recipients").notNull(), // array of email/phone numbers
   scheduledFor: timestamp("scheduled_for"),
-  status: text("status").notNull().default("draft"), // draft, scheduled, sent, failed
+  status: text("status").notNull().default("rascunho"), // see CAMPAIGN_STATUSES (legacy values still accepted)
+  // Phase 3 — templates/messages: optional saved model + per-channel template config.
+  templateId: varchar("template_id").references((): any => messageTemplates.id, { onDelete: "set null" }),
+  templateConfig: jsonb("template_config"), // CampaignTemplateConfig: WA official template + filled variables + email sender override
+  // Phase 4 — scheduling & send control (all additive/optional):
+  sendConfig: jsonb("send_config"), // CampaignSendConfig: rate limits, interval, batch, retry, send window
+  cancelReason: text("cancel_reason"), // optional reason recorded on cancellation
   sentAt: timestamp("sent_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
+// Per-recipient tracking for a campaign dispatch (reports + partial-sent + errors).
+export const campaignRecipients = pgTable("campaign_recipients", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  accountId: varchar("account_id").notNull().references(() => accounts.id, { onDelete: 'cascade' }),
+  campaignId: varchar("campaign_id").notNull().references(() => marketingCampaigns.id, { onDelete: 'cascade' }),
+  contactId: varchar("contact_id").references(() => contacts.id, { onDelete: 'set null' }),
+  channel: text("channel").notNull(), // one of CAMPAIGN_CHANNELS
+  recipient: text("recipient").notNull(), // phone or email actually targeted
+  name: text("name"),
+  status: text("status").notNull().default("pending"), // see CAMPAIGN_RECIPIENT_STATUSES
+  errorReason: text("error_reason"), // grouped provider error reason
+  providerMessageId: text("provider_message_id"),
+  providerResponse: text("provider_response"),
+  sentAt: timestamp("sent_at"),
+  deliveredAt: timestamp("delivered_at"),
+  // Phase 4 — retry tracking (additive/optional):
+  attempts: integer("attempts").notNull().default(0), // dispatch attempts made for this recipient
+  lastAttemptAt: timestamp("last_attempt_at"),
+  nextRetryAt: timestamp("next_retry_at"), // when a temporary failure should be retried
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Immutable campaign audit trail — who created/edited/sent, status changes, provider errors.
+// These records are never deleted by the application.
+export const campaignEvents = pgTable("campaign_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  accountId: varchar("account_id").notNull().references(() => accounts.id, { onDelete: 'cascade' }),
+  campaignId: varchar("campaign_id").notNull().references(() => marketingCampaigns.id, { onDelete: 'cascade' }),
+  userId: varchar("user_id").references(() => users.id, { onDelete: 'set null' }),
+  action: text("action").notNull(), // created, updated, send_started, sent, partially_sent, failed, status_changed, cancelled, paused, resumed
+  fromStatus: text("from_status"),
+  toStatus: text("to_status"),
+  detail: jsonb("detail"), // arbitrary context: recipient count, channels, template, integrations, provider errors
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Phase 5 — audit trail for report/data exports (who exported what, with which filters, when).
+// Records are additive and never deleted by the application.
+export const CAMPAIGN_EXPORT_SCOPES = [
+  "summary",          // dashboard/summary report
+  "campaign_report",  // full report for a single campaign
+  "recipients",       // recipients (optionally filtered by status)
+  "failures",         // failed recipients only
+] as const;
+export type CampaignExportScope = (typeof CAMPAIGN_EXPORT_SCOPES)[number];
+
+export const CAMPAIGN_EXPORT_FORMATS = ["csv", "xlsx", "pdf"] as const;
+export type CampaignExportFormat = (typeof CAMPAIGN_EXPORT_FORMATS)[number];
+
+export const campaignExports = pgTable("campaign_exports", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  accountId: varchar("account_id").notNull().references(() => accounts.id, { onDelete: 'cascade' }),
+  userId: varchar("user_id").references(() => users.id, { onDelete: 'set null' }),
+  campaignId: varchar("campaign_id").references(() => marketingCampaigns.id, { onDelete: 'cascade' }),
+  scope: text("scope").notNull(), // one of CAMPAIGN_EXPORT_SCOPES
+  format: text("format").notNull(), // one of CAMPAIGN_EXPORT_FORMATS
+  filters: jsonb("filters"), // arbitrary filter context used to generate the export
+  rowCount: integer("row_count"), // number of rows/records exported
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Contact lists for campaign audiences.
+// kind = 'fixed' -> materialized members in contact_list_members
+// kind = 'dynamic' -> resolved at read time from `filters` (AudienceFilters)
+export const CONTACT_LIST_KINDS = ["fixed", "dynamic"] as const;
+export type ContactListKind = (typeof CONTACT_LIST_KINDS)[number];
+
+export const contactLists = pgTable("contact_lists", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  accountId: varchar("account_id").notNull().references(() => accounts.id, { onDelete: 'cascade' }),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  description: text("description"),
+  kind: text("kind").notNull().default("fixed"), // fixed | dynamic
+  filters: jsonb("filters"), // AudienceFilters for dynamic lists
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Materialized members for a fixed contact list.
+export const contactListMembers = pgTable("contact_list_members", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  accountId: varchar("account_id").notNull().references(() => accounts.id, { onDelete: 'cascade' }),
+  listId: varchar("list_id").notNull().references(() => contactLists.id, { onDelete: 'cascade' }),
+  contactId: varchar("contact_id").references(() => contacts.id, { onDelete: 'set null' }),
+  name: text("name"),
+  phone: text("phone"),
+  email: text("email"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Saved message models (SMS / e-mail / WhatsApp free text) reusable across campaigns.
+export const MESSAGE_TEMPLATE_CHANNELS = ["sms", "email", "whatsapp"] as const;
+export type MessageTemplateChannel = (typeof MESSAGE_TEMPLATE_CHANNELS)[number];
+
+export const messageTemplates = pgTable("message_templates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  accountId: varchar("account_id").notNull().references(() => accounts.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  channel: text("channel").notNull(), // one of MESSAGE_TEMPLATE_CHANNELS
+  name: text("name").notNull(),
+  subject: text("subject"), // e-mail subject
+  body: text("body").notNull(), // message body (may contain {nome} {telefone} {cidade} {protocolo} {link})
+  fromName: text("from_name"), // e-mail sender name override
+  fromEmail: text("from_email"), // e-mail sender address override
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Per-campaign template configuration stored on marketing_campaigns.templateConfig.
+export type CampaignTemplateConfig = {
+  mode?: "free" | "model"; // free message vs saved model
+  // WhatsApp API Oficial:
+  waTemplateId?: string;
+  waTemplateName?: string;
+  waTemplateLanguage?: string;
+  waTemplateCategory?: string;
+  waTemplateStatus?: string;
+  waTemplateSource?: "meta_graph" | "whu_action_card";
+  waConnectionId?: string;
+  waTemplatePreview?: string;
+  waTemplateComponents?: Array<Record<string, unknown>>;
+  // Filled variables (keyed by variable name) applied per contact at send time.
+  variables?: Record<string, string>;
+  // E-mail sender override (falls back to integration config):
+  fromName?: string;
+  fromEmail?: string;
+};
+
+// Send window (allowed dispatch hours) stored inside CampaignSendConfig.
+export type CampaignSendWindow = {
+  start?: string;                 // "HH:MM" — window opens (inclusive)
+  end?: string;                   // "HH:MM" — window closes (exclusive)
+  businessHoursOnly?: boolean;    // restrict to Mon–Fri
+  timezoneOffsetMinutes?: number; // minutes offset from UTC (default -180 / BRT)
+};
+
+// Per-campaign scheduling & send-control configuration stored on marketing_campaigns.sendConfig.
+export type CampaignSendConfig = {
+  waConnectionId?: string; // exact WhatsApp channel connection selected for dispatch
+  ratePerMinute?: number;  // max messages dispatched per minute (0/undefined = unlimited)
+  ratePerHour?: number;    // max messages dispatched per hour (0/undefined = unlimited)
+  intervalMs?: number;     // minimum delay between individual messages
+  batchSize?: number;      // max messages dispatched per processing tick
+  maxRetries?: number;     // max dispatch attempts per recipient before giving up
+  window?: CampaignSendWindow;
+};
+
+// Audience segmentation filters (shared by preview, dynamic lists and resolve).
+// All groups are combined with AND; values within a group match ANY.
+export type AudienceFilters = {
+  tags?: string[];                 // etiquetas (match any interest)
+  interests?: string[];            // interesse (match any interest)
+  cities?: string[];               // cidade
+  neighborhoods?: string[];        // bairro
+  states?: string[];               // estado
+  genders?: string[];              // gênero
+  ageMin?: number;                 // idade mínima
+  ageMax?: number;                 // idade máxima
+  sources?: string[];              // origem do contato
+  importedOnly?: boolean;          // apenas contatos importados
+  previousCampaignId?: string;     // contatos de campanha anterior
+  // Attendance-based (matched by phone against att_conversations)
+  originChannels?: string[];       // canal de origem do atendimento
+  attendanceStatuses?: string[];   // status do atendimento
+  lastAttendanceAfter?: string;    // último atendimento a partir de (ISO)
+  lastAttendanceBefore?: string;   // último atendimento até (ISO)
+  responded?: boolean;             // respondeu / não respondeu
+};
 
 // Notifications - In-app notifications for important events
 export const notifications = pgTable("notifications", {
@@ -1120,6 +1367,44 @@ export const insertMarketingCampaignSchema = createInsertSchema(marketingCampaig
   createdAt: true,
 });
 
+export const insertCampaignRecipientSchema = createInsertSchema(campaignRecipients).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertCampaignEventSchema = createInsertSchema(campaignEvents).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertCampaignExportSchema = createInsertSchema(campaignExports).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertContactListSchema = createInsertSchema(contactLists).omit({
+  id: true,
+  userId: true,
+  accountId: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertContactListMemberSchema = createInsertSchema(contactListMembers).omit({
+  id: true,
+  accountId: true,
+  createdAt: true,
+});
+
+export const insertMessageTemplateSchema = createInsertSchema(messageTemplates).omit({
+  id: true,
+  userId: true,
+  accountId: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export const insertNotificationSchema = createInsertSchema(notifications).omit({
   id: true,
   userId: true,
@@ -1308,6 +1593,24 @@ export type InsertAiResponseTemplate = z.infer<typeof insertAiResponseTemplateSc
 
 export type MarketingCampaign = typeof marketingCampaigns.$inferSelect;
 export type InsertMarketingCampaign = z.infer<typeof insertMarketingCampaignSchema>;
+
+export type CampaignRecipient = typeof campaignRecipients.$inferSelect;
+export type InsertCampaignRecipient = z.infer<typeof insertCampaignRecipientSchema>;
+
+export type CampaignEvent = typeof campaignEvents.$inferSelect;
+export type InsertCampaignEvent = z.infer<typeof insertCampaignEventSchema>;
+
+export type CampaignExport = typeof campaignExports.$inferSelect;
+export type InsertCampaignExport = z.infer<typeof insertCampaignExportSchema>;
+
+export type ContactList = typeof contactLists.$inferSelect;
+export type InsertContactList = z.infer<typeof insertContactListSchema>;
+
+export type ContactListMember = typeof contactListMembers.$inferSelect;
+export type InsertContactListMember = z.infer<typeof insertContactListMemberSchema>;
+
+export type MessageTemplate = typeof messageTemplates.$inferSelect;
+export type InsertMessageTemplate = z.infer<typeof insertMessageTemplateSchema>;
 
 export type Notification = typeof notifications.$inferSelect;
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;
@@ -1518,6 +1821,7 @@ export const insertPetitionCampaignSchema = createInsertSchema(petitionCampaigns
   id: true,
   accountId: true,
   userId: true,
+  apiToken: true,
   createdAt: true,
   updatedAt: true,
 }).extend({
@@ -1744,7 +2048,11 @@ export const attMessages = pgTable("att_messages", {
   mimeType: text("mime_type"),
   metadata: jsonb("metadata"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, table => ({
+  accountExternalMessageUnique: uniqueIndex("att_messages_account_external_message_uidx")
+    .on(table.accountId, table.externalMessageId)
+    .where(sql`${table.externalMessageId} is not null`),
+}));
 
 export const attAttachments = pgTable("att_attachments", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

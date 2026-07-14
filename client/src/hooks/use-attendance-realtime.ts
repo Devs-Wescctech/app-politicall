@@ -45,7 +45,9 @@ function invalidateConversation(event: AttendanceRealtimeEvent) {
   queryClient.invalidateQueries({ queryKey: ["/api/attendance/reports/summary"] });
 
   if (event.conversationId) {
-    queryClient.invalidateQueries({ queryKey: ["/api/attendance/conversations", event.conversationId] });
+    if (event.type !== "attendance.message.created") {
+      queryClient.invalidateQueries({ queryKey: ["/api/attendance/conversations", event.conversationId] });
+    }
     queryClient.invalidateQueries({ queryKey: ["/api/attendance/conversations", event.conversationId, "history"] });
   }
 }

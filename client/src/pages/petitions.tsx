@@ -279,11 +279,13 @@ function SwitchField({
   name,
   label,
   testid,
+  onCheckedChange,
 }: {
   control: any;
   name: string;
   label: string;
   testid: string;
+  onCheckedChange?: (checked: boolean) => void;
 }) {
   return (
     <FormField
@@ -295,7 +297,10 @@ function SwitchField({
           <FormControl>
             <Switch
               checked={!!field.value}
-              onCheckedChange={field.onChange}
+              onCheckedChange={(checked) => {
+                field.onChange(checked);
+                onCheckedChange?.(!!checked);
+              }}
               data-testid={`switch-${testid}`}
             />
           </FormControl>
@@ -333,6 +338,19 @@ const petitionDefaults: InsertPetition = {
   requireComment: false,
   lgpdText: "",
 };
+
+type PetitionBooleanField =
+  | "collectEmail"
+  | "collectPhone"
+  | "collectCity"
+  | "collectState"
+  | "collectCpf"
+  | "collectComment"
+  | "requireEmail"
+  | "requirePhone"
+  | "requireLocation"
+  | "requireCpf"
+  | "requireComment";
 
 function PetitionFormView({
   petition,
@@ -404,6 +422,17 @@ function PetitionFormView({
   });
 
   const onSubmit = (data: InsertPetition) => mutation.mutate(data);
+  const setPetitionBoolean = (name: PetitionBooleanField, value: boolean) => {
+    form.setValue(name, value, { shouldDirty: true, shouldValidate: true });
+  };
+  const clearRequiredWhenUncollected = (requiredName: PetitionBooleanField, checked: boolean) => {
+    if (!checked) setPetitionBoolean(requiredName, false);
+  };
+  const keepLocationRequirementVisible = (changedName: "collectCity" | "collectState", checked: boolean) => {
+    if (checked) return;
+    const otherName = changedName === "collectCity" ? "collectState" : "collectCity";
+    if (!form.getValues(otherName)) setPetitionBoolean("requireLocation", false);
+  };
 
   const w = form.watch();
   const accent = w.primaryColor || "#14b8a6";
@@ -662,41 +691,51 @@ function PetitionFormView({
                     <Mail className="h-4 w-4 text-primary" />
                     <span className="text-sm font-medium text-foreground">E-mail</span>
                   </div>
-                  <SwitchField control={form.control} name="collectEmail" label="Coletar e-mail" testid="collectEmail" />
-                  <SwitchField control={form.control} name="requireEmail" label="Obrigatório" testid="requireEmail" />
+                  <SwitchField control={form.control} name="collectEmail" label="Coletar e-mail" testid="collectEmail" onCheckedChange={(checked) => clearRequiredWhenUncollected("requireEmail", checked)} />
+                  <SwitchField control={form.control} name="requireEmail" label="Obrigatório" testid="requireEmail" onCheckedChange={(checked) => checked && setPetitionBoolean("collectEmail", true)} />
                 </Card>
                 <Card className="space-y-2 p-3">
                   <div className="flex items-center gap-2">
                     <Phone className="h-4 w-4 text-primary" />
                     <span className="text-sm font-medium text-foreground">Telefone</span>
                   </div>
-                  <SwitchField control={form.control} name="collectPhone" label="Coletar telefone" testid="collectPhone" />
-                  <SwitchField control={form.control} name="requirePhone" label="Obrigatório" testid="requirePhone" />
+                  <SwitchField control={form.control} name="collectPhone" label="Coletar telefone" testid="collectPhone" onCheckedChange={(checked) => clearRequiredWhenUncollected("requirePhone", checked)} />
+                  <SwitchField control={form.control} name="requirePhone" label="Obrigatório" testid="requirePhone" onCheckedChange={(checked) => checked && setPetitionBoolean("collectPhone", true)} />
                 </Card>
                 <Card className="space-y-2 p-3">
                   <div className="flex items-center gap-2">
                     <MapPin className="h-4 w-4 text-primary" />
                     <span className="text-sm font-medium text-foreground">Localização</span>
                   </div>
-                  <SwitchField control={form.control} name="collectCity" label="Coletar cidade" testid="collectCity" />
-                  <SwitchField control={form.control} name="collectState" label="Coletar estado" testid="collectState" />
-                  <SwitchField control={form.control} name="requireLocation" label="Obrigatório" testid="requireLocation" />
+                  <SwitchField control={form.control} name="collectCity" label="Coletar cidade" testid="collectCity" onCheckedChange={(checked) => keepLocationRequirementVisible("collectCity", checked)} />
+                  <SwitchField control={form.control} name="collectState" label="Coletar estado" testid="collectState" onCheckedChange={(checked) => keepLocationRequirementVisible("collectState", checked)} />
+                  <SwitchField
+                    control={form.control}
+                    name="requireLocation"
+                    label="Obrigatório"
+                    testid="requireLocation"
+                    onCheckedChange={(checked) => {
+                      if (checked && !form.getValues("collectCity") && !form.getValues("collectState")) {
+                        setPetitionBoolean("collectCity", true);
+                      }
+                    }}
+                  />
                 </Card>
                 <Card className="space-y-2 p-3">
                   <div className="flex items-center gap-2">
                     <CreditCard className="h-4 w-4 text-primary" />
                     <span className="text-sm font-medium text-foreground">CPF</span>
                   </div>
-                  <SwitchField control={form.control} name="collectCpf" label="Coletar CPF" testid="collectCpf" />
-                  <SwitchField control={form.control} name="requireCpf" label="Obrigatório" testid="requireCpf" />
+                  <SwitchField control={form.control} name="collectCpf" label="Coletar CPF" testid="collectCpf" onCheckedChange={(checked) => clearRequiredWhenUncollected("requireCpf", checked)} />
+                  <SwitchField control={form.control} name="requireCpf" label="Obrigatório" testid="requireCpf" onCheckedChange={(checked) => checked && setPetitionBoolean("collectCpf", true)} />
                 </Card>
                 <Card className="space-y-2 p-3 sm:col-span-2">
                   <div className="flex items-center gap-2">
                     <MessageCircle className="h-4 w-4 text-primary" />
                     <span className="text-sm font-medium text-foreground">Comentário</span>
                   </div>
-                  <SwitchField control={form.control} name="collectComment" label="Coletar comentário" testid="collectComment" />
-                  <SwitchField control={form.control} name="requireComment" label="Obrigatório" testid="requireComment" />
+                  <SwitchField control={form.control} name="collectComment" label="Coletar comentário" testid="collectComment" onCheckedChange={(checked) => clearRequiredWhenUncollected("requireComment", checked)} />
+                  <SwitchField control={form.control} name="requireComment" label="Obrigatório" testid="requireComment" onCheckedChange={(checked) => checked && setPetitionBoolean("collectComment", true)} />
                 </Card>
               </div>
             </div>
@@ -1924,6 +1963,10 @@ function CampaignFormDialog({
 // Campaign logs dialog
 // ============================================================================
 
+function isCampaignLogSuccessStatus(status: string) {
+  return status === "success" || status === "enviado";
+}
+
 function CampaignLogsDialog({
   open,
   onOpenChange,
@@ -1966,18 +2009,21 @@ function CampaignLogsDialog({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {logs.map((log) => (
-                  <TableRow key={log.id} data-testid={`row-log-${log.id}`}>
-                    <TableCell className="font-medium text-foreground">{log.recipientName}</TableCell>
-                    <TableCell className="text-muted-foreground">{log.recipientContact}</TableCell>
-                    <TableCell>
-                      <Badge variant={log.status === "success" ? "default" : "destructive"}>
-                        {log.status === "success" ? "Sucesso" : "Erro"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">{log.errorMessage || "-"}</TableCell>
-                  </TableRow>
-                ))}
+                {logs.map((log) => {
+                  const success = isCampaignLogSuccessStatus(log.status);
+                  return (
+                    <TableRow key={log.id} data-testid={`row-log-${log.id}`}>
+                      <TableCell className="font-medium text-foreground">{log.recipientName}</TableCell>
+                      <TableCell className="text-muted-foreground">{log.recipientContact}</TableCell>
+                      <TableCell>
+                        <Badge variant={success ? "default" : "destructive"}>
+                          {success ? "Sucesso" : "Erro"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">{log.errorMessage || "-"}</TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </div>

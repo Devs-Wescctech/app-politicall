@@ -1,0 +1,177 @@
+Correção urgente de regressão após implementação de paginação.
+
+Modo: Power.
+
+Depois da alteração de paginação, as listas de campanhas sumiram. A tela de Campanhas/Disparos agora mostra total 0 e “Nenhuma campanha”, mesmo existindo campanhas antes. Além disso, a paginação não foi aplicada em todas as listas infinitas.
+
+Preciso corrigir sem apagar dados.
+
+Regras obrigatórias:
+- preservar banco atual;
+- não executar drop/reset/truncate;
+- não recriar tabelas;
+- não apagar campanhas, contatos, atendimentos, relatórios ou histórico;
+- corrigir a regressão mantendo compatibilidade com dados existentes;
+- rodar no final:
+  npm run check
+  npm run build
+  npm run test
+
+1. Corrigir campanhas sumidas
+
+Investigar e corrigir imediatamente:
+- endpoint de listagem de campanhas;
+- query do frontend;
+- formato da resposta paginada;
+- compatibilidade com o formato antigo.
+
+Provável problema:
+O frontend pode estar esperando array direto e agora o backend retorna:
+{
+  data,
+  page,
+  pageSize,
+  total,
+  totalPages
+}
+
+Ou o backend pode estar filtrando errado por canal/status/conta.
+
+Corrigir para:
+- a tela voltar a exibir campanhas existentes;
+- cards de total/enviadas/rascunhos/falhas voltarem a contar corretamente;
+- abas WhatsApp, E-mail e SMS mostrarem os dados corretos;
+- busca e filtros continuarem funcionando;
+- paginação funcionar sem esconder registros.
+
+Critério:
+Se existirem campanhas no banco, elas precisam aparecer na tela.
+
+2. Compatibilidade de resposta
+
+Criar helper no frontend ou ajustar query para aceitar os dois formatos:
+- array antigo;
+- objeto paginado novo.
+
+Exemplo:
+const campaigns = Array.isArray(response) ? response : response.data ?? []
+
+Mas também preservar:
+- total;
+- page;
+- pageSize;
+- totalPages;
+- hasNextPage;
+- hasPreviousPage.
+
+3. Corrigir contadores
+
+Os cards não podem depender apenas da página atual se o objetivo for total geral.
+
+Corrigir:
+- Total;
+- Enviadas;
+- Rascunhos;
+- Falhas;
+- contadores por canal.
+
+Eles devem usar dados agregados do backend ou endpoint de summary, não só a quantidade da página atual.
+
+4. Aplicar paginação nas listas infinitas restantes
+
+Auditar todas as telas e aplicar paginação onde ainda estiver carregando tudo.
+
+Obrigatório verificar:
+
+Campanhas:
+- lista principal de campanhas;
+- rascunhos;
+- enviadas;
+- falhas;
+- agendadas/pausadas/canceladas, se existirem;
+- detalhe da campanha: destinatários;
+- detalhe da campanha: eventos/auditoria;
+- detalhe da campanha: erros;
+- exportações.
+
+Contatos:
+- lista geral;
+- contatos filtrados;
+- contatos importados;
+- contatos por etiqueta;
+- lista de contatos dentro de listas;
+- preview de audiência.
+
+Atendimentos:
+- histórico de atendimentos;
+- arquivados;
+- lista por status/fila quando houver muitos registros;
+- mensagens antigas do chat devem carregar por página ou scroll controlado;
+- eventos/logs do atendimento.
+
+Relatórios:
+- tabelas de campanhas;
+- destinatários;
+- falhas;
+- auditoria/exportações.
+
+Admin/configurações:
+- usuários;
+- contas/empresas;
+- etiquetas;
+- filas;
+- logs/auditoria.
+
+5. Padrão único de paginação
+
+Todos os endpoints paginados devem retornar:
+
+{
+  data: [],
+  page: number,
+  pageSize: number,
+  total: number,
+  totalPages: number,
+  hasNextPage: boolean,
+  hasPreviousPage: boolean
+}
+
+Regras:
+- pageSize padrão 20 ou 50;
+- pageSize máximo 100;
+- filtros aplicados no backend;
+- busca aplicada no backend;
+- ordenação aplicada no backend;
+- trocar filtro/busca deve voltar para página 1;
+- página sem resultado não pode apagar totais gerais.
+
+6. UX
+
+Quando não houver dados por filtro, mostrar:
+“Nenhum resultado encontrado para este filtro.”
+
+Quando não houver nenhum dado real no banco, mostrar:
+“Nenhuma campanha criada ainda.”
+
+Não mostrar “Nenhuma campanha” quando o problema for filtro, canal ou página vazia.
+
+7. Testes obrigatórios
+
+Adicionar/ajustar testes para:
+- listagem paginada de campanhas retorna campanhas existentes;
+- frontend aceita resposta paginada;
+- frontend aceita formato antigo, se ainda existir;
+- contadores não zeram ao paginar;
+- filtro por canal + paginação;
+- busca + paginação;
+- página vazia não apaga summary;
+- detalhe da campanha com destinatários paginados;
+- pageSize máximo respeitado.
+
+8. Validação manual esperada
+
+Depois da correção:
+- abrir tela Campanhas;
+- campanhas existentes aparecem;
+- cards mostram totais corretos;
+- abas WhatsApp/E-mail

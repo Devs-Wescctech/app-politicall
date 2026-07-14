@@ -1,0 +1,137 @@
+1. Diagnóstico do prompt
+Objetivo: substituir integralmente o código antigo no Replit pelo ZIP novo, preservando banco, Secrets e dados de produção.
+Stack detectada: React + TypeScript + Express + PostgreSQL/Drizzle.
+Ponto crítico: a substituição deve remover arquivos antigos sem apagar banco, uploads ou credenciais.
+2. Componentes recomendados
+Tipo	Recomendação	Finalidade
+Fluxo	Backup → substituição → testes → deploy	Evitar perda de dados
+Segurança	Secrets do Replit	Não gravar credenciais no código
+Validação	Testes + TypeScript + build	Confirmar atualização completa
+Banco	Migrações aditivas	Preservar dados existentes
+
+3. Prompt completo para o Replit
+Envie primeiro o arquivo Politicall-source-2026-07-14.zip ao Replit. Depois cole este prompt:
+Quero substituir integralmente o código-fonte antigo deste Repl pelo projeto contido no arquivo:
+
+Politicall-source-2026-07-14.zip
+
+Objetivo:
+Atualizar 100% do código-fonte do Politicall usando o ZIP como nova fonte oficial. Arquivos antigos que não existirem no ZIP devem ser removidos, mas dados persistentes, banco, uploads e Secrets precisam ser preservados.
+
+Informações do pacote:
+- SHA-256 esperado:
+  AFB0F52622A9D5DF9674077B8C7CD8FB920635BBCD4E5F320F47DB3392BA0D35
+- Stack:
+  React 18, TypeScript, Vite, Express, Drizzle ORM e PostgreSQL.
+- Comandos do projeto:
+  npm ci
+  npm test
+  npm run check
+  npm run build
+  npm start
+
+Regras obrigatórias:
+
+1. Antes de alterar qualquer arquivo:
+   - Localize o ZIP enviado.
+   - Calcule e confira o SHA-256.
+   - Se o hash não corresponder, pare e informe.
+   - Crie um backup completo do código antigo ou um checkpoint no controle de versão.
+   - Registre o estado atual do deploy.
+
+2. Preserve obrigatoriamente:
+   - Replit Secrets.
+   - DATABASE_URL e PROD_DATABASE_URL.
+   - SESSION_SECRET.
+   - Credenciais de WhatsApp, Meta, WHU, SMS/Oktor, n8n, e-mail e demais integrações.
+   - Banco PostgreSQL existente.
+   - Dados de produção.
+   - Arquivos enviados por usuários e storage persistente.
+   - Domínios, configurações de deployment e variáveis do ambiente.
+
+3. Nunca:
+   - Grave credenciais em arquivos versionados.
+   - Mostre tokens, senhas ou URLs secretas nos logs ou na resposta.
+   - Apague ou recrie o banco.
+   - Execute migration destrutiva.
+   - Use `drizzle-kit push` sem revisar previamente o SQL e o impacto.
+   - Importe `.runtime`, banco local ou configurações Windows.
+   - Substitua uploads de produção pelos arquivos de exemplo do ZIP.
+
+4. Substituição do código:
+   - Extraia o ZIP em uma pasta temporária.
+   - Confirme que contém `package.json`, `package-lock.json`, `client`, `server` e `shared`.
+   - Use o conteúdo extraído como nova fonte oficial.
+   - Substitua os arquivos antigos.
+   - Remova arquivos de código obsoletos que não existam no novo pacote.
+   - Não copie `node_modules`, `dist`, `.runtime`, logs ou arquivos temporários.
+   - Preserve dados e arquivos persistentes conforme descrito acima.
+   - Revise `.replit`, Dockerfile, scripts e configurações de build antes de ativar.
+
+5. Configuração SMS:
+   - O SMS deve passar exclusivamente pelo webhook n8n.
+   - Nunca chamar `integracao.oktor.com.br` diretamente pelo Politicall.
+   - Confirme a existência destes Secrets no Replit:
+     - OKTOR_SMS_ENDPOINT
+     - OKTOR_SMS_ACCOUNT
+     - OKTOR_SMS_CODE
+     - OKTOR_SMS_CLIENT
+     - OKTOR_SMS_TIPO_ENVIO
+   - `OKTOR_SMS_ENDPOINT` deve apontar para o webhook de produção do n8n já fornecido pelo responsável.
+   - Não exiba os valores.
+   - Não realize SMS real durante a implantação.
+
+6. Banco de dados:
+   - Compare o schema atual com as migrations do pacote.
+   - Gere uma análise das alterações antes de aplicar qualquer migration.
+   - Aplique somente alterações aditivas e seguras.
+   - Preserve tabelas, registros, IDs, relacionamentos e histórico.
+   - Se houver qualquer risco de perda de dados, pare e informe antes de continuar.
+   - Use PROD_DATABASE_URL no deployment de produção.
+
+7. Instalação e validação:
+   - Remova dependências instaladas antigas somente se necessário.
+   - Execute `npm ci`.
+   - Execute `npm test`.
+   - Execute `npm run check`.
+   - Execute `npm run build`.
+   - Corrija problemas originados pela atualização sem remover funcionalidades.
+   - Não declare sucesso se algum comando falhar.
+
+8. Teste mínimo após subir:
+   - `/api/health` deve responder com status saudável.
+   - Login deve continuar funcionando.
+   - Dashboard deve abrir.
+   - Atendimentos devem carregar.
+   - Campanhas devem carregar.
+   - WhatsApp normal e oficial devem manter suas configurações.
+   - O módulo SMS deve reconhecer a configuração n8n.
+   - Não realizar disparos reais de WhatsApp, SMS ou e-mail.
+   - Verifique se nenhum Secret apareceu no build, frontend ou logs.
+
+9. Deploy:
+   - Só reinicie ou publique depois que testes, TypeScript e build passarem.
+   - Faça deploy usando a configuração de produção existente.
+   - Após o deploy, valide novamente `/api/health`.
+   - Se o deploy falhar, restaure o checkpoint anterior.
+
+Critérios de conclusão:
+- Código antigo completamente substituído pelo conteúdo do ZIP.
+- Nenhum arquivo obsoleto restante.
+- Banco e dados preservados.
+- Secrets preservados e não expostos.
+- Testes aprovados.
+- TypeScript aprovado.
+- Build aprovado.
+- Serviço saudável após o deploy.
+- Nenhum disparo real realizado.
+
+Ao finalizar, entregue um relatório contendo:
+- Backup/checkpoint criado.
+- Arquivos e pastas substituídos.
+- Arquivos preservados.
+- Migrações analisadas e aplicadas.
+- Resultado exato de cada comando.
+- Estado do endpoint `/api/health`.
+- Pendências ou riscos encontrados.
+- Confirmação de que nenhum Secret foi exibido.

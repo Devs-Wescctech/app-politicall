@@ -27,7 +27,7 @@ import {
   Building2, Wrench, Bus, Shield, Siren, Landmark, Vote,
   Flag, Home, Droplet, Construction, Hospital, Building,
   School, University, Baby as BabyIcon, Smile, Drum, Cake,
-  Calendar as CalendarIcon, Star, Mic2, ShoppingCart, Download, FileText, Sheet, MoreVertical, QrCode, Share2, UserCircle2, TrendingUp, MapPin, Info, Lock, Upload, FileSpreadsheet, AlertCircle, CheckCircle2, Filter, ChevronDown, ExternalLink
+  Calendar as CalendarIcon, Star, Mic2, ShoppingCart, Download, FileText, Sheet, MoreVertical, QrCode, Share2, UserCircle2, TrendingUp, MapPin, Info, Lock, Upload, FileSpreadsheet, AlertCircle, CheckCircle2, Filter, ChevronDown, ExternalLink, ChevronLeft, ChevronRight
 } from "lucide-react";
 import { SiWhatsapp, SiFacebook, SiX } from "react-icons/si";
 import { useToast } from "@/hooks/use-toast";
@@ -40,14 +40,11 @@ import { Check } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
-import pdfMake from "pdfmake/build/pdfmake";
-import * as pdfFonts from "pdfmake/build/vfs_fonts";
-import * as XLSX from 'xlsx';
+import { downloadWorkbookAsXlsx, readExcelRows } from "@/lib/excel";
+import { downloadPdf } from "@/lib/pdfmake";
 import logoUrl from "@assets/logo pol_1763308638963_1763559095972.png";
 import politicallIconUrl from "@assets/icon politicall_1763309153389.png";
 import { QRCodeSVG } from 'qrcode.react';
-
-(pdfMake as any).vfs = pdfFonts;
 
 const BRAZILIAN_STATES = [
   "Acre", "Alagoas", "Amapá", "Amazonas", "Bahia", "Ceará", "Distrito Federal",
@@ -309,6 +306,8 @@ export default function Contacts() {
     const saved = localStorage.getItem('emailBlockSize');
     return saved ? parseInt(saved) : 30;
   });
+  const [contactPage, setContactPage] = useState(1);
+  const CONTACTS_PAGE_SIZE = 100;
   
   const { toast } = useToast();
 
@@ -572,12 +571,12 @@ export default function Contacts() {
   };
 
   const toggleSelectAll = () => {
-    if (!filteredContacts) return;
+    if (!paginatedContacts) return;
     
-    if (selectedContacts.size === filteredContacts.length) {
+    if (selectedContacts.size === paginatedContacts.length) {
       setSelectedContacts(new Set());
     } else {
-      setSelectedContacts(new Set(filteredContacts.map(c => c.id)));
+      setSelectedContacts(new Set(paginatedContacts.map(c => c.id)));
     }
   };
 
@@ -653,6 +652,12 @@ export default function Contacts() {
       return matchesSearch && matchesCity && matchesState && matchesInterest && matchesSource;
     });
   }, [contacts, searchQuery, selectedCity, selectedState, selectedInterest, selectedSource]);
+
+  const totalFilteredPages = Math.ceil((filteredContacts?.length ?? 0) / CONTACTS_PAGE_SIZE);
+  const paginatedContacts = useMemo(() => {
+    const start = (contactPage - 1) * CONTACTS_PAGE_SIZE;
+    return (filteredContacts ?? []).slice(start, start + CONTACTS_PAGE_SIZE);
+  }, [filteredContacts, contactPage]);
 
   // Email blocks calculation - divide contacts with email into chunks based on selected block size
   const emailBlocks = useMemo(() => {
@@ -815,10 +820,7 @@ export default function Contacts() {
       
       if (fileExtension === 'xlsx' || fileExtension === 'xls') {
         const buffer = await file.arrayBuffer();
-        const workbook = XLSX.read(buffer, { type: 'buffer' });
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
-        data = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+        data = await readExcelRows(buffer);
       } else if (fileExtension === 'csv') {
         const text = await file.text();
         const lines = text.split('\n').filter(line => line.trim());
@@ -1324,7 +1326,7 @@ export default function Contacts() {
       }
     };
 
-    pdfMake.createPdf(docDefinition).download(`eleitores-${new Date().toISOString().split('T')[0]}.pdf`);
+    await downloadPdf(docDefinition, `eleitores-${new Date().toISOString().split('T')[0]}.pdf`);
     toast({ title: `PDF gerado com ${filteredContacts.length} eleitores!` });
     setIsExportDialogOpen(false);
   };
@@ -1363,30 +1365,12 @@ export default function Contacts() {
       ])
     ];
 
-    // Criar workbook e worksheet
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.aoa_to_sheet(worksheetData);
-
-    // Definir larguras das colunas
-    ws['!cols'] = [
-      { wch: 30 }, // Nome
-      { wch: 30 }, // Email
-      { wch: 18 }, // Telefone
-      { wch: 20 }, // Cidade/Estado
-      { wch: 40 }, // Interesses
-      { wch: 40 }  // Observações
-    ];
-
-    // Mesclar células para o título
-    ws['!merges'] = [
-      { s: { r: 0, c: 0 }, e: { r: 0, c: 5 } }, // Título principal
-    ];
-
-    // Adicionar worksheet ao workbook
-    XLSX.utils.book_append_sheet(wb, ws, 'Eleitores');
-
-    // Baixar arquivo
-    XLSX.writeFile(wb, `eleitores-${new Date().toISOString().split('T')[0]}.xlsx`);
+    await downloadWorkbookAsXlsx(`eleitores-${new Date().toISOString().split('T')[0]}.xlsx`, [{
+      name: "Eleitores",
+      rows: worksheetData,
+      columnWidths: [30, 30, 18, 20, 40, 40],
+      merges: [{ top: 1, left: 1, bottom: 1, right: 6 }],
+    }]);
     toast({ title: `Excel gerado com ${filteredContacts.length} eleitores!` });
     setIsExportDialogOpen(false);
   };
@@ -1529,7 +1513,7 @@ export default function Contacts() {
       }
     };
 
-    pdfMake.createPdf(docDefinition).download(`perfil-eleitores-${new Date().toISOString().split('T')[0]}.pdf`);
+    await downloadPdf(docDefinition, `perfil-eleitores-${new Date().toISOString().split('T')[0]}.pdf`);
     toast({ title: 'PDF do perfil gerado com sucesso!' });
     setIsProfileExportDialogOpen(false);
   };
@@ -1599,17 +1583,11 @@ export default function Contacts() {
         });
     }
 
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.aoa_to_sheet(worksheetData);
-
-    ws['!cols'] = [
-      { wch: 30 },
-      { wch: 15 },
-      { wch: 15 }
-    ];
-
-    XLSX.utils.book_append_sheet(wb, ws, 'Perfil Eleitores');
-    XLSX.writeFile(wb, `perfil-eleitores-${new Date().toISOString().split('T')[0]}.xlsx`);
+    await downloadWorkbookAsXlsx(`perfil-eleitores-${new Date().toISOString().split('T')[0]}.xlsx`, [{
+      name: "Perfil Eleitores",
+      rows: worksheetData,
+      columnWidths: [30, 15, 15],
+    }]);
     toast({ title: 'Excel do perfil gerado com sucesso!' });
     setIsProfileExportDialogOpen(false);
   };
@@ -2987,8 +2965,8 @@ export default function Contacts() {
             
             {/* Mobile: Card layout */}
             <div className="sm:hidden space-y-2 px-3">
-              {filteredContacts && filteredContacts.length > 0 ? (
-                filteredContacts.map((contact) => (
+              {paginatedContacts && paginatedContacts.length > 0 ? (
+                paginatedContacts.map((contact) => (
                   <div 
                     key={contact.id} 
                     className="flex items-center gap-3 p-3 bg-muted/30 rounded-xl border"
@@ -3096,7 +3074,7 @@ export default function Contacts() {
                   <TableRow>
                     <TableHead className="w-12">
                       <Checkbox
-                        checked={filteredContacts && filteredContacts.length > 0 && selectedContacts.size === filteredContacts.length}
+                        checked={paginatedContacts && paginatedContacts.length > 0 && selectedContacts.size === paginatedContacts.length}
                         onCheckedChange={toggleSelectAll}
                         data-testid="checkbox-select-all"
                       />
@@ -3108,8 +3086,8 @@ export default function Contacts() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredContacts && filteredContacts.length > 0 ? (
-                    filteredContacts.map((contact) => (
+                  {paginatedContacts && paginatedContacts.length > 0 ? (
+                    paginatedContacts.map((contact) => (
                       <TableRow key={contact.id} data-testid={`row-contact-${contact.id}`}>
                         <TableCell>
                           <Checkbox
@@ -3210,6 +3188,24 @@ export default function Contacts() {
                   )}
                 </TableBody>
               </Table>
+              {/* Contacts pagination */}
+              {totalFilteredPages > 1 && (
+                <div className="flex items-center justify-between pt-3 border-t mt-2">
+                  <p className="text-xs text-muted-foreground">
+                    {filteredContacts.length.toLocaleString("pt-BR")} contatos — página {contactPage} de {totalFilteredPages}
+                  </p>
+                  <div className="flex items-center gap-1">
+                    <Button size="icon" variant="ghost" disabled={contactPage === 1}
+                      onClick={() => setContactPage((p) => p - 1)} data-testid="button-contacts-prev">
+                      <ChevronLeft className="w-4 h-4" />
+                    </Button>
+                    <Button size="icon" variant="ghost" disabled={contactPage >= totalFilteredPages}
+                      onClick={() => setContactPage((p) => p + 1)} data-testid="button-contacts-next">
+                      <ChevronRight className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
             </>
           )}

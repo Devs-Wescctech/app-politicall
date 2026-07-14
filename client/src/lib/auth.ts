@@ -3,6 +3,14 @@ import { type User } from "@shared/schema";
 
 const TOKEN_KEY = "auth_token";
 const USER_KEY = "auth_user";
+const ATTENDANCE_CACHE_PREFIX = "politicall:attendance:messages";
+
+function clearAttendanceCache() {
+  for (let index = localStorage.length - 1; index >= 0; index -= 1) {
+    const key = localStorage.key(index);
+    if (key?.startsWith(ATTENDANCE_CACHE_PREFIX)) localStorage.removeItem(key);
+  }
+}
 
 export function setAuthToken(token: string) {
   localStorage.setItem(TOKEN_KEY, token);
@@ -13,6 +21,7 @@ export function getAuthToken(): string | null {
 }
 
 export function removeAuthToken() {
+  clearAttendanceCache();
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
   localStorage.removeItem("isImpersonating");

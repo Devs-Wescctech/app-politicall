@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { type User, DEFAULT_PERMISSIONS, type UserPermissions } from "@shared/schema";
+import { type User, DEFAULT_PERMISSIONS, type UserPermissions, ATTENDANCE_PERMISSION_GROUP, BROADCAST_MODULES, REPORT_MODULES } from "@shared/schema";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -59,6 +59,16 @@ const createUserSchema = z.object({
 
 type CreateUserForm = z.infer<typeof createUserSchema>;
 
+// Grupos de permissões extras exibidos na seção "Permissões de Acesso aos Menus"
+const PERMISSION_GROUPS: ReadonlyArray<{
+  title: string;
+  items: ReadonlyArray<{ key: keyof UserPermissions; label: string }>;
+}> = [
+  { title: "Atendimento", items: ATTENDANCE_PERMISSION_GROUP },
+  { title: "Campanhas / Disparos", items: BROADCAST_MODULES },
+  { title: "Relatórios", items: REPORT_MODULES },
+];
+
 export default function UsersManagement() {
   const { toast } = useToast();
   const { user: currentUser, isAdmin } = useCurrentUser();
@@ -110,8 +120,15 @@ export default function UsersManagement() {
   // Watch role changes in create form
   const selectedRoleInForm = form.watch("role");
   
-  // Get admin's available permissions (modules they have access to)
-  const adminPermissions = currentUser?.permissions || DEFAULT_PERMISSIONS.admin;
+  // Get admin's available permissions (modules they have access to).
+  // Merge with the role defaults so permission keys added after the current
+  // user's permissions were saved (e.g. reports/campaignReports) still appear.
+  const adminPermissions: UserPermissions = useMemo(() => {
+    const roleDefaults =
+      DEFAULT_PERMISSIONS[(currentUser?.role as keyof typeof DEFAULT_PERMISSIONS) || "admin"] ??
+      DEFAULT_PERMISSIONS.admin;
+    return { ...roleDefaults, ...(currentUser?.permissions ?? {}) };
+  }, [currentUser?.role, currentUser?.permissions]);
   
   // Filter permissions to only show modules the admin has access to
   const availablePermissionKeys = Object.entries(adminPermissions)
@@ -143,6 +160,8 @@ export default function UsersManagement() {
         smsBroadcast: roleDefaults.smsBroadcast && adminPermissions.smsBroadcast,
         attendanceReports: roleDefaults.attendanceReports && adminPermissions.attendanceReports,
         attendanceSettings: roleDefaults.attendanceSettings && adminPermissions.attendanceSettings,
+        reports: roleDefaults.reports && adminPermissions.reports,
+        campaignReports: roleDefaults.campaignReports && adminPermissions.campaignReports,
       };
       setCustomPermissions(limitedPermissions);
     }
@@ -151,8 +170,10 @@ export default function UsersManagement() {
   // Load saved permissions when opening edit dialog
   useEffect(() => {
     if (selectedUser) {
-      // Load SAVED permissions from user
-      setEditPermissions(selectedUser.permissions || DEFAULT_PERMISSIONS[selectedUser.role as keyof typeof DEFAULT_PERMISSIONS]);
+      // Load SAVED permissions from user, merged over the role defaults so
+      // permission keys added later (e.g. reports/campaignReports) are defined
+      const roleDefaults = DEFAULT_PERMISSIONS[selectedUser.role as keyof typeof DEFAULT_PERMISSIONS] ?? DEFAULT_PERMISSIONS.assessor;
+      setEditPermissions({ ...roleDefaults, ...(selectedUser.permissions ?? {}) });
       setNewRole(selectedUser.role);
     }
   }, [selectedUser]);
@@ -182,6 +203,8 @@ export default function UsersManagement() {
         smsBroadcast: roleDefaults.smsBroadcast && adminPermissions.smsBroadcast,
         attendanceReports: roleDefaults.attendanceReports && adminPermissions.attendanceReports,
         attendanceSettings: roleDefaults.attendanceSettings && adminPermissions.attendanceSettings,
+        reports: roleDefaults.reports && adminPermissions.reports,
+        campaignReports: roleDefaults.campaignReports && adminPermissions.campaignReports,
       };
       setEditPermissions(limitedPermissions);
     }
@@ -190,6 +213,9 @@ export default function UsersManagement() {
   const { data: users, isLoading } = useQuery<Omit<User, "password">[]>({
     queryKey: ["/api/users"],
   });
+
+  const [usersPage, setUsersPage] = useState(1);
+  const USERS_PAGE_SIZE = 30;
 
   // Filter and sort users alphabetically
   const filteredAndSortedUsers = useMemo(() => {
@@ -205,6 +231,11 @@ export default function UsersManagement() {
     // Sort alphabetically by name
     return [...filtered].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
   }, [users, roleFilter]);
+
+  const paginatedUsers = useMemo(() => {
+    const start = (usersPage - 1) * USERS_PAGE_SIZE;
+    return filteredAndSortedUsers.slice(start, start + USERS_PAGE_SIZE);
+  }, [filteredAndSortedUsers, usersPage]);
 
   // Query for activity ranking with period filter
   const { data: ranking, isLoading: isRankingLoading } = useQuery<Array<{
@@ -487,7 +518,7 @@ export default function UsersManagement() {
                 </div>
               ) : filteredAndSortedUsers.length > 0 ? (
                 <div className="space-y-1">
-                  {filteredAndSortedUsers.map((user) => {
+                  {paginatedUsers.map((user) => {
                     const roleConfig = ROLE_CONFIG[user.role as keyof typeof ROLE_CONFIG];
                     const RoleIcon = roleConfig.icon;
                     
@@ -531,6 +562,24 @@ export default function UsersManagement() {
                       : "Nenhum usuário encontrado"
                     }
                   </p>
+                </div>
+              )}
+              {/* Users pagination */}
+              {filteredAndSortedUsers.length > USERS_PAGE_SIZE && (
+                <div className="flex items-center justify-between pt-3 border-t mt-3">
+                  <p className="text-xs text-muted-foreground">
+                    {filteredAndSortedUsers.length} usuários — página {usersPage} de {Math.ceil(filteredAndSortedUsers.length / USERS_PAGE_SIZE)}
+                  </p>
+                  <div className="flex items-center gap-1">
+                    <Button size="icon" variant="ghost" disabled={usersPage === 1}
+                      onClick={() => setUsersPage((p) => p - 1)} data-testid="button-users-prev">
+                      <ChevronUp className="w-4 h-4" />
+                    </Button>
+                    <Button size="icon" variant="ghost" disabled={usersPage >= Math.ceil(filteredAndSortedUsers.length / USERS_PAGE_SIZE)}
+                      onClick={() => setUsersPage((p) => p + 1)} data-testid="button-users-next">
+                      <ChevronDown className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </div>
               )}
             </CardContent>
@@ -863,6 +912,38 @@ export default function UsersManagement() {
                       </div>
                     ))}
                   </div>
+                  {PERMISSION_GROUPS.map((group) => {
+                    const visibleItems = group.items.filter((item) => adminPermissions[item.key]);
+                    if (visibleItems.length === 0) return null;
+                    return (
+                      <div key={group.title} className="space-y-2 pt-1">
+                        <p className="text-xs font-medium text-muted-foreground">{group.title}</p>
+                        <div className="grid grid-cols-2 gap-3">
+                          {visibleItems.map((item) => (
+                            <div key={item.key} className="flex items-center space-x-2">
+                              <Checkbox
+                                id={`edit-perm-${item.key}`}
+                                checked={editPermissions[item.key] === true}
+                                onCheckedChange={(checked) => {
+                                  setEditPermissions(prev => ({
+                                    ...prev,
+                                    [item.key]: checked === true
+                                  }));
+                                }}
+                                data-testid={`checkbox-edit-permission-${item.key}`}
+                              />
+                              <label
+                                htmlFor={`edit-perm-${item.key}`}
+                                className="text-sm cursor-pointer"
+                              >
+                                {item.label}
+                              </label>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
                 
                 <div className="space-y-3">
@@ -1085,6 +1166,38 @@ export default function UsersManagement() {
                       </div>
                     ))}
                   </div>
+                  {PERMISSION_GROUPS.map((group) => {
+                    const visibleItems = group.items.filter((item) => adminPermissions[item.key]);
+                    if (visibleItems.length === 0) return null;
+                    return (
+                      <div key={group.title} className="space-y-2 pt-1">
+                        <p className="text-xs font-medium text-muted-foreground">{group.title}</p>
+                        <div className="grid grid-cols-2 gap-3">
+                          {visibleItems.map((item) => (
+                            <div key={item.key} className="flex items-center space-x-2">
+                              <Checkbox
+                                id={`perm-${item.key}`}
+                                checked={customPermissions[item.key] === true}
+                                onCheckedChange={(checked) => {
+                                  setCustomPermissions(prev => ({
+                                    ...prev,
+                                    [item.key]: checked === true
+                                  }));
+                                }}
+                                data-testid={`checkbox-permission-${item.key}`}
+                              />
+                              <label
+                                htmlFor={`perm-${item.key}`}
+                                className="text-sm cursor-pointer"
+                              >
+                                {item.label}
+                              </label>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
               

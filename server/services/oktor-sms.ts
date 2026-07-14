@@ -11,13 +11,62 @@ export type OktorSendInput = {
   msg: string;
 };
 
-const DEFAULT_OKTOR_ENDPOINT = "http://integracao.oktor.com.br/integracao3.do";
+export const OKTOR_INVALID_CREDENTIALS_MESSAGE =
+  "Credenciais SMS inválidas. Verifique account e code/token da integração SMS no Admin Master.";
 
-function endpoint(config: OktorSmsConfig) {
-  return config.endpoint?.trim() || DEFAULT_OKTOR_ENDPOINT;
+export function resolveSmsEndpoint(config: OktorSmsConfig) {
+  const url = config.endpoint?.trim();
+  if (!url) {
+    throw new Error(
+      "Endpoint SMS não configurado. Defina OKTOR_SMS_ENDPOINT (proxy n8n) ou o smsEndpoint da integração da empresa. O envio direto para a Oktor a partir do servidor está desativado (IP bloqueado)."
+    );
+  }
+
+  if (!/^https?:\/\//i.test(url)) {
+    // A common misconfiguration is pasting one of the *query parameters*
+    // (account/code/tipoEnvio) into the OKTOR_SMS_ENDPOINT secret/field by
+    // mistake, instead of the proxy's base URL. Surface that distinctly so
+    // it isn't confused with a real DNS/URL typo.
+    throw new Error(
+      `Endpoint SMS inválido: "${url}". O valor configurado não é uma URL (não começa com http:// ou https://). ` +
+      "Verifique se OKTOR_SMS_ENDPOINT não foi preenchido, por engano, com o valor de outro parâmetro " +
+      "(account, code, tipoEnvio, client). O valor esperado é a URL base do proxy, por exemplo: " +
+      "https://n8n.wescctech.com.br/webhook/<seu-caminho>."
+    );
+  }
+
+  let host = "";
+  try {
+    host = new URL(url).host;
+  } catch {
+    throw new Error(`Endpoint SMS inválido: ${url}`);
+  }
+
+  if (/(^|\.)oktor\.com\.br$/i.test(host) || /integracao3\.do/i.test(url)) {
+    throw new Error(
+      "Envio direto para a Oktor está desativado (IP do servidor bloqueado). Configure OKTOR_SMS_ENDPOINT para o proxy n8n (n8n.wescctech.com.br)."
+    );
+  }
+
+  console.log("[SMS] endpoint host:", host);
+  return url;
 }
 
-function baseParams(config: OktorSmsConfig) {
+function maskSecret(value: string | null | undefined): string {
+  if (!value) return "(vazio)";
+  if (value.length <= 4) return "*".repeat(value.length);
+  return `${value.slice(0, 2)}${"*".repeat(Math.max(0, value.length - 4))}${value.slice(-2)}`;
+}
+
+function maskUrlForLog(url: string, rawCode: string | undefined): string {
+  if (!rawCode) return url;
+  // `code` is sent URL-encoded inside the query string, so redact the
+  // encoded form, not the raw secret value.
+  const encodedCode = encodeURIComponent(rawCode);
+  return url.split(encodedCode).join(maskSecret(rawCode));
+}
+
+export function baseParams(config: OktorSmsConfig) {
   if (!config.account || !config.code || !config.client) {
     throw new Error("Credenciais SMS Oktor incompletas: account, code e client sao obrigatorios");
   }
@@ -28,11 +77,28 @@ function baseParams(config: OktorSmsConfig) {
   };
 }
 
-async function getText(url: string) {
+async function getText(url: string, debugParams?: Record<string, string>) {
+  if (debugParams) {
+        console.log("[SMS] has account:", Boolean(debugParams.account));
+    console.log("[SMS] has code:", Boolean(debugParams.code));
+    console.log("[SMS] client:", debugParams.client || "(vazio)");
+  }
+
   const response = await fetch(url);
   const text = await response.text();
+
+  console.log("[SMS] response status:", response.status);
+  // Response bodies are not logged because providers may echo credentials.
+
   if (!response.ok) {
-    throw new Error(`Oktor SMS ${response.status}: ${text}`);
+    // Gateways often return large HTML error pages (e.g. a 502 from nginx).
+    // Strip the markup so the stored error reason stays short and readable.
+    const clean = text
+      .replace(/<[^>]*>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 200);
+    throw new Error(`Oktor SMS HTTP ${response.status}${clean ? `: ${clean}` : ""}`);
   }
   return { httpStatus: response.status, raw: text };
 }
@@ -54,7 +120,7 @@ function parseOktorResponse(text: string): Record<string, any> | null {
     : null;
 }
 
-function assertOktorAccepted(text: string) {
+export function assertOktorAccepted(text: string) {
   const payload = parseOktorResponse(text);
   const code = String(payload?.codigo ?? payload?.code ?? "").trim();
   const description = String(
@@ -74,6 +140,10 @@ function assertOktorAccepted(text: string) {
 
   if (!normalized) {
     throw new Error("Oktor SMS retornou resposta vazia");
+  }
+
+  if (code === "900" || normalized.includes("usuario invalido")) {
+    throw new Error(OKTOR_INVALID_CREDENTIALS_MESSAGE);
   }
 
   const errorSignals = [
@@ -115,7 +185,16 @@ export async function sendOktorSms(config: OktorSmsConfig, input: OktorSendInput
     tipoEnvio: config.tipoEnvio?.trim() || "7",
   });
 
-  const result = await getText(`${endpoint(config)}?${params.toString()}`);
+  const resolvedEndpoint = resolveSmsEndpoint(config);
+  const result = await getText(`${resolvedEndpoint}?${params.toString()}`, {
+    account: config.account,
+    code: config.code,
+    client: config.client,
+    type: "E",
+    dispatch: "sendmsg",
+    to: input.to.replace(/\D/g, ""),
+    tipoEnvio: config.tipoEnvio?.trim() || "7",
+  });
   assertOktorAccepted(result.raw);
   return result;
 }
@@ -130,5 +209,11 @@ export async function queryOktorSms(config: OktorSmsConfig, ids: string[]) {
     id: normalizedIds.join(";"),
   });
 
-  return getText(`${endpoint(config)}?${params.toString()}`);
+  return getText(`${resolveSmsEndpoint(config)}?${params.toString()}`, {
+    account: config.account,
+    code: config.code,
+    client: config.client,
+    type: "C",
+    id: normalizedIds.join(";"),
+  });
 }

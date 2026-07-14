@@ -11,16 +11,69 @@
  */
 
 import express, { type Request, Response, NextFunction } from "express";
+import { execSync } from "child_process";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { storage } from "./storage";
-import { db } from "./db";
+import { db, pool } from "./db";
+import { registerHealthRoutes } from "./health";
+import { createApiRequestLogger } from "./http-logging";
+import { createListenOptions } from "./listen-options";
+import { securityHeaders } from "./security-headers";
+import { escapeHtml } from "./html-escape";
 import { politicalParties, accounts } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import * as fs from "fs";
 import * as path from "path";
 
+/**
+ * Dev-only database readiness check.
+ * On a fresh Replit-managed workspace database the schema has not been applied
+ * yet, so login/navigation would fail. Detect that case and run the bootstrap
+ * script (scripts/setup-dev-db.ts: full schema + migrations + seed data)
+ * automatically before the server starts accepting requests.
+ * Never runs in production (the production DB is managed separately via
+ * PROD_DATABASE_URL).
+ */
+async function ensureDevDatabaseReady(): Promise<void> {
+  if (process.env.NODE_ENV === "production") return;
+
+  const requiredTables = ["accounts", "users", "contacts"];
+  const check = async (): Promise<string[]> => {
+    const { rows } = await pool.query(
+      "SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_name = ANY($1)",
+      [requiredTables]
+    );
+    const found = rows.map((r: any) => r.table_name);
+    return requiredTables.filter((t) => !found.includes(t));
+  };
+
+  let missing = await check();
+  if (missing.length === 0) return;
+
+  log(`dev database missing tables (${missing.join(", ")}) — running scripts/setup-dev-db.ts …`);
+  try {
+    execSync("npx tsx scripts/setup-dev-db.ts", { stdio: "inherit" });
+  } catch (e: any) {
+    throw new Error(
+      `Dev database bootstrap failed: ${e.message}\n` +
+      "Fix the error above or run it manually: npx tsx scripts/setup-dev-db.ts"
+    );
+  }
+
+  missing = await check();
+  if (missing.length > 0) {
+    throw new Error(
+      `Dev database is still missing tables after bootstrap: ${missing.join(", ")}. ` +
+      "Run manually to inspect: npx tsx scripts/setup-dev-db.ts"
+    );
+  }
+  log("dev database bootstrap complete — schema + seed data applied");
+}
+
 const app = express();
+
+app.disable("x-powered-by");
 
 // Disable ETag to prevent 304 responses causing stale avatar/profile data
 app.set('etag', false);
@@ -30,6 +83,7 @@ declare module 'http' {
     rawBody: unknown
   }
 }
+app.use(securityHeaders);
 app.use(express.json({
   limit: '50mb',
   verify: (req, _res, buf) => {
@@ -44,35 +98,13 @@ app.use('/assets', express.static('attached_assets'));
 // Serve user uploads (avatars, backgrounds)
 app.use('/uploads', express.static('uploads'));
 
-app.use((req, res, next) => {
-  const start = Date.now();
-  const reqPath = req.path;
-  let capturedJsonResponse: Record<string, any> | undefined = undefined;
-
-  const originalResJson = res.json;
-  res.json = function (bodyJson, ...args) {
-    capturedJsonResponse = bodyJson;
-    return originalResJson.apply(res, [bodyJson, ...args]);
-  };
-
-  res.on("finish", () => {
-    const duration = Date.now() - start;
-    if (reqPath.startsWith("/api")) {
-      let logLine = `${req.method} ${reqPath} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
-      }
-
-      if (logLine.length > 80) {
-        logLine = logLine.slice(0, 79) + "…";
-      }
-
-      log(logLine);
-    }
-  });
-
-  next();
+registerHealthRoutes(app, {
+  checkDatabase: async () => {
+    await pool.query("SELECT 1");
+  },
 });
+
+app.use(createApiRequestLogger(log));
 
 // SSR route for alliance invite with dynamic Open Graph meta tags
 // Only serves static HTML with OG tags for crawlers (WhatsApp, Facebook, Twitter, etc.)
@@ -142,30 +174,34 @@ app.get("/convite-alianca/:token", async (req: Request, res: Response, next: Nex
     const indexPath = path.resolve("client", "index.html");
     
     let html = fs.readFileSync(indexPath, "utf-8");
+    const safeOgTitle = escapeHtml(ogTitle);
+    const safeOgDescription = escapeHtml(ogDescription);
+    const safeOgImage = escapeHtml(ogImage);
+    const safeOgUrl = escapeHtml(`https://www.politicall.com.br/convite-alianca/${token}`);
     
     // Inject Open Graph meta tags before </head>
     const ogTags = `
     <!-- Dynamic Open Graph Meta Tags -->
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://www.politicall.com.br/convite-alianca/${token}" />
-    <meta property="og:title" content="${ogTitle}" />
-    <meta property="og:description" content="${ogDescription}" />
-    <meta property="og:image" content="${ogImage}" />
+    <meta property="og:url" content="${safeOgUrl}" />
+    <meta property="og:title" content="${safeOgTitle}" />
+    <meta property="og:description" content="${safeOgDescription}" />
+    <meta property="og:image" content="${safeOgImage}" />
     <meta property="og:site_name" content="Politicall" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="${ogTitle}" />
-    <meta name="twitter:description" content="${ogDescription}" />
-    <meta name="twitter:image" content="${ogImage}" />
-    <link rel="icon" type="image/png" href="${ogImage}" />
+    <meta name="twitter:title" content="${safeOgTitle}" />
+    <meta name="twitter:description" content="${safeOgDescription}" />
+    <meta name="twitter:image" content="${safeOgImage}" />
+    <link rel="icon" type="image/png" href="${safeOgImage}" />
   `;
     
     // Replace title
-    html = html.replace(/<title>.*?<\/title>/, `<title>${ogTitle}</title>`);
+    html = html.replace(/<title>.*?<\/title>/, `<title>${safeOgTitle}</title>`);
     
     // Replace description
     html = html.replace(
       /<meta name="description" content=".*?" \/>/,
-      `<meta name="description" content="${ogDescription}" />`
+      `<meta name="description" content="${safeOgDescription}" />`
     );
     
     // Inject OG tags before </head>
@@ -244,30 +280,34 @@ const handlePublicSupportSSR = async (req: Request, res: Response, next: NextFun
     const indexPath = path.resolve("client", "index.html");
     
     let html = fs.readFileSync(indexPath, "utf-8");
+    const safeOgTitle = escapeHtml(ogTitle);
+    const safeOgDescription = escapeHtml(ogDescription);
+    const safeOgImage = escapeHtml(ogImage);
+    const safeOgUrl = escapeHtml(`${baseUrl}${req.originalUrl}`);
     
     // Build OG image tag with correct dimensions for social sharing
     const ogTags = `
     <!-- Dynamic Open Graph Meta Tags for Public Support Page -->
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="${baseUrl}${req.originalUrl}" />
-    <meta property="og:title" content="${ogTitle}" />
-    <meta property="og:description" content="${ogDescription}" />
-    <meta property="og:image" content="${ogImage}" />
+    <meta property="og:url" content="${safeOgUrl}" />
+    <meta property="og:title" content="${safeOgTitle}" />
+    <meta property="og:description" content="${safeOgDescription}" />
+    <meta property="og:image" content="${safeOgImage}" />
     <meta property="og:site_name" content="Politicall" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="${ogTitle}" />
-    <meta name="twitter:description" content="${ogDescription}" />
-    <meta name="twitter:image" content="${ogImage}" />
-    <link rel="icon" type="image/png" href="${ogImage}" />
+    <meta name="twitter:title" content="${safeOgTitle}" />
+    <meta name="twitter:description" content="${safeOgDescription}" />
+    <meta name="twitter:image" content="${safeOgImage}" />
+    <link rel="icon" type="image/png" href="${safeOgImage}" />
   `;
     
     // Replace title
-    html = html.replace(/<title>.*?<\/title>/, `<title>${ogTitle}</title>`);
+    html = html.replace(/<title>.*?<\/title>/, `<title>${safeOgTitle}</title>`);
     
     // Replace description
     html = html.replace(
       /<meta name="description" content=".*?" \/>/,
-      `<meta name="description" content="${ogDescription}" />`
+      `<meta name="description" content="${safeOgDescription}" />`
     );
     
     // Inject OG tags before </head>
@@ -325,26 +365,30 @@ const handlePetitionSSR = async (req: Request, res: Response, next: NextFunction
 
     const indexPath = path.resolve("client", "index.html");
     let html = fs.readFileSync(indexPath, "utf-8");
+    const safeOgTitle = escapeHtml(ogTitle);
+    const safeOgDescription = escapeHtml(ogDescription);
+    const safeOgImage = escapeHtml(ogImage);
+    const safeOgUrl = escapeHtml(`${baseUrl}${req.originalUrl}`);
 
     const ogTags = `
     <!-- Dynamic Open Graph Meta Tags for Petition Page -->
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="${baseUrl}${req.originalUrl}" />
-    <meta property="og:title" content="${ogTitle}" />
-    <meta property="og:description" content="${ogDescription}" />
-    <meta property="og:image" content="${ogImage}" />
+    <meta property="og:url" content="${safeOgUrl}" />
+    <meta property="og:title" content="${safeOgTitle}" />
+    <meta property="og:description" content="${safeOgDescription}" />
+    <meta property="og:image" content="${safeOgImage}" />
     <meta property="og:site_name" content="Politicall" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="${ogTitle}" />
-    <meta name="twitter:description" content="${ogDescription}" />
-    <meta name="twitter:image" content="${ogImage}" />
-    <link rel="icon" type="image/png" href="${ogImage}" />
+    <meta name="twitter:title" content="${safeOgTitle}" />
+    <meta name="twitter:description" content="${safeOgDescription}" />
+    <meta name="twitter:image" content="${safeOgImage}" />
+    <link rel="icon" type="image/png" href="${safeOgImage}" />
   `;
 
-    html = html.replace(/<title>.*?<\/title>/, `<title>${ogTitle}</title>`);
+    html = html.replace(/<title>.*?<\/title>/, `<title>${safeOgTitle}</title>`);
     html = html.replace(
       /<meta name="description" content=".*?" \/>/,
-      `<meta name="description" content="${ogDescription}" />`
+      `<meta name="description" content="${safeOgDescription}" />`
     );
     html = html.replace('</head>', `${ogTags}</head>`);
 
@@ -359,6 +403,8 @@ const handlePetitionSSR = async (req: Request, res: Response, next: NextFunction
 app.get("/p/:slug", handlePetitionSSR);
 
 (async () => {
+  await ensureDevDatabaseReady();
+
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
@@ -389,11 +435,7 @@ app.get("/p/:slug", handlePetitionSSR);
   server.headersTimeout = 125000; // slightly more than keepAlive
   server.timeout = 300000; // 5 minutes for large uploads
   
-  server.listen({
-    port,
-    host: "0.0.0.0",
-    reusePort: true,
-  }, () => {
+  server.listen(createListenOptions(port), () => {
     log(`serving on port ${port}`);
   });
 })();

@@ -74,7 +74,7 @@ function emptyIntegration(service: IntegrationService): IntegrationRecord {
     return {
       service,
       enabled: true,
-      smsEndpoint: "http://integracao.oktor.com.br/integracao3.do",
+      smsEndpoint: "",
       smsAccount: "",
       smsCode: "",
       smsClient: "",

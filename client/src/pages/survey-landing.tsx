@@ -249,7 +249,7 @@ export default function SurveyLanding() {
       <div 
         className="min-h-screen flex items-center justify-center p-4 relative"
         style={{
-          backgroundImage: 'url(/attached_assets/242%20(1)_1763481516412.jpg)',
+          backgroundImage: `url(${surveyBackground})`,
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           backgroundAttachment: 'fixed'
@@ -276,7 +276,7 @@ export default function SurveyLanding() {
       <div 
         className="min-h-screen flex items-center justify-center p-4 relative"
         style={{
-          backgroundImage: 'url(/attached_assets/242%20(1)_1763481516412.jpg)',
+          backgroundImage: `url(${surveyBackground})`,
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           backgroundAttachment: 'fixed'
@@ -303,7 +303,7 @@ export default function SurveyLanding() {
       <div 
         className="min-h-screen flex items-center justify-center p-4 relative"
         style={{
-          backgroundImage: 'url(/attached_assets/242%20(1)_1763481516412.jpg)',
+          backgroundImage: `url(${surveyBackground})`,
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           backgroundAttachment: 'fixed'
@@ -330,7 +330,7 @@ export default function SurveyLanding() {
       <div 
         className="min-h-screen flex items-center justify-center p-4 relative"
         style={{
-          backgroundImage: 'url(/attached_assets/242%20(1)_1763481516412.jpg)',
+          backgroundImage: `url(${surveyBackground})`,
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           backgroundAttachment: 'fixed'

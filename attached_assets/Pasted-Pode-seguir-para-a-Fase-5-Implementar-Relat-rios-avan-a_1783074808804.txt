@@ -1,0 +1,134 @@
+Pode seguir para a Fase 5.
+
+Implementar Relatórios avançados, métricas por canal e exportações das campanhas multicanal, mantendo tudo incremental e sem quebrar as Fases 1, 2, 3 e 4.
+
+Escopo da Fase 5:
+
+1. Dashboard de campanhas:
+- total de campanhas;
+- campanhas em rascunho;
+- campanhas agendadas;
+- campanhas em envio;
+- campanhas pausadas;
+- campanhas enviadas;
+- campanhas parcialmente enviadas;
+- campanhas com falha;
+- campanhas canceladas;
+- volume total de destinatários;
+- volume por canal;
+- taxa geral de entrega;
+- taxa geral de resposta;
+- taxa geral de falha.
+
+2. Relatório por campanha:
+- total de contatos;
+- enviados;
+- entregues;
+- lidos, quando disponível;
+- respondidos;
+- falhas;
+- pendentes;
+- cancelados;
+- taxa de entrega;
+- taxa de resposta;
+- taxa de falha;
+- custo estimado, principalmente SMS;
+- tempo total de envio;
+- início e fim do envio;
+- velocidade média de envio;
+- status por canal.
+
+3. Relatório por canal:
+WhatsApp:
+- enviado;
+- entregue;
+- lido;
+- respondido;
+- erro da API.
+
+WhatsApp API Oficial:
+- template usado;
+- idioma;
+- categoria;
+- enviado;
+- entregue;
+- lido;
+- respondido;
+- erro da API.
+
+SMS:
+- enviado para operadora;
+- entregue, se houver retorno do provedor;
+- falha;
+- número inválido;
+- sem saldo;
+- IP não autorizado;
+- client inválido;
+- erro do proxy n8n.
+
+E-mail:
+- enviado;
+- entregue;
+- aberto;
+- clicado;
+- bounce;
+- spam;
+- descadastro.
+
+4. Erros por motivo:
+- agrupar falhas por tipo;
+- mostrar quantidade por erro;
+- permitir abrir lista de contatos afetados;
+- permitir exportar apenas falhas;
+- exibir mensagem técnica e mensagem amigável.
+
+5. Exportações:
+- exportar relatório da campanha em CSV;
+- exportar relatório da campanha em Excel;
+- exportar relatório da campanha em PDF;
+- exportar destinatários por status;
+- exportar falhas;
+- exportar resumo geral.
+
+6. Filtros:
+- período;
+- canal;
+- status;
+- criador;
+- etiqueta;
+- cidade;
+- campanha;
+- lista;
+- template;
+- origem do contato.
+
+7. Interface:
+- criar aba/tela de Relatórios mais completa;
+- manter identidade visual atual do Political;
+- cards de métricas;
+- gráficos simples por canal/status/período;
+- tabela de campanhas;
+- tabela de destinatários;
+- modal de detalhes da campanha;
+- modal de erros por destinatário.
+
+8. Auditoria:
+- registrar exportações realizadas;
+- registrar quem exportou;
+- registrar filtros usados;
+- registrar data/hora da exportação.
+
+Regras obrigatórias:
+- preservar banco atual;
+- somente migrações incrementais;
+- não executar drop/reset/truncate;
+- manter compatibilidade com campanhas existentes;
+- não quebrar agendamento/pausa/retomada/cancelamento da Fase 4;
+- não quebrar templates da Fase 3;
+- não quebrar importação/listas da Fase 2;
+- manter testes existentes passando.
+
+No final, rodar:
+npm run check
+npm run build
+npm run test

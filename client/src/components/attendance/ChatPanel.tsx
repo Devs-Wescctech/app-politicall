@@ -2,6 +2,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   Archive,
+  AlertTriangle,
   ArrowRight,
   Bot,
   CheckCheck,
@@ -55,6 +56,8 @@ import { useToast } from "@/hooks/use-toast";
 import { getAuthUser } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { TagSelector, labelColor, useAttendanceLabels } from "./TagSelector";
+import { buildComposerCommands, type ComposerCommand } from "@shared/attendance-composer";
+import TemplateVariableDialog, { type TemplateVariableConfirmation } from "./TemplateVariableDialog";
 
 const STATUS_META: Record<string, { label: string; className: string }> = {
   new: { label: "Novo", className: "bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/30 dark:text-sky-300 dark:border-sky-900" },
@@ -83,6 +86,18 @@ interface Props {
   onClose?: () => void;
   onOpenContact?: () => void;
 }
+
+type AttendanceTemplate = {
+  id: string;
+  name: string;
+  title?: string;
+  preview?: string;
+  source?: string;
+  language?: string;
+  components?: any[];
+  dynamicComponents?: any[];
+  staticComponents?: any[];
+};
 
 type CachedConversationData = { messages: AttMessage[]; notes?: any[] };
 
@@ -183,21 +198,38 @@ export default function ChatPanel({ conversation, onClose, onOpenContact }: Prop
   const [quickSearch, setQuickSearch] = useState("");
   const [showTransferDialog, setShowTransferDialog] = useState(false);
   const [showTagDialog, setShowTagDialog] = useState(false);
+  const [isLoadingOlder, setIsLoadingOlder] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<AttendanceTemplate | null>(null);
   const [tagDraft, setTagDraft] = useState<string[]>(conversation.tags ?? []);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesAreaRef = useRef<HTMLDivElement>(null);
+  const prependInProgressRef = useRef(false);
   const { toast } = useToast();
   const currentUser = getAuthUser();
   const { data: labels = [] } = useAttendanceLabels();
 
-  const { data: convData, isLoading, isFetching } = useQuery<(AttConversation & { messages: AttMessage[]; notes?: any[] }) | CachedConversationData>({
+  const { data: convData, isLoading, isFetching } = useQuery<(AttConversation & { messages: AttMessage[]; notes?: any[]; hasOlderMessages?: boolean; messageCursor?: string | null }) | CachedConversationData>({
     queryKey: ["/api/attendance/conversations", conversation.id],
-    refetchInterval: 10000,
+    queryFn: async () => {
+      const response = await apiRequest("GET", "/api/attendance/conversations/" + conversation.id + "?messagePageSize=50");
+      return response.json();
+    },
     refetchOnMount: "always",
+    refetchInterval: 3000,
+    refetchIntervalInBackground: false,
     initialData: () => readCachedConversation(conversation),
   });
 
   const { data: quickReplies = [] } = useQuery<QuickReply[]>({
     queryKey: ["/api/attendance/quick-replies"],
+  });
+
+  const templatesUrl = conversation.connectionId
+    ? `/api/attendance/templates?connectionId=${encodeURIComponent(conversation.connectionId)}`
+    : "/api/attendance/templates";
+  const { data: templates = [], isFetching: templatesLoading } = useQuery<AttendanceTemplate[]>({
+    queryKey: [templatesUrl],
+    enabled: true,
   });
 
   const liveConversation = { ...conversation, ...(convData ?? {}) } as AttConversation & { messages?: AttMessage[]; notes?: any[] };
@@ -208,6 +240,9 @@ export default function ChatPanel({ conversation, onClose, onOpenContact }: Prop
   const canReplyAny = Boolean((currentUser?.permissions as any)?.attendanceReplyAny);
   const hasAssignee = Boolean(liveConversation.assignedUserId);
   const canWrite = !isResolved && (isAssignedToMe || canReplyAny);
+  const metaWindow = (liveConversation as any).metaWindow as { official?: boolean; expired?: boolean; expiresAt?: string | null } | undefined;
+  const metaWindowExpired = Boolean(metaWindow?.official && metaWindow?.expired);
+  const publicMessageBlocked = metaWindowExpired && !isWhisper;
   const liveTagsKey = (liveConversation.tags ?? []).join("|");
   const initials = (liveConversation.contactName ?? liveConversation.contactPhone ?? "?")
     .split(" ")
@@ -220,16 +255,15 @@ export default function ChatPanel({ conversation, onClose, onOpenContact }: Prop
     setTagDraft(liveConversation.tags ?? []);
   }, [liveConversation.id, liveTagsKey]);
 
-  const filteredQuickReplies = useMemo(() => {
-    const term = quickSearch.trim().toLowerCase();
-    if (!term) return quickReplies;
-    return quickReplies.filter(reply =>
-      reply.title.toLowerCase().includes(term) || reply.message.toLowerCase().includes(term)
-    );
-  }, [quickReplies, quickSearch]);
+  const composerCommands = useMemo(() => buildComposerCommands({
+    templates: templates.filter(template => template.source !== "quick_reply"),
+    quickReplies,
+    windowExpired: metaWindowExpired,
+    search: quickSearch,
+  }), [templates, quickReplies, metaWindowExpired, quickSearch]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (!prependInProgressRef.current) messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages.length]);
 
   useEffect(() => {
@@ -239,6 +273,35 @@ export default function ChatPanel({ conversation, onClose, onOpenContact }: Prop
   const invalidateConversation = () => {
     queryClient.invalidateQueries({ queryKey: ["/api/attendance/conversations", conversation.id] });
     queryClient.invalidateQueries({ queryKey: ["/api/attendance/conversations"] });
+  };
+
+  const loadOlderMessages = async () => {
+    const cursor = (convData as any)?.messageCursor;
+    if (!cursor || isLoadingOlder) return;
+    const area = messagesAreaRef.current;
+    const previousHeight = area?.scrollHeight ?? 0;
+    prependInProgressRef.current = true;
+    setIsLoadingOlder(true);
+    try {
+      const response = await apiRequest("GET", "/api/attendance/conversations/" + conversation.id + "/messages?before=" + encodeURIComponent(cursor) + "&limit=50");
+      const page = await response.json() as { data: AttMessage[]; hasMore: boolean; nextCursor: string | null };
+      queryClient.setQueryData<any>(["/api/attendance/conversations", conversation.id], (old: any) => {
+        if (!old) return old;
+        const existing = Array.isArray(old.messages) ? old.messages : [];
+        const ids = new Set(existing.map((item: AttMessage) => item.id));
+        const older = page.data.filter(item => !ids.has(item.id));
+        return { ...old, messages: [...older, ...existing], hasOlderMessages: page.hasMore, messageCursor: page.nextCursor };
+      });
+      requestAnimationFrame(() => {
+        if (area) area.scrollTop += area.scrollHeight - previousHeight;
+        prependInProgressRef.current = false;
+      });
+    } catch (error: any) {
+      prependInProgressRef.current = false;
+      toast({ title: "Erro ao carregar mensagens antigas", description: error.message, variant: "destructive" });
+    } finally {
+      setIsLoadingOlder(false);
+    }
   };
 
   const sendMutation = useMutation({
@@ -399,33 +462,81 @@ export default function ChatPanel({ conversation, onClose, onOpenContact }: Prop
     onError: (e: any) => toast({ title: "Erro ao salvar etiquetas", description: e.message, variant: "destructive" }),
   });
 
+  const templateMutation = useMutation({
+    mutationFn: async ({ template, confirmation }: { template: AttendanceTemplate; confirmation: TemplateVariableConfirmation }) => {
+      const response = await apiRequest("POST", `/api/attendance/conversations/${conversation.id}/send-template`, {
+        templateId: template.id,
+        templateName: template.name,
+        templateLanguage: template.language,
+        templateComponents: confirmation.components,
+        message: confirmation.preview,
+      });
+      return response.json() as Promise<AttMessage>;
+    },
+    onSuccess: () => {
+      setSelectedTemplate(null);
+      setShowQuickReplies(false);
+      setQuickSearch("");
+      setMessage("");
+      invalidateConversation();
+      toast({ title: "Template enviado" });
+    },
+    onError: (error: any) => toast({ title: "Erro ao enviar template", description: error.message, variant: "destructive" }),
+  });
+
   const handleSend = () => {
     const text = message.trim();
-    if (!canWrite || !text) return;
+    if (!canWrite || !text || publicMessageBlocked) return;
     const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     setMessage("");
     sendMutation.mutate({ message: text, isWhisper, tempId });
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (publicMessageBlocked && e.key === "/") {
+      e.preventDefault();
+      setQuickSearch("");
+      setShowQuickReplies(true);
+      return;
+    }
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
     }
   };
 
-  const applyQuickReply = (reply: QuickReply) => {
+  const applyComposerCommand = (command: ComposerCommand) => {
+    if (command.disabled) return;
+    if (command.kind === "template") {
+      setSelectedTemplate(command.payload as AttendanceTemplate);
+      setShowQuickReplies(false);
+      return;
+    }
+    const reply = command.payload as QuickReply;
     setMessage(reply.message);
     setShowQuickReplies(false);
     setQuickSearch("");
+  };
+
+  const handleMessageChange = (value: string) => {
+    setMessage(value);
+    if (!isWhisper && value.startsWith("/")) {
+      setQuickSearch(value.slice(1));
+      setShowQuickReplies(true);
+    }
   };
 
   let previousDay = "";
 
   return (
     <div className="flex h-full flex-col bg-background" data-testid="panel-chat">
-      <div className="flex h-16 flex-shrink-0 items-center justify-between border-b border-border bg-background px-4">
-        <div className="flex min-w-0 items-center gap-3">
+      <div className="flex min-h-16 flex-shrink-0 items-center justify-between gap-2 border-b bg-card px-3 py-2 sm:px-4">
+        <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+          {onClose ? (
+            <Button type="button" size="icon" variant="ghost" className="h-9 w-9 shrink-0 rounded-full md:hidden" onClick={onClose} title="Voltar para atendimentos">
+              <ArrowRight className="h-4 w-4 rotate-180" />
+            </Button>
+          ) : null}
           <button
             type="button"
             onClick={onOpenContact}
@@ -473,7 +584,7 @@ export default function ChatPanel({ conversation, onClose, onOpenContact }: Prop
           <Button
             size="sm"
             variant="ghost"
-            className="h-9 gap-1.5"
+            className="hidden h-9 gap-1.5 rounded-full sm:flex"
             onClick={() => setShowTagDialog(true)}
             title="Editar etiquetas"
             data-testid="button-edit-conversation-tags"
@@ -553,6 +664,7 @@ export default function ChatPanel({ conversation, onClose, onOpenContact }: Prop
       </div>
 
       <div
+        ref={messagesAreaRef}
         className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-4 py-5"
         data-testid="area-messages"
         style={{
@@ -576,6 +688,11 @@ export default function ChatPanel({ conversation, onClose, onOpenContact }: Prop
           </div>
         ) : (
           <div className="mx-auto flex max-w-5xl flex-col gap-2">
+            {(convData as any)?.hasOlderMessages ? (
+              <Button type="button" variant="outline" size="sm" className="mx-auto mb-2 rounded-full" onClick={loadOlderMessages} disabled={isLoadingOlder} data-testid="button-load-older-messages">
+                {isLoadingOlder ? "Carregando..." : "Carregar mensagens anteriores"}
+              </Button>
+            ) : null}
             {messages.map(msg => {
               const day = format(new Date(msg.createdAt), "dd/MM/yyyy", { locale: ptBR });
               const showDay = day !== previousDay;
@@ -602,7 +719,7 @@ export default function ChatPanel({ conversation, onClose, onOpenContact }: Prop
         <div className="max-h-60 flex-shrink-0 overflow-y-auto border-t border-border bg-background/95 backdrop-blur" data-testid="panel-quick-replies">
           <div className="sticky top-0 border-b border-border bg-background p-2">
             <Input
-              placeholder="Buscar resposta rápida"
+              placeholder="Buscar template ou resposta rápida"
               value={quickSearch}
               onChange={e => setQuickSearch(e.target.value)}
               className="h-8 text-xs"
@@ -610,19 +727,27 @@ export default function ChatPanel({ conversation, onClose, onOpenContact }: Prop
               autoFocus
             />
           </div>
-          {filteredQuickReplies.length === 0 ? (
-            <p className="py-5 text-center text-xs text-muted-foreground">Nenhuma resposta encontrada</p>
+          {templatesLoading ? (
+            <p className="py-5 text-center text-xs text-muted-foreground">Carregando templates...</p>
+          ) : composerCommands.length === 0 ? (
+            <p className="py-5 text-center text-xs text-muted-foreground">Nenhum template ou resposta rápida encontrado</p>
           ) : (
-            filteredQuickReplies.map(reply => (
+            composerCommands.map(command => (
               <button
-                key={reply.id}
+                key={`${command.kind}-${command.id}`}
                 type="button"
-                data-testid={`item-quick-reply-${reply.id}`}
-                onClick={() => applyQuickReply(reply)}
-                className="w-full border-b border-border/50 px-3 py-2 text-left transition-colors last:border-0 hover:bg-accent"
+                data-testid={`item-composer-${command.kind}-${command.id}`}
+                onClick={() => applyComposerCommand(command)}
+                disabled={command.disabled || templateMutation.isPending}
+                className="w-full border-b border-border/50 px-3 py-2 text-left transition-colors last:border-0 hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
               >
-                <p className="text-xs font-semibold text-foreground">{reply.title}</p>
-                <p className="truncate text-xs text-muted-foreground">{reply.message}</p>
+                <div className="flex items-center gap-2">
+                  <p className="min-w-0 flex-1 truncate text-xs font-semibold text-foreground">{command.title}</p>
+                  <Badge variant={command.kind === "template" ? "default" : "secondary"} className="h-5 text-[10px]">
+                    {command.kind === "template" ? "Template" : "Resposta rápida"}
+                  </Badge>
+                </div>
+                <p className="truncate text-xs text-muted-foreground">{command.disabledReason ?? command.preview}</p>
               </button>
             ))
           )}
@@ -635,6 +760,18 @@ export default function ChatPanel({ conversation, onClose, onOpenContact }: Prop
             <div className="mb-2 flex items-center gap-2 rounded-md border border-border bg-muted px-3 py-2 text-xs text-muted-foreground">
               <Lock className="h-3.5 w-3.5" />
               {hasAssignee ? "Atendimento bloqueado para o responsável atual." : "Assuma o atendimento para responder."}
+            </div>
+          ) : null}
+
+          {metaWindowExpired && !isWhisper ? (
+            <div className="mb-2 flex flex-col gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-amber-950 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100 sm:flex-row sm:items-center" data-testid="alert-meta-window-expired">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              <p className="flex-1 text-xs">
+                A janela de atendimento de 24 horas da Meta foi encerrada. Envie um template aprovado para retomar a conversa; a janela será reaberta quando o cliente responder.
+              </p>
+              <Button type="button" size="sm" variant="outline" onClick={() => { setQuickSearch(""); setShowQuickReplies(true); }} data-testid="button-open-meta-templates">
+                Enviar template
+              </Button>
             </div>
           ) : null}
 
@@ -655,20 +792,22 @@ export default function ChatPanel({ conversation, onClose, onOpenContact }: Prop
               <Button type="button" size="icon" variant="ghost" className="h-9 w-9 rounded-full" disabled={!canWrite} title="Anexar arquivo">
                 <Paperclip className="h-4 w-4" />
               </Button>
-              <Button type="button" size="icon" variant="ghost" className="h-9 w-9 rounded-full" onClick={() => setShowQuickReplies(value => !value)} disabled={!canWrite} data-testid="button-quick-replies" title="Respostas rápidas">
+              <Button type="button" size="icon" variant="ghost" className="h-9 w-9 rounded-full" onClick={() => { setQuickSearch(""); setShowQuickReplies(value => !value); }} disabled={!canWrite || isWhisper} data-testid="button-quick-replies" title="Templates e respostas rápidas (atalho /)">
                 <Zap className="h-4 w-4" />
               </Button>
             </div>
 
-            <div className="min-h-[44px] flex-1 rounded-md border border-input bg-background px-2 py-1 shadow-sm">
+            <div className="min-h-[44px] flex-1 rounded-xl border border-input bg-background px-2 py-1 shadow-sm">
               <Textarea
                 data-testid="input-message"
-                placeholder={isWhisper ? "Nota interna para a equipe" : "Digite sua mensagem"}
+                placeholder={isWhisper ? "Nota interna para a equipe" : metaWindowExpired ? "Envie um template aprovado para retomar" : "Digite sua mensagem ou / para atalhos"}
                 className="min-h-[34px] max-h-32 resize-none border-0 bg-transparent p-2 text-sm shadow-none focus-visible:ring-0"
                 value={message}
-                onChange={e => setMessage(e.target.value)}
+                onChange={e => handleMessageChange(e.target.value)}
                 onKeyDown={handleKeyDown}
                 disabled={!canWrite}
+                readOnly={publicMessageBlocked}
+                aria-readonly={publicMessageBlocked}
                 rows={1}
               />
               <div className="flex items-center justify-between px-1 pb-1">
@@ -687,7 +826,7 @@ export default function ChatPanel({ conversation, onClose, onOpenContact }: Prop
               size="icon"
               className="mb-1 h-10 w-10 rounded-full"
               onClick={handleSend}
-              disabled={!canWrite || !message.trim() }
+              disabled={!canWrite || !message.trim() || publicMessageBlocked}
               data-testid="button-send-message"
               title="Enviar"
             >
@@ -701,6 +840,15 @@ export default function ChatPanel({ conversation, onClose, onOpenContact }: Prop
         open={showTransferDialog}
         onClose={() => setShowTransferDialog(false)}
         conversationId={conversation.id}
+      />
+      <TemplateVariableDialog
+        template={selectedTemplate}
+        open={Boolean(selectedTemplate)}
+        onOpenChange={open => !open && setSelectedTemplate(null)}
+        onConfirm={confirmation => {
+          if (selectedTemplate) templateMutation.mutate({ template: selectedTemplate, confirmation });
+        }}
+        isPending={templateMutation.isPending}
       />
       <Dialog open={showTagDialog} onOpenChange={value => !value && setShowTagDialog(false)}>
         <DialogContent data-testid="dialog-conversation-tags">

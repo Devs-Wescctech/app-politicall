@@ -3,3 +3,9 @@
 - [GitHub push hangs/403 on org repo](github-push-org-oauth-restriction.md) — org's "restrict OAuth app access" policy blocks push even with valid token+permissions; check org settings.
 - [Replit npm registry leaking into lockfile](replit-npm-registry-in-lockfile.md) — package-lock.json generated in Replit can point to internal-only proxy URLs, breaking `npm ci` outside Replit (e.g. CI) with EAI_AGAIN.
 - [External DB unreachable from workspace](attendance-external-db-access.md) — prod PG pg_hba rejects workspace egress IP in all SSL modes; apply migrations via deployment. EMIT_SQL generator writes idempotent SQL offline.
+- [Campaign message templates](campaign-message-templates.md) — Disparos vars render per-contact at send time; WA official templates go via Meta Graph sendOfficialTemplate (APPROVED only), not WHU send-text.
+- [SMS via n8n proxy](sms-n8n-proxy.md) — Oktor blocks Replit IP; route SMS through n8n webhook (no direct-Oktor fallback). 404 = n8n workflow not Active / test URL not armed, not a code bug.
+- [Dev/Prod DB split via PROD_DATABASE_URL](dev-prod-db-split.md) — Replit managed DB (helium/heliumdb) now serves dev; production needs PROD_DATABASE_URL secret set before publish.
+- [drizzle-kit TTY push](drizzle-kit-tty-push.md) — db:push aborts (no TTY) when diff adds new tables; apply additive idempotent SQL via psql instead.
+- [Shared env vars in .replit](shared-envvars-in-replit-file.md) — "shared" env vars are committed in .replit; credential-like values must be Secrets via requestEnvVar, then rotate.
+- [Custom queryFn raw fetch drops JWT](raw-fetch-missing-auth.md) — auth is Bearer-from-localStorage, not cookies; bare fetch({credentials:"include"}) in a queryFn 401s → empty UI. Use apiRequest.

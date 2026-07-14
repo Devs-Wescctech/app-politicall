@@ -1,0 +1,183 @@
+Preciso corrigir e melhorar pontos específicos do módulo de Campanhas/Disparos e Atendimentos do Political CRM, sem quebrar o que já foi implementado.
+
+Modo: Power.
+
+Regras obrigatórias:
+- preservar banco atual;
+- não executar drop/reset/truncate;
+- fazer apenas alterações incrementais;
+- manter campanhas, contatos, atendimentos, integrações e relatórios existentes;
+- manter SMS via proxy n8n funcionando;
+- manter WhatsApp normal/oficial funcionando;
+- rodar no final:
+  npm run check
+  npm run build
+  npm run test
+
+Correções necessárias:
+
+1. Ícones/cor do canal WhatsApp
+Hoje está invertido:
+- canal não oficial está azul;
+- canal oficial está verde.
+
+Corrigir para:
+- WhatsApp normal/não oficial: ícone verde;
+- WhatsApp API Oficial: ícone azul.
+
+Aplicar em:
+- lista de atendimentos;
+- cabeçalho do chat;
+- lista de campanhas;
+- wizard de campanhas;
+- qualquer badge/ícone de canal.
+
+2. Facilitar inclusão de telefones com +55
+Na etapa de público da campanha, aba Manual:
+- adicionar botão “Adicionar +55” ou “Formatar com +55”;
+- quando clicar, aplicar +55 nos números que ainda não tiverem DDI;
+- preservar números que já começam com +55 ou 55;
+- remover espaços, parênteses e caracteres inválidos;
+- manter um número por linha.
+
+Também aplicar essa normalização para:
+- contatos importados por CSV/XLSX/TXT;
+- contatos colados manualmente;
+- arquivos exportados, garantindo padrão consistente com +55.
+
+3. Templates em canais não oficiais
+Hoje aparece:
+“Erro ao carregar templates. Verifique a configuração.”
+mesmo quando o canal escolhido não é WhatsApp API Oficial.
+
+Corrigir:
+- só tentar carregar templates oficiais quando o canal selecionado for WhatsApp API Oficial;
+- se for WhatsApp normal, SMS ou E-mail, não mostrar erro de template oficial;
+- para canal não oficial, esconder seção “Template WhatsApp” ou mostrar texto simples:
+  “Templates oficiais disponíveis apenas para WhatsApp API Oficial.”
+
+4. Variáveis da mensagem
+Na etapa de mensagem, os botões de variáveis não estão fáceis de usar.
+
+Corrigir:
+- ao clicar em {nome}, {telefone}, {cidade}, {protocolo}, {link}, inserir a variável no ponto atual do cursor;
+- se o campo não estiver focado, inserir no final da mensagem;
+- manter espaço adequado entre palavras;
+- atualizar o preview automaticamente;
+- garantir que as variáveis sejam substituídas corretamente no preview.
+
+5. Disparar para contatos com etiqueta específica
+Na segmentação de público, precisa existir opção clara para escolher etiquetas.
+
+Corrigir:
+- buscar/listar etiquetas cadastradas;
+- permitir selecionar uma ou mais etiquetas usando componente visual simples, como chips/checkboxes;
+- permitir filtrar contatos por etiqueta;
+- permitir exportar/usar audiência filtrada por etiqueta;
+- garantir que o preview da audiência considere as etiquetas.
+
+6. Simplificar a segmentação para usuários leigos
+A aba “Segmentar” está confusa.
+
+Melhorar a UX:
+- trocar campos livres confusos por controles simples;
+- organizar filtros em blocos:
+  Dados do contato;
+  Localização;
+  Etiquetas;
+  Atendimento;
+  Campanhas anteriores.
+- usar placeholders claros;
+- para etiquetas, usar seleção visual;
+- para cidade/estado/canal/status, usar selects ou multiselect quando possível;
+- esconder filtros avançados dentro de “Filtros avançados”;
+- adicionar texto curto explicando:
+  “Use filtros para escolher automaticamente quem vai receber a campanha.”
+
+7. Ao clicar em uma campanha, abrir página/detalhe completo
+Na lista de campanhas, quando o usuário clicar em uma campanha, deve abrir uma tela/página de detalhes da campanha.
+
+Essa página deve mostrar:
+- nome da campanha;
+- canal;
+- status;
+- data de criação;
+- data de envio/agendamento;
+- responsável/criador;
+- total de destinatários;
+- enviados;
+- pendentes;
+- entregues;
+- lidos;
+- respondidos;
+- erros;
+- cancelados;
+- taxa de entrega;
+- taxa de resposta;
+- mensagem/template usado;
+- lista completa de destinatários;
+- número/contato;
+- horário de envio;
+- horário de entrega;
+- horário de leitura, se existir;
+- erro retornado, se houver;
+- status por destinatário;
+- eventos/auditoria da campanha.
+
+A tela deve seguir o modelo da imagem enviada de relatório de campanha, mas mantendo a identidade visual do Political.
+
+Adicionar:
+- cards de resumo;
+- tabela de destinatários;
+- filtros por status;
+- botão exportar;
+- botão voltar;
+- se possível, gráfico simples por status/canal.
+
+8. Trocar texto “Disparos” para “Campanhas”
+Na sidebar e nos títulos principais:
+- substituir “Disparos” por “Campanhas”;
+- manter rotas existentes se necessário para compatibilidade, mas o texto visível deve ser “Campanhas”.
+
+9. Botão editar em campanhas rascunho
+Na lista de campanhas, campanhas com status “Rascunho” precisam ter botão “Editar”.
+
+Ao clicar:
+- abrir o wizard com os dados já preenchidos;
+- permitir alterar público, mensagem, canal, agendamento e configurações;
+- salvar alterações sem criar campanha duplicada;
+- bloquear edição crítica se a campanha já estiver em envio/enviada/cancelada.
+
+10. Revisão da campanha está fechando antes do usuário revisar
+Na etapa de revisão, o wizard está fechando e salvando como rascunho antes de dar tempo de revisar.
+
+Corrigir fluxo:
+- ao chegar na etapa Revisão, NÃO criar/salvar automaticamente nem fechar modal;
+- mostrar resumo completo;
+- botões visíveis:
+  “Voltar”
+  “Salvar rascunho”
+  “Agendar”
+  “Enviar agora”
+- só criar/salvar/enviar quando o usuário clicar em uma dessas ações;
+- impedir fechamento automático;
+- mostrar loading apenas após clique do usuário;
+- se erro ocorrer, manter o wizard aberto.
+
+11. Testes e validação
+Adicionar/ajustar testes para:
+- cor correta de WhatsApp normal/oficial;
+- template oficial não carregar em canal não oficial;
+- inserção de variáveis no campo de mensagem;
+- filtro por etiqueta;
+- edição de rascunho;
+- revisão não fecha automaticamente;
+- abertura da página de detalhe da campanha;
+- normalização +55.
+
+No final, validar:
+npm run check
+npm run build
+npm run test
+
+Não finalizar se algum teste/build falhar.

@@ -1,0 +1,145 @@
+Preciso implementar paginação em todas as listas grandes/infinita do Political CRM para evitar páginas longas, lentidão e sobrecarga no frontend/backend.
+
+Modo: Power.
+
+Regras obrigatórias:
+- preservar banco atual;
+- não executar drop/reset/truncate;
+- fazer apenas alterações incrementais;
+- manter dados existentes;
+- não quebrar atendimentos, campanhas, contatos, relatórios, arquivados, histórico, usuários e configurações;
+- manter filtros/buscas existentes funcionando;
+- rodar no final:
+  npm run check
+  npm run build
+  npm run test
+
+Objetivo:
+Toda listagem que possa crescer indefinidamente deve ter paginação, limite de resultados ou carregamento incremental controlado.
+
+Escopo obrigatório:
+
+1. Campanhas / Disparos
+Adicionar paginação em:
+- lista de campanhas;
+- rascunhos;
+- campanhas enviadas;
+- campanhas agendadas;
+- campanhas pausadas;
+- campanhas canceladas;
+- detalhes da campanha, principalmente lista de destinatários;
+- erros da campanha;
+- eventos/auditoria da campanha;
+- exportações/histórico de exportações.
+
+2. Contatos
+Adicionar paginação em:
+- lista geral de contatos;
+- contatos filtrados por etiqueta;
+- contatos importados;
+- contatos dentro de listas;
+- prévia de audiência;
+- resultados de busca.
+
+3. Atendimentos
+Adicionar paginação ou virtualização em:
+- lista de atendimentos por fila/status;
+- histórico de atendimentos;
+- arquivados;
+- mensagens do chat/histórico, usando carregamento por página ou infinite scroll controlado;
+- logs/eventos da conversa;
+- notas internas, se crescerem.
+
+4. Relatórios
+Adicionar paginação em:
+- tabelas de campanhas;
+- destinatários por status;
+- falhas;
+- relatórios exportáveis;
+- histórico de exportações;
+- logs de auditoria.
+
+5. Configurações/Admin
+Adicionar paginação em:
+- usuários;
+- empresas/contas;
+- integrações, se aplicável;
+- etiquetas;
+- filas;
+- logs de auditoria;
+- histórico de ações.
+
+Requisitos técnicos:
+
+Backend:
+- endpoints de listagem devem aceitar:
+  page
+  pageSize
+  limit
+  offset
+  search
+  sortBy
+  sortDir
+  filters
+
+- retornar sempre:
+  data
+  page
+  pageSize
+  total
+  totalPages
+  hasNextPage
+  hasPreviousPage
+
+- definir pageSize padrão, por exemplo 20 ou 50;
+- limitar pageSize máximo, por exemplo 100;
+- aplicar filtros no banco, não só no frontend;
+- evitar retornar todos os registros de uma vez;
+- adicionar índices quando necessário e seguro.
+
+Frontend:
+- criar componente reutilizável de paginação;
+- exibir:
+  página atual;
+  total de registros;
+  próxima;
+  anterior;
+  seletor de itens por página;
+- manter filtros ao trocar de página;
+- resetar para página 1 ao alterar busca/filtro;
+- mostrar loading/skeleton;
+- mostrar estado vazio amigável;
+- evitar renderizar milhares de itens no DOM;
+- nas listas de chat/mensagens, usar infinite scroll controlado ou virtualização.
+
+UX:
+- em listas simples, usar paginação tradicional;
+- em chat/mensagens, carregar mensagens antigas ao rolar para cima;
+- em atendimentos ativos, manter atualização em tempo real sem duplicar itens;
+- em campanhas/detalhes, usar paginação tradicional nas tabelas.
+
+Atenção especial:
+- a lista de destinatários da campanha está ficando muito longa e precisa de paginação imediatamente;
+- a lista de campanhas também deve ser paginada;
+- qualquer nova lista criada daqui para frente já deve nascer paginada.
+
+Testes:
+Adicionar/ajustar testes para:
+- paginação backend com page/pageSize;
+- total/totalPages corretos;
+- filtros + paginação;
+- busca + paginação;
+- ordenação + paginação;
+- limite máximo de pageSize;
+- frontend mantém filtros ao paginar;
+- listas não carregam todos os registros de uma vez.
+
+Critério de conclusão:
+- nenhuma lista grande deve carregar tudo de uma vez;
+- as páginas devem ficar mais leves;
+- filtros/buscas continuam funcionando;
+- tempo real em atendimentos continua funcionando;
+- passar em:
+  npm run check
+  npm run build
+  npm run test

@@ -1,0 +1,178 @@
+Preciso corrigir novos problemas no módulo de Campanhas/Disparos e melhorar o fluxo de canais, templates, SMS e variáveis.
+
+Modo: Power.
+
+Regras obrigatórias:
+- preservar banco atual;
+- não executar drop/reset/truncate;
+- fazer apenas alterações incrementais;
+- manter campanhas, contatos, integrações, relatórios e atendimentos existentes;
+- manter SMS via proxy n8n funcionando;
+- manter WhatsApp normal e WhatsApp API Oficial funcionando;
+- no final rodar:
+  npm run check
+  npm run build
+  npm run test
+
+Correções necessárias:
+
+1. Remover aviso de templates em canal não oficial
+Na etapa Mensagem, quando o canal selecionado for WhatsApp normal/não oficial, SMS ou E-mail, não deve aparecer o aviso:
+“Templates oficiais disponíveis apenas para WhatsApp API Oficial...”
+
+Esse aviso está poluindo a tela para canal não oficial.
+
+Regra correta:
+- se o canal/número selecionado NÃO for WhatsApp API Oficial, esconder completamente a seção/aviso de templates oficiais;
+- mostrar apenas campo de mensagem livre;
+- só mostrar templates oficiais quando o número/conexão selecionada for realmente da API Oficial.
+
+2. Unificar WhatsApp normal e WhatsApp API Oficial
+Hoje o wizard mostra “WhatsApp” e “WhatsApp API Oficial” como canais separados. Isso está confuso.
+
+Corrigir para:
+- ter apenas um canal chamado “WhatsApp”;
+- na configuração/etapa de canal, o usuário deve escolher o número/conexão de envio;
+- cada número/conexão deve indicar se é:
+  - WhatsApp normal;
+  - WhatsApp API Oficial.
+
+Fluxo esperado:
+- usuário escolhe canal “WhatsApp”;
+- depois escolhe “Número de envio”;
+- se o número escolhido for WhatsApp normal:
+  - permitir mensagem livre;
+  - não carregar templates oficiais;
+- se o número escolhido for WhatsApp API Oficial:
+  - listar templates aprovados;
+  - permitir selecionar template;
+  - permitir preencher variáveis do template;
+  - permitir disparar usando template oficial.
+
+Remover a opção separada “WhatsApp API Oficial” da lista principal de canais.
+
+3. Corrigir erro SMS Oktor 502
+Ao disparar SMS, apareceu erro:
+“Oktor SMS 502: <html>... 502 Bad Gateway ... nginx ...”
+
+Esse erro provavelmente veio do proxy n8n ou da Oktor, mas o sistema está mostrando HTML bruto para o usuário.
+
+Corrigir:
+- tratar respostas 502/503/504 do SMS/proxy como erro amigável;
+- não exibir HTML bruto na interface;
+- mostrar mensagem amigável:
+  “Serviço de SMS temporariamente indisponível. Tente novamente em alguns minutos.”
+- registrar o erro técnico completo apenas no log/auditoria;
+- manter o destinatário como falha temporária ou pendente de retry, não como erro definitivo se houver retry configurado;
+- se possível, aplicar retry automático para 502/503/504.
+
+Também validar:
+- se o endpoint usado é o proxy n8n e não Oktor direto;
+- log seguro: não expor token/code/account no frontend.
+
+4. Status de entrega/leitura do WhatsApp em campanhas
+Na página de detalhe da campanha, as mensagens WhatsApp aparecem apenas como “Enviado”, mas não mostra se foi entregue/lido.
+
+Corrigir:
+- capturar/atualizar status de mensagens WhatsApp quando houver webhook/evento de entrega/leitura;
+- vincular status da mensagem ao destinatário da campanha;
+- atualizar campos:
+  - enviado em;
+  - entregue em;
+  - lido em;
+  - respondido em, se aplicável;
+  - erro, se houver;
+- na tabela de destinatários da campanha, mostrar status real:
+  Enviado, Entregue, Lido, Respondido, Falhou, Pendente;
+- atualizar métricas do dashboard da campanha com esses status.
+
+Se o provedor/conexão não fornecer entrega/leitura, mostrar:
+“Status de entrega indisponível para este canal”
+em vez de deixar parecer erro.
+
+5. Variáveis não funcionam em contatos manuais/listas
+As variáveis como {nome}, {telefone}, {cidade}, {protocolo}, {link} não estão funcionando corretamente quando os contatos são adicionados manualmente ou por lista/importação.
+
+Corrigir:
+- no modo manual, permitir informar nome junto com telefone.
+Exemplos aceitos:
+  +5551999462387;Guilherme
+  +5551999462387,Guilherme
+  Guilherme;+5551999462387
+  Guilherme,+5551999462387
+
+- no modo importar/colar lista, mapear colunas como:
+  nome;telefone;email;cidade
+  João;51999999999;joao@email.com;Chapecó
+
+- garantir que cada destinatário mantenha os campos:
+  nome
+  telefone
+  email
+  cidade
+  estado
+  etiquetas
+  campos personalizados, se existirem
+
+- quando enviar mensagem:
+  {nome} deve virar o nome daquele contato;
+  {telefone} deve virar o telefone;
+  {cidade} deve virar cidade;
+  {protocolo} deve gerar ou usar protocolo da campanha/atendimento;
+  {link} deve usar o link informado/configurado ou ficar vazio de forma segura.
+
+- no preview da mensagem, usar um contato real da audiência quando existir;
+- se não houver nome, usar fallback seguro, sem quebrar a mensagem.
+
+6. Botão +55 e normalização
+O botão “Adicionar +55” existe, mas precisa garantir que não transforme nomes em destinatários.
+
+Corrigir:
+- quando o usuário digitar:
+  +5551981685364
+  Brenda
+  +5551999462387
+  Gui
+
+O sistema não deve considerar Brenda e Gui como números separados.
+Deve interpretar como pares telefone/nome quando possível, ou orientar o usuário a usar:
+  +5551981685364;Brenda
+  +5551999462387;Gui
+
+Melhorar UX:
+- adicionar texto de ajuda:
+  “Use um por linha. Para incluir nome, use: telefone;nome”
+- quando detectar linhas apenas com texto/nome, mostrar aviso:
+  “Algumas linhas não parecem telefone. Corrija ou use telefone;nome.”
+
+7. Relatório de campanha
+Na página de detalhe da campanha:
+- melhorar tratamento de erro SMS 502 para não exibir HTML bruto;
+- criar coluna/tooltip com mensagem amigável;
+- manter detalhe técnico acessível apenas em “ver detalhes técnicos”, se existir;
+- mostrar status correto por destinatário;
+- permitir filtrar por falhas temporárias, falhas definitivas, enviados, entregues, lidos e pendentes.
+
+8. Testes
+Adicionar/ajustar testes para:
+- canal WhatsApp único com seleção de número/conexão;
+- templates aparecem apenas para conexão WhatsApp API Oficial;
+- templates não aparecem em WhatsApp normal;
+- erro SMS 502 vira mensagem amigável;
+- erro técnico HTML não aparece no frontend;
+- variáveis funcionam em contatos manuais;
+- variáveis funcionam em contatos importados;
+- nome/telefone manual com “telefone;nome”;
+- linha solta com nome não vira destinatário;
+- status WhatsApp entregue/lido atualiza relatório quando evento existir.
+
+Critério de conclusão:
+- não quebrar campanhas existentes;
+- não quebrar SMS via n8n;
+- não quebrar WhatsApp normal;
+- não quebrar WhatsApp API Oficial;
+- não quebrar relatórios;
+- passar em:
+  npm run check
+  npm run build
+  npm run test

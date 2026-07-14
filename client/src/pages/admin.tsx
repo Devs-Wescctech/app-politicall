@@ -1094,9 +1094,20 @@ export default function Admin() {
 
         {error && (
           <Card className="p-6" data-testid="card-error">
-            <p className="text-center text-destructive" data-testid="text-error">
-              Não foi possível carregar as campanhas. Verifique a conexão com o banco de dados.
-            </p>
+            <div className="flex flex-col items-center gap-3">
+              <p className="text-center text-destructive" data-testid="text-error">
+                Não foi possível carregar as campanhas.
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => queryClient.invalidateQueries({ queryKey: ["/api/admin/survey-campaigns"] })}
+                data-testid="button-retry-campaigns"
+              >
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Tentar novamente
+              </Button>
+            </div>
           </Card>
         )}
 

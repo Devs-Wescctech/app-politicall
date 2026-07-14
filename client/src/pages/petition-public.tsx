@@ -6,8 +6,9 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { getPublicResourceState } from "@/lib/public-resource-state";
 import {
   Loader2, Users, Target, TrendingUp, CheckCircle2, Share2,
   MessageCircle, Facebook, Twitter, Send, Link as LinkIcon, ChevronDown, ChevronUp,
@@ -69,6 +70,7 @@ function renderVideo(url: string) {
   if (yt) {
     return (
       <iframe
+        title="Vídeo da petição no YouTube"
         src={`https://www.youtube.com/embed/${yt[1]}`}
         className="w-full aspect-video rounded-md border-4 border-white/20"
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -81,6 +83,7 @@ function renderVideo(url: string) {
   if (vimeo) {
     return (
       <iframe
+        title="Vídeo da petição no Vimeo"
         src={`https://player.vimeo.com/video/${vimeo[1]}`}
         className="w-full aspect-video rounded-md border-4 border-white/20"
         allow="autoplay; fullscreen; picture-in-picture"
@@ -104,7 +107,7 @@ export default function PetitionPublic() {
     name: "", email: "", phone: "", city: "", state: "", cpf: "", comment: "",
   });
 
-  const { data: petition, isLoading } = useQuery<PublicPetition>({
+  const { data: petition, isLoading, isError } = useQuery<PublicPetition>({
     queryKey: ["/api/public/petitions", slug],
     enabled: !!slug,
   });
@@ -124,7 +127,13 @@ export default function PetitionPublic() {
     onError: (err: Error) => setFormError(err.message),
   });
 
-  if (isLoading || !petition) {
+  const resourceState = getPublicResourceState({
+    isLoading,
+    isError,
+    hasData: !!petition,
+  });
+
+  if (resourceState === "loading") {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-teal-500 to-cyan-600">
         <Loader2 className="w-12 h-12 animate-spin text-white" />
@@ -132,12 +141,28 @@ export default function PetitionPublic() {
     );
   }
 
+  if (resourceState === "error" || !petition) {
+    return (
+      <main className="min-h-screen flex items-center justify-center bg-slate-950 px-4">
+        <div className="max-w-md text-center text-white">
+          <h1 className="text-2xl font-bold" data-testid="text-public-error-title">Petição não encontrada</h1>
+          <p className="mt-2 text-sm text-white/70" data-testid="text-public-error-description">
+            O link pode estar incorreto, indisponível ou a petição pode ter sido retirada do ar.
+          </p>
+        </div>
+      </main>
+    );
+  }
+
   const primaryColor = petition.primaryColor || "#14b8a6";
-  const progress = Math.min((petition.signaturesCount / petition.goal) * 100, 100);
+  const progress = petition.goal > 0 ? Math.min((petition.signaturesCount / petition.goal) * 100, 100) : 0;
   const shareUrl = `${window.location.origin}/p/${petition.slug}`;
   const shareText = petition.shareText
     ? petition.shareText.replace("{link}", shareUrl)
     : `Acabei de assinar "${petition.title}". Junte-se a mim! ${shareUrl}`;
+  const labelClass = "text-sm font-semibold text-slate-700";
+  const inputClass = "border-slate-300 bg-white text-slate-950 shadow-sm placeholder:text-slate-400 focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-0";
+  const checkboxClass = "mt-0.5 border-slate-400 bg-white data-[state=checked]:text-white";
 
   const socialShares = [
     { name: "WhatsApp", icon: MessageCircle, url: `https://wa.me/?text=${encodeURIComponent(shareText)}` },
@@ -172,6 +197,8 @@ export default function PetitionPublic() {
     if (petition.collectState && form.state) payload.state = form.state.trim();
     if (petition.collectCpf && form.cpf) payload.cpf = form.cpf.trim();
     if (petition.collectComment && form.comment) payload.comment = form.comment.trim();
+    payload.acceptedTerms = acceptedTerms;
+    if (petition.lgpdText) payload.acceptedLgpd = acceptedLgpd;
     signMutation.mutate(payload);
   };
 
@@ -262,7 +289,7 @@ export default function PetitionPublic() {
           {/* Sign form */}
           <div className="max-w-xl mx-auto bg-white rounded-md p-6 shadow-2xl">
             {petition.status === "concluida" || petition.status === "pausada" ? (
-              <p className="text-center text-muted-foreground" data-testid="text-petition-closed">
+              <p className="text-center text-slate-600" data-testid="text-petition-closed">
                 Esta petição não está recebendo assinaturas no momento.
               </p>
             ) : (
@@ -270,21 +297,21 @@ export default function PetitionPublic() {
                 <h2 className="text-xl font-bold text-center" style={{ color: primaryColor }}>Assine esta petição</h2>
 
                 <div className="space-y-2">
-                  <Label htmlFor="sign-name">Nome completo *</Label>
-                  <Input id="sign-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required data-testid="input-name" />
+                  <Label htmlFor="sign-name" className={labelClass}>Nome completo *</Label>
+                  <Input id="sign-name" className={inputClass} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required data-testid="input-name" />
                 </div>
 
                 {petition.collectEmail && (
                   <div className="space-y-2">
-                    <Label htmlFor="sign-email">E-mail {petition.requireEmail ? "*" : ""}</Label>
-                    <Input id="sign-email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} data-testid="input-email" />
+                    <Label htmlFor="sign-email" className={labelClass}>E-mail {petition.requireEmail ? "*" : ""}</Label>
+                    <Input id="sign-email" className={inputClass} type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} data-testid="input-email" />
                   </div>
                 )}
 
                 {petition.collectPhone && (
                   <div className="space-y-2">
-                    <Label htmlFor="sign-phone">Telefone {petition.requirePhone ? "*" : ""}</Label>
-                    <Input id="sign-phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} data-testid="input-phone" />
+                    <Label htmlFor="sign-phone" className={labelClass}>Telefone {petition.requirePhone ? "*" : ""}</Label>
+                    <Input id="sign-phone" className={inputClass} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} data-testid="input-phone" />
                   </div>
                 )}
 
@@ -292,14 +319,14 @@ export default function PetitionPublic() {
                   <div className="grid grid-cols-2 gap-3">
                     {petition.collectCity && (
                       <div className="space-y-2">
-                        <Label htmlFor="sign-city">Cidade {petition.requireLocation ? "*" : ""}</Label>
-                        <Input id="sign-city" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} data-testid="input-city" />
+                        <Label htmlFor="sign-city" className={labelClass}>Cidade {petition.requireLocation ? "*" : ""}</Label>
+                        <Input id="sign-city" className={inputClass} value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} data-testid="input-city" />
                       </div>
                     )}
                     {petition.collectState && (
                       <div className="space-y-2">
-                        <Label htmlFor="sign-state">Estado (UF) {petition.requireLocation ? "*" : ""}</Label>
-                        <Input id="sign-state" maxLength={2} value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value.toUpperCase() })} data-testid="input-state" />
+                        <Label htmlFor="sign-state" className={labelClass}>Estado (UF) {petition.requireLocation ? "*" : ""}</Label>
+                        <Input id="sign-state" className={inputClass} maxLength={2} value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value.toUpperCase() })} data-testid="input-state" />
                       </div>
                     )}
                   </div>
@@ -307,9 +334,10 @@ export default function PetitionPublic() {
 
                 {petition.collectCpf && (
                   <div className="space-y-2">
-                    <Label htmlFor="sign-cpf">CPF {petition.requireCpf ? "*" : ""}</Label>
+                    <Label htmlFor="sign-cpf" className={labelClass}>CPF {petition.requireCpf ? "*" : ""}</Label>
                     <Input
                       id="sign-cpf"
+                      className={inputClass}
                       value={form.cpf}
                       onChange={(e) => {
                         const f = formatCpf(e.target.value);
@@ -318,52 +346,54 @@ export default function PetitionPublic() {
                       }}
                       data-testid="input-cpf"
                     />
-                    {cpfError && <p className="text-sm text-destructive" data-testid="text-cpf-error">{cpfError}</p>}
+                    {cpfError && <p className="text-sm font-medium text-red-600" data-testid="text-cpf-error">{cpfError}</p>}
                   </div>
                 )}
 
                 {petition.collectComment && (
                   <div className="space-y-2">
-                    <Label htmlFor="sign-comment">Comentário {petition.requireComment ? "*" : ""}</Label>
-                    <Textarea id="sign-comment" value={form.comment} onChange={(e) => setForm({ ...form, comment: e.target.value })} data-testid="input-comment" />
+                    <Label htmlFor="sign-comment" className={labelClass}>Comentário {petition.requireComment ? "*" : ""}</Label>
+                    <Textarea id="sign-comment" className={`${inputClass} min-h-24`} value={form.comment} onChange={(e) => setForm({ ...form, comment: e.target.value })} data-testid="input-comment" />
                   </div>
                 )}
 
                 <div className="flex items-start gap-2">
-                  <Checkbox id="accept-terms" checked={acceptedTerms} onCheckedChange={(v) => setAcceptedTerms(!!v)} data-testid="checkbox-terms" />
-                  <Label htmlFor="accept-terms" className="text-sm font-normal leading-snug">
+                  <Checkbox id="accept-terms" className={checkboxClass} checked={acceptedTerms} onCheckedChange={(v) => setAcceptedTerms(!!v)} data-testid="checkbox-terms" />
+                  <Label htmlFor="accept-terms" className="text-sm font-normal leading-snug text-slate-700">
                     Declaro que as informações são verdadeiras e concordo em assinar esta petição.
                   </Label>
                 </div>
 
                 {petition.lgpdText && (
                   <div className="flex items-start gap-2">
-                    <Checkbox id="accept-lgpd" checked={acceptedLgpd} onCheckedChange={(v) => setAcceptedLgpd(!!v)} data-testid="checkbox-lgpd" />
-                    <Label htmlFor="accept-lgpd" className="text-sm font-normal leading-snug text-muted-foreground">
+                    <Checkbox id="accept-lgpd" className={checkboxClass} checked={acceptedLgpd} onCheckedChange={(v) => setAcceptedLgpd(!!v)} data-testid="checkbox-lgpd" />
+                    <Label htmlFor="accept-lgpd" className="text-sm font-normal leading-snug text-slate-600">
                       {petition.lgpdText}
                     </Label>
                   </div>
                 )}
 
-                {formError && <p className="text-sm text-destructive text-center" data-testid="text-form-error">{formError}</p>}
+                {formError && <p className="text-sm font-medium text-red-600 text-center" data-testid="text-form-error">{formError}</p>}
 
-                <Button type="submit" className="w-full" style={{ backgroundColor: primaryColor }} disabled={signMutation.isPending} data-testid="button-sign">
+                <Button type="submit" className="w-full text-white hover:opacity-95" style={{ backgroundColor: primaryColor }} disabled={signMutation.isPending} data-testid="button-sign">
                   {signMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Assinar agora"}
                 </Button>
               </form>
             )}
 
             <div className="mt-6 pt-4 border-t">
-              <p className="text-sm text-muted-foreground text-center mb-3 flex items-center justify-center gap-1.5">
+              <p className="text-sm text-slate-600 text-center mb-3 flex items-center justify-center gap-1.5">
                 <Share2 className="w-4 h-4" /> Compartilhe esta petição
               </p>
               <div className="flex flex-wrap items-center justify-center gap-2">
                 {socialShares.map((s) => (
                   <Button key={s.name} type="button" size="icon" variant="outline" onClick={() => window.open(s.url, "_blank", "width=600,height=400")} data-testid={`button-share-${s.name.toLowerCase()}`}>
+                    <span className="sr-only">Compartilhar no {s.name}</span>
                     <s.icon className="w-4 h-4" />
                   </Button>
                 ))}
                 <Button type="button" size="icon" variant="outline" onClick={handleCopy} data-testid="button-copy-link">
+                  <span className="sr-only">Copiar link da petição</span>
                   <LinkIcon className="w-4 h-4" />
                 </Button>
               </div>
@@ -376,11 +406,12 @@ export default function PetitionPublic() {
         <DialogContent data-testid="dialog-success">
           <div className="text-center py-6">
             <CheckCircle2 className="w-16 h-16 text-green-500 mx-auto mb-4" />
-            <h3 className="text-xl font-bold mb-2">Assinatura confirmada!</h3>
+            <DialogTitle className="text-xl font-bold mb-2">Assinatura confirmada!</DialogTitle>
             <p className="text-muted-foreground mb-6">Obrigado por apoiar esta causa. Compartilhe para alcançar mais pessoas.</p>
             <div className="flex flex-wrap items-center justify-center gap-2">
               {socialShares.map((s) => (
                 <Button key={s.name} type="button" size="icon" variant="outline" onClick={() => window.open(s.url, "_blank", "width=600,height=400")} data-testid={`button-success-share-${s.name.toLowerCase()}`}>
+                  <span className="sr-only">Compartilhar no {s.name}</span>
                   <s.icon className="w-4 h-4" />
                 </Button>
               ))}

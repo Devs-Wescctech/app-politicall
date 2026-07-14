@@ -16,6 +16,7 @@ import fs from "fs";
 import path from "path";
 import os from "os";
 import archiver from "archiver";
+import { collectSafeSyncEnvVars, shouldImportSystemSyncSecrets } from "./system-sync-security";
 
 const execAsync = promisify(exec);
 
@@ -362,28 +363,11 @@ export async function generateExportPackage(): Promise<ExportPackage> {
       console.log(`📎 Anexos incluídos: ${(attachmentsSize / 1024 / 1024).toFixed(2)} MB`);
     }
     
-    // Exportar TODAS as variáveis de ambiente relevantes (exceto variáveis do sistema)
-    const systemVarsToExclude = [
-      "PATH", "HOME", "USER", "SHELL", "PWD", "OLDPWD", "TERM", "LANG", "LC_ALL",
-      "HOSTNAME", "SHLVL", "_", "NODE_ENV", "npm_config_", "npm_package_", "npm_lifecycle_",
-      "REPLIT", "REPL_", "NIX_", "XDG_", "DBUS_", "SSH_", "GPG_", "DISPLAY",
-    ];
-    
-    const envVars: Record<string, string | undefined> = {};
-    for (const [key, value] of Object.entries(process.env)) {
-      // Pular variáveis do sistema
-      const isSystemVar = systemVarsToExclude.some(prefix => 
-        key === prefix || key.startsWith(prefix)
-      );
-      if (!isSystemVar && value) {
-        envVars[key] = value;
-      }
-    }
-    
-    console.log(`🔑 Exportando ${Object.keys(envVars).length} variáveis de ambiente`);
-    
+    const envVars = collectSafeSyncEnvVars(process.env);
+    console.log(`🔑 Exportando ${Object.keys(envVars).length} variáveis públicas allowlisted`);
+
     let adminConfig: string | null = null;
-    if (fs.existsSync(ADMIN_CONFIG_FILE)) {
+    if (process.env.INCLUDE_SYSTEM_SYNC_ADMIN_CONFIG === "true" && fs.existsSync(ADMIN_CONFIG_FILE)) {
       adminConfig = fs.readFileSync(ADMIN_CONFIG_FILE, "utf-8");
     }
     
@@ -508,7 +492,9 @@ export async function importFromSource(sourceUrl: string, apiKey: string): Promi
       }
     }
     
-    if (exportPackage.adminConfig) {
+    const allowSecretImport = shouldImportSystemSyncSecrets(process.env);
+
+    if (exportPackage.adminConfig && allowSecretImport) {
       console.log("📋 Atualizando configuração do admin...");
       try {
         fs.writeFileSync(ADMIN_CONFIG_FILE, exportPackage.adminConfig);
@@ -517,10 +503,12 @@ export async function importFromSource(sourceUrl: string, apiKey: string): Promi
       } catch (configError: any) {
         console.error("⚠️ Erro ao atualizar config:", configError.message);
       }
+    } else if (exportPackage.adminConfig) {
+      console.log("🔒 Configuração do admin recebida, mas importação de secrets está desativada");
     }
     
     // Escrever variáveis de ambiente automaticamente no arquivo .env
-    if (exportPackage.envVars) {
+    if (exportPackage.envVars && allowSecretImport) {
       console.log("📝 Escrevendo variáveis de ambiente no arquivo .env...");
       try {
         const envLines: string[] = [];
@@ -546,6 +534,8 @@ export async function importFromSource(sourceUrl: string, apiKey: string): Promi
         console.error("⚠️ Erro ao escrever arquivo .env:", envError.message);
         result.details.envVarsUpdated = false;
       }
+    } else if (exportPackage.envVars && Object.keys(exportPackage.envVars).length > 0) {
+      console.log("🔒 Variáveis de ambiente recebidas, mas importação de secrets está desativada");
     }
     
     // Extrair arquivos anexos (attachments) se existirem

@@ -19,11 +19,31 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle
 } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { ChannelConnection, AttSector, AttQueue, QuickReply } from "@shared/schema";
+import type { ChannelConnection, AttSector, AttQueue, AttQueueMember, QuickReply } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { isOfficialAttendanceChannel } from "@shared/attendance-meta-window";
 
 type AttendanceLabel = { id: string; name: string; color: string };
+type ConnectionForm = {
+  name: string;
+  channel: string;
+  provider: "wescctech" | "wescctech_cloud" | "meta_cloud";
+  token: string;
+  baseUrl: string;
+  businessAccountId: string;
+  phoneNumberId: string;
+};
+
+const EMPTY_CONNECTION: ConnectionForm = {
+  name: "",
+  channel: "whatsapp",
+  provider: "wescctech",
+  token: "",
+  baseUrl: "https://api.wescctech.com.br",
+  businessAccountId: "",
+  phoneNumberId: "",
+};
 
 // ─── Connection Status Badge ────────────────────────────────────────────────
 
@@ -49,7 +69,7 @@ function ConnectionsSection() {
   const [open, setOpen] = useState(false);
   const [editConn, setEditConn] = useState<ChannelConnection | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [form, setForm] = useState({ name: "", channel: "whatsapp", provider: "wescctech", token: "", baseUrl: "https://api.wescctech.com.br" });
+  const [form, setForm] = useState<ConnectionForm>(EMPTY_CONNECTION);
   const { toast } = useToast();
 
   const { data: connections = [], isLoading } = useQuery<ChannelConnection[]>({
@@ -58,21 +78,50 @@ function ConnectionsSection() {
   const attendanceConnections = connections.filter(c => c.channel !== "sms");
 
   const openNew = () => {
-    setForm({ name: "", channel: "whatsapp", provider: "wescctech", token: "", baseUrl: "https://api.wescctech.com.br" });
+    setForm(EMPTY_CONNECTION);
     setEditConn(null);
     setOpen(true);
   };
 
   const openEdit = (c: ChannelConnection) => {
-    setForm({ name: c.name, channel: c.channel, provider: c.provider, token: "", baseUrl: c.baseUrl ?? "" });
+    const metadata = (c.metadata as any) ?? {};
+    const official = isOfficialAttendanceChannel({ connection: c });
+    setForm({
+      name: c.name,
+      channel: c.channel,
+      provider: c.provider === "wescctech_cloud" ? "wescctech_cloud" : official ? "meta_cloud" : "wescctech",
+      token: "",
+      baseUrl: c.baseUrl ?? (official ? "https://graph.facebook.com" : "https://api.wescctech.com.br"),
+      businessAccountId: metadata.businessAccountId ?? metadata.whatsappBusinessAccountId ?? metadata.wabaId ?? "",
+      phoneNumberId: metadata.phoneNumberId ?? metadata.whatsappPhoneNumberId ?? "",
+    });
     setEditConn(c);
     setOpen(true);
   };
 
   const saveMutation = useMutation({
-    mutationFn: () => editConn
-      ? apiRequest("PATCH", `/api/attendance/connections/${editConn.id}`, form)
-      : apiRequest("POST", "/api/attendance/connections", form),
+    mutationFn: () => {
+      const official = form.provider !== "wescctech";
+      const directMeta = form.provider === "meta_cloud";
+      const payload = {
+        name: form.name,
+        channel: "whatsapp",
+        provider: form.provider,
+        token: form.token,
+        baseUrl: directMeta ? "https://graph.facebook.com" : "https://api.wescctech.com.br",
+        metadata: {
+          apiType: official ? "official" : "whu",
+          official,
+          whatsappOfficial: official,
+          directMeta,
+          businessAccountId: directMeta ? form.businessAccountId : null,
+          phoneNumberId: directMeta ? form.phoneNumberId : null,
+        },
+      };
+      return editConn
+        ? apiRequest("PATCH", `/api/attendance/connections/${editConn.id}`, payload)
+        : apiRequest("POST", "/api/attendance/connections", payload);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/attendance/connections"] });
       setOpen(false);
@@ -122,16 +171,15 @@ function ConnectionsSection() {
         <div className="space-y-2">
           {attendanceConnections.map(c => (
             <div key={c.id} data-testid={`item-connection-${c.id}`} className="flex items-center gap-3 p-3 rounded-md border border-border bg-background">
-              <div className="w-8 h-8 rounded-md bg-green-600/10 flex items-center justify-center flex-shrink-0">
-                <SiWhatsapp className="w-4 h-4 text-green-600" />
+              <div className={`w-8 h-8 rounded-md flex items-center justify-center flex-shrink-0 ${isOfficialAttendanceChannel({ connection: c }) ? "bg-sky-600/10" : "bg-green-600/10"}`}>
+                <SiWhatsapp className={`w-4 h-4 ${isOfficialAttendanceChannel({ connection: c }) ? "text-sky-600" : "text-green-600"}`} />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-foreground truncate">{c.name}</p>
                 <p className="text-xs text-muted-foreground">{c.channel} · {c.provider}</p>
               </div>
               <ConnStatus status={c.status} />
-              <div className="flex items-center gap-1">
-                <Button size="sm" variant="outline" onClick={() => testMutation.mutate(c.id)} disabled={testMutation.isPending} data-testid={`button-test-connection-${c.id}`}>
+              <div className="flex items-center gap-1">                <Button size="sm" variant="outline" onClick={() => testMutation.mutate(c.id)} disabled={testMutation.isPending} data-testid={`button-test-connection-${c.id}`}>
                   Testar
                 </Button>
                 <Button size="icon" variant="ghost" onClick={() => openEdit(c)} data-testid={`button-edit-connection-${c.id}`}>
@@ -154,7 +202,6 @@ function ConnectionsSection() {
           <div className="space-y-4 py-2">
             {[
               { key: "name", label: "Nome da conexão", placeholder: "Ex: WhatsApp Gabinete" },
-              { key: "baseUrl", label: "URL base", placeholder: "https://api.wescctech.com.br" },
               { key: "token", label: editConn ? "Novo token (deixe vazio para manter)" : "Token de acesso", placeholder: "access-token do provedor" },
             ].map(({ key, label, placeholder }) => (
               <div key={key}>
@@ -169,21 +216,38 @@ function ConnectionsSection() {
               </div>
             ))}
             <div>
-              <label className="text-sm font-medium mb-1.5 block">Canal</label>
-              <Select value={form.channel} onValueChange={v => setForm(f => ({ ...f, channel: v }))}>
-                <SelectTrigger data-testid="select-connection-channel">
+              <label className="text-sm font-medium mb-1.5 block">Tipo de conexão</label>
+              <Select value={form.provider} onValueChange={(provider: "wescctech" | "wescctech_cloud" | "meta_cloud") => setForm(f => ({
+                ...f,
+                provider,
+                baseUrl: provider === "meta_cloud" ? "https://graph.facebook.com" : "https://api.wescctech.com.br",
+              }))}>
+                <SelectTrigger data-testid="select-connection-provider">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="whatsapp">WhatsApp</SelectItem>
-                  <SelectItem value="email">E-mail</SelectItem>
+                  <SelectItem value="wescctech">WhatsApp / WHU</SelectItem>
+                  <SelectItem value="wescctech_cloud">WhatsApp Cloud via WHU</SelectItem>
+                  <SelectItem value="meta_cloud">WhatsApp Cloud direto / Meta</SelectItem>
                 </SelectContent>
               </Select>
             </div>
+            {form.provider === "meta_cloud" ? (
+              <div className="grid gap-4 sm:grid-cols-2" data-testid="fields-meta-cloud">
+                <div>
+                  <label className="text-sm font-medium mb-1.5 block">Business Account ID (WABA)</label>
+                  <Input value={form.businessAccountId} onChange={e => setForm(f => ({ ...f, businessAccountId: e.target.value }))} data-testid="input-connection-business-account-id" />
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1.5 block">Phone Number ID</label>
+                  <Input value={form.phoneNumberId} onChange={e => setForm(f => ({ ...f, phoneNumberId: e.target.value }))} data-testid="input-connection-phone-number-id" />
+                </div>
+              </div>
+            ) : null}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
-            <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending || !form.name} data-testid="button-save-connection">
+            <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending || !form.name || (form.provider === "meta_cloud" && (!form.businessAccountId || !form.phoneNumberId))} data-testid="button-save-connection">
               {saveMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
               Salvar
             </Button>
@@ -318,6 +382,8 @@ function QueuesSection() {
   const [open, setOpen] = useState(false);
   const [editQueue, setEditQueue] = useState<AttQueue | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [membersQueue, setMembersQueue] = useState<AttQueue | null>(null);
+  const [selectedOperatorId, setSelectedOperatorId] = useState("");
   const [form, setForm] = useState({
     name: "",
     description: "",
@@ -325,15 +391,23 @@ function QueuesSection() {
     strategy: "manual",
     maxWaitMinutes: 30,
     priority: 0,
+    capacity: 3,
   });
   const { toast } = useToast();
 
   const { data: queues = [], isLoading } = useQuery<AttQueue[]>({
     queryKey: ["/api/attendance/queues"],
   });
+  const { data: operators = [] } = useQuery<Array<{ id: string; name: string; email: string; role: string }>>({
+    queryKey: ["/api/attendance/operators"],
+  });
+  const { data: queueMembers = [] } = useQuery<AttQueueMember[]>({
+    queryKey: ["/api/attendance/queues", membersQueue?.id, "members"],
+    enabled: Boolean(membersQueue),
+  });
 
   const openNew = () => {
-    setForm({ name: "", description: "", channel: "whatsapp", strategy: "manual", maxWaitMinutes: 30, priority: 0 });
+    setForm({ name: "", description: "", channel: "whatsapp", strategy: "manual", maxWaitMinutes: 30, priority: 0, capacity: 3 });
     setEditQueue(null);
     setOpen(true);
   };
@@ -346,21 +420,35 @@ function QueuesSection() {
       strategy: queue.strategy ?? "manual",
       maxWaitMinutes: queue.maxWaitMinutes ?? 30,
       priority: queue.priority ?? 0,
+      capacity: Number((queue.metadata as any)?.maxConcurrentPerAgent) || 3,
     });
     setEditQueue(queue);
     setOpen(true);
   };
 
   const saveMutation = useMutation({
-    mutationFn: () => editQueue
-      ? apiRequest("PATCH", `/api/attendance/queues/${editQueue.id}`, form)
-      : apiRequest("POST", "/api/attendance/queues", form),
+    mutationFn: () => {
+      const { capacity, ...base } = form;
+      const payload = { ...base, metadata: { ...((editQueue?.metadata as any) ?? {}), maxConcurrentPerAgent: capacity } };
+      return editQueue ? apiRequest("PATCH", "/api/attendance/queues/" + editQueue.id, payload) : apiRequest("POST", "/api/attendance/queues", payload);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/attendance/queues"] });
       setOpen(false);
       toast({ title: "Fila salva" });
     },
     onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
+  });
+
+  const addMemberMutation = useMutation({
+    mutationFn: () => apiRequest("POST", "/api/attendance/queues/" + membersQueue!.id + "/members", { userId: selectedOperatorId, active: true }),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/attendance/queues", membersQueue?.id, "members"] }); setSelectedOperatorId(""); toast({ title: "Atendente adicionado à fila" }); },
+    onError: (error: any) => toast({ title: "Erro", description: error.message, variant: "destructive" }),
+  });
+  const removeMemberMutation = useMutation({
+    mutationFn: (memberId: string) => apiRequest("DELETE", "/api/attendance/queues/" + membersQueue!.id + "/members/" + memberId, {}),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/attendance/queues", membersQueue?.id, "members"] }); toast({ title: "Atendente removido da fila" }); },
+    onError: (error: any) => toast({ title: "Erro", description: error.message, variant: "destructive" }),
   });
 
   const deleteMutation = useMutation({
@@ -404,6 +492,7 @@ function QueuesSection() {
               </div>
               {queue.isDefault && <Badge variant="secondary" className="text-xs">Padrão</Badge>}
               <div className="flex items-center gap-1">
+                <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setMembersQueue(queue)} data-testid={"button-members-queue-" + queue.id}><Users className="h-3.5 w-3.5" /> Membros</Button>
                 <Button size="icon" variant="ghost" onClick={() => openEdit(queue)} data-testid={`button-edit-queue-${queue.id}`}><Pencil className="w-3.5 h-3.5" /></Button>
                 <Button size="icon" variant="ghost" onClick={() => setDeleteId(queue.id)} data-testid={`button-delete-queue-${queue.id}`}><Trash2 className="w-3.5 h-3.5 text-destructive" /></Button>
               </div>
@@ -411,6 +500,38 @@ function QueuesSection() {
           ))}
         </div>
       )}
+
+      <Dialog open={Boolean(membersQueue)} onOpenChange={value => { if (!value) { setMembersQueue(null); setSelectedOperatorId(""); } }}>
+        <DialogContent data-testid="dialog-queue-members">
+          <DialogHeader><DialogTitle>Membros da fila {membersQueue?.name}</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div className="flex gap-2">
+              <Select value={selectedOperatorId || "__none"} onValueChange={value => setSelectedOperatorId(value === "__none" ? "" : value)}>
+                <SelectTrigger className="flex-1" data-testid="select-queue-operator"><SelectValue placeholder="Selecionar atendente" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none">Selecionar atendente</SelectItem>
+                  {operators.filter(operator => !queueMembers.some(member => member.userId === operator.id)).map(operator => (
+                    <SelectItem key={operator.id} value={operator.id}>{operator.name} · {operator.role}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button onClick={() => addMemberMutation.mutate()} disabled={!selectedOperatorId || addMemberMutation.isPending}>Adicionar</Button>
+            </div>
+            <div className="space-y-2">
+              {queueMembers.length ? queueMembers.map(member => {
+                const operator = operators.find(item => item.id === member.userId);
+                return (
+                  <div key={member.id} className="flex items-center justify-between rounded-md border p-3">
+                    <div><p className="text-sm font-medium">{operator?.name ?? "Usuário indisponível"}</p><p className="text-xs text-muted-foreground">{operator?.email ?? member.userId}</p></div>
+                    <Button size="sm" variant="ghost" className="text-destructive" onClick={() => removeMemberMutation.mutate(member.id)} disabled={removeMemberMutation.isPending}>Remover</Button>
+                  </div>
+                );
+              }) : <p className="py-6 text-center text-sm text-muted-foreground">Nenhum atendente nesta fila.</p>}
+            </div>
+          </div>
+          <DialogFooter><Button variant="outline" onClick={() => setMembersQueue(null)}>Fechar</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={open} onOpenChange={v => !v && setOpen(false)}>
         <DialogContent data-testid="dialog-queue">
@@ -424,6 +545,24 @@ function QueuesSection() {
               <label className="text-sm font-medium mb-1.5 block">Descrição</label>
               <Input value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Descrição opcional" data-testid="input-queue-description" />
             </div>
+            <div>
+              <label className="text-sm font-medium mb-1.5 block">Distribuição</label>
+              <Select value={form.strategy} onValueChange={strategy => setForm(current => ({ ...current, strategy }))}>
+                <SelectTrigger data-testid="select-queue-strategy"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="manual">Manual</SelectItem>
+                  <SelectItem value="round_robin">Rodízio (round-robin)</SelectItem>
+                  <SelectItem value="least_loaded">Menor carga</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="mt-1 text-xs text-muted-foreground">Usa somente membros ativos com permissão de resposta.</p>
+            </div>
+            {form.strategy !== "manual" ? (
+              <div>
+                <label className="text-sm font-medium mb-1.5 block">Capacidade por atendente</label>
+                <Input type="number" min={1} max={100} value={form.capacity} onChange={event => setForm(current => ({ ...current, capacity: Math.min(100, Math.max(1, Number(event.target.value) || 1)) }))} data-testid="input-queue-capacity" />
+              </div>
+            ) : null}
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-sm font-medium mb-1.5 block">Espera máxima</label>

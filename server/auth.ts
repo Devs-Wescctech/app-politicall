@@ -28,6 +28,8 @@ const DEFAULT_USER_PERMISSIONS: UserPermissions = {
   smsBroadcast: false,
   attendanceReports: false,
   attendanceSettings: false,
+  reports: false,
+  campaignReports: false,
 };
 
 // Extended request interface with user data

@@ -37,6 +37,46 @@ const PLATFORMS = [
   // X (Twitter) hidden - not yet supported
 ];
 
+const PLATFORM_CONFIG_FIELDS = {
+  facebook: [
+    "facebookAppId",
+    "facebookAppSecret",
+    "facebookPageAccessToken",
+    "facebookPageId",
+    "facebookWebhookVerifyToken",
+    "facebookPageName",
+  ],
+  instagram: [
+    "instagramAppId",
+    "instagramAppSecret",
+    "instagramAccessToken",
+    "instagramBusinessAccountId",
+    "instagramFacebookPageId",
+    "instagramUsername",
+    "instagramWebhookVerifyToken",
+  ],
+  twitter: [
+    "twitterApiKey",
+    "twitterApiSecretKey",
+    "twitterBearerToken",
+    "twitterAccessToken",
+    "twitterAccessTokenSecret",
+    "twitterClientId",
+    "twitterClientSecret",
+    "twitterUsername",
+  ],
+  whatsapp: [
+    "whatsappPhoneNumberId",
+    "whatsappBusinessAccountId",
+    "whatsappAccessToken",
+    "whatsappAppId",
+    "whatsappAppSecret",
+    "whatsappWebhookVerifyToken",
+    "whatsappPhoneNumber",
+    "whatsappBusinessName",
+  ],
+} as const;
+
 const TRAINING_CATEGORIES = [
   { value: "propostas", label: "Propostas" },
   { value: "biografia", label: "Biografia" },
@@ -369,7 +409,11 @@ export default function AiAttendance() {
 
   // Handlers
   const handleSavePlatform = (data: any) => {
-    updateConfigMutation.mutate(data);
+    const fields = selectedPlatform
+      ? PLATFORM_CONFIG_FIELDS[selectedPlatform as keyof typeof PLATFORM_CONFIG_FIELDS]
+      : [];
+    const payload = Object.fromEntries(fields.map((field) => [field, data[field]]));
+    updateConfigMutation.mutate(payload);
   };
 
   const handleSavePersonalization = (data: any) => {

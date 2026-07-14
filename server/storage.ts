@@ -1,9 +1,9 @@
 // Storage implementation using blueprint javascript_database
-import { 
+import {
   accounts, users, contacts, politicalParties, politicalAlliances, allianceInvites, demands, demandComments, events,
   aiConfigurations, aiConversations, aiTrainingExamples, aiResponseTemplates, 
-  marketingCampaigns, notifications, integrations, googleCalendarIntegrations, surveyTemplates, surveyCampaigns, surveyLandingPages, surveyResponses, leads,
-  apiKeys, apiKeyUsage,
+  marketingCampaigns, campaignRecipients, campaignEvents, notifications, integrations, googleCalendarIntegrations, surveyTemplates, surveyCampaigns, surveyLandingPages, surveyResponses, leads,
+  apiKeys, apiKeyUsage, contactLists, contactListMembers, messageTemplates, campaignExports,
   type Account, type User, type InsertUser, type Contact, type InsertContact,
   type PoliticalParty, type PoliticalAlliance, type InsertPoliticalAlliance,
   type AllianceInvite, type InsertAllianceInvite,
@@ -12,6 +12,8 @@ import {
   type AiConversation, type AiTrainingExample, type InsertAiTrainingExample,
   type AiResponseTemplate, type InsertAiResponseTemplate,
   type MarketingCampaign, type InsertMarketingCampaign,
+  type CampaignRecipient, type InsertCampaignRecipient,
+  type CampaignEvent, type InsertCampaignEvent,
   type Notification, type InsertNotification,
   type Integration, type InsertIntegration,
   type GoogleCalendarIntegration, type InsertGoogleCalendarIntegration,
@@ -22,6 +24,10 @@ import {
   type Lead, type InsertLead,
   type ApiKey, type InsertApiKey,
   type ApiKeyUsage, type InsertApiKeyUsage,
+  type ContactList, type InsertContactList,
+  type ContactListMember, type InsertContactListMember,
+  type MessageTemplate, type InsertMessageTemplate,
+  type CampaignExport, type InsertCampaignExport,
   petitions, petitionSignatures, petitionCampaigns, petitionCampaignLogs,
   petitionMessageTemplates, linkBioPages, linkTreePages,
   channelConnections, attConversations, attMessages, attAttachments,
@@ -49,12 +55,23 @@ import {
   type AttConversationEvent, type InsertAttConversationEvent,
   type AttTransfer, type InsertAttTransfer
 } from "@shared/schema";
+import { ensureAttendanceMessageCreatedAt } from "./services/attendance-message-timestamp";
+import { decryptAiConfigProviderSecrets, encryptAiConfigProviderSecrets } from "./services/ai-config-secrets";
 import { db } from "./db";
-import { eq, desc, and, count, inArray, sql, or, ilike } from "drizzle-orm";
+import { eq, desc, and, count, inArray, sql, or, ilike, gte, lte, lt, asc, notInArray } from "drizzle-orm";
+import type { PaginationParams } from "@shared/pagination";
 import { encryptApiKey, decryptApiKey } from "./crypto";
 import bcrypt from "bcrypt";
 import crypto from "crypto";
 import { normalizeText } from "@shared/text-normalization";
+
+export type CampaignReportFilters = {
+  from?: Date;
+  to?: Date;
+  channel?: string;
+  status?: string;
+  creatorId?: string;
+};
 
 export interface IStorage {
   // Accounts
@@ -147,12 +164,55 @@ export interface IStorage {
   updateResponseTemplate(id: string, accountId: string, template: Partial<InsertAiResponseTemplate>): Promise<AiResponseTemplate>;
   deleteResponseTemplate(id: string, accountId: string): Promise<void>;
 
+  // Paginated list queries
+  getCampaignsPaginated(accountId: string, params: PaginationParams & { search?: string; type?: string; allowedTypes?: string[] }): Promise<{ data: MarketingCampaign[]; total: number }>;
+  getCampaignStatusCounts(accountId: string, params: { search?: string; type?: string; allowedTypes?: string[] }): Promise<{ status: string; count: number }[]>;
+  getCampaignRecipientsPaginated(campaignId: string, accountId: string, params: PaginationParams & { statuses?: string[] }): Promise<{ data: CampaignRecipient[]; total: number }>;
+  getContactsPaginated(accountId: string, params: PaginationParams & { search?: string; userId?: string }): Promise<{ data: Contact[]; total: number }>;
+  getAllUsersPaginated(accountId: string, params: PaginationParams & { search?: string }): Promise<{ data: User[]; total: number }>;
+
   // Marketing Campaigns
   getCampaigns(accountId: string): Promise<MarketingCampaign[]>;
   getCampaign(id: string, accountId: string): Promise<MarketingCampaign | undefined>;
   createCampaign(campaign: InsertMarketingCampaign & { userId: string; accountId: string }): Promise<MarketingCampaign>;
   updateCampaign(id: string, accountId: string, campaign: Partial<InsertMarketingCampaign> & { sentAt?: Date }): Promise<MarketingCampaign>;
   deleteCampaign(id: string, accountId: string): Promise<void>;
+
+  // Campaign recipients (per-recipient tracking)
+  createCampaignRecipients(recipients: (InsertCampaignRecipient & { accountId: string; campaignId: string })[]): Promise<CampaignRecipient[]>;
+  getCampaignRecipients(campaignId: string, accountId: string): Promise<CampaignRecipient[]>;
+  getCampaignRecipientByProviderMessageId(providerMessageId: string): Promise<CampaignRecipient | undefined>;
+  updateCampaignRecipient(id: string, accountId: string, data: Partial<InsertCampaignRecipient> & { sentAt?: Date; deliveredAt?: Date }): Promise<CampaignRecipient>;
+  deleteCampaignRecipients(campaignId: string, accountId: string): Promise<void>;
+
+  // Campaign audit events (immutable)
+  createCampaignEvent(event: InsertCampaignEvent & { accountId: string; campaignId: string }): Promise<CampaignEvent>;
+  getCampaignEvents(campaignId: string, accountId: string): Promise<CampaignEvent[]>;
+  getActiveCampaigns(): Promise<MarketingCampaign[]>;
+  getCampaignProgress(accountId: string): Promise<Record<string, { total: number; sent: number; failed: number; pending: number; cancelled: number }>>;
+
+  // Phase 5 — reports & exports
+  getCampaignsReportSummary(accountId: string, filters?: CampaignReportFilters): Promise<{ campaigns: MarketingCampaign[]; recipients: CampaignRecipient[] }>;
+  getCampaignReportData(campaignId: string, accountId: string): Promise<{ campaign: MarketingCampaign; recipients: CampaignRecipient[]; events: CampaignEvent[] } | undefined>;
+  getRecipientsForExport(campaignId: string, accountId: string, opts?: { status?: string; channel?: string }): Promise<CampaignRecipient[]>;
+  createCampaignExport(data: InsertCampaignExport & { accountId: string }): Promise<CampaignExport>;
+  getCampaignExports(accountId: string, campaignId?: string): Promise<CampaignExport[]>;
+
+  // Contact lists (audience segmentation — fixed & dynamic)
+  getContactLists(accountId: string): Promise<ContactList[]>;
+  getContactList(id: string, accountId: string): Promise<ContactList | undefined>;
+  createContactList(list: InsertContactList & { accountId: string; userId: string }): Promise<ContactList>;
+  updateContactList(id: string, accountId: string, data: Partial<InsertContactList>): Promise<ContactList>;
+  deleteContactList(id: string, accountId: string): Promise<void>;
+  getContactListMembers(listId: string, accountId: string): Promise<ContactListMember[]>;
+  setContactListMembers(listId: string, accountId: string, contactIds: string[]): Promise<ContactListMember[]>;
+
+  // Message templates (saved SMS/email/WhatsApp models)
+  getMessageTemplates(accountId: string, channel?: string): Promise<MessageTemplate[]>;
+  getMessageTemplate(id: string, accountId: string): Promise<MessageTemplate | undefined>;
+  createMessageTemplate(tpl: InsertMessageTemplate & { accountId: string; userId: string }): Promise<MessageTemplate>;
+  updateMessageTemplate(id: string, accountId: string, data: Partial<InsertMessageTemplate>): Promise<MessageTemplate>;
+  deleteMessageTemplate(id: string, accountId: string): Promise<void>;
 
   // Notifications
   getNotifications(userId: string, accountId: string, limit?: number): Promise<Notification[]>;
@@ -285,6 +345,8 @@ export interface IStorage {
     from?: string;
     to?: string;
     archived?: boolean;
+    limit?: number;
+    offset?: number;
   }): Promise<AttConversation[]>;
   getConversation(id: string, accountId: string): Promise<AttConversation | null>;
   getConversationByExternal(accountId: string, externalThreadId: string): Promise<AttConversation | null>;
@@ -292,9 +354,11 @@ export interface IStorage {
   updateConversation(id: string, accountId: string, data: Partial<AttConversation>): Promise<AttConversation>;
   assumeConversation(id: string, accountId: string, userId: string, assignedByUserId: string): Promise<{ conversation: AttConversation | null; conflict: AttConversation | null }>;
   releaseConversation(id: string, accountId: string, data?: { status?: string; metadata?: Record<string, any> }): Promise<AttConversation>;
+  getOpenConversationCounts(accountId: string, userIds: string[]): Promise<Record<string, number>>;
 
   // Attendance — Messages
   getMessages(conversationId: string, accountId: string): Promise<AttMessage[]>;
+  getMessagesPage(conversationId: string, accountId: string, options?: { before?: Date; limit?: number }): Promise<{ data: AttMessage[]; hasMore: boolean; nextCursor: string | null }>;
   createMessage(data: Partial<InsertAttMessage> & { accountId: string; conversationId: string; direction: string }): Promise<AttMessage>;
   getMessageByExternalId(externalId: string, accountId: string): Promise<AttMessage | null>;
   searchMessages(accountId: string, filters?: { q?: string; conversationId?: string; from?: string; to?: string; limit?: number }): Promise<AttMessage[]>;
@@ -352,6 +416,7 @@ export interface IStorage {
 
   // Attendance — Reports
   getAttendanceReport(accountId: string, filters?: { channel?: string; from?: string; to?: string }): Promise<Record<string, any>>;
+  getAttendanceSupervision(accountId: string): Promise<Record<string, any>>;
 }
 
 function buildAttendanceCode(date = new Date()): string {
@@ -412,6 +477,121 @@ export class DatabaseStorage implements IStorage {
       .from(users)
       .where(eq(users.accountId, accountId))
       .orderBy(desc(users.createdAt));
+  }
+
+  // ─── Paginated queries ────────────────────────────────────────────────────
+
+  async getCampaignsPaginated(
+    accountId: string,
+    params: PaginationParams & { search?: string; type?: string; allowedTypes?: string[] },
+  ): Promise<{ data: MarketingCampaign[]; total: number }> {
+    const offset = (params.page - 1) * params.pageSize;
+    const conds: any[] = [eq(marketingCampaigns.accountId, accountId)];
+    if (params.search) conds.push(ilike(marketingCampaigns.name, `%${params.search}%`));
+    if (params.type) {
+      // "whatsapp" tab includes both whatsapp and whatsapp_oficial
+      if (params.type === "whatsapp") {
+        conds.push(or(eq(marketingCampaigns.type, "whatsapp"), eq(marketingCampaigns.type, "whatsapp_oficial")));
+      } else {
+        conds.push(eq(marketingCampaigns.type, params.type));
+      }
+    }
+    if (params.allowedTypes && params.allowedTypes.length > 0) {
+      conds.push(inArray(marketingCampaigns.type, params.allowedTypes));
+    }
+    const where = and(...conds);
+    const [{ total }] = await db.select({ total: count() }).from(marketingCampaigns).where(where);
+    const data = await db.select().from(marketingCampaigns).where(where)
+      .orderBy(desc(marketingCampaigns.createdAt)).limit(params.pageSize).offset(offset);
+    return { data, total: Number(total) };
+  }
+
+  // Aggregate status counts across ALL campaigns matching the same filters as
+  // getCampaignsPaginated. Lightweight GROUP BY (no recipients loaded) so the
+  // stat cards reflect account-wide totals, not just the current page.
+  async getCampaignStatusCounts(
+    accountId: string,
+    params: { search?: string; type?: string; allowedTypes?: string[] },
+  ): Promise<{ status: string; count: number }[]> {
+    const conds: any[] = [eq(marketingCampaigns.accountId, accountId)];
+    if (params.search) conds.push(ilike(marketingCampaigns.name, `%${params.search}%`));
+    if (params.type) {
+      if (params.type === "whatsapp") {
+        conds.push(or(eq(marketingCampaigns.type, "whatsapp"), eq(marketingCampaigns.type, "whatsapp_oficial")));
+      } else {
+        conds.push(eq(marketingCampaigns.type, params.type));
+      }
+    }
+    if (params.allowedTypes && params.allowedTypes.length > 0) {
+      conds.push(inArray(marketingCampaigns.type, params.allowedTypes));
+    }
+    const rows = await db
+      .select({ status: marketingCampaigns.status, count: count() })
+      .from(marketingCampaigns)
+      .where(and(...conds))
+      .groupBy(marketingCampaigns.status);
+    return rows.map((r: { status: string | null; count: number }) => ({ status: r.status as string, count: Number(r.count) }));
+  }
+
+  async getCampaignRecipientsPaginated(
+    campaignId: string,
+    accountId: string,
+    params: PaginationParams & { statuses?: string[] },
+  ): Promise<{ data: CampaignRecipient[]; total: number }> {
+    const offset = (params.page - 1) * params.pageSize;
+    const conds: any[] = [
+      eq(campaignRecipients.campaignId, campaignId),
+      eq(campaignRecipients.accountId, accountId),
+    ];
+    if (params.statuses && params.statuses.length > 0) {
+      conds.push(inArray(campaignRecipients.status, params.statuses as any[]));
+    }
+    const where = and(...conds);
+    const [{ total }] = await db.select({ total: count() }).from(campaignRecipients).where(where);
+    const data = await db.select().from(campaignRecipients).where(where)
+      .orderBy(desc(campaignRecipients.createdAt)).limit(params.pageSize).offset(offset);
+    return { data, total: Number(total) };
+  }
+
+  async getContactsPaginated(
+    accountId: string,
+    params: PaginationParams & { search?: string; userId?: string },
+  ): Promise<{ data: Contact[]; total: number }> {
+    const offset = (params.page - 1) * params.pageSize;
+    const conds: any[] = [eq(contacts.accountId, accountId)];
+    if (params.userId) conds.push(eq(contacts.userId, params.userId));
+    if (params.search) {
+      conds.push(or(
+        ilike(contacts.name, `%${params.search}%`),
+        ilike(contacts.phone, `%${params.search}%`),
+        ilike(contacts.email, `%${params.search}%`),
+        ilike(contacts.city, `%${params.search}%`),
+      ));
+    }
+    const where = and(...conds);
+    const [{ total }] = await db.select({ total: count() }).from(contacts).where(where);
+    const data = await db.select().from(contacts).where(where)
+      .orderBy(desc(contacts.createdAt)).limit(params.pageSize).offset(offset);
+    return { data, total: Number(total) };
+  }
+
+  async getAllUsersPaginated(
+    accountId: string,
+    params: PaginationParams & { search?: string },
+  ): Promise<{ data: User[]; total: number }> {
+    const offset = (params.page - 1) * params.pageSize;
+    const conds: any[] = [eq(users.accountId, accountId)];
+    if (params.search) {
+      conds.push(or(
+        ilike(users.name, `%${params.search}%`),
+        ilike(users.email, `%${params.search}%`),
+      ));
+    }
+    const where = and(...conds);
+    const [{ total }] = await db.select({ total: count() }).from(users).where(where);
+    const data = await db.select().from(users).where(where)
+      .orderBy(desc(users.createdAt)).limit(params.pageSize).offset(offset);
+    return { data, total: Number(total) };
   }
 
   async updateUser(id: string, accountId: string, userData: Partial<Omit<User, "id" | "password" | "createdAt">>): Promise<User> {
@@ -977,24 +1157,25 @@ export class DatabaseStorage implements IStorage {
         eq(aiConfigurations.userId, userId),
         eq(aiConfigurations.accountId, accountId)
       ));
-    return config || undefined;
+    return config ? decryptAiConfigProviderSecrets(config) : undefined;
   }
 
   async upsertAiConfig(config: InsertAiConfiguration & { userId: string; accountId: string }): Promise<AiConfiguration> {
     const existing = await this.getAiConfig(config.userId, config.accountId);
+    const encryptedConfig = encryptAiConfigProviderSecrets(config);
     
     if (existing) {
       const [updated] = await db.update(aiConfigurations)
-        .set({ ...config, updatedAt: new Date() })
+        .set({ ...encryptedConfig, updatedAt: new Date() })
         .where(and(
           eq(aiConfigurations.userId, config.userId),
           eq(aiConfigurations.accountId, config.accountId)
         ))
         .returning();
-      return updated;
+      return decryptAiConfigProviderSecrets(updated);
     } else {
-      const [newConfig] = await db.insert(aiConfigurations).values(config).returning();
-      return newConfig;
+      const [newConfig] = await db.insert(aiConfigurations).values(encryptedConfig).returning();
+      return decryptAiConfigProviderSecrets(newConfig);
     }
   }
 
@@ -1242,6 +1423,276 @@ export class DatabaseStorage implements IStorage {
       .returning();
     if (!updated) throw new Error('Campaign not found or access denied');
     return updated;
+  }
+
+  // Campaign recipients (per-recipient tracking)
+  async createCampaignRecipients(recipients: (InsertCampaignRecipient & { accountId: string; campaignId: string })[]): Promise<CampaignRecipient[]> {
+    if (recipients.length === 0) return [];
+    return await db.insert(campaignRecipients).values(recipients).returning();
+  }
+
+  async getCampaignRecipients(campaignId: string, accountId: string): Promise<CampaignRecipient[]> {
+    return await db.select()
+      .from(campaignRecipients)
+      .where(and(
+        eq(campaignRecipients.campaignId, campaignId),
+        eq(campaignRecipients.accountId, accountId)
+      ))
+      .orderBy(desc(campaignRecipients.createdAt));
+  }
+
+  async getCampaignRecipientByProviderMessageId(providerMessageId: string): Promise<CampaignRecipient | undefined> {
+    // Provider webhooks (e.g. WhatsApp status receipts) don't carry an accountId,
+    // so this lookup is intentionally by the globally-unique provider message id.
+    const [row] = await db.select()
+      .from(campaignRecipients)
+      .where(eq(campaignRecipients.providerMessageId, providerMessageId))
+      .limit(1);
+    return row;
+  }
+
+  async updateCampaignRecipient(id: string, accountId: string, data: Partial<InsertCampaignRecipient> & { sentAt?: Date; deliveredAt?: Date }): Promise<CampaignRecipient> {
+    const [updated] = await db.update(campaignRecipients)
+      .set({ ...data, updatedAt: new Date() })
+      .where(and(
+        eq(campaignRecipients.id, id),
+        eq(campaignRecipients.accountId, accountId)
+      ))
+      .returning();
+    if (!updated) throw new Error('Campaign recipient not found or access denied');
+    return updated;
+  }
+
+  async deleteCampaignRecipients(campaignId: string, accountId: string): Promise<void> {
+    await db.delete(campaignRecipients).where(and(
+      eq(campaignRecipients.campaignId, campaignId),
+      eq(campaignRecipients.accountId, accountId)
+    ));
+  }
+
+  // Campaign audit events (immutable — no delete/update by design)
+  async createCampaignEvent(event: InsertCampaignEvent & { accountId: string; campaignId: string }): Promise<CampaignEvent> {
+    const [created] = await db.insert(campaignEvents).values(event).returning();
+    return created;
+  }
+
+  async getCampaignEvents(campaignId: string, accountId: string): Promise<CampaignEvent[]> {
+    return await db.select()
+      .from(campaignEvents)
+      .where(and(
+        eq(campaignEvents.campaignId, campaignId),
+        eq(campaignEvents.accountId, accountId)
+      ))
+      .orderBy(desc(campaignEvents.createdAt));
+  }
+
+  // Phase 4 — campaigns the scheduler must consider across all accounts
+  // (in flight or scheduled/pending; includes legacy English statuses).
+  async getActiveCampaigns(): Promise<MarketingCampaign[]> {
+    return await db.select()
+      .from(marketingCampaigns)
+      .where(inArray(marketingCampaigns.status, [
+        "em_envio", "sending", "agendada", "scheduled",
+      ]))
+      .orderBy(desc(marketingCampaigns.createdAt));
+  }
+
+  // Phase 4 — per-recipient progress counts grouped by campaign for one account.
+  async getCampaignProgress(accountId: string): Promise<Record<string, { total: number; sent: number; failed: number; pending: number; cancelled: number }>> {
+    const rows = await db
+      .select({
+        campaignId: campaignRecipients.campaignId,
+        status: campaignRecipients.status,
+        c: count(),
+      })
+      .from(campaignRecipients)
+      .where(eq(campaignRecipients.accountId, accountId))
+      .groupBy(campaignRecipients.campaignId, campaignRecipients.status);
+    const out: Record<string, { total: number; sent: number; failed: number; pending: number; cancelled: number }> = {};
+    for (const r of rows as any[]) {
+      const id = r.campaignId as string;
+      const n = Number(r.c) || 0;
+      const bucket = out[id] ?? (out[id] = { total: 0, sent: 0, failed: 0, pending: 0, cancelled: 0 });
+      bucket.total += n;
+      const s = String(r.status);
+      if (s === "sent" || s === "delivered" || s === "read" || s === "responded") bucket.sent += n;
+      else if (s === "failed" || s === "invalid") bucket.failed += n;
+      else if (s === "cancelled") bucket.cancelled += n;
+      else bucket.pending += n;
+    }
+    return out;
+  }
+
+  // Phase 5 — reports & exports
+  async getCampaignsReportSummary(accountId: string, filters?: CampaignReportFilters): Promise<{ campaigns: MarketingCampaign[]; recipients: CampaignRecipient[] }> {
+    const conds = [eq(marketingCampaigns.accountId, accountId)];
+    if (filters?.status) conds.push(eq(marketingCampaigns.status, filters.status));
+    if (filters?.creatorId) conds.push(eq(marketingCampaigns.userId, filters.creatorId));
+    if (filters?.from) conds.push(gte(marketingCampaigns.createdAt, filters.from));
+    if (filters?.to) conds.push(lte(marketingCampaigns.createdAt, filters.to));
+    const campaigns = await db.select()
+      .from(marketingCampaigns)
+      .where(and(...conds))
+      .orderBy(desc(marketingCampaigns.createdAt));
+
+    if (campaigns.length === 0) return { campaigns: [], recipients: [] };
+
+    const ids = campaigns.map((c: MarketingCampaign) => c.id);
+    const recConds = [
+      eq(campaignRecipients.accountId, accountId),
+      inArray(campaignRecipients.campaignId, ids),
+    ];
+    if (filters?.channel) recConds.push(eq(campaignRecipients.channel, filters.channel));
+    const recipients = await db.select()
+      .from(campaignRecipients)
+      .where(and(...recConds));
+    return { campaigns, recipients };
+  }
+
+  async getCampaignReportData(campaignId: string, accountId: string): Promise<{ campaign: MarketingCampaign; recipients: CampaignRecipient[]; events: CampaignEvent[] } | undefined> {
+    const [campaign] = await db.select()
+      .from(marketingCampaigns)
+      .where(and(eq(marketingCampaigns.id, campaignId), eq(marketingCampaigns.accountId, accountId)));
+    if (!campaign) return undefined;
+    const [recipients, events] = await Promise.all([
+      db.select().from(campaignRecipients)
+        .where(and(eq(campaignRecipients.campaignId, campaignId), eq(campaignRecipients.accountId, accountId))),
+      db.select().from(campaignEvents)
+        .where(and(eq(campaignEvents.campaignId, campaignId), eq(campaignEvents.accountId, accountId)))
+        .orderBy(desc(campaignEvents.createdAt)),
+    ]);
+    return { campaign, recipients, events };
+  }
+
+  async getRecipientsForExport(campaignId: string, accountId: string, opts?: { status?: string; channel?: string }): Promise<CampaignRecipient[]> {
+    const conds = [
+      eq(campaignRecipients.campaignId, campaignId),
+      eq(campaignRecipients.accountId, accountId),
+    ];
+    if (opts?.status === "failures") {
+      conds.push(inArray(campaignRecipients.status, ["failed", "invalid"]));
+    } else if (opts?.status) {
+      conds.push(eq(campaignRecipients.status, opts.status));
+    }
+    if (opts?.channel) conds.push(eq(campaignRecipients.channel, opts.channel));
+    return await db.select()
+      .from(campaignRecipients)
+      .where(and(...conds))
+      .orderBy(desc(campaignRecipients.createdAt));
+  }
+
+  async createCampaignExport(data: InsertCampaignExport & { accountId: string }): Promise<CampaignExport> {
+    const [created] = await db.insert(campaignExports).values(data).returning();
+    return created;
+  }
+
+  async getCampaignExports(accountId: string, campaignId?: string): Promise<CampaignExport[]> {
+    const conds = [eq(campaignExports.accountId, accountId)];
+    if (campaignId) conds.push(eq(campaignExports.campaignId, campaignId));
+    return await db.select()
+      .from(campaignExports)
+      .where(and(...conds))
+      .orderBy(desc(campaignExports.createdAt));
+  }
+
+  // Contact lists (audience segmentation)
+  async getContactLists(accountId: string): Promise<ContactList[]> {
+    return await db.select()
+      .from(contactLists)
+      .where(eq(contactLists.accountId, accountId))
+      .orderBy(desc(contactLists.createdAt));
+  }
+
+  async getContactList(id: string, accountId: string): Promise<ContactList | undefined> {
+    const [list] = await db.select()
+      .from(contactLists)
+      .where(and(eq(contactLists.id, id), eq(contactLists.accountId, accountId)));
+    return list;
+  }
+
+  async createContactList(list: InsertContactList & { accountId: string; userId: string }): Promise<ContactList> {
+    const [created] = await db.insert(contactLists).values(list).returning();
+    return created;
+  }
+
+  async updateContactList(id: string, accountId: string, data: Partial<InsertContactList>): Promise<ContactList> {
+    const [updated] = await db.update(contactLists)
+      .set({ ...data, updatedAt: new Date() })
+      .where(and(eq(contactLists.id, id), eq(contactLists.accountId, accountId)))
+      .returning();
+    if (!updated) throw new Error('Contact list not found or access denied');
+    return updated;
+  }
+
+  async deleteContactList(id: string, accountId: string): Promise<void> {
+    await db.delete(contactListMembers).where(and(
+      eq(contactListMembers.listId, id),
+      eq(contactListMembers.accountId, accountId)
+    ));
+    await db.delete(contactLists).where(and(
+      eq(contactLists.id, id),
+      eq(contactLists.accountId, accountId)
+    ));
+  }
+
+  async getContactListMembers(listId: string, accountId: string): Promise<ContactListMember[]> {
+    return await db.select()
+      .from(contactListMembers)
+      .where(and(
+        eq(contactListMembers.listId, listId),
+        eq(contactListMembers.accountId, accountId)
+      ));
+  }
+
+  async setContactListMembers(listId: string, accountId: string, contactIds: string[]): Promise<ContactListMember[]> {
+    await db.delete(contactListMembers).where(and(
+      eq(contactListMembers.listId, listId),
+      eq(contactListMembers.accountId, accountId)
+    ));
+    const unique = Array.from(new Set(contactIds));
+    if (unique.length === 0) return [];
+    return await db.insert(contactListMembers)
+      .values(unique.map((contactId) => ({ listId, accountId, contactId })))
+      .returning();
+  }
+
+  // Message templates (saved SMS/email/WhatsApp models)
+  async getMessageTemplates(accountId: string, channel?: string): Promise<MessageTemplate[]> {
+    const where = channel
+      ? and(eq(messageTemplates.accountId, accountId), eq(messageTemplates.channel, channel))
+      : eq(messageTemplates.accountId, accountId);
+    return await db.select()
+      .from(messageTemplates)
+      .where(where)
+      .orderBy(desc(messageTemplates.updatedAt));
+  }
+
+  async getMessageTemplate(id: string, accountId: string): Promise<MessageTemplate | undefined> {
+    const [tpl] = await db.select()
+      .from(messageTemplates)
+      .where(and(eq(messageTemplates.id, id), eq(messageTemplates.accountId, accountId)));
+    return tpl;
+  }
+
+  async createMessageTemplate(tpl: InsertMessageTemplate & { accountId: string; userId: string }): Promise<MessageTemplate> {
+    const [created] = await db.insert(messageTemplates).values(tpl).returning();
+    return created;
+  }
+
+  async updateMessageTemplate(id: string, accountId: string, data: Partial<InsertMessageTemplate>): Promise<MessageTemplate> {
+    const [updated] = await db.update(messageTemplates)
+      .set({ ...data, updatedAt: new Date() })
+      .where(and(eq(messageTemplates.id, id), eq(messageTemplates.accountId, accountId)))
+      .returning();
+    if (!updated) throw new Error('Message template not found or access denied');
+    return updated;
+  }
+
+  async deleteMessageTemplate(id: string, accountId: string): Promise<void> {
+    await db.delete(messageTemplates).where(and(
+      eq(messageTemplates.id, id),
+      eq(messageTemplates.accountId, accountId)
+    ));
   }
 
   // Notifications
@@ -2071,6 +2522,8 @@ export class DatabaseStorage implements IStorage {
     from?: string;
     to?: string;
     archived?: boolean;
+    limit?: number;
+    offset?: number;
   } = {}): Promise<AttConversation[]> {
     const conds: any[] = [eq(attConversations.accountId, accountId)];
     if (filters.channel) conds.push(eq(attConversations.channel, filters.channel));
@@ -2098,9 +2551,29 @@ export class DatabaseStorage implements IStorage {
         ilike(attConversations.attendanceCode, `%${filters.search}%`)
       ));
     }
+    if (filters.limit) {
+      return db.select().from(attConversations)
+        .where(and(...conds))
+        .orderBy(desc(attConversations.lastMessageAt))
+        .limit(Math.min(Math.max(filters.limit, 1), 201))
+        .offset(Math.max(filters.offset ?? 0, 0));
+    }
     return db.select().from(attConversations)
       .where(and(...conds))
       .orderBy(desc(attConversations.lastMessageAt));
+  }
+
+  async getOpenConversationCounts(accountId: string, userIds: string[]): Promise<Record<string, number>> {
+    if (userIds.length === 0) return {};
+    const rows = await db.select({ userId: attConversations.assignedUserId, total: count() })
+      .from(attConversations)
+      .where(and(
+        eq(attConversations.accountId, accountId),
+        inArray(attConversations.assignedUserId, userIds),
+        notInArray(attConversations.status, ["resolved", "finalized", "closed"]),
+      ))
+      .groupBy(attConversations.assignedUserId);
+    return Object.fromEntries(rows.filter((row: { userId: string | null; total: number }) => row.userId).map((row: { userId: string | null; total: number }) => [row.userId!, Number(row.total)]));
   }
 
   async getConversation(id: string, accountId: string): Promise<AttConversation | null> {
@@ -2203,8 +2676,21 @@ export class DatabaseStorage implements IStorage {
       .orderBy(attMessages.createdAt);
   }
 
+  async getMessagesPage(conversationId: string, accountId: string, options: { before?: Date; limit?: number } = {}): Promise<{ data: AttMessage[]; hasMore: boolean; nextCursor: string | null }> {
+    const limit = Math.min(Math.max(options.limit ?? 50, 1), 100);
+    const conditions = [eq(attMessages.conversationId, conversationId), eq(attMessages.accountId, accountId)];
+    if (options.before) conditions.push(lt(attMessages.createdAt, options.before));
+    const rows = await db.select().from(attMessages)
+      .where(and(...conditions))
+      .orderBy(desc(attMessages.createdAt), desc(attMessages.id))
+      .limit(limit + 1);
+    const hasMore = rows.length > limit;
+    const data = rows.slice(0, limit).reverse();
+    return { data, hasMore, nextCursor: data[0]?.createdAt?.toISOString() ?? null };
+  }
+
   async createMessage(data: Partial<InsertAttMessage> & { accountId: string; conversationId: string; direction: string }): Promise<AttMessage> {
-    const [row] = await db.insert(attMessages).values(data as any).returning();
+    const [row] = await db.insert(attMessages).values(ensureAttendanceMessageCreatedAt(data) as any).returning();
     return row;
   }
 
@@ -2598,6 +3084,46 @@ export class DatabaseStorage implements IStorage {
       avgServiceSeconds,
       slaBreached,
       resolutionRate,
+    };
+  }
+
+  async getAttendanceSupervision(accountId: string): Promise<Record<string, any>> {
+    const activeCondition = and(
+      eq(attConversations.accountId, accountId),
+      notInArray(attConversations.status, ["resolved", "finalized", "closed"]),
+      sql`coalesce((->'flags'->>'archived')::boolean, false) = false`,
+    );
+    const [summaryRows, assigneeRows, queueRows, usersList, queuesList] = await Promise.all([
+      db.select({
+        backlog: count(),
+        unassigned: sql<number>`count(*) filter (where  is null)`,
+        slaBreached: sql<number>`count(*) filter (where  < now())`,
+        waiting: sql<number>`count(*) filter (where  in ('waiting', 'waiting_agent', 'new'))`,
+        inProgress: sql<number>`count(*) filter (where  in ('in_progress', 'reopened'))`,
+      }).from(attConversations).where(activeCondition),
+      db.select({ userId: attConversations.assignedUserId, total: count() })
+        .from(attConversations).where(activeCondition).groupBy(attConversations.assignedUserId),
+      db.select({ queueId: attConversations.queueId, total: count() })
+        .from(attConversations).where(activeCondition).groupBy(attConversations.queueId),
+      this.getAllUsers(accountId),
+      this.getQueues(accountId),
+    ]);
+    const summary = summaryRows[0] ?? { backlog: 0, unassigned: 0, slaBreached: 0, waiting: 0, inProgress: 0 };
+    const userMap = new Map(usersList.map(user => [user.id, user]));
+    const queueMap = new Map(queuesList.map(queue => [queue.id, queue]));
+    return {
+      summary: Object.fromEntries(Object.entries(summary).map(([key, value]) => [key, Number(value)])),
+      agents: assigneeRows.filter((row: any) => row.userId).map((row: any) => ({
+        userId: row.userId,
+        name: userMap.get(row.userId!)?.name ?? "Usuário indisponível",
+        openCount: Number(row.total),
+      })).sort((a: any, b: any) => b.openCount - a.openCount),
+      queues: queueRows.map((row: any) => ({
+        queueId: row.queueId,
+        name: row.queueId ? queueMap.get(row.queueId)?.name ?? "Fila indisponível" : "Sem fila",
+        openCount: Number(row.total),
+      })).sort((a: any, b: any) => b.openCount - a.openCount),
+      generatedAt: new Date().toISOString(),
     };
   }
 }

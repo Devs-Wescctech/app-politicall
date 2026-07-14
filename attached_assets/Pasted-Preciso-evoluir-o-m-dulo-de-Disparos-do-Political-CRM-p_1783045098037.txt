@@ -1,0 +1,305 @@
+Preciso evoluir o módulo de Disparos do Political CRM para uma Central de Campanhas Multicanal profissional, mantendo o banco de dados atual, a identidade visual atual do sistema e sem quebrar os módulos existentes.
+
+Regras obrigatórias:
+1. NÃO apagar, resetar, recriar ou sobrescrever o banco atual.
+2. NÃO executar drop database, truncate geral, reset de migrations ou qualquer ação destrutiva.
+3. Aplicar apenas migrações incrementais e compatíveis com o schema atual.
+4. Preservar campanhas, contatos, atendimentos, integrações, usuários e histórico existentes.
+5. Manter as integrações por empresa/conta no Admin Master.
+6. Validar tudo com:
+   npm run check
+   npm run build
+   npm run test:attendance
+7. Se algum teste não existir, criar testes mínimos para as novas regras críticas.
+
+Objetivo:
+Transformar o módulo de Disparos em uma Central de Campanhas Multicanal para WhatsApp, WhatsApp API Oficial, SMS, E-mail e, quando houver integração disponível, Instagram/Facebook.
+
+1. Estrutura Principal
+
+Criar uma tela única de campanhas com suporte aos canais:
+
+- WhatsApp normal
+- WhatsApp API Oficial
+- SMS
+- E-mail
+- Instagram/Facebook, se a integração permitir
+- Campanhas mistas/multicanal, permitindo WhatsApp + SMS + E-mail no mesmo fluxo
+
+Cada campanha deve possuir:
+
+- Nome da campanha
+- Canal ou canais selecionados
+- Lista de contatos
+- Segmento/filtro
+- Mensagem ou template
+- Agendamento
+- Status
+- Relatório
+- Erros
+- Histórico
+
+Status mínimos da campanha:
+
+- Rascunho
+- Agendada
+- Em envio
+- Pausada
+- Enviada
+- Parcialmente enviada
+- Falhou
+- Cancelada
+
+2. Segmentação de Contatos
+
+Implementar filtros avançados para selecionar destinatários por:
+
+- Etiquetas
+- Cidade
+- Bairro
+- Estado
+- Gênero
+- Idade
+- Interesse
+- Origem do contato
+- Último atendimento
+- Status do atendimento
+- Canal de origem
+- Contatos que responderam
+- Contatos que não responderam
+- Contatos importados por planilha
+- Contatos de uma campanha anterior
+
+Exemplo esperado:
+Permitir enviar SMS somente para contatos com etiqueta “Saúde”, da cidade “Chapecó”, que ainda não responderam no WhatsApp.
+
+A seleção deve mostrar uma prévia da quantidade de contatos encontrados antes de salvar/disparar.
+
+3. Importação e Listas
+
+Criar um módulo de listas de disparo com:
+
+- Importação de arquivos .csv, .xlsx, .xls e .txt
+- Opção de colar lista manualmente
+- Remoção automática de duplicados
+- Validação de telefone
+- Validação de e-mail
+- Separação de contatos inválidos
+- Criação de lista fixa
+- Criação de lista dinâmica baseada em filtros
+- Exportação dos contatos da campanha
+
+A importação deve permitir mapear colunas para:
+
+- Nome
+- Telefone
+- E-mail
+- Cidade
+- Bairro
+- Estado
+- Gênero
+- Idade
+- Interesse
+- Etiquetas
+- Observações
+- Campos personalizados
+
+4. Templates e Mensagens
+
+Para WhatsApp API Oficial:
+
+- Listar templates aprovados da API oficial.
+- Mostrar nome, idioma, categoria e status do template.
+- Permitir preencher variáveis do template.
+- Exibir preview antes do envio.
+- Bloquear envio de template rejeitado, pausado ou inválido.
+- Registrar no histórico da campanha qual template foi usado.
+
+Para SMS e E-mail:
+
+- Criar modelos salvos de mensagem.
+- Permitir variáveis dinâmicas:
+  {nome}
+  {telefone}
+  {cidade}
+  {protocolo}
+  {link}
+
+- Exibir preview personalizado por contato.
+- Validar mensagem vazia antes de enviar.
+- Para SMS, mostrar estimativa de tamanho e quantidade aproximada de partes.
+- Para e-mail, permitir assunto, corpo, remetente configurado e preview.
+
+5. Agendamento e Controle de Envio
+
+Implementar:
+
+- Enviar agora
+- Agendar data e hora
+- Pausar campanha
+- Retomar campanha
+- Cancelar campanha
+- Limite de envio por minuto/hora
+- Intervalo configurável entre mensagens
+- Janela de horário permitida
+- Bloqueio de envio fora do horário comercial, se configurado
+- Retry automático em falha temporária
+
+O envio deve ser processado em fila/lotes para evitar travar a interface.
+
+6. Relatórios
+
+Cada campanha deve exibir métricas:
+
+- Total de contatos
+- Enviados
+- Entregues
+- Lidos, quando disponível
+- Respondidos
+- Falhas
+- Pendentes
+- Cancelados
+- Taxa de resposta
+- Taxa de entrega
+- Custo estimado, principalmente SMS
+- Erros agrupados por motivo
+
+Permitir exportação em:
+
+- CSV
+- Excel
+- PDF
+
+Métricas por canal:
+
+WhatsApp:
+- Enviado
+- Entregue
+- Lido
+- Respondido
+- Erro da API
+
+SMS:
+- Enviado para operadora
+- Entregue, se o provedor retornar status
+- Falha
+- Número inválido
+- Sem saldo
+- IP não autorizado
+- Client inválido
+- Erro do proxy n8n, quando aplicável
+
+E-mail:
+- Enviado
+- Entregue
+- Aberto
+- Clicado
+- Bounce
+- Spam
+- Descadastro
+
+7. Auditoria
+
+Registrar auditoria completa de campanhas:
+
+- Quem criou
+- Quem editou
+- Quem aprovou, se houver aprovação
+- Quem disparou
+- Quando disparou
+- Quantos contatos foram selecionados
+- Qual mensagem foi enviada
+- Qual template foi usado
+- Quais integrações foram usadas
+- Erros retornados pelo provedor
+- Alterações de status
+- Pausas, retomadas e cancelamentos
+
+Esses registros não devem ser apagados.
+
+8. Integrações
+
+Manter o padrão atual de integrações por empresa no Admin Master.
+
+SMS:
+- Usar configuração da empresa.
+- Usar client/centro de custo da empresa.
+- Não hardcodar client.
+- Se estiver usando proxy n8n, usar OKTOR_SMS_ENDPOINT do ambiente como prioridade.
+- Nunca chamar Oktor direto se a regra atual do projeto bloquear chamada direta.
+- Mostrar erro claro quando houver:
+  IP não autorizado
+  Sem saldo
+  Client inválido
+  Token inválido
+  Número inválido
+
+WhatsApp API Oficial:
+- Usar conexão oficial configurada.
+- Listar templates oficiais disponíveis.
+- Permitir envio de template ao iniciar campanha.
+- Diferenciar WhatsApp normal de WhatsApp oficial na interface.
+
+E-mail:
+- Usar integração configurada por empresa.
+- Validar remetente antes do disparo.
+- Registrar erros de entrega quando o provedor retornar.
+
+9. Interface
+
+Manter a identidade visual atual do Political CRM.
+
+A tela de Disparos deve ter:
+
+- Lista de campanhas
+- Botão Nova campanha
+- Filtros por canal, status, período e criador
+- Cards de métricas
+- Wizard de criação de campanha
+- Preview da audiência
+- Preview da mensagem
+- Tela de relatório por campanha
+- Tela de erros por destinatário
+- Exportação de relatório
+
+O wizard deve seguir etapas:
+
+1. Dados da campanha
+2. Canais
+3. Público/lista/filtros
+4. Mensagem/template
+5. Agendamento e limites
+6. Revisão final
+7. Confirmação de envio
+
+10. Testes
+
+Criar ou ajustar testes para validar:
+
+- Criação de campanha
+- Campanha SMS
+- Campanha WhatsApp
+- Campanha WhatsApp oficial com template
+- Campanha E-mail
+- Campanha multicanal
+- Segmentação por etiquetas/cidade/status
+- Importação CSV/XLSX/TXT
+- Remoção de duplicados
+- Validação de telefone/e-mail
+- Agendamento
+- Pausar, retomar e cancelar
+- Relatórios
+- Exportação CSV/Excel/PDF
+- Auditoria
+- Erros de provedor
+- SMS via proxy n8n
+- Permissões de acesso
+
+Critério de conclusão:
+A funcionalidade só deve ser considerada pronta se:
+- não quebrar os disparos atuais;
+- não perder dados existentes;
+- passar em npm run check;
+- passar em npm run build;
+- passar nos testes relacionados;
+- permitir criar, segmentar, disparar, acompanhar e auditar campanhas multicanal.

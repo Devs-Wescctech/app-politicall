@@ -1,5 +1,5 @@
 ﻿import { useState } from "react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -14,8 +14,6 @@ import {
 } from "@/components/ui/dialog";
 import {
   Activity,
-  Archive,
-  BarChart2,
   Bot,
   Download,
   FileClock,
@@ -23,29 +21,38 @@ import {
   MessageSquare,
   Plus,
   RotateCcw,
-  Settings,
   StickyNote,
   Tags,
   Trash2,
   Upload,
   Users,
-  Zap,
 } from "lucide-react";
 import { SiFacebook, SiInstagram, SiWhatsapp } from "react-icons/si";
 import { useMutation } from "@tanstack/react-query";
 import { useQuery } from "@tanstack/react-query";
 import type { AttConversation, AttConversationEvent, AttMessage, AttNote, AttSector, AttTransfer, ChannelConnection, Contact } from "@shared/schema";
+import { isOfficialAttendanceChannel } from "@shared/attendance-meta-window";
+import { templatesForNewConversation } from "@shared/attendance-composer";
 import ConversationList from "@/components/attendance/ConversationList";
 import ChatPanel from "@/components/attendance/ChatPanel";
 import ContactPanel from "@/components/attendance/ContactPanel";
 import SettingsTab from "@/components/attendance/SettingsTab";
-import AutomationTab from "@/components/attendance/AutomationTab";
 import ReportsTab from "@/components/attendance/ReportsTab";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { getAuthToken } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { useAttendanceRealtime } from "@/hooks/use-attendance-realtime";
 import { TagSelector, labelColor, useAttendanceLabels } from "@/components/attendance/TagSelector";
+import { TemplateVariableEditor } from "@/components/attendance/TemplateVariableDialog";
+import { AttendanceViewSwitcher, type AttendanceView } from "@/components/attendance/AttendanceViewSwitcher";
+import {
+  buildWhatsAppTemplateComponents,
+  createEmptyTemplateVariableValues,
+  extractWhatsAppTemplateVariables,
+  renderWhatsAppTemplatePreview,
+  validateTemplateVariableValues,
+  type TemplateVariableValues,
+} from "@shared/whatsapp-template-variables";
 
 type AttendanceTemplate = {
   id: string;
@@ -56,12 +63,19 @@ type AttendanceTemplate = {
   source?: string;
   status?: string;
   category?: string;
+  components?: any[];
+  dynamicComponents?: any[];
+  staticComponents?: any[];
 };
 
 function isOfficialConnection(connection?: ChannelConnection | null) {
+  return isOfficialAttendanceChannel({ connection });
+}
+
+function isWhuConnection(connection?: ChannelConnection | null) {
   const provider = String(connection?.provider ?? "").toLowerCase();
-  const metadata = (connection?.metadata as any) ?? {};
-  return provider.includes("official") || metadata.apiType === "official" || metadata.official === true || metadata.whatsappOfficial === true;
+  const channel = String(connection?.channel ?? "").toLowerCase();
+  return provider.includes("wescctech") || provider.includes("whu") || channel.includes("whu");
 }
 
 function connectionIcon(connection?: ChannelConnection | null) {
@@ -83,6 +97,7 @@ function NewConversationDialog({ open, onClose }: { open: boolean; onClose: () =
   const [sendInitialMessage, setSendInitialMessage] = useState(false);
   const [message, setMessage] = useState("");
   const [templateId, setTemplateId] = useState("");
+  const [templateValues, setTemplateValues] = useState<TemplateVariableValues>({});
   const { toast } = useToast();
 
   const { data: connections = [] } = useQuery<ChannelConnection[]>({
@@ -93,18 +108,28 @@ function NewConversationDialog({ open, onClose }: { open: boolean; onClose: () =
     queryKey: ["/api/attendance/sectors"],
     enabled: open,
   });
-  const templateQs = connectionId ? `connectionId=${encodeURIComponent(connectionId)}` : "";
+  const templatesUrl = connectionId
+    ? `/api/attendance/templates?connectionId=${encodeURIComponent(connectionId)}`
+    : "/api/attendance/templates";
   const selectedConnection = connections.find(connection => connection.id === connectionId);
   const officialChannel = isOfficialConnection(selectedConnection);
+  const whuProviderConnection = isWhuConnection(selectedConnection);
+  const whuChannel = whuProviderConnection && !officialChannel;
   const { data: templates = [] } = useQuery<AttendanceTemplate[]>({
-    queryKey: ["/api/attendance/templates", templateQs],
+    queryKey: [templatesUrl],
     enabled: open && (sendInitialMessage || officialChannel || Boolean(connectionId)),
   });
   const selectedTemplate = templates.find(template => template.id === templateId);
-  const officialTemplates = templates.filter(template => template.source === "official");
-  const showTemplatePicker = sendInitialMessage || officialChannel;
+  const selectedTemplateVariables = selectedTemplate ? extractWhatsAppTemplateVariables(selectedTemplate) : [];
+  const selectedTemplateValidation = validateTemplateVariableValues(selectedTemplateVariables, templateValues);
+  const selectedTemplatePreview = selectedTemplate ? renderWhatsAppTemplatePreview(selectedTemplate, templateValues) : message;
+  const visibleTemplates = templatesForNewConversation(templates, {
+    official: officialChannel,
+    whu: whuProviderConnection,
+  });
+  const showTemplatePicker = sendInitialMessage || officialChannel || whuChannel;
   const selectedMetadata = (selectedConnection?.metadata as any) ?? {};
-  const officialMissingBusinessAccount = officialChannel && !(
+  const officialMissingBusinessAccount = officialChannel && !whuProviderConnection && !(
     selectedMetadata.businessAccountId ||
     selectedMetadata.whatsappBusinessAccountId ||
     selectedMetadata.wabaId
@@ -117,10 +142,11 @@ function NewConversationDialog({ open, onClose }: { open: boolean; onClose: () =
       connectionId: connectionId || undefined,
       sectorId: sectorId || undefined,
       sendInitialMessage,
-      message: selectedTemplate?.preview || message,
+      message: selectedTemplate ? selectedTemplatePreview : message,
       templateId: templateId || undefined,
       templateName: selectedTemplate?.name,
       templateLanguage: selectedTemplate?.language,
+      templateComponents: selectedTemplate ? buildWhatsAppTemplateComponents(selectedTemplate, templateValues) : undefined,
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/attendance/conversations"] });
@@ -133,6 +159,7 @@ function NewConversationDialog({ open, onClose }: { open: boolean; onClose: () =
       setSendInitialMessage(false);
       setMessage("");
       setTemplateId("");
+      setTemplateValues({});
       onClose();
     },
     onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
@@ -140,17 +167,24 @@ function NewConversationDialog({ open, onClose }: { open: boolean; onClose: () =
 
   return (
     <Dialog open={open} onOpenChange={value => !value && onClose()}>
-      <DialogContent data-testid="dialog-new-conversation">
-        <DialogHeader>
+      <DialogContent
+        className="max-h-[calc(100vh-1rem)] w-[calc(100%-1rem)] grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden p-0 sm:max-h-[calc(100vh-2rem)]"
+        data-testid="dialog-new-conversation"
+      >
+        <DialogHeader className="border-b border-border px-6 pb-4 pt-6">
           <DialogTitle>Nova conversa</DialogTitle>
         </DialogHeader>
-        <div className="space-y-4 py-2">
+        <div
+          className="min-h-0 space-y-4 overflow-y-auto overscroll-contain px-6 py-4"
+          data-testid="new-conversation-scroll-body"
+        >
           <Select value={connectionId || "__none"} onValueChange={value => {
             const nextConnectionId = value === "__none" ? "" : value;
             const nextConnection = connections.find(connection => connection.id === nextConnectionId);
             setConnectionId(nextConnectionId);
             setTemplateId("");
-            if (isOfficialConnection(nextConnection)) setSendInitialMessage(true);
+            setTemplateValues({});
+            setSendInitialMessage(isOfficialConnection(nextConnection) || isWhuConnection(nextConnection));
           }}>
             <SelectTrigger className="h-11" data-testid="select-new-conv-channel">
               <SelectValue placeholder="Canal" />
@@ -211,9 +245,9 @@ function NewConversationDialog({ open, onClose }: { open: boolean; onClose: () =
             />
           </div>
           <div className="border-t border-border pt-4">
-            <label className="flex items-center gap-3 text-sm text-foreground">
+            <label className="hidden shrink-0 items-center gap-2.5 sm:flex text-sm text-foreground">
               <Checkbox checked={sendInitialMessage} onCheckedChange={value => setSendInitialMessage(Boolean(value) || officialChannel)} disabled={officialChannel} />
-              {officialChannel ? "Enviar template oficial ao iniciar" : "Enviar resposta rápida?"}
+              {officialChannel ? "Enviar template oficial ao iniciar" : whuChannel ? "Enviar template WHU ao iniciar" : "Enviar resposta rápida?"}
             </label>
           </div>
           {showTemplatePicker ? (
@@ -226,6 +260,7 @@ function NewConversationDialog({ open, onClose }: { open: boolean; onClose: () =
               <Select value={templateId || "__none"} onValueChange={value => {
                 setTemplateId(value === "__none" ? "" : value);
                 const template = templates.find(item => item.id === value);
+                setTemplateValues(template ? createEmptyTemplateVariableValues(extractWhatsAppTemplateVariables(template)) : {});
                 if (template?.preview) setMessage(template.preview);
               }}>
                 <SelectTrigger className="h-11" data-testid="select-new-conv-template">
@@ -233,31 +268,41 @@ function NewConversationDialog({ open, onClose }: { open: boolean; onClose: () =
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__none">Selecionar template</SelectItem>
-                  {(officialChannel ? officialTemplates : templates).map(template => (
+                  {visibleTemplates.map(template => (
                     <SelectItem key={`${template.source}-${template.id}`} value={template.id}>
                       {template.title ?? template.name} {template.language ? `(${template.language})` : ""} {template.status ? `- ${template.status}` : ""}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              {officialChannel && !officialMissingBusinessAccount && officialTemplates.length === 0 ? (
+              {officialChannel && !officialMissingBusinessAccount && visibleTemplates.length === 0 ? (
                 <p className="text-xs text-muted-foreground">Nenhum template oficial retornado para esta conexão. Confirme se os templates foram sincronizados/aprovados na WHU/Meta.</p>
               ) : null}
-              <Textarea
-                value={message}
-                onChange={event => setMessage(event.target.value)}
-                placeholder="Mensagem"
-                className="min-h-24"
-                data-testid="input-new-conv-message"
-              />
+              {whuChannel && visibleTemplates.length === 0 ? (
+                <p className="text-xs text-muted-foreground">Nenhum template WHU retornado para esta conexão. Sincronize os templates no WHU e tente novamente.</p>
+              ) : null}
+              {selectedTemplate ? (
+                <TemplateVariableEditor template={selectedTemplate} values={templateValues} onChange={setTemplateValues} />
+              ) : (
+                <Textarea
+                  value={message}
+                  onChange={event => setMessage(event.target.value)}
+                  placeholder="Mensagem"
+                  className="min-h-24"
+                  data-testid="input-new-conv-message"
+                />
+              )}
             </div>
           ) : null}
         </div>
-        <DialogFooter>
+        <DialogFooter
+          className="border-t border-border px-6 py-4"
+          data-testid="new-conversation-dialog-footer"
+        >
           <Button variant="outline" onClick={onClose}>Cancelar</Button>
           <Button
             onClick={() => mutation.mutate()}
-            disabled={!phone.trim() || mutation.isPending}
+            disabled={!phone.trim() || mutation.isPending || Boolean(selectedTemplate && !selectedTemplateValidation.valid)}
             data-testid="button-confirm-new-conversation"
           >
             Iniciar
@@ -268,75 +313,44 @@ function NewConversationDialog({ open, onClose }: { open: boolean; onClose: () =
   );
 }
 
+function AttendanceSectionHeader({ value, onValueChange }: { value: AttendanceView; onValueChange: (view: AttendanceView) => void }) {
+  return (
+    <div className="flex flex-shrink-0 items-center justify-between border-b bg-card px-3 py-2">
+      <AttendanceViewSwitcher value={value} onValueChange={onValueChange} />
+    </div>
+  );
+}
+
 export default function AttendancePage() {
-  const [activeTab, setActiveTab] = useState("inbox");
+  const [activeTab, setActiveTab] = useState<AttendanceView>("inbox");
   const [selectedConversation, setSelectedConversation] = useState<AttConversation | null>(null);
   const [showNewConv, setShowNewConv] = useState(false);
   const [showContactPanel, setShowContactPanel] = useState(false);
   useAttendanceRealtime();
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background" data-testid="page-attendance">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-muted/20 p-2" data-testid="page-attendance">
       <Tabs
         value={activeTab}
         onValueChange={value => {
-          setActiveTab(value);
+          setActiveTab(value as AttendanceView);
           if (value !== "inbox") setSelectedConversation(null);
         }}
-        className="flex h-full flex-col"
+        className="flex h-full min-h-0 flex-col"
       >
-        <div className="flex h-12 flex-shrink-0 items-center justify-between border-b border-border bg-sidebar px-3">
-          <div className="flex min-w-0 items-center gap-3">
-            <div className="hidden items-center gap-2 md:flex">
-              <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 text-primary">
-                <MessageSquare className="h-4 w-4" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold leading-none text-sidebar-foreground">Atendimento</p>
-                <p className="mt-0.5 text-[10px] font-medium uppercase tracking-normal text-muted-foreground">Political</p>
-              </div>
-            </div>
-            <TabsList className="h-8 bg-background" data-testid="tabs-attendance">
-              <TabsTrigger value="inbox" className="gap-1.5 text-xs" data-testid="tab-inbox">
-                <MessageSquare className="h-3.5 w-3.5" /> Caixa
-              </TabsTrigger>
-              <TabsTrigger value="reports" className="gap-1.5 text-xs" data-testid="tab-reports">
-                <BarChart2 className="h-3.5 w-3.5" /> Relatórios
-              </TabsTrigger>
-              <TabsTrigger value="contacts" className="gap-1.5 text-xs" data-testid="tab-contacts">
-                <Users className="h-3.5 w-3.5" /> Contatos
-              </TabsTrigger>
-              <TabsTrigger value="archived" className="gap-1.5 text-xs" data-testid="tab-archived">
-                <Archive className="h-3.5 w-3.5" /> Arquivados
-              </TabsTrigger>
-              <TabsTrigger value="history" className="gap-1.5 text-xs" data-testid="tab-history">
-                <FileClock className="h-3.5 w-3.5" /> Histórico
-              </TabsTrigger>
-              <TabsTrigger value="settings" className="gap-1.5 text-xs" data-testid="tab-settings">
-                <Settings className="h-3.5 w-3.5" /> Configurações
-              </TabsTrigger>
-              <TabsTrigger value="automation" className="gap-1.5 text-xs" data-testid="tab-automation">
-                <Zap className="h-3.5 w-3.5" /> Automações
-              </TabsTrigger>
-            </TabsList>
-          </div>
-          <Button size="sm" onClick={() => setShowNewConv(true)} className="gap-1.5" data-testid="button-new-conv-top">
-            <Plus className="h-3.5 w-3.5" />
-            Nova conversa
-          </Button>
-        </div>
-
-        <TabsContent value="inbox" className="m-0 flex-1 overflow-hidden data-[state=active]:flex data-[state=active]:flex-col">
-          <div className="flex h-full overflow-hidden bg-muted/20">
-            <div className="w-[22rem] flex-shrink-0 overflow-hidden xl:w-[23rem]">
+        <TabsContent value="inbox" className="m-0 min-h-0 flex-1 overflow-hidden rounded-xl border bg-card shadow-sm data-[state=active]:flex data-[state=active]:flex-col">
+          <div className="flex h-full min-h-0 overflow-hidden bg-card">
+            <div className={selectedConversation ? "hidden h-full min-w-0 flex-1 overflow-hidden md:block md:w-[22rem] md:flex-none xl:w-[23rem]" : "h-full min-w-0 flex-1 overflow-hidden md:block md:w-[22rem] md:flex-none xl:w-[23rem]"}>
               <ConversationList
                 selected={selectedConversation}
                 onSelect={conversation => setSelectedConversation(conversation)}
                 onNewConversation={() => setShowNewConv(true)}
+                activeView={activeTab}
+                onViewChange={setActiveTab}
               />
             </div>
 
-            <div className="min-w-0 flex-1 overflow-hidden border-r border-border bg-background">
+            <div className={selectedConversation ? "min-w-0 flex-1 overflow-hidden bg-background" : "hidden min-w-0 flex-1 overflow-hidden bg-background md:block"}>
               {selectedConversation ? (
                 <ChatPanel
                   key={selectedConversation.id}
@@ -370,29 +384,31 @@ export default function AttendancePage() {
           </div>
         </TabsContent>
 
-        <TabsContent value="reports" className="m-0 flex-1 overflow-auto bg-background">
-          <ReportsTab />
+        <TabsContent value="reports" className="m-0 min-h-0 flex-1 overflow-hidden rounded-xl border bg-card shadow-sm data-[state=active]:flex data-[state=active]:flex-col">
+          <AttendanceSectionHeader value={activeTab} onValueChange={setActiveTab} />
+          <div className="min-h-0 flex-1 overflow-auto"><ReportsTab /></div>
         </TabsContent>
 
-        <TabsContent value="contacts" className="m-0 flex-1 overflow-auto bg-background">
-          <AttendanceContactsTab />
+        <TabsContent value="contacts" className="m-0 min-h-0 flex-1 overflow-hidden rounded-xl border bg-card shadow-sm data-[state=active]:flex data-[state=active]:flex-col">
+          <AttendanceSectionHeader value={activeTab} onValueChange={setActiveTab} />
+          <div className="min-h-0 flex-1 overflow-auto"><AttendanceContactsTab /></div>
         </TabsContent>
 
-        <TabsContent value="archived" className="m-0 flex-1 overflow-auto bg-background">
-          <AttendanceArchivedTab />
+        <TabsContent value="archived" className="m-0 min-h-0 flex-1 overflow-hidden rounded-xl border bg-card shadow-sm data-[state=active]:flex data-[state=active]:flex-col">
+          <AttendanceSectionHeader value={activeTab} onValueChange={setActiveTab} />
+          <div className="min-h-0 flex-1 overflow-auto"><AttendanceArchivedTab /></div>
         </TabsContent>
 
-        <TabsContent value="history" className="m-0 flex-1 overflow-auto bg-background">
-          <AttendanceHistoryTab />
+        <TabsContent value="history" className="m-0 min-h-0 flex-1 overflow-hidden rounded-xl border bg-card shadow-sm data-[state=active]:flex data-[state=active]:flex-col">
+          <AttendanceSectionHeader value={activeTab} onValueChange={setActiveTab} />
+          <div className="min-h-0 flex-1 overflow-auto"><AttendanceHistoryTab /></div>
         </TabsContent>
 
-        <TabsContent value="settings" className="m-0 flex-1 overflow-auto bg-background">
-          <SettingsTab />
+        <TabsContent value="settings" className="m-0 min-h-0 flex-1 overflow-hidden rounded-xl border bg-card shadow-sm data-[state=active]:flex data-[state=active]:flex-col">
+          <AttendanceSectionHeader value={activeTab} onValueChange={setActiveTab} />
+          <div className="min-h-0 flex-1 overflow-auto"><SettingsTab /></div>
         </TabsContent>
 
-        <TabsContent value="automation" className="m-0 flex-1 overflow-auto bg-background">
-          <AutomationTab />
-        </TabsContent>
       </Tabs>
 
       <NewConversationDialog open={showNewConv} onClose={() => setShowNewConv(false)} />

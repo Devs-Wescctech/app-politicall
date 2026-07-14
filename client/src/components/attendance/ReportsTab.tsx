@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Download, Loader2, TrendingUp, MessageSquare, CheckCheck, Clock } from "lucide-react";
+import { Download, Loader2, TrendingUp, MessageSquare, CheckCheck, Clock, Users, AlertTriangle, Inbox } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,6 +26,13 @@ interface ReportData {
   avgServiceSeconds?: number;
   slaBreached?: number;
   resolutionRate?: number;
+}
+
+interface SupervisionData {
+  summary: { backlog: number; unassigned: number; slaBreached: number; waiting: number; inProgress: number };
+  agents: Array<{ userId: string; name: string; openCount: number }>;
+  queues: Array<{ queueId: string | null; name: string; openCount: number }>;
+  generatedAt: string;
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -88,6 +95,16 @@ export default function ReportsTab() {
 
   const { data, isLoading, refetch } = useQuery<ReportData>({
     queryKey: ["/api/attendance/reports/summary", params.toString()],
+    queryFn: async () => {
+      const query = params.toString();
+      const response = await apiRequest("GET", "/api/attendance/reports/summary" + (query ? "?" + query : ""));
+      return response.json();
+    },
+  });
+
+  const { data: supervision, isLoading: supervisionLoading } = useQuery<SupervisionData>({
+    queryKey: ["/api/attendance/supervision"],
+    refetchInterval: 15000,
   });
 
   const handleExport = async (format: "csv" | "xlsx" | "pdf") => {
@@ -150,6 +167,41 @@ export default function ReportsTab() {
           </Button>
         </div>
       </div>
+
+      {supervisionLoading ? (
+        <div className="mb-6 flex h-24 items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+      ) : supervision ? (
+        <div className="mb-6 space-y-4" data-testid="supervision-dashboard">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            <StatCard title="Backlog" value={supervision.summary.backlog} icon={Inbox} color="bg-blue-500/10 text-blue-600" />
+            <StatCard title="Sem responsável" value={supervision.summary.unassigned} icon={Users} color="bg-amber-500/10 text-amber-600" />
+            <StatCard title="SLA vencido" value={supervision.summary.slaBreached} icon={AlertTriangle} color="bg-red-500/10 text-red-600" />
+            <StatCard title="Em atendimento" value={supervision.summary.inProgress} icon={Clock} color="bg-emerald-500/10 text-emerald-600" />
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <Card>
+              <CardHeader className="pb-2"><CardTitle className="text-sm">Carga por atendente</CardTitle></CardHeader>
+              <CardContent className="space-y-2">
+                {supervision.agents.length ? supervision.agents.map(agent => (
+                  <div key={agent.userId} className="flex items-center justify-between rounded-md bg-muted/50 px-3 py-2 text-sm">
+                    <span className="truncate">{agent.name}</span><span className="font-semibold">{agent.openCount}</span>
+                  </div>
+                )) : <p className="py-3 text-center text-xs text-muted-foreground">Nenhum atendimento atribuído.</p>}
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2"><CardTitle className="text-sm">Backlog por fila</CardTitle></CardHeader>
+              <CardContent className="space-y-2">
+                {supervision.queues.length ? supervision.queues.map(queue => (
+                  <div key={queue.queueId ?? "none"} className="flex items-center justify-between rounded-md bg-muted/50 px-3 py-2 text-sm">
+                    <span className="truncate">{queue.name}</span><span className="font-semibold">{queue.openCount}</span>
+                  </div>
+                )) : <p className="py-3 text-center text-xs text-muted-foreground">Nenhuma fila com backlog.</p>}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      ) : null}
 
       {isLoading ? (
         <div className="flex items-center justify-center h-48">
