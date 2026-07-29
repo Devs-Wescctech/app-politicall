@@ -18,6 +18,8 @@ import { setupVite, serveStatic, log } from "./vite";
 import { storage } from "./storage";
 import { db, pool } from "./db";
 import { registerHealthRoutes } from "./health";
+import { installGracefulShutdown, type GracefulShutdownHandle } from "./server-lifecycle";
+import { closeAttendanceRealtime } from "./attendance-events";
 import { createApiRequestLogger } from "./http-logging";
 import { createListenOptions } from "./listen-options";
 import { securityHeaders } from "./security-headers";
@@ -73,6 +75,7 @@ async function ensureDevDatabaseReady(): Promise<void> {
 }
 
 const app = express();
+let lifecycle: GracefulShutdownHandle | undefined;
 
 app.disable("x-powered-by");
 
@@ -103,6 +106,7 @@ registerHealthRoutes(app, {
   checkDatabase: async () => {
     await pool.query("SELECT 1");
   },
+  isShuttingDown: () => lifecycle?.isShuttingDown ?? false,
 });
 
 app.use(createApiRequestLogger(log));
@@ -438,6 +442,14 @@ app.get("/p/:slug", handlePetitionSSR);
   server.timeout = 300000; // 5 minutes for large uploads
   
   server.listen(createListenOptions(port), () => {
+    lifecycle = installGracefulShutdown({
+      server,
+      closeRealtime: closeAttendanceRealtime,
+      closeDatabase: async () => {
+        await pool.end();
+      },
+      timeoutMs: 30_000,
+    });
     log(`serving on port ${port}`);
     if (isRuntimeStartupProbe) console.log("RUNTIME_STARTUP_PROBE_LISTENING");
   });

@@ -2,6 +2,7 @@ import type { Express } from "express";
 
 interface HealthDependencies {
   checkDatabase: () => Promise<void>;
+  isShuttingDown?: () => boolean;
 }
 
 export function registerHealthRoutes(app: Express, dependencies: HealthDependencies): void {
@@ -10,6 +11,11 @@ export function registerHealthRoutes(app: Express, dependencies: HealthDependenc
   });
 
   app.get("/api/ready", async (_req, res) => {
+    if (dependencies.isShuttingDown?.()) {
+      res.status(503).json({ status: "unavailable" });
+      return;
+    }
+
     try {
       await dependencies.checkDatabase();
       res.status(200).json({ status: "ready" });

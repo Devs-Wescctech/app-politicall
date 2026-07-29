@@ -20,6 +20,10 @@ export type AttendanceRealtimeEvent = {
 
 const clientsByAccount = new Map<string, Set<AttendanceRealtimeClient>>();
 let websocketServer: WebSocketServer | null = null;
+let realtimeServer: Server | null = null;
+let upgradeListener: ((request: any, socket: any, head: Buffer) => void) | null = null;
+let heartbeat: NodeJS.Timeout | null = null;
+let closePromise: Promise<void> | null = null;
 
 function addClient(ws: AttendanceRealtimeClient, accountId: string) {
   let clients = clientsByAccount.get(accountId);
@@ -59,9 +63,11 @@ export function publishAttendanceEvent(event: AttendanceRealtimeEvent) {
 export function setupAttendanceRealtime(server: Server) {
   if (websocketServer) return websocketServer;
 
-  websocketServer = new WebSocketServer({ noServer: true });
+  const realtime = new WebSocketServer({ noServer: true });
+  websocketServer = realtime;
+  realtimeServer = server;
 
-  server.on("upgrade", async (request, socket, head) => {
+  upgradeListener = async (request, socket, head) => {
     const url = new URL(request.url ?? "", "http://localhost");
     if (url.pathname !== "/api/attendance/realtime") return;
 
@@ -81,7 +87,7 @@ export function setupAttendanceRealtime(server: Server) {
         return;
       }
 
-      websocketServer!.handleUpgrade(request, socket, head, (ws) => {
+      realtime.handleUpgrade(request, socket, head, (ws) => {
         const client = ws as AttendanceRealtimeClient;
         client.accountId = user.accountId;
         client.userId = user.id;
@@ -105,9 +111,10 @@ export function setupAttendanceRealtime(server: Server) {
       socket.write("HTTP/1.1 403 Forbidden\r\n\r\n");
       socket.destroy();
     }
-  });
+  };
+  server.on("upgrade", upgradeListener);
 
-  const heartbeat = setInterval(() => {
+  heartbeat = setInterval(() => {
     for (const clients of clientsByAccount.values()) {
       for (const client of clients) {
         if (client.isAlive === false) {
@@ -122,5 +129,60 @@ export function setupAttendanceRealtime(server: Server) {
   }, 30_000);
   heartbeat.unref?.();
 
-  return websocketServer;
+  return realtime;
+}
+
+function closeWebSocketServer(server: WebSocketServer | null): Promise<void> {
+  if (!server) return Promise.resolve();
+
+  return new Promise((resolve) => {
+    try {
+      server.close(() => resolve());
+    } catch {
+      resolve();
+    }
+  });
+}
+
+export function closeAttendanceRealtime(): Promise<void> {
+  if (closePromise) return closePromise;
+
+  const activeWebsocketServer = websocketServer;
+  const activeServer = realtimeServer;
+  const activeUpgradeListener = upgradeListener;
+
+  websocketServer = null;
+  realtimeServer = null;
+  upgradeListener = null;
+
+  if (heartbeat) {
+    clearInterval(heartbeat);
+    heartbeat = null;
+  }
+
+  if (activeServer && activeUpgradeListener) {
+    activeServer.off("upgrade", activeUpgradeListener);
+  }
+
+  for (const clients of clientsByAccount.values()) {
+    for (const client of clients) {
+      try {
+        client.close();
+      } catch {
+        // Continue closing the remaining realtime clients.
+      }
+
+      try {
+        client.terminate();
+      } catch {
+        // A closed client cannot be terminated again.
+      }
+    }
+  }
+  clientsByAccount.clear();
+
+  closePromise = closeWebSocketServer(activeWebsocketServer).finally(() => {
+    closePromise = null;
+  });
+  return closePromise;
 }
