@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { readFileSync, statSync } from "node:fs";
 
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
 const DATABASE_URL = /\b(?:postgres(?:ql)?|mysql|mariadb|mongodb(?:\+srv)?|redis|rediss):\/\/([^\s/:@]+):([^\s/@]+)@/i;
@@ -47,6 +47,15 @@ function report(path, rule, line) {
 let foundSecrets = false;
 
 for (const path of candidatePaths()) {
+  let size;
+  try {
+    size = statSync(path).size;
+  } catch {
+    continue;
+  }
+
+  if (size > MAX_FILE_SIZE_BYTES) continue;
+
   let contents;
   try {
     contents = readFileSync(path);
@@ -54,7 +63,7 @@ for (const path of candidatePaths()) {
     continue;
   }
 
-  if (contents.length > MAX_FILE_SIZE_BYTES || contents.includes(0)) continue;
+  if (contents.includes(0)) continue;
 
   const lines = contents.toString("utf8").split(/\r?\n/);
   lines.forEach((line, index) => {

@@ -24,4 +24,5 @@ replit.nix
 backups/
 Obsidian Vault/
 graphify-out/
+.superpowers/
 *.zip

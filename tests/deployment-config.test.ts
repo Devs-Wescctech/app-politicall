@@ -48,7 +48,7 @@ describe("deployment configuration", () => {
   it("excludes private local artifacts from the Docker build context", async () => {
     const ignore = await readProjectFile(".dockerignore");
 
-    for (const pattern of [".runtime/", "backups/", "Obsidian Vault/", "graphify-out/", "*.zip"]) {
+    for (const pattern of [".runtime/", "backups/", "Obsidian Vault/", "graphify-out/", ".superpowers/", "*.zip"]) {
       expect(ignore).toContain(pattern);
     }
   });
