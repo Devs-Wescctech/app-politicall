@@ -36,6 +36,23 @@ describe("deployment configuration", () => {
     expect(gitignore).toMatch(/^\.admin-config\.json$/m);
   });
 
+  it("excludes local knowledge, runtime state, uploads, and backups from Git", async () => {
+    const ignore = await readProjectFile(".gitignore");
+
+    for (const pattern of ["/Obsidian Vault/", "/graphify-out/", "/.runtime/", "/backups/", "/uploads/*", "/.superpowers/"]) {
+      expect(ignore).toContain(pattern);
+    }
+    expect(ignore).toContain("!/uploads/.gitkeep");
+  });
+
+  it("excludes private local artifacts from the Docker build context", async () => {
+    const ignore = await readProjectFile(".dockerignore");
+
+    for (const pattern of [".runtime/", "backups/", "Obsidian Vault/", "graphify-out/", "*.zip"]) {
+      expect(ignore).toContain(pattern);
+    }
+  });
+
   it("contains no references to the private Replit package registry", async () => {
     const lockfile = await readProjectFile("package-lock.json");
 

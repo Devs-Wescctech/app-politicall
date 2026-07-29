@@ -20,3 +20,8 @@ uploads/*
 !uploads/.gitkeep
 .replit
 replit.nix
+.runtime/
+backups/
+Obsidian Vault/
+graphify-out/
+*.zip

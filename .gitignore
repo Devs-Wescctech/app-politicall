@@ -9,8 +9,13 @@ vite.config.ts.*
 !.env.example
 .admin-config.json
 .admin-config.json.tmp
-.runtime/
-backups/
+/.runtime/
+/backups/
 *.log
 *.pid
 *.zip
+/Obsidian Vault/
+/graphify-out/
+/uploads/*
+!/uploads/.gitkeep
+/.superpowers/

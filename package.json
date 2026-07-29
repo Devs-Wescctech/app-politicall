@@ -11,7 +11,8 @@
     "db:push": "drizzle-kit push",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:attendance": "vitest run"
+    "test:attendance": "vitest run",
+    "security:secrets": "node scripts/check-release-secrets.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
