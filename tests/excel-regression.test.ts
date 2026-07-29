@@ -1,4 +1,6 @@
-import { readFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { createRequire } from "node:module";
+import os from "node:os";
 import { finished } from "node:stream/promises";
 import { PassThrough } from "node:stream";
 import path from "node:path";
@@ -12,6 +14,7 @@ type ZipArchive = ReturnType<typeof archiverFactory>;
 const { ZipArchive } = archiver as unknown as {
   ZipArchive: new (options?: Parameters<typeof archiverFactory>[1]) => ZipArchive;
 };
+const requireFromTest = createRequire(import.meta.url);
 
 type ZipEntry = { name: string; content: Buffer };
 
@@ -73,26 +76,55 @@ describe("Excel and archive runtime compatibility", () => {
     expect(reloadedWorksheet?.getCell("D2").value).toEqual({ formula: "B2*2", result: 84 });
   });
 
-  it("creates and extracts a Unicode ZIP with the direct archiver workflow", async () => {
+  it("writes a streaming workbook through ExcelJS's Archiver factory", async () => {
     const output = new PassThrough();
     const chunks: Buffer[] = [];
     output.on("data", (chunk: Buffer) => chunks.push(chunk));
 
     const outputFinished = finished(output);
-    const archive = new ZipArchive({ zlib: { level: 9 } });
-    archive.on("error", (error) => output.destroy(error));
-    archive.pipe(output);
-    archive.append("Conteúdo completo: São Paulo, ação e coração.", { name: "dados.txt" });
+    const workbook = new ExcelJS.stream.xlsx.WorkbookWriter({ stream: output });
+    const worksheet = workbook.addWorksheet("Fluxo");
+    worksheet.addRow(["São Paulo"]).commit();
 
-    await archive.finalize();
+    await workbook.commit();
     await outputFinished;
 
-    await expect(readZipEntries(Buffer.concat(chunks))).resolves.toEqual([
-      {
-        name: "dados.txt",
-        content: Buffer.from("Conteúdo completo: São Paulo, ação e coração."),
-      },
-    ]);
+    const reloaded = new ExcelJS.Workbook();
+    await reloaded.xlsx.load(Buffer.concat(chunks));
+    expect(reloaded.getWorksheet("Fluxo")?.getCell("A1").value).toBe("São Paulo");
+  });
+
+  it("creates and extracts a Unicode ZIP with the direct archiver workflow", async () => {
+    const sourceDirectory = await mkdtemp(path.join(os.tmpdir(), "politicall-archiver-"));
+    await writeFile(path.join(sourceDirectory, "anexo.txt"), "Arquivo anexo");
+    const output = new PassThrough();
+    const chunks: Buffer[] = [];
+    output.on("data", (chunk: Buffer) => chunks.push(chunk));
+
+    try {
+      const outputFinished = finished(output);
+      const archive = new ZipArchive({ zlib: { level: 9 } });
+      archive.on("error", (error) => output.destroy(error));
+      archive.pipe(output);
+      archive.append("Conteúdo completo: São Paulo, ação e coração.", { name: "dados.txt" });
+      archive.directory(sourceDirectory, "anexos");
+
+      await archive.finalize();
+      await outputFinished;
+
+      await expect(readZipEntries(Buffer.concat(chunks))).resolves.toEqual(expect.arrayContaining([
+        {
+          name: "dados.txt",
+          content: Buffer.from("Conteúdo completo: São Paulo, ação e coração."),
+        },
+        {
+          name: "anexos/anexo.txt",
+          content: Buffer.from("Arquivo anexo"),
+        },
+      ]));
+    } finally {
+      await rm(sourceDirectory, { recursive: true, force: true });
+    }
   });
 
   it("uses the current unzipper graph without the legacy fstream glob chain", async () => {
@@ -103,5 +135,21 @@ describe("Excel and archive runtime compatibility", () => {
     expect(unzipper).toMatchObject({ version: "0.12.5" });
     expect(unzipper.dependencies).not.toHaveProperty("fstream");
     expect(packages).not.toHaveProperty("node_modules/fstream");
+    expect(packages).not.toHaveProperty("node_modules/rimraf");
+    expect(packages["node_modules/glob"]).toMatchObject({ version: "11.1.0" });
+    expect(packages["node_modules/archiver"]).toMatchObject({ version: "8.0.0" });
+    expect(packages["node_modules/exceljs/node_modules/archiver"]).toMatchObject({ version: "5.3.2" });
+  });
+
+  it("expands globs through the Archiver utilities used by ExcelJS", () => {
+    const excelArchiverPath = requireFromTest.resolve("exceljs/node_modules/archiver");
+    const requireFromExcelArchiver = createRequire(excelArchiverPath);
+    const archiverUtils = requireFromExcelArchiver("archiver-utils") as {
+      file: { expand(patterns: string[]): string[] };
+    };
+
+    expect(archiverUtils.file.expand(["package{,-lock}.json"])).toEqual(
+      expect.arrayContaining(["package.json", "package-lock.json"]),
+    );
   });
 });
