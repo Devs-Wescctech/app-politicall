@@ -16,6 +16,14 @@ type AttendanceUpgradeListener = (
   head: Buffer,
 ) => void;
 
+type ClosingRealtimeState = {
+  instance: {
+    websocketServer: WebSocketServer | null;
+    httpServer: Server | null;
+  };
+  promise: Promise<void>;
+};
+
 export type AttendanceRealtimeEvent = {
   type: string;
   accountId: string;
@@ -30,7 +38,7 @@ let websocketServer: WebSocketServer | null = null;
 let realtimeServer: Server | null = null;
 let upgradeListener: AttendanceUpgradeListener | null = null;
 let heartbeat: NodeJS.Timeout | null = null;
-let closePromise: Promise<void> | null = null;
+let closingRealtime: ClosingRealtimeState | null = null;
 const pendingUpgradeSockets = new Set<Duplex>();
 
 function addClient(ws: AttendanceRealtimeClient, accountId: string) {
@@ -69,6 +77,9 @@ export function publishAttendanceEvent(event: AttendanceRealtimeEvent) {
 }
 
 export function setupAttendanceRealtime(server: Server) {
+  if (closingRealtime) {
+    throw new Error("Attendance realtime is unavailable");
+  }
   if (websocketServer) return websocketServer;
 
   const realtime = new WebSocketServer({ noServer: true });
@@ -81,27 +92,35 @@ export function setupAttendanceRealtime(server: Server) {
       pendingUpgradeSockets.delete(socket);
       socket.off("close", stopTrackingSocket);
     };
-    const rejectUpgrade = (status: "401 Unauthorized" | "403 Forbidden") => {
-      stopTrackingSocket();
-      if (socket.destroyed) return;
-      socket.write(`HTTP/1.1 ${status}\r\n\r\n`);
-      socket.destroy();
+    const rejectUpgrade = (status: "401 Unauthorized" | "403 Forbidden" | "404 Not Found") => {
+      if (socket.destroyed) {
+        stopTrackingSocket();
+        return;
+      }
+      try {
+        socket.end(`HTTP/1.1 ${status}\r\nConnection: close\r\n\r\n`, () => {
+          if (!socket.destroyed) socket.destroy();
+        });
+      } catch {
+        stopTrackingSocket();
+        socket.destroy();
+      }
     };
     socket.once("close", stopTrackingSocket);
 
-    const url = new URL(request.url ?? "", "http://localhost");
-    if (url.pathname !== "/api/attendance/realtime") {
-      stopTrackingSocket();
-      return;
-    }
-
-    const token = url.searchParams.get("token");
-    if (!token || !process.env.SESSION_SECRET) {
-      rejectUpgrade("401 Unauthorized");
-      return;
-    }
-
     try {
+      const url = new URL(request.url ?? "", "http://localhost");
+      if (url.pathname !== "/api/attendance/realtime") {
+        rejectUpgrade("404 Not Found");
+        return;
+      }
+
+      const token = url.searchParams.get("token");
+      if (!token || !process.env.SESSION_SECRET) {
+        rejectUpgrade("401 Unauthorized");
+        return;
+      }
+
       const decoded = jwt.verify(token, process.env.SESSION_SECRET) as { userId: string; accountId: string };
       const user = await storage.getUser(decoded.userId);
       const realtimeIsActive = websocketServer === realtime
@@ -177,7 +196,7 @@ function closeWebSocketServer(server: WebSocketServer | null): Promise<void> {
 }
 
 export function closeAttendanceRealtime(): Promise<void> {
-  if (closePromise) return closePromise;
+  if (closingRealtime) return closingRealtime.promise;
 
   const activeWebsocketServer = websocketServer;
   const activeServer = realtimeServer;
@@ -222,8 +241,18 @@ export function closeAttendanceRealtime(): Promise<void> {
   }
   clientsByAccount.clear();
 
-  closePromise = closeWebSocketServer(activeWebsocketServer).finally(() => {
-    closePromise = null;
+  const closingInstance = {
+    websocketServer: activeWebsocketServer,
+    httpServer: activeServer,
+  };
+  const closePromise = closeWebSocketServer(activeWebsocketServer).finally(() => {
+    if (closingRealtime?.instance === closingInstance) {
+      closingRealtime = null;
+    }
   });
+  closingRealtime = {
+    instance: closingInstance,
+    promise: closePromise,
+  };
   return closePromise;
 }

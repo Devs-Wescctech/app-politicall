@@ -1,4 +1,6 @@
 import { createServer } from "node:http";
+import { connect as connectSocket, type Socket } from "node:net";
+import type { Duplex } from "node:stream";
 import jwt from "jsonwebtoken";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { WebSocket } from "ws";
@@ -10,10 +12,18 @@ vi.mock("./storage", () => ({
 }));
 
 const servers: ReturnType<typeof createServer>[] = [];
+const rawSockets: Socket[] = [];
+const serverUpgradeSockets: Duplex[] = [];
 const websocketClients: WebSocket[] = [];
 const originalSessionSecret = process.env.SESSION_SECRET;
 
 afterEach(async () => {
+  for (const socket of rawSockets.splice(0)) {
+    if (!socket.destroyed) socket.destroy();
+  }
+  for (const socket of serverUpgradeSockets.splice(0)) {
+    if (!socket.destroyed) socket.destroy();
+  }
   for (const client of websocketClients.splice(0)) {
     if (client.readyState !== WebSocket.CLOSED) client.terminate();
   }
@@ -124,5 +134,100 @@ describe("attendance realtime lifecycle", () => {
     await new Promise<void>((resolve) => setImmediate(resolve));
 
     expect(client.readyState).toBe(WebSocket.CLOSED);
+  });
+
+  it("rejects an unsupported upgrade and lets the HTTP server close", async () => {
+    const server = createServer();
+    servers.push(server);
+    setupAttendanceRealtime(server);
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const address = server.address();
+    if (!address || typeof address === "string") throw new Error("Missing test server address");
+
+    const upgradeReceived = new Promise<Duplex>((resolve) => {
+      server.once("upgrade", (_request, socket) => {
+        serverUpgradeSockets.push(socket);
+        resolve(socket);
+      });
+    });
+    const socket = connectSocket({ host: "127.0.0.1", port: address.port });
+    rawSockets.push(socket);
+    socket.setEncoding("utf8");
+    let response = "";
+    socket.on("data", (chunk) => {
+      response += chunk;
+    });
+    await new Promise<void>((resolve, reject) => {
+      socket.once("connect", resolve);
+      socket.once("error", reject);
+    });
+    socket.write(
+      "GET /unsupported-realtime HTTP/1.1\r\n"
+      + `Host: 127.0.0.1:${address.port}\r\n`
+      + "Connection: Upgrade\r\n"
+      + "Upgrade: websocket\r\n"
+      + "Sec-WebSocket-Version: 13\r\n"
+      + "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n"
+      + "\r\n",
+    );
+    const serverUpgradeSocket = await upgradeReceived;
+
+    const socketClosed = new Promise<void>((resolve) => {
+      if (socket.destroyed) {
+        resolve();
+        return;
+      }
+      socket.once("close", () => resolve());
+    });
+    let serverCloseFinished = false;
+    const serverClosed = new Promise<void>((resolve) => {
+      server.close(() => {
+        serverCloseFinished = true;
+        resolve();
+      });
+    });
+    const closedWithoutIntervention = await Promise.race([
+      Promise.all([socketClosed, serverClosed]).then(() => true),
+      new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 500)),
+    ]);
+
+    if (!socket.destroyed) socket.destroy();
+    if (!serverUpgradeSocket.destroyed) serverUpgradeSocket.destroy();
+    await serverClosed;
+
+    expect(closedWithoutIntervention).toBe(true);
+    expect(serverCloseFinished).toBe(true);
+    expect(socket.destroyed).toBe(true);
+    expect(response).toMatch(/^HTTP\/1\.1 (404|426) /);
+  });
+
+  it("rejects setup while the previous realtime instance is closing", async () => {
+    const serverA = createServer();
+    const serverB = createServer();
+    servers.push(serverA, serverB);
+    setupAttendanceRealtime(serverA);
+
+    const closingA = closeAttendanceRealtime();
+    let setupError: unknown;
+    try {
+      setupAttendanceRealtime(serverB);
+    } catch (error) {
+      setupError = error;
+    }
+    const listenersInstalledDuringClose = serverB.listenerCount("upgrade");
+    await closingA;
+
+    expect(setupError).toBeInstanceOf(Error);
+    expect((setupError as Error).message).toBe("Attendance realtime is unavailable");
+    expect(listenersInstalledDuringClose).toBe(0);
+
+    const realtimeB = setupAttendanceRealtime(serverB);
+    const closeB = vi.spyOn(realtimeB, "close");
+    expect(serverB.listenerCount("upgrade")).toBe(1);
+
+    await closeAttendanceRealtime();
+
+    expect(closeB).toHaveBeenCalledTimes(1);
+    expect(serverB.listenerCount("upgrade")).toBe(0);
   });
 });
