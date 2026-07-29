@@ -12,6 +12,7 @@
 
 import express, { type Request, Response, NextFunction } from "express";
 import { execSync } from "child_process";
+import { createServer } from "node:http";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { storage } from "./storage";
@@ -405,7 +406,8 @@ app.get("/p/:slug", handlePetitionSSR);
 (async () => {
   await ensureDevDatabaseReady();
 
-  const server = await registerRoutes(app);
+  const isRuntimeStartupProbe = process.env.RUNTIME_STARTUP_PROBE === "1";
+  const server = isRuntimeStartupProbe ? createServer(app) : await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
@@ -437,5 +439,6 @@ app.get("/p/:slug", handlePetitionSSR);
   
   server.listen(createListenOptions(port), () => {
     log(`serving on port ${port}`);
+    if (isRuntimeStartupProbe) console.log("RUNTIME_STARTUP_PROBE_LISTENING");
   });
 })();

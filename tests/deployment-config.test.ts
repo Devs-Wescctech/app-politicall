@@ -39,7 +39,7 @@ describe("deployment configuration", () => {
     expect(productionStage).toContain('ENTRYPOINT ["/usr/bin/tini", "--"]');
     expect(productionStage).toContain('CMD ["node", "dist/index.js"]');
 
-    for (const sourceOnlyPath of ["./client", "./vite.config.ts", "./shared", "./tsconfig.json", "./drizzle.config.ts"]) {
+    for (const sourceOnlyPath of ["./client", "./vite.config.ts", "./shared", "./tsconfig.json", "./drizzle.config.ts", "./migrations"]) {
       expect(productionStage).not.toContain(sourceOnlyPath);
     }
   });
