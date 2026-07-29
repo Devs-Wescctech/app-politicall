@@ -1,7 +1,8 @@
 import { execFileSync } from "node:child_process";
-import { readFileSync, statSync } from "node:fs";
+import { closeSync, openSync, readFileSync, readSync, statSync } from "node:fs";
 
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
+const BINARY_PREFIX_BYTES = 8 * 1024;
 const DATABASE_URL = /\b(?:postgres(?:ql)?|mysql|mariadb|mongodb(?:\+srv)?|redis|rediss):\/\/([^\s/:@]+):([^\s/@]+)@/i;
 const PRIVATE_KEY_MARKER = /-----BEGIN (?:[A-Z0-9 ]+ )?PRIVATE KEY-----/;
 const SECRET_ASSIGNMENT = /^\s*(?:export\s+)?([A-Z][A-Z0-9_]*(?:SECRET|TOKEN|API_KEY|PRIVATE_KEY|PASSWORD|PASSWD)[A-Z0-9_]*)\s*=\s*(.+?)\s*$/;
@@ -44,6 +45,19 @@ function report(path, rule, line) {
   process.stderr.write(`${path}:${rule}:${line}\n`);
 }
 
+function isBinaryFile(path, size) {
+  if (size === 0) return false;
+
+  const descriptor = openSync(path, "r");
+  try {
+    const prefix = Buffer.alloc(Math.min(size, BINARY_PREFIX_BYTES));
+    const bytesRead = readSync(descriptor, prefix, 0, prefix.length, 0);
+    return prefix.subarray(0, bytesRead).includes(0);
+  } finally {
+    closeSync(descriptor);
+  }
+}
+
 let foundSecrets = false;
 
 for (const path of candidatePaths()) {
@@ -56,14 +70,18 @@ for (const path of candidatePaths()) {
 
   if (size > MAX_FILE_SIZE_BYTES) continue;
 
+  try {
+    if (isBinaryFile(path, size)) continue;
+  } catch {
+    continue;
+  }
+
   let contents;
   try {
     contents = readFileSync(path);
   } catch {
     continue;
   }
-
-  if (contents.includes(0)) continue;
 
   const lines = contents.toString("utf8").split(/\r?\n/);
   lines.forEach((line, index) => {

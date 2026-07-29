@@ -76,7 +76,7 @@ describe("release secret scanner", () => {
   it("skips binary candidates", async () => {
     const directory = await createCandidate({ "binary.dat": Buffer.from([0, 0x70, 0x6b]) });
 
-    await expect(scan(directory)).resolves.toMatchObject({ stderr: "" });
+    await expect(scanWithoutReading(directory, "binary.dat")).resolves.toBe("");
   });
 
   it("does not read candidates larger than 5 MB", async () => {
