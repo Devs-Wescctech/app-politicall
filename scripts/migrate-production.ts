@@ -1,35 +1,87 @@
-import { Pool } from "pg";
-import { runProductionMigrations } from "../server/services/production-migrations";
+import { fileURLToPath } from "node:url";
+import path from "node:path";
+import { Pool, type PoolConfig } from "pg";
+import {
+  runProductionMigrations,
+  type MigrationRunResult,
+} from "../server/services/production-migrations";
 
-function createProductionPool(connectionString: string): Pool {
+type MigrationPool = Parameters<typeof runProductionMigrations>[0];
+type ClosableMigrationPool = MigrationPool & { end(): Promise<void> };
+type CliEnvironment = Readonly<Record<string, string | undefined>>;
+
+export interface ProductionMigrationCliOptions {
+  env?: CliEnvironment;
+  rootDir?: string;
+  createPool?: (options: PoolConfig) => ClosableMigrationPool;
+  runMigrations?: (
+    pool: MigrationPool,
+    rootDir: string,
+  ) => Promise<MigrationRunResult>;
+  stdout?: (message: string) => void;
+  stderr?: (message: string) => void;
+}
+
+export function createProductionPoolOptions(connectionString: string): PoolConfig {
   const needsSsl = /sslmode=require/i.test(connectionString);
-  return new Pool({
+  return {
     connectionString,
     ssl: needsSsl ? { rejectUnauthorized: false } : false,
-  });
+  };
 }
 
-async function main(): Promise<void> {
-  if (process.env.NODE_ENV !== "production") {
+function requireProductionDatabaseUrl(env: CliEnvironment): string {
+  if (env.NODE_ENV !== "production") {
     throw new Error("Production migration runner requires NODE_ENV=production");
   }
-  if (!process.env.PROD_DATABASE_URL) {
+  if (!env.PROD_DATABASE_URL) {
     throw new Error("Production migration runner requires PROD_DATABASE_URL");
   }
+  return env.PROD_DATABASE_URL;
+}
 
-  const pool = createProductionPool(process.env.PROD_DATABASE_URL);
+export async function runProductionMigrationCli(
+  options: ProductionMigrationCliOptions = {},
+): Promise<number> {
+  const env = options.env ?? process.env;
+  const rootDir = options.rootDir ?? process.cwd();
+  const createPool = options.createPool ?? ((poolOptions) => new Pool(poolOptions));
+  const runMigrations = options.runMigrations ?? runProductionMigrations;
+  const stdout = options.stdout ?? console.log;
+  const stderr = options.stderr ?? console.error;
+  let pool: ClosableMigrationPool | undefined;
+
   try {
-    const result = await runProductionMigrations(pool, process.cwd());
-    console.log(`baseline=${result.baselineApplied ? "applied" : "skipped"}`);
-    console.log(`applied=${result.applied.length} skipped=${result.skipped.length}`);
-    if (result.applied.length > 0) console.log(`applied_ids=${result.applied.join(",")}`);
-    if (result.skipped.length > 0) console.log(`skipped_ids=${result.skipped.join(",")}`);
+    const connectionString = requireProductionDatabaseUrl(env);
+    pool = createPool(createProductionPoolOptions(connectionString));
+    const result = await runMigrations(pool, rootDir);
+    stdout(`baseline_applied=${result.baselineApplied ? 1 : 0}`);
+    stdout(`applied_count=${result.applied.length}`);
+    stdout(`skipped_count=${result.skipped.length}`);
+    if (result.applied.length > 0) stdout(`applied_ids=${result.applied.join(",")}`);
+    if (result.skipped.length > 0) stdout(`skipped_ids=${result.skipped.join(",")}`);
+    return 0;
+  } catch {
+    stderr("Production migration runner failed");
+    return 1;
   } finally {
-    await pool.end();
+    if (pool) await pool.end();
   }
 }
 
-main().catch(() => {
-  console.error("Production migration runner failed");
-  process.exitCode = 1;
-});
+function isDirectExecution(): boolean {
+  if (!process.argv[1]) return false;
+  return path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url));
+}
+
+if (isDirectExecution()) {
+  void runProductionMigrationCli().then(
+    (exitCode) => {
+      process.exitCode = exitCode;
+    },
+    () => {
+      console.error("Production migration runner failed");
+      process.exitCode = 1;
+    },
+  );
+}

@@ -21,6 +21,7 @@ type Query = { sql: string; parameters?: unknown[] };
 class FakePoolClient {
   readonly queries: Query[] = [];
   readonly recorded = new Map<string, string>();
+  private pendingRecords: Map<string, string> | undefined;
   released = false;
   accountsExists = false;
   failSql: string | undefined;
@@ -28,6 +29,23 @@ class FakePoolClient {
   async query(sql: string, parameters?: unknown[]) {
     this.queries.push({ sql, parameters });
 
+    if (sql === "BEGIN") {
+      this.pendingRecords = new Map();
+      return { rows: [] };
+    }
+    if (sql === "ROLLBACK") {
+      this.pendingRecords = undefined;
+      return { rows: [] };
+    }
+    if (sql === "COMMIT") {
+      if (this.failSql && sql.includes(this.failSql)) {
+        throw new Error("simulated database failure");
+      }
+      if (!this.pendingRecords) throw new Error("COMMIT without BEGIN");
+      for (const [name, hash] of this.pendingRecords) this.recorded.set(name, hash);
+      this.pendingRecords = undefined;
+      return { rows: [] };
+    }
     if (this.failSql && sql.includes(this.failSql)) {
       throw new Error("simulated database failure");
     }
@@ -40,7 +58,8 @@ class FakePoolClient {
       return { rows: hash ? [{ hash }] : [] };
     }
     if (sql.startsWith("INSERT INTO politicall_schema_migrations")) {
-      this.recorded.set(parameters?.[0] as string, parameters?.[1] as string);
+      if (!this.pendingRecords) throw new Error("migration record inserted outside a transaction");
+      this.pendingRecords.set(parameters?.[0] as string, parameters?.[1] as string);
     }
     return { rows: [] };
   }
@@ -115,6 +134,26 @@ describe("runProductionMigrations", () => {
     expect(queriesMatching(client, /^BEGIN$/)).toHaveLength(0);
   });
 
+  it("upgrades a legacy schema without recording or executing the baseline", async () => {
+    const client = new FakePoolClient();
+    client.accountsExists = true;
+
+    const result = await runProductionMigrations(new FakePool(client), rootDir);
+
+    expect(result).toEqual({
+      baselineApplied: false,
+      applied: migrationNames,
+      skipped: [],
+    });
+    expect(client.recorded.has("scripts/full_schema.sql")).toBe(false);
+    await Promise.all(migrationNames.map(async (name) => {
+      expect(client.recorded.get(name)).toBe(await sha256(path.join("migrations", name)));
+    }));
+    expect(client.queries.some(({ sql }) => sql.includes("PostgreSQL database dump"))).toBe(false);
+    expect(queriesMatching(client, /^BEGIN$/)).toHaveLength(8);
+    expect(queriesMatching(client, /^COMMIT$/)).toHaveLength(8);
+  });
+
   it("rejects a previously recorded migration when its hash diverges", async () => {
     const client = new FakePoolClient();
     client.accountsExists = true;
@@ -140,6 +179,39 @@ describe("runProductionMigrations", () => {
     expect(client.recorded.has(migrationNames[0])).toBe(false);
     expect(client.queries.at(-1)).toMatchObject({ sql: "SELECT pg_advisory_unlock($1)" });
     expect(client.released).toBe(true);
+  });
+
+  it("does not persist the migration record when commit fails after the SQL and insert", async () => {
+    const client = new FakePoolClient();
+    client.accountsExists = true;
+    client.failSql = "COMMIT";
+
+    await expect(runProductionMigrations(new FakePool(client), rootDir))
+      .rejects.toThrow(`Production migration ${migrationNames[0]} failed`);
+
+    expect(queriesMatching(client, /^ROLLBACK$/)).toHaveLength(1);
+    expect(client.recorded.has(migrationNames[0])).toBe(false);
+    expect(client.queries.at(-1)).toMatchObject({ sql: "SELECT pg_advisory_unlock($1)" });
+    expect(client.released).toBe(true);
+  });
+
+  it("rolls back after migration SQL when inserting its history record fails", async () => {
+    const client = new FakePoolClient();
+    client.accountsExists = true;
+    client.failSql = "INSERT INTO politicall_schema_migrations";
+
+    await expect(runProductionMigrations(new FakePool(client), rootDir))
+      .rejects.toThrow(`Production migration ${migrationNames[0]} failed`);
+
+    const migrationSqlIndex = client.queries.findIndex(({ sql }) =>
+      sql.includes("ALTER TABLE users ADD COLUMN IF NOT EXISTS permissions"));
+    const insertIndex = client.queries.findIndex(({ sql }) =>
+      sql.startsWith("INSERT INTO politicall_schema_migrations"));
+    const rollbackIndex = client.queries.findIndex(({ sql }) => sql === "ROLLBACK");
+    expect(migrationSqlIndex).toBeGreaterThan(-1);
+    expect(insertIndex).toBeGreaterThan(migrationSqlIndex);
+    expect(rollbackIndex).toBeGreaterThan(insertIndex);
+    expect(client.recorded.has(migrationNames[0])).toBe(false);
   });
 
   it("uses only the approved production manifest and never the development seeding script", async () => {
