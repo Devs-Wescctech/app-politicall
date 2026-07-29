@@ -1,8 +1,14 @@
 import { execFileSync } from "node:child_process";
 import { closeSync, openSync, readFileSync, readSync, statSync } from "node:fs";
+import { extname } from "node:path";
 
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
 const BINARY_PREFIX_BYTES = 8 * 1024;
+const KNOWN_BINARY_EXTENSIONS = new Set([
+  ".7z", ".avi", ".bmp", ".class", ".dll", ".doc", ".docx", ".exe", ".gif",
+  ".gz", ".ico", ".jar", ".jpeg", ".jpg", ".mp3", ".mp4", ".pdf", ".png",
+  ".sqlite", ".tar", ".webp", ".woff", ".woff2", ".xls", ".xlsx", ".zip",
+]);
 const DATABASE_URL = /\b(?:postgres(?:ql)?|mysql|mariadb|mongodb(?:\+srv)?|redis|rediss):\/\/([^\s/:@]+):([^\s/@]+)@/i;
 const PRIVATE_KEY_MARKER = /-----BEGIN (?:[A-Z0-9 ]+ )?PRIVATE KEY-----/;
 const SECRET_ASSIGNMENT = /^\s*(?:export\s+)?([A-Z][A-Z0-9_]*(?:SECRET|TOKEN|API_KEY|PRIVATE_KEY|PASSWORD|PASSWD)[A-Z0-9_]*)\s*=\s*(.+?)\s*$/;
@@ -45,26 +51,52 @@ function report(path, rule, line) {
   process.stderr.write(`${path}:${rule}:${line}\n`);
 }
 
+function hasExcessiveControlBytes(prefix) {
+  let controlBytes = 0;
+  for (const byte of prefix) {
+    if ((byte < 0x20 && byte !== 0x09 && byte !== 0x0a && byte !== 0x0d) || byte === 0x7f) {
+      controlBytes += 1;
+    }
+  }
+
+  return controlBytes / prefix.length > 0.05;
+}
+
 function isBinaryFile(path, size) {
+  if (KNOWN_BINARY_EXTENSIONS.has(extname(path).toLowerCase())) return true;
   if (size === 0) return false;
 
   const descriptor = openSync(path, "r");
   try {
     const prefix = Buffer.alloc(Math.min(size, BINARY_PREFIX_BYTES));
     const bytesRead = readSync(descriptor, prefix, 0, prefix.length, 0);
-    return prefix.subarray(0, bytesRead).includes(0);
+    const bytes = prefix.subarray(0, bytesRead);
+    if (bytes.includes(0) || hasExcessiveControlBytes(bytes)) return true;
+
+    try {
+      new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+      return false;
+    } catch {
+      return true;
+    }
   } finally {
     closeSync(descriptor);
   }
 }
 
-let foundSecrets = false;
+let foundIssues = false;
+
+function reportIoFailure(path, rule) {
+  report(path, rule, 0);
+  foundIssues = true;
+}
 
 for (const path of candidatePaths()) {
   let size;
   try {
     size = statSync(path).size;
   } catch {
+    reportIoFailure(path, "io-stat");
     continue;
   }
 
@@ -73,6 +105,7 @@ for (const path of candidatePaths()) {
   try {
     if (isBinaryFile(path, size)) continue;
   } catch {
+    reportIoFailure(path, "io-prefix");
     continue;
   }
 
@@ -80,6 +113,7 @@ for (const path of candidatePaths()) {
   try {
     contents = readFileSync(path);
   } catch {
+    reportIoFailure(path, "io-read");
     continue;
   }
 
@@ -89,23 +123,23 @@ for (const path of candidatePaths()) {
 
     if (PRIVATE_KEY_MARKER.test(line)) {
       report(path, "private-key-marker", lineNumber);
-      foundSecrets = true;
+      foundIssues = true;
       return;
     }
 
     const databaseMatch = line.match(DATABASE_URL);
     if (databaseMatch && !isPlaceholder(databaseMatch[1]) && !isPlaceholder(databaseMatch[2])) {
       report(path, "database-url-credentials", lineNumber);
-      foundSecrets = true;
+      foundIssues = true;
       return;
     }
 
     const assignment = line.match(SECRET_ASSIGNMENT);
     if (assignment && isHighConfidenceSecret(assignment[2])) {
       report(path, "secret-assignment", lineNumber);
-      foundSecrets = true;
+      foundIssues = true;
     }
   });
 }
 
-if (foundSecrets) process.exitCode = 1;
+if (foundIssues) process.exitCode = 1;

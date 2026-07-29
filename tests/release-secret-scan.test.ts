@@ -51,6 +51,30 @@ async function scanWithoutReading(directory: string, protectedFile: string) {
   return readFile(readLog, "utf8");
 }
 
+async function scanWithIoFailure(directory: string, protectedFile: string, operation: "statSync" | "readFileSync") {
+  const preload = path.join(directory, "io-failure.cjs");
+  await writeFile(preload, [
+    'const fs = require("node:fs");',
+    'const path = require("node:path");',
+    'const { syncBuiltinESMExports } = require("node:module");',
+    "const original = fs[process.env.IO_OPERATION];",
+    "fs[process.env.IO_OPERATION] = (target, ...args) => {",
+    "  if (typeof target === \"string\" && path.resolve(target) === process.env.PROTECTED_FILE) throw new Error(\"simulated io failure\");",
+    "  return original(target, ...args);",
+    "};",
+    "syncBuiltinESMExports();",
+  ].join("\n"));
+
+  return execFileAsync(process.execPath, ["--require", preload, scanner], {
+    cwd: directory,
+    env: {
+      ...process.env,
+      IO_OPERATION: operation,
+      PROTECTED_FILE: path.join(directory, protectedFile),
+    },
+  });
+}
+
 afterEach(async () => {
   await Promise.all(temporaryDirectories.splice(0).map((directory) => rm(directory, { force: true, recursive: true })));
 });
@@ -79,12 +103,40 @@ describe("release secret scanner", () => {
     await expect(scanWithoutReading(directory, "binary.dat")).resolves.toBe("");
   });
 
+  it("skips unknown binary candidates without NUL bytes or a full read", async () => {
+    const directory = await createCandidate({ "binary-control.dat": Buffer.alloc(8 * 1024, 0x01) });
+
+    await expect(scanWithoutReading(directory, "binary-control.dat")).resolves.toBe("");
+  });
+
+  it("skips known binary extensions without a full read", async () => {
+    const directory = await createCandidate({ "binary-image.png": Buffer.from("not-an-image") });
+
+    await expect(scanWithoutReading(directory, "binary-image.png")).resolves.toBe("");
+  });
+
   it("does not read candidates larger than 5 MB", async () => {
     const directory = await createCandidate({
       "large.txt": Buffer.alloc((5 * 1024 * 1024) + 1, 0x61),
     });
 
     await expect(scanWithoutReading(directory, "large.txt")).resolves.toBe("");
+  });
+
+  it.each([
+    ["stat-failure.txt", "statSync", "io-stat"],
+    ["read-failure.txt", "readFileSync", "io-read"],
+  ] as const)("fails closed when %s fails", async (name, operation, rule) => {
+    const directory = await createCandidate({ [name]: "safe text candidate\n" });
+    const error = await scanWithIoFailure(directory, name, operation).then(
+      () => new Error("expected the scanner to fail closed"),
+      (reason) => reason,
+    );
+
+    expect(error).toMatchObject({
+      stderr: expect.stringContaining(`${name}:${rule}:0`),
+    });
+    expect(error.stderr).not.toContain("simulated io failure");
   });
 
   it("allows documented placeholders without echoing their values", async () => {

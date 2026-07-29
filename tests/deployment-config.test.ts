@@ -1,8 +1,11 @@
+import { execFile } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
+import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
 
 const root = process.cwd();
+const execFileAsync = promisify(execFile);
 const readProjectFile = (name: string) => readFile(path.join(root, name), "utf8");
 
 describe("deployment configuration", () => {
@@ -43,6 +46,12 @@ describe("deployment configuration", () => {
       expect(ignore).toContain(pattern);
     }
     expect(ignore).toContain("!/uploads/.gitkeep");
+  });
+
+  it("keeps only the upload marker in the Git index", async () => {
+    const { stdout } = await execFileAsync("git", ["ls-files", "--", "uploads"], { cwd: root });
+
+    expect(stdout.split(/\r?\n/).filter(Boolean)).toEqual(["uploads/.gitkeep"]);
   });
 
   it("excludes private local artifacts from the Docker build context", async () => {
