@@ -75,6 +75,96 @@ async function scanWithIoFailure(directory: string, protectedFile: string, opera
   });
 }
 
+async function scanWithPrefixIoFailure(directory: string, protectedFile: string, operation: "openSync" | "readSync") {
+  const closeLog = path.join(directory, "close-log.txt");
+  const preload = path.join(directory, "prefix-io-failure.cjs");
+  await writeFile(closeLog, "");
+  await writeFile(preload, [
+    'const fs = require("node:fs");',
+    'const path = require("node:path");',
+    'const { syncBuiltinESMExports } = require("node:module");',
+    "const protectedDescriptors = new Set();",
+    "const originalOpenSync = fs.openSync;",
+    "const originalReadSync = fs.readSync;",
+    "const originalCloseSync = fs.closeSync;",
+    "const isProtected = (target) => typeof target === \"string\" && path.resolve(target) === process.env.PROTECTED_FILE;",
+    "fs.openSync = (target, ...args) => {",
+    "  if (!isProtected(target)) return originalOpenSync(target, ...args);",
+    "  if (process.env.IO_OPERATION === \"openSync\") throw new Error(\"simulated prefix io failure\");",
+    "  const descriptor = originalOpenSync(target, ...args);",
+    "  protectedDescriptors.add(descriptor);",
+    "  return descriptor;",
+    "};",
+    "fs.readSync = (descriptor, ...args) => {",
+    "  if (process.env.IO_OPERATION === \"readSync\" && protectedDescriptors.has(descriptor)) throw new Error(\"simulated prefix io failure\");",
+    "  return originalReadSync(descriptor, ...args);",
+    "};",
+    "fs.closeSync = (descriptor, ...args) => {",
+    "  if (protectedDescriptors.has(descriptor)) fs.writeFileSync(process.env.CLOSE_LOG, \"closed\");",
+    "  return originalCloseSync(descriptor, ...args);",
+    "};",
+    "syncBuiltinESMExports();",
+  ].join("\n"));
+
+  const error = await execFileAsync(process.execPath, ["--require", preload, scanner], {
+    cwd: directory,
+    env: {
+      ...process.env,
+      IO_OPERATION: operation,
+      PROTECTED_FILE: path.join(directory, protectedFile),
+      CLOSE_LOG: closeLog,
+    },
+  }).then(
+    () => new Error("expected the scanner to fail closed"),
+    (reason) => reason,
+  );
+
+  return { closeLog: await readFile(closeLog, "utf8"), error };
+}
+
+async function scanWithoutAnyRead(directory: string, protectedFile: string) {
+  const readLog = path.join(directory, "all-read-log.txt");
+  const preload = path.join(directory, "all-read-guard.cjs");
+  await writeFile(readLog, "");
+  await writeFile(preload, [
+    'const fs = require("node:fs");',
+    'const path = require("node:path");',
+    'const { syncBuiltinESMExports } = require("node:module");',
+    "const protectedDescriptors = new Set();",
+    "const originalOpenSync = fs.openSync;",
+    "const originalReadSync = fs.readSync;",
+    "const originalReadFileSync = fs.readFileSync;",
+    "const isProtected = (target) => typeof target === \"string\" && path.resolve(target) === process.env.PROTECTED_FILE;",
+    "fs.openSync = (target, ...args) => {",
+    "  if (!isProtected(target)) return originalOpenSync(target, ...args);",
+    "  fs.appendFileSync(process.env.READ_LOG, \"open\\n\");",
+    "  const descriptor = originalOpenSync(target, ...args);",
+    "  protectedDescriptors.add(descriptor);",
+    "  return descriptor;",
+    "};",
+    "fs.readSync = (descriptor, ...args) => {",
+    "  if (protectedDescriptors.has(descriptor)) fs.appendFileSync(process.env.READ_LOG, \"read\\n\");",
+    "  return originalReadSync(descriptor, ...args);",
+    "};",
+    "fs.readFileSync = (target, ...args) => {",
+    "  if (isProtected(target)) fs.appendFileSync(process.env.READ_LOG, \"full\\n\");",
+    "  return originalReadFileSync(target, ...args);",
+    "};",
+    "syncBuiltinESMExports();",
+  ].join("\n"));
+
+  await execFileAsync(process.execPath, ["--require", preload, scanner], {
+    cwd: directory,
+    env: {
+      ...process.env,
+      PROTECTED_FILE: path.join(directory, protectedFile),
+      READ_LOG: readLog,
+    },
+  });
+
+  return readFile(readLog, "utf8");
+}
+
 afterEach(async () => {
   await Promise.all(temporaryDirectories.splice(0).map((directory) => rm(directory, { force: true, recursive: true })));
 });
@@ -120,7 +210,7 @@ describe("release secret scanner", () => {
       "large.txt": Buffer.alloc((5 * 1024 * 1024) + 1, 0x61),
     });
 
-    await expect(scanWithoutReading(directory, "large.txt")).resolves.toBe("");
+    await expect(scanWithoutAnyRead(directory, "large.txt")).resolves.toBe("");
   });
 
   it.each([
@@ -137,6 +227,30 @@ describe("release secret scanner", () => {
       stderr: expect.stringContaining(`${name}:${rule}:0`),
     });
     expect(error.stderr).not.toContain("simulated io failure");
+  });
+
+  it("fails closed when opening the binary prefix fails", async () => {
+    const directory = await createCandidate({ "open-failure.txt": "safe text candidate\n" });
+    const { error, closeLog } = await scanWithPrefixIoFailure(directory, "open-failure.txt", "openSync");
+
+    expect(error).toMatchObject({
+      code: 1,
+      stderr: expect.stringContaining("open-failure.txt:io-prefix:0"),
+    });
+    expect(error.stderr).not.toContain("simulated prefix io failure");
+    expect(closeLog).toBe("");
+  });
+
+  it("fails closed and closes the descriptor when reading the binary prefix fails", async () => {
+    const directory = await createCandidate({ "prefix-read-failure.txt": "safe text candidate\n" });
+    const { error, closeLog } = await scanWithPrefixIoFailure(directory, "prefix-read-failure.txt", "readSync");
+
+    expect(error).toMatchObject({
+      code: 1,
+      stderr: expect.stringContaining("prefix-read-failure.txt:io-prefix:0"),
+    });
+    expect(error.stderr).not.toContain("simulated prefix io failure");
+    expect(closeLog).toBe("closed");
   });
 
   it("allows documented placeholders without echoing their values", async () => {
