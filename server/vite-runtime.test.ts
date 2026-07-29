@@ -29,6 +29,19 @@ const rejectStaticDevelopmentImports: Plugin = {
 };
 
 describe("Vite runtime boundary", () => {
+  it("does not follow development-only modules while bundling the production entry point", async () => {
+    await build({
+      absWorkingDir: root,
+      entryPoints: ["server/index.ts"],
+      bundle: true,
+      format: "esm",
+      packages: "external",
+      platform: "node",
+      plugins: [rejectStaticDevelopmentImports],
+      write: false,
+    });
+  });
+
   it("loads serveStatic and log without statically resolving development-only modules", async () => {
     const outputDirectory = await mkdtemp(path.join(os.tmpdir(), "politicall-vite-"));
     const outputFile = path.join(outputDirectory, "vite-runtime.mjs");
