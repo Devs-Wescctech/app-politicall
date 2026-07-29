@@ -24,6 +24,26 @@ describe("deployment configuration", () => {
     expect(dockerfile).toContain("/app/attached_assets ./attached_assets");
   });
 
+  it("builds a minimal Node 24 production image", async () => {
+    const dockerfile = await readProjectFile("Dockerfile");
+    const productionStage = dockerfile.split("FROM node:24.18.0-bookworm-slim AS production")[1];
+
+    expect(dockerfile).toMatch(/^FROM node:24\.18\.0-bookworm-slim AS builder$/m);
+    expect(productionStage).toBeDefined();
+    expect(productionStage).toContain("apt-get install -y --no-install-recommends wget tini");
+    expect(productionStage).toContain("RUN npm ci --omit=dev");
+    expect(productionStage).toContain("groupadd --gid 1001 nodejs");
+    expect(productionStage).toContain("useradd --uid 1001 --gid nodejs");
+    expect(productionStage).toContain("uploads/avatars uploads/backgrounds uploads/petitions uploads/temp");
+    expect(productionStage).toContain("chown -R 1001:1001 /app/attached_assets /app/uploads");
+    expect(productionStage).toContain('ENTRYPOINT ["/usr/bin/tini", "--"]');
+    expect(productionStage).toContain('CMD ["node", "dist/index.js"]');
+
+    for (const sourceOnlyPath of ["./client", "./vite.config.ts", "./shared", "./tsconfig.json", "./drizzle.config.ts"]) {
+      expect(productionStage).not.toContain(sourceOnlyPath);
+    }
+  });
+
   it("does not reference the missing legacy survey background", async () => {
     const page = await readProjectFile("client/src/pages/survey-landing.tsx");
 
