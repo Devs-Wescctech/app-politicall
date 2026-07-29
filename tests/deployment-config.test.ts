@@ -68,6 +68,25 @@ describe("deployment configuration", () => {
     expect(lockfile).not.toContain("package-firewall.replit.local");
   });
 
+  it("keeps runtime and build dependencies in their correct install groups", async () => {
+    const packageJson = JSON.parse(await readProjectFile("package.json"));
+
+    expect(packageJson.engines.node).toBe(">=24 <25");
+    expect(packageJson.dependencies).toMatchObject({
+      archiver: "^8.0.0",
+      exceljs: "^4.4.0",
+      googleapis: "^173.0.0",
+    });
+    expect(packageJson.devDependencies).toMatchObject({
+      "@types/archiver": "^7.0.0",
+      "tailwindcss-animate": "^1.0.7",
+      vitest: "^4.1.9",
+    });
+    expect(packageJson.dependencies).not.toHaveProperty("@types/archiver");
+    expect(packageJson.dependencies).not.toHaveProperty("tailwindcss-animate");
+    expect(packageJson.dependencies).not.toHaveProperty("vitest");
+  });
+
   it("stops database bootstrap on the first SQL error", async () => {
     const setup = await readProjectFile("scripts/setup-dev-db.ts");
     const schema = await readProjectFile("scripts/full_schema.sql");
