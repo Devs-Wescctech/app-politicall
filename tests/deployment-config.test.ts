@@ -77,14 +77,21 @@ describe("deployment configuration", () => {
       exceljs: "^4.4.0",
       googleapis: "^173.0.0",
     });
-    expect(packageJson.devDependencies).toMatchObject({
-      "@types/archiver": "^7.0.0",
-      "tailwindcss-animate": "^1.0.7",
-      vitest: "^4.1.9",
-    });
-    expect(packageJson.dependencies).not.toHaveProperty("@types/archiver");
-    expect(packageJson.dependencies).not.toHaveProperty("tailwindcss-animate");
-    expect(packageJson.dependencies).not.toHaveProperty("vitest");
+    for (const packageName of [
+      "@types/archiver",
+      "@types/bcrypt",
+      "@types/jsonwebtoken",
+      "@types/multer",
+      "@types/pdfkit",
+      "@types/pdfmake",
+      "@types/qrcode",
+      "@types/qrcode.react",
+      "tailwindcss-animate",
+      "vitest",
+    ]) {
+      expect(packageJson.devDependencies).toHaveProperty(packageName);
+      expect(packageJson.dependencies).not.toHaveProperty(packageName);
+    }
   });
 
   it("stops database bootstrap on the first SQL error", async () => {
