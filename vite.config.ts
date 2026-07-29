@@ -30,6 +30,8 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    // PDF and spreadsheet engines are lazy action-only chunks.
+    chunkSizeWarningLimit: 1400,
   },
   server: {
     fs: {

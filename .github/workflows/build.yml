@@ -27,7 +27,7 @@ jobs:
           cache: 'npm'
 
       - name: Update npm
-        run: npm install -g npm@11
+        run: npm install -g npm@latest
 
       - name: Install dependencies
         run: npm ci
@@ -51,12 +51,12 @@ jobs:
           cache: 'npm'
 
       - name: Update npm
-        run: npm install -g npm@11
+        run: npm install -g npm@latest
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Run tests
+      - name: Run automated tests
         run: npm test
 
       - name: Build application
@@ -84,7 +84,7 @@ jobs:
           cache: 'npm'
 
       - name: Update npm
-        run: npm install -g npm@11
+        run: npm install -g npm@latest
 
       - name: Install dependencies
         run: npm ci
@@ -176,7 +176,6 @@ jobs:
           format: 'sarif'
           output: 'trivy-results.sarif'
           severity: 'CRITICAL,HIGH'
-        continue-on-error: true
 
       - name: Upload Trivy scan results
         uses: github/codeql-action/upload-sarif@v3

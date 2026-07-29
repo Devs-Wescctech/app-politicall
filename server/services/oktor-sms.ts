@@ -1,3 +1,7 @@
+import { createSafeLogger } from "./safe-logger";
+
+const smsLogger = createSafeLogger("SMS");
+
 export type OktorSmsConfig = {
   endpoint?: string | null;
   account: string;
@@ -48,22 +52,8 @@ export function resolveSmsEndpoint(config: OktorSmsConfig) {
     );
   }
 
-  console.log("[SMS] endpoint host:", host);
+  smsLogger.info("endpoint resolved", { host });
   return url;
-}
-
-function maskSecret(value: string | null | undefined): string {
-  if (!value) return "(vazio)";
-  if (value.length <= 4) return "*".repeat(value.length);
-  return `${value.slice(0, 2)}${"*".repeat(Math.max(0, value.length - 4))}${value.slice(-2)}`;
-}
-
-function maskUrlForLog(url: string, rawCode: string | undefined): string {
-  if (!rawCode) return url;
-  // `code` is sent URL-encoded inside the query string, so redact the
-  // encoded form, not the raw secret value.
-  const encodedCode = encodeURIComponent(rawCode);
-  return url.split(encodedCode).join(maskSecret(rawCode));
 }
 
 export function baseParams(config: OktorSmsConfig) {
@@ -79,15 +69,21 @@ export function baseParams(config: OktorSmsConfig) {
 
 async function getText(url: string, debugParams?: Record<string, string>) {
   if (debugParams) {
-        console.log("[SMS] has account:", Boolean(debugParams.account));
-    console.log("[SMS] has code:", Boolean(debugParams.code));
-    console.log("[SMS] client:", debugParams.client || "(vazio)");
+    smsLogger.info("request params", {
+      hasAccount: Boolean(debugParams.account),
+      hasCode: Boolean(debugParams.code),
+      client: debugParams.client || "(empty)",
+      type: debugParams.type,
+      dispatch: debugParams.dispatch,
+      to: debugParams.to,
+      tipoEnvio: debugParams.tipoEnvio,
+    });
   }
 
   const response = await fetch(url);
   const text = await response.text();
 
-  console.log("[SMS] response status:", response.status);
+  smsLogger.info("response received", { status: response.status });
   // Response bodies are not logged because providers may echo credentials.
 
   if (!response.ok) {

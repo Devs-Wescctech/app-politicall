@@ -18,12 +18,13 @@ import { Plus, Calendar as CalendarIcon, Clock, Trash2, Pencil, MapPin, RefreshC
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Skeleton } from "@/components/ui/skeleton";
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, startOfWeek, endOfWeek, addMonths, subMonths, parse } from "date-fns";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, startOfWeek, endOfWeek, addMonths, subMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { SiGooglecalendar } from "react-icons/si";
 import { Link } from "wouter";
+import { buildEventDateRange } from "@/lib/event-date";
 
 const CATEGORY_CONFIG = {
   meeting: { label: "Reunião", color: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200", borderColor: "#3b82f6" },
@@ -237,21 +238,8 @@ export default function Agenda() {
 
   const handleSubmit = async (data: EventFormData) => {
     try {
-      console.log("Dados do formulário:", data);
-      
-      // Combinar data e hora para criar objetos Date
-      const [startDay, startMonth, startYear] = data.startDateStr.split('/');
-      const [startHour, startMin] = data.startTimeStr.split(':');
-      const startDate = new Date(Number(startYear), Number(startMonth) - 1, Number(startDay), Number(startHour), Number(startMin));
-
-      const [endDay, endMonth, endYear] = data.endDateStr.split('/');
-      const [endHour, endMin] = data.endTimeStr.split(':');
-      const endDate = new Date(Number(endYear), Number(endMonth) - 1, Number(endDay), Number(endHour), Number(endMin));
-
-      console.log("Datas criadas:", { startDate, endDate });
-
-      // Verificar se as datas são válidas
-      if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+      const dateRange = buildEventDateRange(data);
+      if (!dateRange) {
         toast({ 
           title: "Datas inválidas", 
           description: "Por favor, verifique as datas e horas informadas",
@@ -263,8 +251,8 @@ export default function Agenda() {
       const eventData: InsertEvent = {
         title: data.title,
         description: data.description || null,
-        startDate: startDate,  // Enviar como objeto Date
-        endDate: endDate,      // Enviar como objeto Date
+        startDate: dateRange.startDate,
+        endDate: dateRange.endDate,
         category: data.category || null,
         borderColor: data.borderColor || null,
         location: data.location || null,
@@ -272,8 +260,6 @@ export default function Agenda() {
         reminder: data.reminder || null,
         reminderMinutes: data.reminderMinutes || null,
       };
-
-      console.log("Dados a enviar:", eventData);
 
       if (editingEvent) {
         updateMutation.mutate({ id: editingEvent.id, data: eventData });

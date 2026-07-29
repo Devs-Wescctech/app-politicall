@@ -110,6 +110,11 @@ export default function LandingPage() {
   const { scrollY } = useScroll();
   const headerOpacity = useTransform(scrollY, [0, 100], [0, 0.95]);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const ctaSectionRef = useRef<HTMLElement>(null);
+  const shouldLoadCtaVideo = useInView(ctaSectionRef, {
+    once: true,
+    margin: "600px 0px",
+  });
 
   const toggleDarkMode = () => {
     const newMode = !isDarkMode;
@@ -217,7 +222,7 @@ export default function LandingPage() {
               <img src={logoUrl} alt="Politicall" className="h-8" data-testid="img-header-logo" />
             </div>
 
-            <nav className="hidden md:flex items-center gap-6">
+            <nav className="hidden lg:flex items-center gap-6">
               <button onClick={() => scrollToSection('recursos')} className={`text-sm hover:text-primary transition-colors ${!isScrolled ? 'text-white' : 'text-foreground'}`} data-testid="button-nav-recursos">
                 Recursos
               </button>
@@ -248,8 +253,11 @@ export default function LandingPage() {
             </nav>
 
             <button 
-              className={`md:hidden p-2 ${!isScrolled ? 'text-white' : 'text-foreground'}`}
+              className={`lg:hidden p-2 ${!isScrolled ? 'text-white' : 'text-foreground'}`}
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              aria-label={mobileMenuOpen ? "Fechar menu" : "Abrir menu"}
+              aria-controls="mobile-navigation"
+              aria-expanded={mobileMenuOpen}
               data-testid="button-mobile-menu"
             >
               {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
@@ -258,9 +266,10 @@ export default function LandingPage() {
 
           {mobileMenuOpen && (
             <motion.div 
+              id="mobile-navigation"
               initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="md:hidden py-4 border-t bg-background"
+              className="lg:hidden py-4 border-t bg-background"
               data-testid="mobile-menu"
             >
               <nav className="flex flex-col gap-4">
@@ -886,16 +895,20 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section className="py-24 bg-background relative overflow-hidden">
-        <video
-          autoPlay
-          loop
-          muted
-          playsInline
-          className="absolute inset-0 w-full h-full object-cover"
-        >
-          <source src={ctaBackgroundVideo} type="video/mp4" />
-        </video>
+      <section ref={ctaSectionRef} className="py-24 bg-background relative overflow-hidden">
+        {shouldLoadCtaVideo ? (
+          <video
+            autoPlay
+            loop
+            muted
+            playsInline
+            preload="metadata"
+            aria-hidden="true"
+            className="absolute inset-0 w-full h-full object-cover"
+          >
+            <source src={ctaBackgroundVideo} type="video/mp4" />
+          </video>
+        ) : null}
         <div className="absolute inset-0 bg-black/60"></div>
         <div className="container mx-auto px-4 relative z-10">
           <div className="max-w-4xl mx-auto text-center">

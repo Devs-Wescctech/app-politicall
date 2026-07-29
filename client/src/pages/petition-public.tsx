@@ -9,6 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { getPublicResourceState } from "@/lib/public-resource-state";
+import { calculateGoalProgress } from "@/lib/progress";
 import {
   Loader2, Users, Target, TrendingUp, CheckCircle2, Share2,
   MessageCircle, Facebook, Twitter, Send, Link as LinkIcon, ChevronDown, ChevronUp,
@@ -155,7 +156,7 @@ export default function PetitionPublic() {
   }
 
   const primaryColor = petition.primaryColor || "#14b8a6";
-  const progress = petition.goal > 0 ? Math.min((petition.signaturesCount / petition.goal) * 100, 100) : 0;
+  const progress = calculateGoalProgress(petition.signaturesCount, petition.goal);
   const shareUrl = `${window.location.origin}/p/${petition.slug}`;
   const shareText = petition.shareText
     ? petition.shareText.replace("{link}", shareUrl)
