@@ -2,7 +2,6 @@ type ShutdownSignal = "SIGTERM" | "SIGINT";
 
 type ShutdownServer = {
   close: (callback?: (error?: Error) => void) => unknown;
-  listening?: boolean;
 };
 
 type SignalProcess = {
@@ -30,22 +29,37 @@ export interface GracefulShutdownHandle {
   dispose: () => void;
 }
 
-function closeServer(server: ShutdownServer): Promise<void> {
-  return new Promise((resolve) => {
-    let finished = false;
-    const finish = () => {
-      if (finished) return;
-      finished = true;
-      resolve();
-    };
+function isServerNotRunningError(error: unknown): boolean {
+  return error instanceof Error
+    && (error as NodeJS.ErrnoException).code === "ERR_SERVER_NOT_RUNNING";
+}
 
+function closeServer(server: ShutdownServer): Promise<void> {
+  return new Promise((resolve, reject) => {
     try {
-      server.close(finish);
-      if (server.listening === false) finish();
-    } catch {
-      finish();
+      server.close((error) => {
+        if (!error || isServerNotRunningError(error)) {
+          resolve();
+          return;
+        }
+        reject(error);
+      });
+    } catch (error) {
+      if (isServerNotRunningError(error)) {
+        resolve();
+        return;
+      }
+      reject(error);
     }
   });
+}
+
+function runCleanup(cleanup: () => Promise<void>): Promise<void> {
+  try {
+    return Promise.resolve(cleanup());
+  } catch (error) {
+    return Promise.reject(error);
+  }
 }
 
 export function installGracefulShutdown({
@@ -71,10 +85,10 @@ export function installGracefulShutdown({
     }, timeoutMs);
 
     const closeHttp = closeServer(server);
-    const closeRealtimePromise = Promise.resolve().then(closeRealtime);
-    const closeDatabasePromise = Promise.resolve().then(closeDatabase);
+    const closeRealtimePromise = runCleanup(closeRealtime);
 
-    shutdownPromise = Promise.allSettled([closeHttp, closeRealtimePromise, closeDatabasePromise])
+    shutdownPromise = Promise.allSettled([closeHttp, closeRealtimePromise])
+      .then(() => Promise.allSettled([runCleanup(closeDatabase)]))
       .then(() => undefined)
       .finally(() => {
         if (timeout !== undefined) {

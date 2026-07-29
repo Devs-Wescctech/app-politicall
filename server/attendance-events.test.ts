@@ -10,11 +10,18 @@ vi.mock("./storage", () => ({
 }));
 
 const servers: ReturnType<typeof createServer>[] = [];
+const websocketClients: WebSocket[] = [];
 const originalSessionSecret = process.env.SESSION_SECRET;
 
 afterEach(async () => {
+  for (const client of websocketClients.splice(0)) {
+    if (client.readyState !== WebSocket.CLOSED) client.terminate();
+  }
   await closeAttendanceRealtime();
-  await Promise.all(servers.splice(0).map((server) => new Promise<void>((resolve) => server.close(() => resolve()))));
+  await Promise.all(servers.splice(0).map((server) => {
+    server.closeAllConnections();
+    return new Promise<void>((resolve) => server.close(() => resolve()));
+  }));
   vi.clearAllMocks();
   if (originalSessionSecret === undefined) {
     delete process.env.SESSION_SECRET;
@@ -55,6 +62,7 @@ describe("attendance realtime lifecycle", () => {
 
     const token = jwt.sign({ userId: "user-1", accountId: "account-1" }, sessionSecret);
     const client = new WebSocket(`ws://127.0.0.1:${address.port}/api/attendance/realtime?token=${token}`);
+    websocketClients.push(client);
     await new Promise<void>((resolve, reject) => {
       client.once("open", resolve);
       client.once("error", reject);
@@ -63,6 +71,57 @@ describe("attendance realtime lifecycle", () => {
     const closed = new Promise<void>((resolve) => client.once("close", () => resolve()));
     await closeAttendanceRealtime();
     await closed;
+
+    expect(client.readyState).toBe(WebSocket.CLOSED);
+  });
+
+  it("destroys an upgrade waiting on authentication and ignores its late result", async () => {
+    const server = createServer();
+    servers.push(server);
+    const sessionSecret = "test-session-secret";
+    process.env.SESSION_SECRET = sessionSecret;
+    let resolveUser!: (user: any) => void;
+    const pendingUser = new Promise<any>((resolve) => {
+      resolveUser = resolve;
+    });
+    let markLookupStarted!: () => void;
+    const lookupStarted = new Promise<void>((resolve) => {
+      markLookupStarted = resolve;
+    });
+    vi.mocked(storage.getUser).mockImplementation(async () => {
+      markLookupStarted();
+      return pendingUser;
+    });
+    setupAttendanceRealtime(server);
+
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const address = server.address();
+    if (!address || typeof address === "string") throw new Error("Missing test server address");
+
+    const token = jwt.sign({ userId: "user-1", accountId: "account-1" }, sessionSecret);
+    const client = new WebSocket(`ws://127.0.0.1:${address.port}/api/attendance/realtime?token=${token}`);
+    websocketClients.push(client);
+    client.on("error", () => undefined);
+    await lookupStarted;
+
+    await closeAttendanceRealtime();
+    const closedBeforeAuthenticationCompleted = await Promise.race([
+      new Promise<boolean>((resolve) => {
+        if (client.readyState === WebSocket.CLOSED) {
+          resolve(true);
+          return;
+        }
+        client.once("close", () => resolve(true));
+      }),
+      new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 500)),
+    ]);
+    resolveUser({ id: "user-1", accountId: "account-1" });
+
+    expect(closedBeforeAuthenticationCompleted).toBe(true);
+    await vi.waitFor(() => {
+      expect(client.readyState).toBe(WebSocket.CLOSED);
+    }, { timeout: 500, interval: 10 });
+    await new Promise<void>((resolve) => setImmediate(resolve));
 
     expect(client.readyState).toBe(WebSocket.CLOSED);
   });
