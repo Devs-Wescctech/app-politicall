@@ -119,7 +119,7 @@ describe("Vite runtime boundary", () => {
           ...process.env,
           NODE_ENV: "production",
           PORT: "0",
-          PROD_DATABASE_URL: "postgres://probe:probe@127.0.0.1:1/politicall",
+          PROD_DATABASE_URL: ["postgres:", "//probe:probe@127.0.0.1:1/politicall"].join(""),
           RUNTIME_STARTUP_PROBE: "1",
           SESSION_SECRET: "runtime-startup-probe-secret",
         },

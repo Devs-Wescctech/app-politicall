@@ -37,9 +37,11 @@ describe("deployment configuration", () => {
     expect(productionStage).toContain("uploads/avatars uploads/backgrounds uploads/petitions uploads/temp");
     expect(productionStage).toContain("chown -R 1001:1001 /app/attached_assets /app/uploads");
     expect(productionStage).toContain('ENTRYPOINT ["/usr/bin/tini", "--"]');
-    expect(productionStage).toContain('CMD ["node", "dist/index.js"]');
+    expect(productionStage).toContain('COPY --from=builder --chown=1001:1001 /app/migrations ./migrations');
+    expect(productionStage).toContain('COPY --from=builder --chown=1001:1001 /app/scripts/full_schema.sql ./scripts/full_schema.sql');
+    expect(productionStage).toContain('CMD ["sh", "-c", "node dist/migrate-production.js && exec node dist/index.js"]');
 
-    for (const sourceOnlyPath of ["./client", "./vite.config.ts", "./shared", "./tsconfig.json", "./drizzle.config.ts", "./migrations"]) {
+    for (const sourceOnlyPath of ["./client", "./vite.config.ts", "./shared", "./tsconfig.json", "./drizzle.config.ts"]) {
       expect(productionStage).not.toContain(sourceOnlyPath);
     }
   });
@@ -112,6 +114,15 @@ describe("deployment configuration", () => {
       expect(packageJson.devDependencies).toHaveProperty(packageName);
       expect(packageJson.dependencies).not.toHaveProperty(packageName);
     }
+  });
+
+  it("builds the locked production migration CLI alongside the application", async () => {
+    const packageJson = JSON.parse(await readProjectFile("package.json"));
+
+    expect(packageJson.scripts.build).toContain("server/index.ts");
+    expect(packageJson.scripts.build).toContain("scripts/migrate-production.ts");
+    expect(packageJson.scripts.build).toContain("--outfile=dist/index.js");
+    expect(packageJson.scripts.build).toContain("--outfile=dist/migrate-production.js");
   });
 
   it("stops database bootstrap on the first SQL error", async () => {

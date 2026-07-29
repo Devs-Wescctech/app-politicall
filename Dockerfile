@@ -32,8 +32,10 @@ RUN groupadd --gid 1001 nodejs && \
 COPY package*.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 
-# Copy only the built application and persistent bundled assets.
+# Copy the built application, deterministic production migration inputs, and persistent bundled assets.
 COPY --from=builder --chown=1001:1001 /app/dist ./dist
+COPY --from=builder --chown=1001:1001 /app/migrations ./migrations
+COPY --from=builder --chown=1001:1001 /app/scripts/full_schema.sql ./scripts/full_schema.sql
 COPY --from=builder --chown=1001:1001 /app/attached_assets ./attached_assets
 
 # Create runtime-writable upload directories with explicit ownership.
@@ -55,4 +57,4 @@ ENV NODE_ENV=production
 ENV PORT=5000
 
 ENTRYPOINT ["/usr/bin/tini", "--"]
-CMD ["node", "dist/index.js"]
+CMD ["sh", "-c", "node dist/migrate-production.js && exec node dist/index.js"]
