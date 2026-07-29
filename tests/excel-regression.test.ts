@@ -76,6 +76,42 @@ describe("Excel and archive runtime compatibility", () => {
     expect(reloadedWorksheet?.getCell("D2").value).toEqual({ formula: "B2*2", result: 84 });
   });
 
+  it("serializes an extended data bar through ExcelJS's scoped uuid dependency", async () => {
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet("Indicadores");
+    worksheet.addRows([[10], [50], [90]]);
+    worksheet.addConditionalFormatting({
+      ref: "A1:A3",
+      rules: [{
+        type: "dataBar",
+        priority: 1,
+        gradient: false,
+        color: { argb: "FF638EC6" },
+        cfvo: [
+          { type: "num", value: 0 },
+          { type: "num", value: 100 },
+        ],
+      }],
+    });
+
+    const buffer = Buffer.from(await workbook.xlsx.writeBuffer());
+    const sheetXml = (await readZipEntries(buffer)).find((entry) => entry.name === "xl/worksheets/sheet1.xml")?.content.toString();
+
+    expect(sheetXml).toContain("x14:dataBar");
+    expect(sheetXml).toMatch(/<x14:cfRule[^>]+id="\{[0-9A-F-]{36}\}"/);
+
+    const reloaded = new ExcelJS.Workbook();
+    await reloaded.xlsx.load(buffer);
+    const reloadedWorksheet = reloaded.getWorksheet("Indicadores");
+    expect(reloadedWorksheet?.getCell("A3").value).toBe(90);
+    expect(reloadedWorksheet?.conditionalFormattings).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        ref: "A1:A3",
+        rules: expect.arrayContaining([expect.objectContaining({ type: "dataBar", gradient: false })]),
+      }),
+    ]));
+  });
+
   it("writes a streaming workbook through ExcelJS's Archiver factory", async () => {
     const output = new PassThrough();
     const chunks: Buffer[] = [];
