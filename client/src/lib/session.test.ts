@@ -12,6 +12,19 @@ const DISPLAY_USER = {
   avatar: "/avatar.png",
 };
 
+const SECOND_DISPLAY_USER = {
+  ...DISPLAY_USER,
+  id: "user-2",
+  name: "Bruno Souza",
+  email: "bruno@example.test",
+};
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((done) => { resolve = done; });
+  return { promise, resolve };
+}
+
 function response(body: unknown, status = 200): Response {
   return new Response(body === undefined ? undefined : JSON.stringify(body), {
     status,
@@ -285,6 +298,93 @@ describe("cookie session client", () => {
     await expect(session.refreshSession()).resolves.toBe(true);
     expect(coordinateRefresh).toHaveBeenCalledTimes(1);
     expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("ignores a successful refresh response that arrives after logout", async () => {
+    const pendingRefresh = deferred<Response>();
+    const { dependencies, fetch, cookies, storage } = createDependencies();
+    cookies.set("politicall_csrf", "csrf-token");
+    fetch.mockImplementation(async (url) => {
+      if (url === "/api/auth/refresh") return pendingRefresh.promise;
+      if (url === "/api/auth/logout") return response(undefined, 204);
+      throw new Error(`Unexpected request: ${url}`);
+    });
+    const session = createSessionClient(dependencies);
+
+    const refreshResult = session.refreshSession();
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledWith("/api/auth/refresh", expect.anything()));
+    await session.logoutSession();
+    pendingRefresh.resolve(response({ user: DISPLAY_USER }));
+
+    await expect(refreshResult).resolves.toBe(false);
+    expect(session.getSnapshot()).toEqual({ status: "unauthenticated", user: null });
+    expect(session.getCachedUser()).toBeNull();
+    expect(storage.setItem).not.toHaveBeenCalled();
+  });
+
+  it("does not let an old refresh overwrite a newer login", async () => {
+    const pendingRefresh = deferred<Response>();
+    const { dependencies, fetch, cookies } = createDependencies();
+    cookies.set("politicall_csrf", "csrf-token");
+    fetch.mockImplementation(async (url) => {
+      if (url === "/api/auth/refresh") return pendingRefresh.promise;
+      if (url === "/api/auth/login") return response({ user: SECOND_DISPLAY_USER });
+      throw new Error(`Unexpected request: ${url}`);
+    });
+    const session = createSessionClient(dependencies);
+
+    const refreshResult = session.refreshSession();
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledWith("/api/auth/refresh", expect.anything()));
+    await session.loginSession({ email: SECOND_DISPLAY_USER.email, password: "secret" });
+    pendingRefresh.resolve(response({ user: DISPLAY_USER }));
+
+    await expect(refreshResult).resolves.toBe(false);
+    expect(session.getSnapshot()).toEqual({ status: "authenticated", user: SECOND_DISPLAY_USER });
+    expect(session.getCachedUser()).toEqual(SECOND_DISPLAY_USER);
+  });
+
+  it("does not let an old bootstrap overwrite a newer login", async () => {
+    const pendingBootstrap = deferred<Response>();
+    const { dependencies, fetch } = createDependencies();
+    fetch.mockImplementation(async (url) => {
+      if (url === "/api/auth/me") return pendingBootstrap.promise;
+      if (url === "/api/auth/login") return response({ user: SECOND_DISPLAY_USER });
+      throw new Error(`Unexpected request: ${url}`);
+    });
+    const session = createSessionClient(dependencies);
+
+    const bootstrapResult = session.bootstrap();
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledWith("/api/auth/me", { credentials: "include" }));
+    await session.loginSession({ email: SECOND_DISPLAY_USER.email, password: "secret" });
+    pendingBootstrap.resolve(response(DISPLAY_USER));
+    await bootstrapResult;
+
+    expect(session.getSnapshot()).toEqual({ status: "authenticated", user: SECOND_DISPLAY_USER });
+    expect(session.getCachedUser()).toEqual(SECOND_DISPLAY_USER);
+  });
+
+  it("does not let an old logout clear a newer login", async () => {
+    const pendingLogout = deferred<Response>();
+    const { dependencies, fetch, cookies, cleanup } = createDependencies();
+    cookies.set("politicall_csrf", "csrf-token");
+    fetch.mockResolvedValueOnce(response({ user: DISPLAY_USER }));
+    const session = createSessionClient(dependencies);
+    await session.loginSession({ email: DISPLAY_USER.email, password: "secret" });
+    fetch.mockImplementation(async (url) => {
+      if (url === "/api/auth/logout") return pendingLogout.promise;
+      if (url === "/api/auth/login") return response({ user: SECOND_DISPLAY_USER });
+      throw new Error(`Unexpected request: ${url}`);
+    });
+
+    const logoutResult = session.logoutSession();
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledWith("/api/auth/logout", expect.anything()));
+    await session.loginSession({ email: SECOND_DISPLAY_USER.email, password: "secret" });
+    pendingLogout.resolve(response(undefined, 204));
+    await logoutResult;
+
+    expect(session.getSnapshot()).toEqual({ status: "authenticated", user: SECOND_DISPLAY_USER });
+    expect(session.getCachedUser()).toEqual(SECOND_DISPLAY_USER);
+    expect(cleanup.clearQueryCache).not.toHaveBeenCalled();
   });
 
   it.each([401, 403])("falls back to refresh revocation after logout status %s and clears every cache", async (status) => {

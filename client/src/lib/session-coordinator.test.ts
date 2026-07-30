@@ -35,6 +35,31 @@ function deferred<T>() {
 }
 
 describe("cross-tab refresh coordinator", () => {
+  it("elects one owner for simultaneous refresh attempts", async () => {
+    const bus = new SharedChannelBus();
+    const firstAction = vi.fn(async () => true);
+    const secondAction = vi.fn(async () => true);
+    const first = createRefreshCoordinator({
+      channel: bus.channel("first"),
+      participantId: "first",
+      claimWindowMs: 1,
+      leaseMs: 100,
+    });
+    const second = createRefreshCoordinator({
+      channel: bus.channel("second"),
+      participantId: "second",
+      claimWindowMs: 1,
+      leaseMs: 100,
+    });
+
+    await expect(Promise.all([first.run(firstAction), second.run(secondAction)]))
+      .resolves.toEqual([true, true]);
+
+    expect(firstAction.mock.calls.length + secondAction.mock.calls.length).toBe(1);
+    first.dispose();
+    second.dispose();
+  });
+
   it("lets a late-joining tab discover the active owner and shares one refresh result", async () => {
     const bus = new SharedChannelBus();
     const ownerRefresh = deferred<boolean>();
@@ -87,6 +112,135 @@ describe("cross-tab refresh coordinator", () => {
 
     await expect(local.run(localAction)).resolves.toBe(true);
 
+    expect(localAction).toHaveBeenCalledOnce();
+    local.dispose();
+  });
+
+  it("does not resolve a current claim waiter with a stale result", async () => {
+    const bus = new SharedChannelBus();
+    const currentOwner = bus.channel("current-owner");
+    const staleOwner = bus.channel("stale-owner");
+    const localAction = vi.fn(async () => true);
+    const waiter = createRefreshCoordinator({
+      channel: bus.channel("waiter"),
+      participantId: "waiter",
+      claimWindowMs: 1,
+      leaseMs: 100,
+    });
+    const currentClaimId = "current-owner:claim:1";
+    currentOwner.postMessage({
+      protocol: "politicall-session-v2",
+      type: "owner",
+      participantId: "current-owner",
+      claimId: currentClaimId,
+      leaseUntil: Date.now() + 100,
+    });
+
+    let settled = false;
+    const result = waiter.run(localAction).then((value) => {
+      settled = true;
+      return value;
+    });
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    staleOwner.postMessage({
+      protocol: "politicall-session-v2",
+      type: "result",
+      participantId: "stale-owner",
+      claimId: "stale-owner:claim:0",
+      success: false,
+      validUntil: Date.now() + 50,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    const settledByStaleResult = settled;
+    currentOwner.postMessage({
+      protocol: "politicall-session-v2",
+      type: "result",
+      participantId: "current-owner",
+      claimId: currentClaimId,
+      success: true,
+      validUntil: Date.now() + 50,
+    });
+
+    await expect(result).resolves.toBe(true);
+    expect(settledByStaleResult).toBe(false);
+    expect(localAction).not.toHaveBeenCalled();
+    waiter.dispose();
+  });
+
+  it("ignores malformed and unknown result messages", async () => {
+    const bus = new SharedChannelBus();
+    const attacker = bus.channel("attacker");
+    const localAction = vi.fn(async () => true);
+    const local = createRefreshCoordinator({
+      channel: bus.channel("local"),
+      participantId: "local",
+      claimWindowMs: 1,
+      leaseMs: 20,
+    });
+    attacker.postMessage({
+      protocol: "politicall-session-v2",
+      type: "result",
+      participantId: "attacker",
+      claimId: "",
+      success: "yes",
+      validUntil: Number.POSITIVE_INFINITY,
+    } as unknown as RefreshCoordinationMessage);
+
+    await expect(local.run(localAction)).resolves.toBe(true);
+
+    expect(localAction).toHaveBeenCalledOnce();
+    local.dispose();
+  });
+
+  it("clamps remote leases and result validity to local bounds", async () => {
+    const bus = new SharedChannelBus();
+    const remote = bus.channel("remote");
+    const localAction = vi.fn(async () => true);
+    const local = createRefreshCoordinator({
+      channel: bus.channel("local"),
+      participantId: "local",
+      claimWindowMs: 1,
+      leaseMs: 15,
+    });
+    remote.postMessage({
+      protocol: "politicall-session-v2",
+      type: "owner",
+      participantId: "remote",
+      claimId: "remote:claim:1",
+      leaseUntil: Date.now() + 60_000,
+    });
+
+    const boundedRun = local.run(localAction);
+    const boundedResult = await Promise.race([
+      boundedRun,
+      new Promise<"timeout">((resolve) => setTimeout(() => resolve("timeout"), 100)),
+    ]);
+    if (boundedResult === "timeout") local.reset();
+    await boundedRun;
+
+    expect(boundedResult).toBe(true);
+    expect(localAction).toHaveBeenCalledOnce();
+
+    local.reset();
+    localAction.mockClear();
+    remote.postMessage({
+      protocol: "politicall-session-v2",
+      type: "owner",
+      participantId: "remote",
+      claimId: "remote:claim:2",
+      leaseUntil: Date.now() + 15,
+    });
+    remote.postMessage({
+      protocol: "politicall-session-v2",
+      type: "result",
+      participantId: "remote",
+      claimId: "remote:claim:2",
+      success: true,
+      validUntil: Date.now() + 60_000,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 70));
+
+    await expect(local.run(localAction)).resolves.toBe(true);
     expect(localAction).toHaveBeenCalledOnce();
     local.dispose();
   });

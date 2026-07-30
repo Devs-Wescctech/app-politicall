@@ -54,15 +54,19 @@ describe("tenant browser auth source gate", () => {
     const prohibited = [
       'window.localStorage.getItem("auth_token")',
       'localStorage.setItem("auth_token", token)',
+      'const TOKEN_KEY = "auth_token"; localStorage.setItem(TOKEN_KEY, token)',
       'const headers = { Authorization: `Bearer ${token}` }',
       'const headers = new Headers({ authorization: `Bearer ${token}` })',
       'headers.set("Authorization", `Bearer ${token}`)',
+      'const AUTH_HEADER = "Authorization"; headers.set(AUTH_HEADER, `Bearer ${token}`)',
       'headers["Authorization"] = `Bearer ${token}`',
       'headers.authorization = `Bearer ${token}`',
     ];
     for (const fixture of prohibited) expect(tenantCredentialViolations(fixture), fixture).not.toEqual([]);
+    expect(tenantCredentialViolations('const TOKEN_KEY = "theme"; localStorage.setItem(TOKEN_KEY, value)')).toEqual([]);
     expect(tenantCredentialViolations('const docs = "Bearer YOUR_API_KEY"')).toEqual([]);
     expect(tenantCredentialViolations('const docs = "Bearer pk_example"')).toEqual([]);
+    expect(tenantCredentialViolations('const AUTH_HEADER = "Authorization"; headers.set(AUTH_HEADER, "Bearer pk_example")')).toEqual([]);
   });
 
   it("does not persist tenant credentials or construct tenant Bearer headers outside Task 6 admin code", async () => {
