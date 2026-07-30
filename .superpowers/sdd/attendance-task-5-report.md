@@ -1,6 +1,6 @@
 # Attendance Realtime Resilience Task 5 Report
 
-Status: DONE
+Status: NEEDS_REVIEW
 
 Base: `b33d28e`
 
@@ -33,6 +33,31 @@ labels, the one persistent live region across mode rerenders, HTTP error
 precedence, retry visibility, keyboard activation, busy duplicate prevention,
 and the chat read-retry callback preserving representative messages and draft
 values without sending.
+
+## Review Remediation
+
+Independent review requested changes for three Important issues and one Minor
+issue. Remediation commit `8e496ac` addresses them:
+
+- Added `client/src/lib/attendance-detail-cache.ts` and a real
+  `QueryClient`/`QueryObserver` regression test so a normal conversation detail
+  refetch merges the newest 50 messages into the existing detail cache instead
+  of replacing loaded history or optimistic messages.
+- Updated `ChatPanel` to use the detail-cache query function for the existing
+  read-only detail fetch.
+- Replaced the false isolated retry-preservation test with tests that verify
+  the retry only calls `reconnectNow()` and `refetch()`.
+- Covered the page retry busy state through the actual `reconnecting` mode and
+  verified a later fallback releases the button for another retry.
+- Guarded the local retry state against updates after component unmount.
+
+Remediation verification:
+
+| Gate | Result |
+| --- | --- |
+| `npm test -- --run client/src/lib/attendance-detail-cache.test.ts client/src/components/attendance/connection-status.test.ts` | Passed: 2 files, 6 tests. |
+| `npm run check` | Passed. |
+| `npm test -- --run client/src/lib/attendance-detail-cache.test.ts client/src/lib/attendance-reconciliation.test.ts client/src/components/attendance/connection-status.test.ts client/src/lib/attendance-realtime-controller.test.ts client/src/lib/attendance-polling.test.ts` | Passed: 4 files, 26 tests. |
 
 ## Validation
 
