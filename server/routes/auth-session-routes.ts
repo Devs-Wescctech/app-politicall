@@ -1,4 +1,5 @@
 import bcrypt from "bcrypt";
+import { createHash } from "node:crypto";
 import type { Express, NextFunction, Request, Response } from "express";
 import { parseCookie } from "cookie";
 import { DEFAULT_PERMISSIONS, legacyAuthExchanges, type User } from "@shared/schema";
@@ -107,8 +108,30 @@ function refreshToken(request: Request, kind: "user" | "admin"): string | undefi
     : undefined;
 }
 
+function bearerToken(request: Request): string | undefined {
+  const authorization = request.headers.authorization;
+  return typeof authorization === "string" && authorization.startsWith("Bearer ") ? authorization.slice(7) : undefined;
+}
+
 function requestMetadata(request: Request) {
   return { ipMetadata: request.ip || request.socket.remoteAddress, deviceMetadata: request.get("user-agent") };
+}
+
+function limiterCredentialHash(value: string | undefined): string {
+  return createHash("sha256").update(value ?? "missing").digest("hex");
+}
+
+function requireAuthLimits(limiter: AuthenticationRateLimiter, resolveLimits: (request: Request) => Array<{ scope: string; limit: number }>) {
+  return (request: Request, response: Response, next: NextFunction) => {
+    const limits = resolveLimits(request);
+    let index = 0;
+    const applyNext = () => {
+      const current = limits[index++];
+      if (!current) return next();
+      limiter(current.scope, current.limit)(request, response, applyNext);
+    };
+    applyNext();
+  };
 }
 
 export function toAuthSessionUser(user: User): AuthSessionUser {
@@ -189,7 +212,10 @@ export function registerAuthSessionRoutes(app: Express, dependencies: AuthSessio
     });
     const csrfForAccess = requireCsrf({ kind, allowedOrigins: origins });
 
-    app.get(`${base}/csrf`, limiter(`${kind}:csrf`, 10), routeHandler(async (request, response) => {
+    app.get(`${base}/csrf`, requireAuthLimits(limiter, (request) => [
+      { scope: `${kind}:csrf:ip`, limit: 600 },
+      { scope: `${kind}:csrf:session:${limiterCredentialHash(readAccessToken(request, kind)?.sid)}`, limit: 30 },
+    ]), routeHandler(async (request, response) => {
       setNoStore(response);
       const access = readAccessToken(request, kind);
       const stored = access && await resolveAccess({ kind, sessionId: access.sid });
@@ -198,7 +224,10 @@ export function registerAuthSessionRoutes(app: Express, dependencies: AuthSessio
       response.json({ csrf: true });
     }));
 
-    app.post(`${base}/refresh`, limiter(`${kind}:refresh`, 5), csrfForRefresh, routeHandler(async (request, response) => {
+    app.post(`${base}/refresh`, requireAuthLimits(limiter, (request) => [
+      { scope: `${kind}:refresh:ip`, limit: 300 },
+      { scope: `${kind}:refresh:credential:${limiterCredentialHash(refreshToken(request, kind))}`, limit: 5 },
+    ]), csrfForRefresh, routeHandler(async (request, response) => {
       setNoStore(response);
       const token = refreshToken(request, kind);
       const result = token && await service.refresh({ kind, refreshToken: token });
@@ -209,7 +238,10 @@ export function registerAuthSessionRoutes(app: Express, dependencies: AuthSessio
       sendAuthSessionResponse(response, result);
     }));
 
-    app.delete(`${base}/refresh`, limiter(`${kind}:logout-refresh`, 5), csrfForRefresh, routeHandler(async (request, response) => {
+    app.delete(`${base}/refresh`, requireAuthLimits(limiter, (request) => [
+      { scope: `${kind}:logout-refresh:ip`, limit: 300 },
+      { scope: `${kind}:logout-refresh:credential:${limiterCredentialHash(refreshToken(request, kind))}`, limit: 5 },
+    ]), csrfForRefresh, routeHandler(async (request, response) => {
       setNoStore(response);
       const token = refreshToken(request, kind);
       if (token) await service.logoutRefresh({ kind, refreshToken: token });
@@ -217,16 +249,21 @@ export function registerAuthSessionRoutes(app: Express, dependencies: AuthSessio
       response.status(204).end();
     }));
 
-    app.post(`${base}/exchange`, limiter(`${kind}:exchange`, 3), requireExactOrigin(origins), routeHandler(async (request, response) => {
+    app.post(`${base}/exchange`, requireAuthLimits(limiter, (request) => [
+      { scope: `${kind}:exchange:ip`, limit: 300 },
+      { scope: `${kind}:exchange:credential:${limiterCredentialHash(bearerToken(request))}`, limit: 2 },
+    ]), requireExactOrigin(origins), routeHandler(async (request, response) => {
       setNoStore(response);
-      const authorization = request.headers.authorization;
-      const token = typeof authorization === "string" && authorization.startsWith("Bearer ") ? authorization.slice(7) : "";
+      const token = bearerToken(request) ?? "";
       const result = await service.exchangeLegacyBearer({ kind, token });
       if (result.status !== "exchanged") return rejectAuthentication(response);
       sendAuthSessionResponse(response, result);
     }));
 
-    app.post(`${base}/logout`, limiter(`${kind}:logout-access`, 5), csrfForAccess, routeHandler(async (request, response) => {
+    app.post(`${base}/logout`, requireAuthLimits(limiter, (request) => [
+      { scope: `${kind}:logout-access:ip`, limit: 300 },
+      { scope: `${kind}:logout-access:session:${limiterCredentialHash(readAccessToken(request, kind)?.sid)}`, limit: 5 },
+    ]), csrfForAccess, routeHandler(async (request, response) => {
       setNoStore(response);
       const access = readAccessToken(request, kind);
       if (access) await service.logoutAccess({ kind, sessionId: access.sid });

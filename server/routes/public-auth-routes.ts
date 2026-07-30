@@ -5,10 +5,10 @@ import type { AuthenticationRateLimiter } from "./auth-session-routes";
 import type { AuthSessionUser, IssuedSessionCookies } from "../services/auth-session-service";
 import { sendAuthSessionResponse } from "./auth-session-routes";
 
-const USER_REGISTRATION_ATTEMPT_LIMIT = 3;
-const USER_LOGIN_IP_ATTEMPT_LIMIT = 5;
-const USER_LOGIN_EMAIL_ATTEMPT_LIMIT = 3;
-const ADMIN_LOGIN_ATTEMPT_LIMIT = 3;
+const USER_REGISTRATION_ATTEMPT_LIMIT = 10;
+const USER_LOGIN_IP_ATTEMPT_LIMIT = 300;
+const USER_LOGIN_EMAIL_ATTEMPT_LIMIT = 5;
+const ADMIN_LOGIN_ATTEMPT_LIMIT = 10;
 
 type UserSessionResult = { user: unknown; cookies: IssuedSessionCookies };
 type AdminSessionResult = { admin: true; cookies: IssuedSessionCookies };

@@ -113,11 +113,10 @@ import { CAMPAIGN_EXPORT_FORMATS } from "@shared/schema";
 import fs from "fs";
 import path from "path";
 import { createRequire } from "module";
-import { getAdminPasswordHash, isReservedAdminSettingKey, updateAdminPasswordHash } from "./admin-credentials";
+import { getAdminPasswordHash, isReservedAdminSettingKey } from "./admin-credentials";
 import { clearSessionCookies } from "./security/auth-cookies";
-import { GLOBAL_ADMIN_PRINCIPAL_ID } from "./services/auth-session-service";
-import { revokeGlobalAdminSessions, revokeUserSessions } from "./services/auth-session-store";
 import { verifyPureLegacyGlobalAdminToken } from "./security/legacy-global-admin";
+import { createAuthPasswordMutationService } from "./services/auth-password-mutations";
 import { createAuthenticationRateLimiter, createRuntimeAuthSessionService, getAuthAllowedOrigins, registerAuthSessionRoutes, sendAuthSessionResponse, toAuthSessionUser } from "./routes/auth-session-routes";
 import { registerPublicAuthRoutes } from "./routes/public-auth-routes";
 const require = createRequire(import.meta.url);
@@ -791,6 +790,7 @@ async function seedTestCampaign() {
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const authSessionService = createRuntimeAuthSessionService();
+  const authPasswordMutations = createAuthPasswordMutationService(db);
   const authOrigins = getAuthAllowedOrigins();
   registerAuthSessionRoutes(app);
   // Seed admin user on startup
@@ -966,13 +966,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Hash new password
         const hashedPassword = await bcrypt.hash(validatedData.newPassword, 10);
         const { currentPassword, newPassword, skipPasswordCheck, ...profileData } = validatedData;
-        await db.update(users).set({ ...profileData, password: hashedPassword }).where(eq(users.id, req.userId!));
-        const updated = await storage.getUser(req.userId!);
-        if (!updated) {
-          return res.status(404).json({ error: "Usuário não encontrado" });
-        }
+        const updated = await authPasswordMutations.changeUserPassword({
+          accountId: req.accountId!,
+          userId: req.userId!,
+          passwordHash: hashedPassword,
+          userData: profileData,
+        });
         const { password, ...sanitizedUser } = updated;
-        await revokeUserSessions({ accountId: updated.accountId, userId: updated.id, reason: "password_change" });
         clearSessionCookies(res, "user");
         return res.json(sanitizedUser);
       }
@@ -1363,8 +1363,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validatedData = changePasswordSchema.parse(req.body);
       
       // Update admin password
-      await updateAdminPasswordHash(validatedData.newPassword);
-      await revokeGlobalAdminSessions({ globalAdminPrincipalId: GLOBAL_ADMIN_PRINCIPAL_ID, reason: "password_change" });
+      await authPasswordMutations.changeGlobalAdminPassword(validatedData.newPassword);
       clearSessionCookies(res, "admin");
       
       res.json({ success: true, message: "Senha alterada com sucesso" });
@@ -2328,9 +2327,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         dataToUpdate.volunteerCode = await storage.generateUniqueVolunteerCode();
       }
       
-      const updated = await storage.updateUser(req.params.id, req.accountId!, dataToUpdate);
+      const updated = validatedData.password
+        ? await authPasswordMutations.changeUserPassword({
+          accountId: currentUser.accountId,
+          userId: currentUser.id,
+          passwordHash: dataToUpdate.password,
+          userData: Object.fromEntries(Object.entries(dataToUpdate).filter(([key]) => key !== "password")),
+        })
+        : await storage.updateUser(req.params.id, req.accountId!, dataToUpdate);
       if (validatedData.password) {
-        await revokeUserSessions({ accountId: currentUser.accountId, userId: currentUser.id, reason: "password_change" });
         if (currentUser.id === req.userId) clearSessionCookies(res, "user");
       }
       // CRITICAL: Never send password hash to client

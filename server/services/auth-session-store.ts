@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { authSessions } from "@shared/schema";
 
 export type AuthSessionScope =
@@ -30,6 +30,7 @@ export type AuthSessionRecord = {
 
 export interface AuthSessionRepository {
   transaction<T>(work: (repository: AuthSessionRepository) => Promise<T>): Promise<T>;
+  lockPrincipal(scope: AuthSessionScope): Promise<void>;
   insert(session: AuthSessionRecord): Promise<AuthSessionRecord>;
   findByRefreshHash(scope: AuthSessionScope, refreshTokenHash: string): Promise<AuthSessionRecord | undefined>;
   findByRefreshHashAndKind?(kind: AuthSessionKind, refreshTokenHash: string): Promise<AuthSessionRecord | undefined>;
@@ -58,6 +59,14 @@ export const MAX_IP_METADATA_BYTES = 256;
 
 export function hashRefreshToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
+}
+
+// This key is derived only from stable principal identifiers, never credentials.
+export function principalLockKey(scope: AuthSessionScope): string {
+  const principal = scope.kind === "user"
+    ? `user:${scope.accountId}:${scope.userId}`
+    : `global_admin:${scope.globalAdminPrincipalId}`;
+  return createHash("sha256").update(`politicall:auth-session:${principal}`).digest().readBigInt64BE(0).toString();
 }
 
 function assertScope(scope: AuthSessionScope): void {
@@ -128,9 +137,16 @@ export function createAuthSessionStore(
   options: { now?: () => Date } = {},
 ) {
   const now = options.now ?? (() => new Date());
+  const withPrincipalLock = <T>(scope: AuthSessionScope, work: (transaction: AuthSessionRepository) => Promise<T>) =>
+    repository.transaction(async (transaction) => {
+      await transaction.lockPrincipal(scope);
+      return work(transaction);
+    });
+
   return {
     async createSession(input: CreateSessionInput): Promise<AuthSessionRecord> {
-      return repository.insert(buildSession(input, { now: now() }));
+      assertScope(input.scope);
+      return withPrincipalLock(input.scope, (transaction) => transaction.insert(buildSession(input, { now: now() })));
     },
 
     async findRefreshSession(input: { scope: AuthSessionScope; refreshToken: string }) {
@@ -153,11 +169,14 @@ export function createAuthSessionStore(
       const rotationNow = now();
       assertBounded(input.refreshToken, MAX_REFRESH_TOKEN_BYTES, "refreshToken");
       assertBounded(input.nextRefreshToken, MAX_REFRESH_TOKEN_BYTES, "refreshToken");
-      return repository.transaction(async (transaction) => {
+      const observed = await repository.findByRefreshHashAndKind?.(kind, hashRefreshToken(input.refreshToken));
+      const observedScope = observed && scopeFromRecord(observed);
+      if (!observedScope) return { status: "missing" as const };
+      return withPrincipalLock(observedScope, async (transaction) => {
         const source = await transaction.findByRefreshHashAndKind?.(kind, hashRefreshToken(input.refreshToken));
         if (!source) return { status: "missing" as const };
         const scope = scopeFromRecord(source);
-        if (!scope) return { status: "missing" as const };
+        if (!scope || principalLockKey(scope) !== principalLockKey(observedScope)) return { status: "missing" as const };
         if (source.revokedAt) {
           await transaction.revokeByFamily(scope, source.familyId, "reuse_detected", rotationNow);
           return { status: "reuse_detected" as const };
@@ -184,9 +203,16 @@ export function createAuthSessionStore(
 
     async revokeSessionById(input: { kind: "user" | "admin"; sessionId: string; reason: string; now?: Date }) {
       const kind: AuthSessionKind = input.kind === "user" ? "user" : "global_admin";
-      const session = await repository.findByIdAndKind?.(kind, input.sessionId);
-      const scope = session && scopeFromRecord(session);
-      return scope ? repository.revokeById(scope, input.sessionId, input.reason, input.now ?? now()) : 0;
+      const observed = await repository.findByIdAndKind?.(kind, input.sessionId);
+      const observedScope = observed && scopeFromRecord(observed);
+      if (!observedScope) return 0;
+      return withPrincipalLock(observedScope, async (transaction) => {
+        const session = await transaction.findByIdAndKind?.(kind, input.sessionId);
+        const scope = session && scopeFromRecord(session);
+        return scope && principalLockKey(scope) === principalLockKey(observedScope)
+          ? transaction.revokeByFamily(scope, session.familyId, input.reason, input.now ?? now())
+          : 0;
+      });
     },
 
     async resolveAccessSession(input: { kind: "user" | "admin"; sessionId: string }) {
@@ -197,22 +223,30 @@ export function createAuthSessionStore(
 
     async revokeSession(input: { scope: AuthSessionScope; sessionId: string; reason: string; now?: Date }) {
       assertScope(input.scope);
-      return repository.revokeById(input.scope, input.sessionId, input.reason, input.now ?? now());
+      return withPrincipalLock(input.scope, async (transaction) => {
+        const kind: AuthSessionKind = input.scope.kind === "user" ? "user" : "global_admin";
+        const session = await transaction.findByIdAndKind?.(kind, input.sessionId);
+        if (!session || session.familyId.length === 0 || !scopeFromRecord(session)
+          || principalLockKey(scopeFromRecord(session)!) !== principalLockKey(input.scope)) return 0;
+        return transaction.revokeByFamily(input.scope, session.familyId, input.reason, input.now ?? now());
+      });
     },
 
     async revokeSessionFamily(input: { scope: AuthSessionScope; familyId: string; reason: string; now?: Date }) {
       assertScope(input.scope);
-      return repository.revokeByFamily(input.scope, input.familyId, input.reason, input.now ?? now());
+      return withPrincipalLock(input.scope, (transaction) => transaction.revokeByFamily(input.scope, input.familyId, input.reason, input.now ?? now()));
     },
 
     async revokeUserSessions(input: { accountId: string; userId: string; reason: string; now?: Date }) {
       if (!input.accountId || !input.userId) throw new Error("Tenant session revocation requires accountId and userId");
-      return repository.revokeByUser(input.accountId, input.userId, input.reason, input.now ?? now());
+      const scope: AuthSessionScope = { kind: "user", accountId: input.accountId, userId: input.userId };
+      return withPrincipalLock(scope, (transaction) => transaction.revokeByUser(input.accountId, input.userId, input.reason, input.now ?? now()));
     },
 
     async revokeGlobalAdminSessions(input: { globalAdminPrincipalId: string; reason: string; now?: Date }) {
       if (!input.globalAdminPrincipalId) throw new Error("Global-admin session revocation requires an explicit principal");
-      return repository.revokeByGlobalAdmin(input.globalAdminPrincipalId, input.reason, input.now ?? now());
+      const scope: AuthSessionScope = { kind: "global_admin", globalAdminPrincipalId: input.globalAdminPrincipalId };
+      return withPrincipalLock(scope, (transaction) => transaction.revokeByGlobalAdmin(input.globalAdminPrincipalId, input.reason, input.now ?? now()));
     },
   };
 }
@@ -244,6 +278,10 @@ export function createDrizzleAuthSessionRepository(database: any): AuthSessionRe
   const repository: AuthSessionRepository = {
     async transaction<T>(work: (transaction: AuthSessionRepository) => Promise<T>): Promise<T> {
       return database.transaction(async (transaction: any) => work(createDrizzleAuthSessionRepository(transaction)));
+    },
+
+    async lockPrincipal(scope) {
+      await database.execute(sql`SELECT pg_advisory_xact_lock(${principalLockKey(scope)}::bigint)`);
     },
 
     async insert(session) {

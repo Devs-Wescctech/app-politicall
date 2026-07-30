@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import jwt, { type JwtPayload } from "jsonwebtoken";
 import type { UserPermissions } from "@shared/schema";
 import { GLOBAL_ADMIN_REFRESH_SESSION_MAX_AGE_MS, USER_REFRESH_SESSION_MAX_AGE_MS, type AuthSessionRecord, type AuthSessionScope } from "./auth-session-store";
+import { isPureLegacyGlobalAdminClaims } from "../security/legacy-global-admin";
 
 export const GLOBAL_ADMIN_PRINCIPAL_ID = "politicall:global-admin";
 export type BrowserSessionKind = "user" | "admin";
@@ -115,7 +116,7 @@ export function createAuthSessionService(dependencies: AuthSessionServiceDepende
       const claims = legacyClaims(input.token);
       if (!claims) return { status: "invalid" as const };
       if (input.kind === "admin") {
-        if (claims.isAdmin !== true || claims.userId !== undefined || claims.accountId !== undefined) return { status: "invalid" as const };
+        if (!isPureLegacyGlobalAdminClaims(claims)) return { status: "invalid" as const };
         if (!(await dependencies.legacyExchangeStore.claim({ tokenHash: createHash("sha256").update(input.token).digest("hex"), expiresAt: new Date(claims.exp! * 1000) }))) return { status: "invalid" as const };
         return { status: "exchanged" as const, ...(await issueAdminSession()) };
       }
