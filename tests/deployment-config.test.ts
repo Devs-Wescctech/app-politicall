@@ -623,6 +623,8 @@ describe("deployment configuration", () => {
       "docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2",
       "docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf",
       "aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25",
+      "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+      "actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c",
     ];
 
     expect(workflow).toContain("NODE_VERSION: '24.18.0'");
@@ -640,10 +642,13 @@ describe("deployment configuration", () => {
     const build = workflowJob(workflow, "build");
     const security = workflowJob(workflow, "security");
     const docker = workflowJob(workflow, "docker");
+    const publish = workflowJob(workflow, "publish");
 
     expect(workflow).toMatch(/^permissions:\n  contents: read$/m);
     expect(build).toContain("postgres:");
-    expect(build).toContain("image: postgres:16");
+    expect(build).toMatch(
+      /image: postgres:16@sha256:33f923b05f64ca54ac4401c01126a6b92afe839a0aa0a52bc5aeb5cc958e5f20\s+# reviewed 2026-07-29/,
+    );
     expect(build).toContain("ports: [5432:5432]");
     expect(build).toContain("pg_isready");
     expect(build).toContain("POSTGRES_PASSWORD: ${{ github.run_id }}");
@@ -657,21 +662,37 @@ describe("deployment configuration", () => {
     expect(docker).toContain("needs: [typecheck, build, security]");
     expect(docker).toContain("github.event_name == 'push'");
     expect(docker).toContain("github.ref == 'refs/heads/main'");
-    expect(docker).toMatch(/permissions:\n      contents: read\n      packages: write/);
+    expect(docker).toMatch(/permissions:\n      contents: read\n    outputs:/);
+    expect(docker).not.toContain("packages: write");
+    expect(docker).not.toContain("docker/login-action");
+    expect(docker).not.toContain("docker push");
     expect(docker).not.toContain("security-events:");
+    expect(publish).toContain("needs: docker");
+    expect(publish).toContain("github.event_name == 'push'");
+    expect(publish).toContain("github.ref == 'refs/heads/main'");
+    expect(publish).toMatch(/permissions:\n      packages: write\n    env:/);
+    expect(publish).not.toContain("contents:");
+    expect(workflow.match(/packages: write/g)).toHaveLength(1);
   });
 
-  it("keeps pull requests unauthenticated and publishes only one scanned SHA-tagged local candidate", async () => {
+  it("transfers exactly one scanned SHA-tagged candidate to the isolated publish job", async () => {
     const [workflow, compose, portainer] = await Promise.all([
       readProjectFile(".github/workflows/build.yml"),
       readProjectFile("docker-compose.yml"),
       readProjectFile("docs/deployment/portainer-production.md"),
     ]);
     const docker = workflowJob(workflow, "docker");
+    const publish = workflowJob(workflow, "publish");
     const buildCandidate = workflowStep(docker, "Build local Docker candidate");
     const trivy = workflowStep(docker, "Scan local Docker candidate with Trivy");
-    const login = workflowStep(docker, "Login to GitHub Container Registry");
-    const push = workflowStep(docker, "Push scanned Docker candidate");
+    const archive = workflowStep(docker, "Archive scanned Docker candidate");
+    const upload = workflowStep(docker, "Upload scanned Docker candidate");
+    const download = workflowStep(publish, "Download scanned Docker candidate");
+    const checksum = workflowStep(publish, "Verify scanned Docker archive checksum");
+    const load = workflowStep(publish, "Load scanned Docker candidate");
+    const tag = workflowStep(publish, "Verify loaded Docker tag");
+    const login = workflowStep(publish, "Login to GitHub Container Registry");
+    const push = workflowStep(publish, "Push scanned Docker candidate");
     const buildAction = "docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf";
 
     expect(docker).toContain("tr '[:upper:]' '[:lower:]'");
@@ -684,18 +705,59 @@ describe("deployment configuration", () => {
     expect(trivy).toContain("severity: HIGH,CRITICAL");
     expect(trivy).toContain("exit-code: '1'");
     expect(trivy).not.toContain("version: latest");
-    expectTextInOrder(docker, [buildCandidate, trivy, login, push]);
-    expect([...docker.matchAll(new RegExp(buildAction.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g"))]).toHaveLength(1);
-    expect(docker).toContain('docker push "$IMAGE_REFERENCE"');
-    expect(docker).toContain("docker buildx imagetools inspect");
-    expect(docker).toContain("$GITHUB_STEP_SUMMARY");
-    expect(workflowJob(workflow, "typecheck")).not.toContain("docker/login-action");
+    expect(archive).toContain('docker save "$IMAGE_REFERENCE" | gzip');
+    expect(archive).toContain("sha256sum");
+    expect(archive).toContain('echo "sha256=$archive_sha256" >> "$GITHUB_OUTPUT"');
+    expect(upload).toContain(
+      "uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1",
+    );
+    expect(upload).toContain("retention-days: 1");
+    expect(upload).toContain("compression-level: 0");
+    expectTextInOrder(docker, [buildCandidate, trivy, archive, upload]);
+    expect(workflow.match(new RegExp(buildAction.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g"))).toHaveLength(1);
+    expect(docker).toContain("image_reference: ${{ steps.image.outputs.reference }}");
+    expect(docker).toContain("archive_sha256: ${{ steps.archive.outputs.sha256 }}");
+    expect(download).toContain(
+      "uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1",
+    );
+    expect(checksum).toContain("${{ needs.docker.outputs.archive_sha256 }}");
+    expect(checksum).toContain("sha256sum");
+    expect(checksum).toContain("actual_archive_sha256");
+    expect(checksum).toContain("exit 1");
+    expect(load).toContain("set -euo pipefail");
+    expect(load).toContain("docker load");
+    expect(tag).toContain('docker image inspect "$IMAGE_REFERENCE"');
+    expectTextInOrder(publish, [download, checksum, load, tag, login, push]);
+    expect(publish).toContain("IMAGE_REFERENCE: ${{ needs.docker.outputs.image_reference }}");
+    expect(publish).not.toContain("actions/checkout");
+    expect(publish).not.toContain("docker/build-push-action");
+    expect(publish).not.toContain("trivy-action");
+    expect(actionReferences(publish).filter((reference) => !reference.startsWith("actions/"))).toEqual([
+      "docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2",
+    ]);
     expect(buildCandidate).not.toContain("latest");
-    expect(docker).not.toMatch(/:latest\b|type=ref|type=semver/);
+    expect(`${docker}\n${publish}`).not.toMatch(/:latest\b|type=ref|type=semver/);
     expect(syntheticShaTagReference).toMatch(/:sha-[0-9a-f]{40}$/);
     expect(syntheticShaTagReference).toMatch(immutableImageReference);
     expect(compose).toContain('image: "${IMAGE_REFERENCE:?required}"');
     expect(portainer).toContain("ghcr.io/<org>/<app>:sha-<commit>");
+  });
+
+  it("publishes only after fail-closed checksum, tag, and push-digest validation", async () => {
+    const workflow = await readProjectFile(".github/workflows/build.yml");
+    const docker = workflowJob(workflow, "docker");
+    const publish = workflowJob(workflow, "publish");
+    const push = workflowStep(publish, "Push scanned Docker candidate");
+
+    expect(docker).toContain("if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}");
+    expect(publish).toContain("if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}");
+    expect(push).toContain('docker push "$IMAGE_REFERENCE"');
+    expect(push).toContain("sha256:[0-9a-f]{64}");
+    expect(push).toContain('digest="${BASH_REMATCH[1]}"');
+    expect(push).toContain("exit 1");
+    expect(push).toContain("${repository}@${digest}");
+    expect(push).toContain("$GITHUB_STEP_SUMMARY");
+    expect(publish).not.toContain("imagetools inspect");
   });
 
   it("configures bounded weekly Dependabot updates for npm and GitHub Actions", async () => {
