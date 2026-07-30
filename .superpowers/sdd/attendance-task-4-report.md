@@ -36,3 +36,31 @@ The executable lifecycle tests cover the interval table, initial hidden/offline 
 ## Concerns
 
 - No residual implementation concern identified. The two skipped full-suite tests were pre-existing environment-gated skips.
+
+## Review 1 Remediation
+
+Review contract: `.superpowers/sdd/attendance-task-4-review-1.md`
+
+- `start()` now compares its construction-time snapshot with the recaptured browser state, installs listeners, marks the lifecycle active, and publishes exactly one update only when that snapshot changed.
+- Recapture remains free of recovery invalidation, including initial mount and start-after-stop.
+- New executable regressions cover the construction-to-start online/visibility race, repeated `start()`, start-after-stop, and a Strict Mode style mount/unmount/remount lifecycle.
+
+| Stage | Commit | Command | Result |
+| --- | --- | --- | --- |
+| Review 1 RED | `3aec7d7` | `npm test -- client/src/lib/attendance-polling.test.ts` | Failed as intended: the recaptured `offline/hidden` snapshot did not notify the subscriber. |
+| Review 1 GREEN | `9b73eb8` | `npm test -- client/src/lib/attendance-polling.test.ts` | Passed: 1 file, 13 tests. |
+
+### Review 1 Validation
+
+| Gate | Result |
+| --- | --- |
+| Focused Tasks 1-4 and attendance lane/layout tests | Passed: 9 files, 99 tests. |
+| `npm test` | Passed: 89 files, 2 skipped; 702 tests, 2 skipped. |
+| `npm run check` | Passed. |
+| `npm run build` | Passed. |
+| `npm run security:secrets` | Passed. |
+| `npm audit --omit=dev --audit-level=high` | Passed: 0 vulnerabilities. |
+
+## Review Status
+
+Review 1 remediation is implemented and awaiting re-review. This report does not mark Task 4 approved.
