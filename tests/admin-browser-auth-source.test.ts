@@ -235,19 +235,20 @@ describe("admin browser credential source gate", () => {
     expect(adminCredentialViolations('localStorage["setItem"]("theme", value)')).toEqual([]);
     expect(adminCredentialViolations('<p>Authorization</p>')).toEqual([]);
     const locawebSource = 'const config = { locawebAuthHeader: "Authorization" }';
-    const locawebPath = "components/admin/AdminIntegrationsDialog.tsx";
-    expect(adminCredentialViolations(locawebSource, locawebPath)).toEqual([]);
     for (const fixture of [
-      `${locawebSource}; fetch('/api/admin/users', { headers: [[config.locawebAuthHeader, token]] })`,
-      `${locawebSource}; fetch('/api/admin/users', { headers: [[config["locawebAuthHeader"], token]] })`,
-      `${locawebSource}; const alias = config; fetch('/api/admin/users', { headers: [[alias.locawebAuthHeader, token]] })`,
-    ]) expect(adminCredentialViolations(fixture, locawebPath), fixture).not.toEqual([]);
+      locawebSource,
+      `${locawebSource}; const { locawebAuthHeader } = config; fetch('/api/admin/users', { headers: [[locawebAuthHeader, token]] })`,
+      `${locawebSource}; const { locawebAuthHeader, ...rest } = config; fetch('/api/admin/users', { headers: [[rest.locawebAuthHeader, token]] })`,
+      `${locawebSource}; const clone = { ...config }; fetch('/api/admin/users', { headers: [[clone.locawebAuthHeader, token]] })`,
+    ]) expect(adminCredentialViolations(fixture), fixture).not.toEqual([]);
   });
 
   it("rejects browser credential storage, X-Admin-Token, and first-party Bearer construction globally", () => {
     const sources = files(clientRoot).map((file) => ({ relative: path.relative(clientRoot, file).replaceAll("\\", "/"), source: fs.readFileSync(file, "utf8") }));
     const violations = sources.flatMap((file) => adminCredentialViolations(file.source, file.relative).map((violation) => `${file.relative}:${violation}`));
     expect(violations).toEqual([]);
+    expect(fs.readFileSync(path.join(clientRoot, "components/admin/AdminIntegrationsDialog.tsx"), "utf8"))
+      .not.toContain("locawebAuthHeader:");
   });
 
   it("requires authenticated-only admin queries, neutral guards, async login probing, and non-authoritative impersonation payloads", () => {
