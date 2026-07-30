@@ -59,12 +59,28 @@ Remediation verification:
 | `npm run check` | Passed. |
 | `npm test -- --run client/src/lib/attendance-detail-cache.test.ts client/src/lib/attendance-reconciliation.test.ts client/src/components/attendance/connection-status.test.ts client/src/lib/attendance-realtime-controller.test.ts client/src/lib/attendance-polling.test.ts` | Passed: 4 files, 26 tests. |
 
+Second re-review found the page-level retry busy state was still only present
+in the component test harness. Commit `5fe836a` wired
+`retryInProgress={mode === "reconnecting"}` into the real `AttendancePage`,
+added a regression guard for that page wiring, optimized the global admin
+browser credential source scan to use one TypeScript program for the client
+tree, and gave the runtime startup probe/source scan explicit time budgets so
+the full suite remains stable under load without relaxing assertions.
+
+Second remediation verification:
+
+| Gate | Result |
+| --- | --- |
+| `npm test -- --run client/src/pages/attendance-new-conversation-layout.test.ts client/src/components/attendance/connection-status.test.ts client/src/lib/attendance-detail-cache.test.ts` | Passed: 3 files, 8 tests. |
+| `npm run check` | Passed. |
+| `npm test` | Passed: 91 files, 2 skipped; 709 tests, 2 skipped. |
+
 ## Validation
 
 | Gate | Result |
 | --- | --- |
 | Focused Tasks 1-5 and attendance layout tests | Passed: 6 files, 59 tests. |
-| `npm test` | Passed: 90 files, 2 skipped; 706 tests, 2 skipped. |
+| `npm test` | Passed after second remediation: 91 files, 2 skipped; 709 tests, 2 skipped. |
 | `npm run check` | Passed. |
 | `npm run build` | Passed. |
 | `npm run security:secrets` | Passed. |
