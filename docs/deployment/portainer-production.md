@@ -41,7 +41,23 @@ Set these environment variables in Portainer, not in a committed `.env` file:
 | `ADMIN_MASTER_PASSWORD_HASH` | Required bcrypt password hash. |
 | `TRUST_PROXY` | Number of trusted proxy hops for the deployed Nginx topology. |
 | `ENABLE_BEARER_AUTH` | Keep `false`; temporary browser Bearer fallback is disabled by default. |
+| `ENABLE_BEARER_EXCHANGE` | Keep `false`; enable only for a short audited legacy browser-session migration window. |
 | `OKTOR_SMS_*` | Optional integration values; leave unset when SMS is not enabled. |
+
+## Authentication Rollout
+
+Deploy cookie-only first. The current browser contract uses host-only HttpOnly session cookies, readable CSRF cookies, exact `PUBLIC_APP_URL` origin validation, and `x-csrf-token` on authenticated mutations. `ENABLE_BEARER_AUTH=false` keeps legacy browser Bearer authentication disabled, and `ENABLE_BEARER_EXCHANGE=false` keeps the one-time exchange endpoint closed.
+
+Required checks before reopening traffic:
+
+1. Confirm `PUBLIC_APP_URL` exactly matches the HTTPS public origin.
+2. Rotate `SESSION_SECRET`, `DATA_ENCRYPTION_KEY`, and `ADMIN_MASTER_PASSWORD_HASH` before production sign-off. If any previous value was exposed outside the secret manager, revoke or purge it before a public Git/GHCR release.
+3. Login as a tenant user and verify dashboard, refresh, logout, and one mutating request with CSRF.
+4. Login as global admin and verify `/api/admin/verify`, impersonation, admin logout, and tenant logout.
+5. Confirm browser storage contains no tenant/admin credential values; only non-authoritative UI preferences such as theme or impersonation display state may remain.
+6. Confirm cookies include `HttpOnly` for access/refresh cookies, `SameSite=Lax`, and `Secure` over HTTPS.
+
+If the deployment must preserve old browser sessions, enable only `ENABLE_BEARER_EXCHANGE=true` for a short maintenance window while keeping `ENABLE_BEARER_AUTH=false`. Validate `/api/auth/exchange` and `/api/admin/auth/exchange` from the approved origin, confirm cookies are issued, then disable `ENABLE_BEARER_EXCHANGE` again and repeat the login/refresh/logout smoke checks. Do not leave exchange enabled as a normal production mode.
 
 ## Data Key Rotation
 

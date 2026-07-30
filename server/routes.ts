@@ -116,12 +116,15 @@ import fs from "fs";
 import path from "path";
 import { createRequire } from "module";
 import { getAdminPasswordHash, isReservedAdminSettingKey } from "./admin-credentials";
-import { clearSessionCookies } from "./security/auth-cookies";
+import { clearSessionCookies, createRefreshToken, issueAccessToken } from "./security/auth-cookies";
+import { issueCsrfToken } from "./security/csrf";
 import { assertAccountScopedTarget, createAuthPasswordMutationService } from "./services/auth-password-mutations";
 import { locawebConfigFromIntegration } from "./services/locaweb-config";
 import { createAuthenticationRateLimiter, createRuntimeAuthSessionService, getAuthAllowedOrigins, registerAuthSessionRoutes, sendAuthSessionResponse, toAuthSessionUser } from "./routes/auth-session-routes";
 import { registerPublicAuthRoutes } from "./routes/public-auth-routes";
 import { registerProfileRoute } from "./routes/profile-route";
+import { createAuthSessionService } from "./services/auth-session-service";
+import { createAuthSessionStore, createDrizzleAuthSessionRepository } from "./services/auth-session-store";
 const require = createRequire(import.meta.url);
 
 // Sensitive integration fields that must never be returned in plaintext.
@@ -766,10 +769,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
     allowedOrigins: authOrigins,
     limiter: authAttemptLimiter,
     storage,
+    registerUserSession: (input) => db.transaction(async (tx: any) => {
+      const [account] = await tx.insert(accounts).values(input.account).returning();
+      const [user] = await tx.insert(users).values([{ ...input.user, accountId: account.id }]).returning();
+      const transactionalAuthSessionStore = createAuthSessionStore(createDrizzleAuthSessionRepository(tx));
+      const transactionalAuthSessionService = createAuthSessionService({
+        users: {
+          findByEmail: async (email) => {
+            const [stored] = await tx.select().from(users).where(eq(users.email, email));
+            return stored ? toAuthSessionUser(stored) : undefined;
+          },
+          findByIdAndAccount: async (userId, accountId) => {
+            const [stored] = await tx.select().from(users).where(and(eq(users.id, userId), eq(users.accountId, accountId)));
+            return stored ? toAuthSessionUser(stored) : undefined;
+          },
+        },
+        verifyPassword: bcrypt.compare,
+        getAdminPasswordHash,
+        sessionStore: {
+          createSession: transactionalAuthSessionStore.createSession,
+          resolveRefreshSession: transactionalAuthSessionStore.resolveRefreshSession,
+          rotateRefreshSession: transactionalAuthSessionStore.rotateRefreshSession,
+          revokeSession: transactionalAuthSessionStore.revokeSessionById,
+          revokeSessionFamily: transactionalAuthSessionStore.revokeSessionFamily,
+          revokeUserSessions: transactionalAuthSessionStore.revokeUserSessions,
+        },
+        legacyExchangeStore: {
+          async claim() {
+            throw new Error("Legacy exchange is not part of registration");
+          },
+        },
+        createRefreshToken,
+        issueAccessToken,
+        issueCsrfToken,
+      });
+      return transactionalAuthSessionService.issueUserSession(toAuthSessionUser(user), input.session);
+    }),
     authSessionService,
     hashPassword: bcrypt.hash,
     generateSlug: generateSlugFromName,
-    toAuthSessionUser,
   });
 
   // Get current authenticated user (with fresh role from database)

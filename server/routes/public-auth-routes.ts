@@ -1,8 +1,7 @@
 import type { Express, Request, Response } from "express";
-import { DEFAULT_PERMISSIONS, insertUserSchema, loginSchema, type User } from "@shared/schema";
-import type { IStorage } from "../storage";
+import { DEFAULT_PERMISSIONS, insertUserSchema, loginSchema, type InsertUser, type User } from "@shared/schema";
 import type { AuthenticationRateLimiter } from "./auth-session-routes";
-import type { AuthSessionUser, IssuedSessionCookies } from "../services/auth-session-service";
+import type { IssuedSessionCookies } from "../services/auth-session-service";
 import { sendAuthSessionResponse } from "./auth-session-routes";
 
 const USER_REGISTRATION_ATTEMPT_LIMIT = 10;
@@ -12,24 +11,26 @@ const ADMIN_LOGIN_ATTEMPT_LIMIT = 10;
 
 type UserSessionResult = { user: unknown; cookies: IssuedSessionCookies };
 type AdminSessionResult = { admin: true; cookies: IssuedSessionCookies };
+type RegistrationSessionInput = {
+  account: { name: string; salesperson?: string | null; planValue?: string | null };
+  user: InsertUser;
+  session: { deviceMetadata?: string; ipMetadata?: string };
+};
 
 export type PublicAuthRouteDependencies = {
   allowedOrigins: readonly string[];
   limiter: AuthenticationRateLimiter;
   storage: {
     getUserByEmail(email: string): Promise<User | undefined>;
-    createAccount(input: { name: string; salesperson?: string | null; planValue?: string | null }): Promise<{ id: string }>;
     findAvailableSlug(baseSlug: string): Promise<string>;
-    createUser(input: Parameters<IStorage["createUser"]>[0]): Promise<User>;
   };
+  registerUserSession(input: RegistrationSessionInput): Promise<UserSessionResult>;
   authSessionService: {
-    issueUserSession(user: AuthSessionUser, options: { deviceMetadata?: string; ipMetadata?: string }): Promise<UserSessionResult>;
     loginUser(input: { email: string; password: string; deviceMetadata?: string; ipMetadata?: string }): Promise<UserSessionResult | undefined>;
     loginAdmin(input: { password: string; deviceMetadata?: string; ipMetadata?: string }): Promise<AdminSessionResult | undefined>;
   };
   hashPassword(password: string, rounds: number): Promise<string>;
   generateSlug(name: string): string;
-  toAuthSessionUser(user: User): AuthSessionUser;
 };
 
 function setNoStore(response: Response): void {
@@ -69,22 +70,21 @@ export function registerPublicAuthRoutes(app: Express, dependencies: PublicAuthR
       if (!rateLimit(dependencies.limiter, "credential:registration:ip", USER_REGISTRATION_ATTEMPT_LIMIT, request, response)) return;
       const validatedData = insertUserSchema.parse(request.body);
       if (await dependencies.storage.getUserByEmail(validatedData.email)) return rejectAuthentication(response);
-      const account = await dependencies.storage.createAccount({
+      const account = {
         name: validatedData.name || validatedData.email,
         salesperson: request.body.salesperson || null,
         planValue: request.body.planValue || null,
-      });
-      const user = await dependencies.storage.createUser({
+      };
+      const user = {
         ...validatedData,
         password: await dependencies.hashPassword(validatedData.password, 10),
-        accountId: account.id,
         role: "admin",
         permissions: validatedData.permissions || DEFAULT_PERMISSIONS.admin,
         partyId: undefined,
         avatar: undefined,
         slug: await dependencies.storage.findAvailableSlug(dependencies.generateSlug(validatedData.name)),
-      } as Parameters<IStorage["createUser"]>[0]);
-      sendAuthSessionResponse(response, await dependencies.authSessionService.issueUserSession(dependencies.toAuthSessionUser(user), requestMetadata(request)));
+      } as InsertUser;
+      sendAuthSessionResponse(response, await dependencies.registerUserSession({ account, user, session: requestMetadata(request) }));
     } catch {
       rejectAuthentication(response, 400);
     }

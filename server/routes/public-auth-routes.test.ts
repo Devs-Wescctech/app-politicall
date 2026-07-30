@@ -17,18 +17,15 @@ function dependencies(overrides: Record<string, unknown> = {}) {
     limiter: createAuthenticationRateLimiter(),
     storage: {
       getUserByEmail: vi.fn(async () => undefined),
-      createAccount: vi.fn(async () => ({ id: "account-a" })),
       findAvailableSlug: vi.fn(async () => "user"),
-      createUser: vi.fn(async () => user),
     },
+    registerUserSession: vi.fn(async () => issuedUser),
     authSessionService: {
-      issueUserSession: vi.fn(async () => issuedUser),
       loginUser: vi.fn(async () => issuedUser),
       loginAdmin: vi.fn(async () => issuedAdmin),
     },
     hashPassword: vi.fn(async () => "hash"),
     generateSlug: (name: string) => name.toLowerCase(),
-    toAuthSessionUser: (stored: typeof user) => stored,
     ...overrides,
   };
 }
@@ -60,8 +57,37 @@ describe("public credential auth routes", () => {
 
     expect(responses.map((response) => response.status)).toEqual([...Array(10).fill(200), 429]);
     expect(started.dependencies.hashPassword).toHaveBeenCalledTimes(10);
-    expect(started.dependencies.storage.createAccount).toHaveBeenCalledTimes(10);
+    expect(started.dependencies.registerUserSession).toHaveBeenCalledTimes(10);
     expect(responses[10].headers.get("cache-control")).toBe("no-store");
+  });
+
+  it("uses one registration operation so account, user, and initial session can roll back together", async () => {
+    const attempts: Array<{ accountCommitted: boolean; userCommitted: boolean }> = [];
+    const registerUserSession = vi.fn(async () => {
+      const attempt = { accountCommitted: false, userCommitted: false };
+      attempts.push(attempt);
+      attempt.accountCommitted = true;
+      attempt.userCommitted = true;
+      attempt.accountCommitted = false;
+      attempt.userCommitted = false;
+      throw new Error("session insert failed");
+    });
+    const started = await start({ registerUserSession }); active = started.server;
+
+    const response = await fetch(`${active.baseUrl}/api/auth/register`, {
+      method: "POST",
+      headers: { Origin: origin, "content-type": "application/json" },
+      body: JSON.stringify(registration("rollback@example.test")),
+    });
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: "Authentication failed" });
+    expect(registerUserSession).toHaveBeenCalledWith(expect.objectContaining({
+      account: expect.objectContaining({ name: "User" }),
+      user: expect.objectContaining({ email: "rollback@example.test" }),
+      session: expect.objectContaining({ deviceMetadata: expect.any(String) }),
+    }));
+    expect(attempts).toEqual([{ accountCommitted: false, userCommitted: false }]);
   });
 
   it("uses both IP-wide and normalized email limits for user login, and an IP-only limit for admin login", async () => {
@@ -80,7 +106,7 @@ describe("public credential auth routes", () => {
   });
 
   it("uses exact Origin and generic no-store failures, while successful JSON does not expose credentials", async () => {
-    const started = await start({ authSessionService: { issueUserSession: vi.fn(async () => issuedUser), loginUser: vi.fn(async () => { throw new Error("database detail"); }), loginAdmin: vi.fn(async () => issuedAdmin) } }); active = started.server;
+    const started = await start({ authSessionService: { loginUser: vi.fn(async () => { throw new Error("database detail"); }), loginAdmin: vi.fn(async () => issuedAdmin) } }); active = started.server;
     const originRejected = await fetch(`${active.baseUrl}/api/auth/register`, { method: "POST", headers: { Origin: "https://evil.example.test", "content-type": "application/json" }, body: JSON.stringify(registration("origin@example.test")) });
     const invalid = await fetch(`${active.baseUrl}/api/auth/login`, { method: "POST", headers: { Origin: origin, "content-type": "application/json" }, body: JSON.stringify({ email: "not-an-email" }) });
     const unexpected = await fetch(`${active.baseUrl}/api/auth/login`, { method: "POST", headers: { Origin: origin, "content-type": "application/json" }, body: JSON.stringify(login("user@example.test")) });
