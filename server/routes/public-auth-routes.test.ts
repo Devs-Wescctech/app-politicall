@@ -45,6 +45,7 @@ async function start(overrides: Record<string, unknown> = {}): Promise<{ server:
 
 const registration = (email: string) => ({ email, password: "secret1", name: "User" });
 const login = (email: string) => ({ email, password: "secret1" });
+const statuses = (responses: Response[]) => responses.map((response) => response.status).sort((a, b) => a - b);
 
 describe("public credential auth routes", () => {
   let active: ServerHandle | undefined;
@@ -55,10 +56,10 @@ describe("public credential auth routes", () => {
     const started = await start(); active = started.server;
     const responses = await Promise.all(Array.from({ length: 11 }, (_, index) => index + 1).map((suffix) => fetch(`${active!.baseUrl}/api/auth/register`, { method: "POST", headers: { Origin: origin, "content-type": "application/json", "x-forwarded-for": "198.51.100.7" }, body: JSON.stringify(registration(`user${suffix}@example.test`)) })));
 
-    expect(responses.map((response) => response.status)).toEqual([...Array(10).fill(200), 429]);
+    expect(statuses(responses)).toEqual([...Array(10).fill(200), 429]);
     expect(started.dependencies.hashPassword).toHaveBeenCalledTimes(10);
     expect(started.dependencies.registerUserSession).toHaveBeenCalledTimes(10);
-    expect(responses[10].headers.get("cache-control")).toBe("no-store");
+    expect(responses.find((response) => response.status === 429)?.headers.get("cache-control")).toBe("no-store");
   });
 
   it("uses one registration operation so account, user, and initial session can roll back together", async () => {
@@ -100,9 +101,9 @@ describe("public credential auth routes", () => {
       body: JSON.stringify({ password: "secret1" }),
     })));
 
-    expect(loginResponses.map((response) => response.status)).toEqual([200, 200, 200, 200, 200, 200]);
-    expect(sameEmail.map((response) => response.status)).toEqual([200, 200, 200, 200, 200, 429]);
-    expect(adminResponses.map((response) => response.status)).toEqual([...Array(10).fill(200), 429]);
+    expect(statuses(loginResponses)).toEqual([200, 200, 200, 200, 200, 200]);
+    expect(statuses(sameEmail)).toEqual([200, 200, 200, 200, 200, 429]);
+    expect(statuses(adminResponses)).toEqual([...Array(10).fill(200), 429]);
   });
 
   it("uses exact Origin and generic no-store failures, while successful JSON does not expose credentials", async () => {
