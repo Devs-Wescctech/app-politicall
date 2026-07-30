@@ -10,6 +10,7 @@ type ServerHandle = { baseUrl: string; close: () => Promise<void> };
 
 async function startAuthRoutes(dependencies: any): Promise<ServerHandle> {
   const app = express();
+  app.set("trust proxy", true);
   registerAuthSessionRoutes(app, dependencies);
   const server = await new Promise<any>((resolve) => {
     const instance = app.listen(0, "127.0.0.1", () => resolve(instance));
@@ -217,6 +218,24 @@ describe("auth session route responses", () => {
     expect(first.status).toBe(204);
     expect(repeated.status).toBe(204);
     expect(dependencies.service.logoutAccess).toHaveBeenCalledTimes(2);
+  });
+
+  it("allows many distinct sessions behind one IP while limiting a repeated access credential", async () => {
+    const dependencies = routeDependencies({
+      resolveAccessSession: vi.fn(async () => ({ ...session("access-session"), expiresAt: new Date(Date.now() + 60 * 60 * 1000) })),
+    });
+    activeServer = await startAuthRoutes(dependencies);
+    const request = (sessionId: string) => fetch(`${activeServer!.baseUrl}/api/auth/csrf`, {
+      headers: { Cookie: cookieHeader({ politicall_access: issueAccessToken({ sid: sessionId, kind: "user" }) }), "x-forwarded-for": "198.51.100.50" },
+    });
+
+    const distinct = await Promise.all([1, 2, 3, 4, 5, 6].map((index) => request(`access-${index}`)));
+    const repeated = await Promise.all(Array.from({ length: 31 }, () => request("repeated-access")));
+
+    expect(distinct.map((response) => response.status)).toEqual([200, 200, 200, 200, 200, 200]);
+    expect(repeated.slice(0, 30).every((response) => response.status === 200)).toBe(true);
+    expect(repeated[30].status).toBe(429);
+    expect(repeated[30].headers.get("cache-control")).toBe("no-store");
   });
 
   it("rejects non-http public application URLs", () => {
