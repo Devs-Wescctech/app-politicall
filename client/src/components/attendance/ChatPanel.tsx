@@ -641,7 +641,14 @@ export default function ChatPanel({ conversation, onClose, onOpenContact, mode, 
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button size="icon" variant="ghost" className="h-9 w-9" data-testid="button-conversation-menu">
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-9 w-9"
+                aria-label="Abrir ações da conversa"
+                title="Abrir ações da conversa"
+                data-testid="button-conversation-menu"
+              >
                 <MoreVertical className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>

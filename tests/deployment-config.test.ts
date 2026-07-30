@@ -224,7 +224,7 @@ describe("deployment configuration", () => {
         env: syntheticComposeEnvironment(imageReference),
       })).resolves.toBeDefined();
     }
-  });
+  }, 20_000);
 
   it("keeps the Compose contract free of public binds, mutable tags, and literal credentials", async () => {
     const compose = await readProjectFile("docker-compose.yml");

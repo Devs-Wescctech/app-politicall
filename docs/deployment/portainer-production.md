@@ -14,6 +14,7 @@ This runbook defines the deployment contract only. Do not stop, recreate, or mod
 8. Confirm the external PostgreSQL instance is reachable by its container DNS name on the shared network.
 9. Confirm APP_PORT and the Nginx `proxy_pass` port must match. The supplied Nginx file targets the default `APP_PORT=5000`; if the Portainer value changes, update and validate Nginx in the same change.
 10. From the Docker host, verify `http://127.0.0.1:<APP_PORT>/api/health` reaches the intended local listener before routing external traffic to it.
+11. Confirm the external proxy preserves WebSocket upgrade headers for `/api/attendance/realtime`; the operator UI may fall back to HTTP polling, but production release sign-off requires the badge to reach `Conectado`.
 
 ## GHCR Registry
 
@@ -57,6 +58,21 @@ The uploads mount is persistent: `${UPLOADS_HOST_PATH}` is mounted at `/app/uplo
 Preferred option: set `APP_NETWORK_NAME` to the stable external network created during preflight, attach the existing PostgreSQL container to it, and configure `PROD_DATABASE_URL` with the database container DNS name. Compose attaches the application to this network but never creates or manages the database service. Restrict database access to the shared network and confirm DNS resolution and TLS settings before the first migration.
 
 The host-published database port remains a legacy option when DNS migration cannot be completed in the same window. Restrict the host firewall so the database port is not publicly reachable. The application remains attached to the external network even while this legacy endpoint is used, allowing the database connection to move to container DNS in a later reviewed change.
+
+## External Nginx And Attendance Realtime
+
+Use [nginx-websocket.conf](nginx-websocket.conf) as two separate snippets: place its `map` block in the Nginx `http` context, and place only its `location = /api/attendance/realtime` block in the HTTPS `server` block for the public domain. Do not include the whole file inside the server block. The app endpoint is exact-match `/api/attendance/realtime`, authenticated by the browser session cookie, and must not be exposed with credentials in query strings.
+
+Required checks before reopening traffic:
+
+1. `nginx -t` passes and the proxy reload is controlled.
+2. `GET /api/health` and `GET /api/ready` pass through Nginx.
+3. An authenticated operator opens `Atendimentos` and the connection badge reaches `Conectado`.
+4. The browser Network panel shows `101 Switching Protocols` for `/api/attendance/realtime`.
+5. A controlled inbound test message appears in the selected conversation while the socket is connected.
+6. Repeat one blocked-upgrade test only in staging or a local QA harness: the badge should show `Sincronizacao automatica` and inbound messages should still appear through polling. This fallback confirms resilience, but it is not sufficient for production sign-off.
+
+Rollback for proxy-only changes is to restore the previous Nginx server block and reload after `nginx -t`. If the application was also redeployed, follow the image/database rollback rules below instead of treating it as a proxy-only rollback.
 
 ## Deploy And Smoke Test
 

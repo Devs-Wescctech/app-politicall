@@ -1,4 +1,4 @@
-import { type ElementType, useMemo, useState } from "react";
+import { type ElementType, useEffect, useMemo, useState } from "react";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import {
   Bot,
@@ -167,6 +167,17 @@ const LANE_DEFS = [
 
 const CLOSED_STATUSES = new Set(["resolved", "finalized", "closed"]);
 
+export function nextAutoExpandedLane(
+  currentLane: string,
+  laneCounts: Record<string, number | undefined>,
+  touched: boolean,
+): string {
+  if (touched || (laneCounts[currentLane] ?? 0) > 0) return currentLane;
+
+  const laneWithItems = LANE_DEFS.find(lane => (laneCounts[lane.value] ?? 0) > 0);
+  return laneWithItems?.value ?? currentLane;
+}
+
 function isGroupConversation(conv: AttConversation) {
   const metadata = (conv.metadata as any) ?? {};
   const remote = metadata.remote ?? {};
@@ -198,6 +209,7 @@ export default function ConversationList({ selected, onSelect, onNewConversation
   const [lastFrom, setLastFrom] = useState("");
   const [lastTo, setLastTo] = useState("");
   const [expandedLane, setExpandedLane] = useState<string>("waiting");
+  const [expandedLaneTouched, setExpandedLaneTouched] = useState(false);
   const { toast } = useToast();
   const currentUser = getAuthUser();
 
@@ -276,6 +288,15 @@ export default function ConversationList({ selected, onSelect, onNewConversation
     return Object.fromEntries(entries) as Record<string, { count: number; items: AttConversation[] }>;
   }, [filteredConversations, currentUser?.id]);
 
+  useEffect(() => {
+    const nextLane = nextAutoExpandedLane(
+      expandedLane,
+      Object.fromEntries(LANE_DEFS.map(lane => [lane.value, laneData[lane.value]?.count])),
+      expandedLaneTouched,
+    );
+    if (nextLane !== expandedLane) setExpandedLane(nextLane);
+  }, [expandedLane, expandedLaneTouched, laneData]);
+
   const resetFilters = () => {
     setStatusFilter("all");
     setChannelFilter("all");
@@ -290,6 +311,7 @@ export default function ConversationList({ selected, onSelect, onNewConversation
   };
 
   const toggleLane = (lane: string) => {
+    setExpandedLaneTouched(true);
     setExpandedLane(current => current === lane ? "" : lane);
   };
 

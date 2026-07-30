@@ -213,6 +213,8 @@ export function NotificationBell() {
           variant="ghost" 
           size="icon" 
           className="relative rounded-full hover:bg-[#40E0D0]/10 h-8 w-8" 
+          aria-label="Abrir notificações"
+          title="Abrir notificações"
           data-testid="button-notification-bell"
         >
           <Bell className="h-5 w-5" />

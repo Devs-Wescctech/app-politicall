@@ -38,9 +38,10 @@ Completed attendance realtime tasks:
 - Attendance Task 3: complete (commits `d463e1b..668c1c0`; third independent review approved with no Critical/Important/Minor findings after hardening cookie/session/Origin authentication, exact request targets, bounded async admission and payloads, generation-safe connect/heartbeat deadlines, complete attendance-event reconciliation, idempotent reconnect/cleanup, and a browser-faithful cookie/CSRF smoke; full suite passed with 689 tests and 2 environment-gated skips).
 - Attendance Task 4: complete (commits `4aa753c..7ffc6e3`; independent re-review approved with no Critical/Important/Minor findings after fixing the construction-to-start snapshot race; adaptive read-only polling uses 5s detail/10s list during fallback or reconnect, 60s safety polling when connected, and 30s in hidden tabs, with rising-edge recovery invalidation and exact listener cleanup; full suite passed with 702 tests and 2 environment-gated skips).
 - Attendance Task 5: complete (commits `b33d28e..daa1627`; independent re-review approved with no Critical/Important/Minor findings after preserving paginated/optimistic detail cache across 50-message refetches, wiring page retry busy state through real reconnecting mode, removing false isolated retry assertions, guarding unmount, and stabilizing the global source/runtime tests; full suite passed with 709 tests and 2 environment-gated skips).
+- Attendance Task 6: complete (pending commit after local ledger update; independent review found one P2 runbook ambiguity and one P3 source-test weakness, both remediated; browser QA passed WebSocket allowed and WebSocket-blocked fallback in desktop/tablet/mobile against a production build with PostgreSQL 18 disposable runtime; full suite passed with 713 tests and 2 environment-gated skips).
 
 Current task:
-- Attendance Realtime Resilience Task 6 is next: local production realtime/browser validation and operator deployment documentation.
+- Authentication Task 8 is next: final auth/admin API documentation, compatibility cleanup, and release gate consolidation.
 
 Final-review minor triage:
 - Registration still persists account, user, and initial session separately. Make this workflow transactional or compensating before release so account/session failures cannot leave orphaned or unretryable partial registration state.

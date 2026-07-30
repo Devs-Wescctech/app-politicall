@@ -266,6 +266,8 @@ export function AppSidebar() {
           size="icon"
           className="opacity-50" 
           onClick={() => setLocation("/manual")}
+          aria-label="Abrir manual"
+          title="Abrir manual"
           data-testid="button-info"
         >
           <Info className="w-4 h-4" />
