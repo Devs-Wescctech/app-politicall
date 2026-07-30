@@ -75,8 +75,9 @@ import { sql, eq, desc, and } from "drizzle-orm";
 import { generateAiResponse, testOpenAiApiKey } from "./openai";
 import { requireRole } from "./authorization";
 import { authenticateAdminToken, authenticateToken, hasActiveGlobalAdminCookie, requirePermission, requireAnyPermission, type AuthRequest } from "./auth";
-import { encryptApiKey, decryptApiKey } from "./crypto";
+import { encryptApiKey, decryptApiKey, isEncryptedDataValue, isMalformedEncryptedDataValue } from "./crypto";
 import { sanitizeAiConfiguration } from "./services/ai-config-security";
+import { redactGoogleOauthFailure } from "./services/google-oauth-security";
 import { decryptAiConfigProviderSecrets } from "./services/ai-config-secrets";
 import {
   extractMetaWebhookTargetIds,
@@ -149,18 +150,15 @@ function maskIntegration<T extends Record<string, any>>(integration: T): T {
 
 function decryptSecretIfNeeded(value: unknown): unknown {
   if (typeof value !== "string" || !value) return value;
-  if (!value.includes(":")) return value;
-  try {
-    return decryptApiKey(value);
-  } catch {
-    return value;
-  }
+  return decryptApiKey(value);
 }
 
 function encryptSecretIfNeeded(value: unknown): unknown {
   if (typeof value !== "string") return value;
   const trimmed = value.trim();
-  if (!trimmed || trimmed === "***" || trimmed.includes(":")) return value;
+  if (!trimmed || trimmed === "***") return value;
+  if (isMalformedEncryptedDataValue(trimmed)) throw new Error("Invalid encrypted integration secret");
+  if (isEncryptedDataValue(trimmed)) return trimmed;
   return encryptApiKey(trimmed);
 }
 
@@ -7548,17 +7546,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { code, state: accountId, error: oauthError } = req.query;
       
-      console.log('[Google Calendar] OAuth callback received:', { 
-        hasCode: !!code, 
-        accountId,
-        oauthError,
-        fullQuery: req.query
-      });
+      console.log('[Google Calendar] OAuth callback received:', { hasCode: !!code, accountId: Boolean(accountId), hasError: !!oauthError });
       
       // Handle OAuth errors from Google
       if (oauthError) {
-        console.error('[Google Calendar] OAuth error from Google:', oauthError);
-        return res.redirect('/settings?tab=google-calendar&error=' + encodeURIComponent('Erro do Google: ' + oauthError));
+        console.error('[Google Calendar] OAuth failure:', { code: "oauth_error" });
+        return res.redirect('/settings?tab=google-calendar&error=oauth_error');
       }
       
       if (!code || !accountId) {
@@ -7606,9 +7599,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           expiryDate: tokens.expiry_date
         });
       } catch (tokenError: any) {
-        console.error('[Google Calendar] Token exchange failed:', tokenError.message);
-        console.error('[Google Calendar] Token error details:', tokenError.response?.data || tokenError);
-        return res.redirect('/settings?tab=google-calendar&error=' + encodeURIComponent('Erro ao trocar código por token: ' + tokenError.message));
+        console.error('[Google Calendar] Token exchange failed:', redactGoogleOauthFailure(tokenError));
+        return res.redirect('/settings?tab=google-calendar&error=oauth_error');
       }
       
       oauth2Client.setCredentials(tokens);
@@ -7646,17 +7638,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
         console.log('[Google Calendar] Tokens saved successfully!');
       } catch (dbError: any) {
-        console.error('[Google Calendar] Database save failed:', dbError.message);
-        return res.redirect('/settings?tab=google-calendar&error=' + encodeURIComponent('Erro ao salvar tokens: ' + dbError.message));
+        console.error('[Google Calendar] Database save failed:', redactGoogleOauthFailure(dbError));
+        return res.redirect('/settings?tab=google-calendar&error=oauth_error');
       }
       
       // Redirect to settings page with success message
       console.log('[Google Calendar] OAuth flow completed successfully');
       res.redirect('/settings?tab=google-calendar&status=connected');
     } catch (error: any) {
-      console.error('[Google Calendar] OAuth callback unexpected error:', error);
-      console.error('[Google Calendar] Error stack:', error.stack);
-      res.redirect('/settings?tab=google-calendar&error=' + encodeURIComponent('Erro inesperado: ' + error.message));
+      console.error('[Google Calendar] OAuth callback failed:', redactGoogleOauthFailure(error));
+      res.redirect('/settings?tab=google-calendar&error=oauth_error');
     }
   });
   
@@ -7715,7 +7706,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           oauth2Client.setCredentials(credentials);
         } catch (refreshError) {
-          console.error('Token refresh error:', refreshError);
+          console.error('[Google Calendar] Token refresh failed:', redactGoogleOauthFailure(refreshError));
           return res.status(401).json({ error: "Token expirado. Por favor, reconecte sua conta Google." });
         }
       }

@@ -1,4 +1,4 @@
-import { decryptApiKey, encryptApiKey } from "../crypto";
+import { decryptApiKey, encryptApiKey, isEncryptedDataValue, isMalformedEncryptedDataValue } from "../crypto";
 
 export const AI_CONFIG_PROVIDER_SECRET_FIELDS = [
   "facebookAppSecret",
@@ -19,10 +19,8 @@ export const AI_CONFIG_PROVIDER_SECRET_FIELDS = [
 ] as const;
 
 const MASKED_SECRET_VALUES = new Set(["***", "configurado. deixe em branco para manter."]);
-const ENCRYPTED_SECRET_PATTERN = /^[0-9a-f]{32}:[0-9a-f]{32}:[0-9a-f]+$/i;
-
 export function isEncryptedSecret(value: string): boolean {
-  return ENCRYPTED_SECRET_PATTERN.test(value);
+  return isEncryptedDataValue(value);
 }
 
 function isBlankOrMaskedSecret(value: unknown): boolean {
@@ -42,6 +40,9 @@ export function encryptAiConfigProviderSecrets<T extends Record<string, any>>(co
       continue;
     }
 
+    if (isMalformedEncryptedDataValue(value)) {
+      throw new Error("Invalid encrypted provider secret");
+    }
     if (typeof value === "string" && !isEncryptedSecret(value)) {
       encrypted[field] = encryptApiKey(value.trim());
     }
@@ -56,13 +57,9 @@ export function decryptAiConfigProviderSecrets<T extends Record<string, any> | n
   const decrypted: Record<string, any> = { ...config };
   for (const field of AI_CONFIG_PROVIDER_SECRET_FIELDS) {
     const value = decrypted[field];
-    if (typeof value !== "string" || !isEncryptedSecret(value)) continue;
-
-    try {
-      decrypted[field] = decryptApiKey(value);
-    } catch {
-      decrypted[field] = value;
-    }
+    if (typeof value !== "string") continue;
+    if (isMalformedEncryptedDataValue(value)) throw new Error("Invalid encrypted provider secret");
+    if (isEncryptedSecret(value)) decrypted[field] = decryptApiKey(value);
   }
 
   return decrypted as T;

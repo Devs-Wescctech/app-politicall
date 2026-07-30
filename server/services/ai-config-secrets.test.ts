@@ -9,6 +9,7 @@ import {
 describe("AI config provider secrets", () => {
   beforeEach(() => {
     process.env.SESSION_SECRET = "test-session-secret-for-ai-config-secrets";
+    process.env.DATA_ENCRYPTION_KEY = Buffer.alloc(32, 11).toString("base64");
   });
 
   it("encrypts and decrypts provider secrets", () => {

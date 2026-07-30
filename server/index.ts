@@ -24,6 +24,7 @@ import { createApiRequestLogger } from "./http-logging";
 import { createListenOptions } from "./listen-options";
 import { apiErrorHandler, createRequestSecurity, installApiNotFound } from "./security/request-security";
 import { escapeHtml } from "./html-escape";
+import { requireDataEncryptionKey } from "./crypto";
 import { politicalParties, accounts } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import * as fs from "fs";
@@ -76,6 +77,8 @@ async function ensureDevDatabaseReady(): Promise<void> {
 
 const app = express();
 let lifecycle: GracefulShutdownHandle | undefined;
+
+if (process.env.NODE_ENV === "production") requireDataEncryptionKey();
 
 app.disable("x-powered-by");
 createRequestSecurity(app);

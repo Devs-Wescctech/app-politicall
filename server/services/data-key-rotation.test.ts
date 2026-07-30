@@ -55,10 +55,9 @@ describe("data encryption rotation", () => {
 
   it("classifies active, previous, v1, plaintext, and malformed values without exposing values", async () => {
     withKeys();
-    const context = { table: "integrations", field: "sendgridApiKey", recordId: "active" };
-    const active = encryptApiKey("active", context);
+    const active = encryptApiKey("active");
     process.env.DATA_ENCRYPTION_KEY = previousKey;
-    const previous = encryptApiKey("previous", { ...context, recordId: "previous" });
+    const previous = encryptApiKey("previous");
     process.env.DATA_ENCRYPTION_KEY = activeKey;
     const fixture = createStore([
       { table: "integrations", id: "active", field: "sendgridApiKey", value: active },
@@ -68,7 +67,7 @@ describe("data encryption rotation", () => {
     ]);
     const output: string[] = [];
 
-    const report = await rotateDataEncryption(fixture.store, { batchSize: 2, log: (entry) => output.push(JSON.stringify(entry)) });
+    const report = await rotateDataEncryption(fixture.store, { apply: true, batchSize: 2, log: (entry) => output.push(JSON.stringify(entry)) });
 
     expect(report).toMatchObject({ scanned: 4, unchanged: 1, rotatable: 2, rotated: 2, errors: 1 });
     expect(fixture.writes).toHaveLength(2);

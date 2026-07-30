@@ -2,12 +2,14 @@
  * Attendance module routes — all /api/attendance/* endpoints
  */
 import type { Express, Response } from "express";
+import crypto from "node:crypto";
 import { storage } from "./storage";
 import { authenticateToken, requireAnyPermission, requirePermission, type AuthRequest } from "./auth";
 import { mapWesccStatus, normalizeActionCardTemplate, wescctech } from "./services/wescctech";
 import { assertAttendanceTransition, isFinalAttendanceStatus, statusForSyncedConversation } from "./services/attendance-state";
 import { selectRoutingCandidate } from "./services/attendance-routing";
-import { decryptApiKey, encryptApiKey } from "./crypto";
+import { decryptApiKey, encryptApiKey, isEncryptedDataValue, isMalformedEncryptedDataValue } from "./crypto";
+import { maskChannelConnectionSecrets, prepareChannelConnectionSecrets, verifyWebhookSecret } from "./services/data-secret-fields";
 import { publishAttendanceEvent } from "./attendance-events";
 import { getMetaWindowState, isDirectMetaConnection, isOfficialAttendanceChannel, isWhuCloudChannelInfo } from "@shared/attendance-meta-window";
 import { evaluatePublicReplyPolicy, resolveLastCustomerActivityAt } from "./services/attendance-meta-policy";
@@ -74,10 +76,9 @@ function encryptTokenIfProvided(token: unknown): string | undefined {
   return encryptApiKey(trimmed);
 }
 
-function decryptTokenIfNeeded(token: string | null | undefined): string | null {
+function decryptTokenIfNeeded(token: string | null | undefined, recordId?: string): string | null {
   if (!token) return null;
-  if (!token.includes(":")) return token;
-  return decryptApiKey(token);
+  return decryptApiKey(token, recordId ? { table: "channel_connections", field: "token", recordId } : undefined);
 }
 
 const attendanceReadPermissions: (keyof UserPermissions)[] = [
@@ -781,7 +782,7 @@ async function resolveAttendanceTemplates(accountId: string, connectionId?: stri
         category: template.category,
       }))
       : [];
-    const token = decryptTokenIfNeeded(connection.token);
+    const token = decryptTokenIfNeeded(connection.token, connection.id);
 
     if (token && isDirectMetaConnection(connection)) {
       const cfg = officialConfig(connection);
@@ -839,7 +840,7 @@ async function resolveAttendanceConnection(accountId: string, connectionId?: str
 
 async function getWesccToken(accountId: string, connectionId?: string): Promise<string | null> {
   const connection = await resolveAttendanceConnection(accountId, connectionId);
-  const connectionToken = decryptTokenIfNeeded(connection?.token);
+  const connectionToken = decryptTokenIfNeeded(connection?.token, connection?.id);
   if (connectionToken) return connectionToken;
   const whatsappIntegration = await storage
     .getIntegrationByAccount(accountId, "whatsapp")
@@ -856,26 +857,25 @@ export function registerAttendanceRoutes(app: Express) {
   app.get("/api/attendance/connections", authenticateToken, requirePermission("attendanceSettings"), async (req: AuthRequest, res: Response) => {
     try {
       const connections = await storage.getChannelConnections(req.accountId!);
-      res.json(connections.map(c => ({ ...c, token: maskToken(c.token) })));
+      res.json(connections.map(maskChannelConnectionSecrets));
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
   app.get("/api/attendance/connections/available", authenticateToken, requireAttendanceRead(), async (req: AuthRequest, res: Response) => {
     try {
       const connections = await storage.getChannelConnections(req.accountId!);
-      res.json(connections.filter(c => c.status !== "disabled").map(c => ({ ...c, token: maskToken(c.token) })));
+      res.json(connections.filter(c => c.status !== "disabled").map(maskChannelConnectionSecrets));
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
   app.post("/api/attendance/connections", authenticateToken, requirePermission("attendanceSettings"), async (req: AuthRequest, res: Response) => {
     try {
       const data = insertChannelConnectionSchema.parse(req.body);
-      const token = encryptTokenIfProvided(data.token);
-      const conn = await storage.createChannelConnection({ ...data, token: token ?? null, accountId: req.accountId! });
+      const conn = await storage.createChannelConnection(prepareChannelConnectionSecrets({ ...data, id: crypto.randomUUID(), token: data.token ?? null, accountId: req.accountId! }));
       await recordAttendanceEvent(req, "connection.created", {
         entityType: "connection",
         entityId: conn.id,
-        after: { ...conn, token: maskToken(conn.token) },
+        after: maskChannelConnectionSecrets(conn),
         realtimeType: "attendance.settings.updated",
       });
       res.json({ ...conn, token: maskToken(conn.token) });
@@ -884,18 +884,14 @@ export function registerAttendanceRoutes(app: Express) {
 
   app.patch("/api/attendance/connections/:id", authenticateToken, requirePermission("attendanceSettings"), async (req: AuthRequest, res: Response) => {
     try {
-      const token = encryptTokenIfProvided(req.body.token);
-      const { token: _token, ...rest } = req.body;
       const before = await storage.getChannelConnection(req.params.id, req.accountId!);
-      const conn = await storage.updateChannelConnection(req.params.id, req.accountId!, {
-        ...rest,
-        ...(token ? { token } : {}),
-      });
+      if (!before) return res.status(404).json({ error: "Conexão não encontrada" });
+      const conn = await storage.updateChannelConnection(req.params.id, req.accountId!, prepareChannelConnectionSecrets({ ...req.body, id: before.id }, before));
       await recordAttendanceEvent(req, "connection.updated", {
         entityType: "connection",
         entityId: conn.id,
         before: before ? { ...before, token: maskToken(before.token) } : null,
-        after: { ...conn, token: maskToken(conn.token) },
+        after: maskChannelConnectionSecrets(conn),
         realtimeType: "attendance.settings.updated",
       });
       res.json({ ...conn, token: maskToken(conn.token) });
@@ -920,7 +916,7 @@ export function registerAttendanceRoutes(app: Express) {
   app.post("/api/attendance/connections/:id/test", authenticateToken, requirePermission("attendanceSettings"), async (req: AuthRequest, res: Response) => {
     try {
       const conn = await storage.getChannelConnection(req.params.id, req.accountId!);
-      const token = decryptTokenIfNeeded(conn?.token);
+      const token = decryptTokenIfNeeded(conn?.token, conn?.id);
       if (!conn || !token) return res.status(400).json({ error: "Conexão não encontrada ou token ausente" });
 
       let status = "error";
@@ -3002,7 +2998,7 @@ export function registerAttendanceRoutes(app: Express) {
       }
 
       const secret = req.headers["x-attendance-secret"];
-      if ((conn.metadata as any)?.webhookSecret && secret !== (conn.metadata as any).webhookSecret) {
+      if ((conn.metadata as any)?.webhookSecret && !verifyWebhookSecret((conn.metadata as any).webhookSecret, secret, { recordId: conn.id })) {
         return res.status(401).json({ error: "Invalid secret" });
       }
 
