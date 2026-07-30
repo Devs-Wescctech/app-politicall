@@ -75,7 +75,7 @@ import {
 import { sql, eq, desc, and } from "drizzle-orm";
 import { generateAiResponse, testOpenAiApiKey } from "./openai";
 import { requireRole } from "./authorization";
-import { authenticateToken, requirePermission, requireAnyPermission, type AuthRequest } from "./auth";
+import { authenticateAdminToken, authenticateToken, requirePermission, requireAnyPermission, type AuthRequest } from "./auth";
 import { encryptApiKey, decryptApiKey } from "./crypto";
 import { sanitizeAiConfiguration } from "./services/ai-config-security";
 import { decryptAiConfigProviderSecrets } from "./services/ai-config-secrets";
@@ -115,7 +115,6 @@ import path from "path";
 import { createRequire } from "module";
 import { getAdminPasswordHash, isReservedAdminSettingKey } from "./admin-credentials";
 import { clearSessionCookies } from "./security/auth-cookies";
-import { verifyPureLegacyGlobalAdminToken } from "./security/legacy-global-admin";
 import { assertAccountScopedTarget, createAuthPasswordMutationService } from "./services/auth-password-mutations";
 import { createAuthenticationRateLimiter, createRuntimeAuthSessionService, getAuthAllowedOrigins, registerAuthSessionRoutes, sendAuthSessionResponse, toAuthSessionUser } from "./routes/auth-session-routes";
 import { registerPublicAuthRoutes } from "./routes/public-auth-routes";
@@ -365,26 +364,6 @@ function generateSlugFromName(name: string): string {
     .replace(/[^a-z0-9\s-]/g, '') // Remove caracteres especiais
     .replace(/\s+/g, '') // Remove todos os espaços
     .trim();
-}
-
-// Admin authentication middleware
-function authenticateAdminToken(req: AuthRequest, res: Response, next: NextFunction) {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    res.setHeader("Cache-Control", "no-store");
-    return res.status(401).json({ error: "Authentication failed" });
-  }
-  const token = authHeader.substring(7);
-  try {
-    if (!verifyPureLegacyGlobalAdminToken(token, JWT_SECRET)) {
-      res.setHeader("Cache-Control", "no-store");
-      return res.status(403).json({ error: "Authentication failed" });
-    }
-    next();
-  } catch (error) {
-    res.setHeader("Cache-Control", "no-store");
-    return res.status(401).json({ error: "Authentication failed" });
-  }
 }
 
 const authAttemptLimiter = createAuthenticationRateLimiter();
@@ -1378,30 +1357,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Admin token verification endpoint (PUBLIC)
-  app.get("/api/admin/verify", async (req, res) => {
-    try {
-      res.set("Cache-Control", "no-store");
-      const authHeader = req.headers.authorization;
-      
-      if (!authHeader || !authHeader.startsWith("Bearer ")) {
-        return res.status(401).json({ valid: false });
-      }
-
-      const token = authHeader.substring(7);
-      
-      try {
-      if (verifyPureLegacyGlobalAdminToken(token, JWT_SECRET)) {
-          return res.json({ valid: true });
-        } else {
-          return res.status(401).json({ valid: false });
-        }
-      } catch (jwtError) {
-        return res.status(401).json({ valid: false });
-      }
-    } catch (error: any) {
-      res.status(401).json({ valid: false });
-    }
+  app.get("/api/admin/verify", authenticateAdminToken, (_req, res) => {
+    res.set("Cache-Control", "no-store");
+    res.json({ valid: true });
   });
 
   // ==================== SYSTEM SETTINGS (Admin Master) ====================

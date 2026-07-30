@@ -38,6 +38,7 @@ Set these environment variables in Portainer, not in a committed `.env` file:
 | `DATA_ENCRYPTION_KEY` | Required 32-byte encryption key in the application-supported encoding. |
 | `ADMIN_MASTER_PASSWORD_HASH` | Required bcrypt password hash. |
 | `TRUST_PROXY` | Number of trusted proxy hops for the deployed Nginx topology. |
+| `ENABLE_BEARER_AUTH` | Keep `false`; temporary browser Bearer fallback is disabled by default. |
 | `OKTOR_SMS_*` | Optional integration values; leave unset when SMS is not enabled. |
 
 The uploads mount is persistent: `${UPLOADS_HOST_PATH}` is mounted at `/app/uploads`. Do not replace it with an anonymous volume or a repository-relative directory.
