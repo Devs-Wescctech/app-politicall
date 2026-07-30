@@ -693,6 +693,8 @@ describe("deployment configuration", () => {
     const tag = workflowStep(publish, "Verify loaded Docker tag");
     const login = workflowStep(publish, "Login to GitHub Container Registry");
     const push = workflowStep(publish, "Push scanned Docker candidate");
+    const uploadArtifactName = upload.match(/^\s+name:\s*(.+)$/m)?.[1];
+    const downloadArtifactName = download.match(/^\s+name:\s*(.+)$/m)?.[1];
     const buildAction = "docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf";
 
     expect(docker).toContain("tr '[:upper:]' '[:lower:]'");
@@ -713,6 +715,9 @@ describe("deployment configuration", () => {
     );
     expect(upload).toContain("retention-days: 1");
     expect(upload).toContain("compression-level: 0");
+    expect(uploadArtifactName).toBe("scanned-docker-image-${{ github.run_attempt }}");
+    expect(downloadArtifactName).toBe(uploadArtifactName);
+    expect(workflow).not.toMatch(/^\s+name:\s*scanned-docker-image\s*$/m);
     expectTextInOrder(docker, [buildCandidate, trivy, archive, upload]);
     expect(workflow.match(new RegExp(buildAction.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g"))).toHaveLength(1);
     expect(docker).toContain("image_reference: ${{ steps.image.outputs.reference }}");
