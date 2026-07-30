@@ -41,6 +41,21 @@ The corrective contract is `.superpowers/sdd/auth-task-7-review-1.md`. This work
 - A compare-and-set miss now raises `DataKeyRotationConflictError`, rolls back its transaction batch, and makes the CLI exit nonzero. Trigger-backed integration smoke validates both rollback and CAS protection.
 - Deployment documentation places all declared auth/environment variables in the environment table, with the key-rotation operational section kept separate.
 
+## Review 2 Remediation
+
+The corrective contract is `.superpowers/sdd/auth-task-7-review-2.md`. This second remediation is complete and awaiting independent re-review; it does not mark the task or either review approved.
+
+| Stage | Commit | Command | Result |
+| --- | --- | --- | --- |
+| Review 2 RED | `e558a81` | `npm test -- server/crypto-rotation.test.ts server/services/ai-config-secrets.test.ts server/services/integration-secret-fields.test.ts server/services/google-oauth-security.test.ts server/attendance-route-security.test.ts` | Failed as intended: three behavioral assertions failed and the new integration write-normalizer was absent. The executable attendance route regression already passed against the previously-correct masking behavior. |
+| Review 2 GREEN | `d3f8e5a` | Same focused command | 5 files / 13 tests passed. |
+
+- Integration writes now preserve an envelope only when it exactly matches the server-stored active-v2 value. Previous-v2, v1, and client-supplied active-v2 values are decrypted and re-encrypted under the active key before persistence.
+- AI provider-secret writes apply the same trusted-persisted distinction. `DatabaseStorage.upsertAiConfig` passes the raw stored record into the normalizer, so decrypted read data is not mistakenly used as trust evidence.
+- v1 malformed recognition now requires the full legacy envelope grammar. Plaintext beginning with 32 hexadecimal characters and containing multiple colons remains plaintext through detect, decrypt, encrypt, and decrypt regression coverage.
+- Google Calendar error responses use the bounded OAuth response formatter, returning only the fixed message, category, status, and validated provider code; raw SDK messages are not returned.
+- The former source-text route test was replaced by an executable Express regression for `POST /api/attendance/connections/:id/test`. It invokes the route and proves the HTTP body, persisted audit event, and published event omit both plaintext and ciphertext for `metadata.webhookSecret`. The existing Omni WhatsApp destination-AAD regression remains behavioral.
+
 ## PostgreSQL 18 CLI Smoke
 
 An isolated disposable PostgreSQL 18 cluster was created with absolute paths under `C:\Program Files\PostgreSQL\18\bin`, in an ignored `.superpowers\tmp` directory and on a loopback-only temporary port. The existing `postgresql-x64-18` service and its database were not queried, modified, or stopped.
@@ -61,7 +76,7 @@ All CLI output used redacted categories/counts/fixture IDs only; no encryption-k
 
 | Command | Result |
 | --- | --- |
-| `npm test -- --maxWorkers=1` | Exit 0: 82 files passed, 2 skipped; 610 tests passed, 2 skipped. |
+| `npm test -- --maxWorkers=1` | Exit 0: 83 files passed, 2 skipped; 610 tests passed, 2 skipped. |
 | `npm run check` | Exit 0. |
 | `npm run build` | Exit 0; emitted `dist/rotate-data-encryption.js`. |
 | `npm run security:secrets` | Exit 0. |
