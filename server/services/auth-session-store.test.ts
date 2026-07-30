@@ -102,19 +102,74 @@ function createStore() {
 describe("auth session store", () => {
   it("hashes refresh tokens deterministically without persisting the raw token", async () => {
     const { repository, store } = createStore();
+    const hexLookingRawDevice = "a".repeat(64);
     const session = await store.createSession({
       scope: tenantScope,
       refreshToken: "refresh-token-1",
       expiresAt,
-      deviceHash: hashRefreshToken("device-1"),
-      ipHash: hashRefreshToken("ip-1"),
+      deviceMetadata: hexLookingRawDevice,
+      ipMetadata: "192.0.2.1",
     });
 
     expect(hashRefreshToken("refresh-token-1")).toBe("154f43e8c9b56a01e25dcba6f7aef62d23a3e91264e818124f6adf721d6a8e33");
     expect(session.refreshTokenHash).toBe(hashRefreshToken("refresh-token-1"));
     expect(JSON.stringify(repository.sessions)).not.toContain("refresh-token-1");
-    expect(session.deviceHash).toHaveLength(64);
-    expect(session.ipHash).toHaveLength(64);
+    expect(session.deviceHash).toBe(hashRefreshToken(hexLookingRawDevice));
+    expect(session.deviceHash).not.toBe(hexLookingRawDevice);
+    expect(session.ipHash).toBe(hashRefreshToken("192.0.2.1"));
+  });
+
+  it("enforces injected maximum lifetimes while allowing shorter user and global-admin sessions", async () => {
+    const clock = new Date("2030-01-01T00:00:00.000Z");
+    const repository = new InMemorySessionRepository();
+    const store = createAuthSessionStore(repository, { now: () => clock });
+
+    await expect(store.createSession({
+      scope: tenantScope,
+      refreshToken: "user-too-long",
+      expiresAt: new Date("2030-01-08T00:00:00.001Z"),
+    })).rejects.toThrow("7 days");
+    await expect(store.createSession({
+      scope: tenantScope,
+      refreshToken: "user-valid",
+      expiresAt: new Date("2030-01-07T23:59:59.999Z"),
+    })).resolves.toMatchObject({ refreshTokenHash: hashRefreshToken("user-valid") });
+    await expect(store.createSession({
+      scope: { kind: "global_admin", globalAdminPrincipalId: "admin-1" },
+      refreshToken: "admin-too-long",
+      expiresAt: new Date("2030-01-01T04:00:00.001Z"),
+    })).rejects.toThrow("4 hours");
+    await expect(store.createSession({
+      scope: { kind: "global_admin", globalAdminPrincipalId: "admin-1" },
+      refreshToken: "admin-valid",
+      expiresAt: new Date("2030-01-01T03:59:59.999Z"),
+    })).resolves.toMatchObject({ refreshTokenHash: hashRefreshToken("admin-valid") });
+  });
+
+  it("rejects oversized raw metadata and applies the same lifetime limit to rotations", async () => {
+    const clock = new Date("2030-01-01T00:00:00.000Z");
+    const repository = new InMemorySessionRepository();
+    const store = createAuthSessionStore(repository, { now: () => clock });
+    await expect(store.createSession({
+      scope: tenantScope,
+      refreshToken: "metadata-too-long",
+      expiresAt: new Date("2030-01-01T01:00:00.000Z"),
+      deviceMetadata: "x".repeat(1025),
+    })).rejects.toThrow("deviceMetadata");
+
+    await store.createSession({
+      scope: tenantScope,
+      refreshToken: "rotation-limit-source",
+      expiresAt: new Date("2030-01-01T01:00:00.000Z"),
+    });
+    await expect(store.rotateSession({
+      scope: tenantScope,
+      refreshToken: "rotation-limit-source",
+      nextRefreshToken: "rotation-limit-next",
+      expiresAt: new Date("2030-01-08T00:00:00.001Z"),
+    })).rejects.toThrow("7 days");
+    expect(repository.sessions).toHaveLength(1);
+    expect(repository.sessions[0]?.revokedAt).toBeNull();
   });
 
   it("does not find a tenant session through another account scope", async () => {
@@ -227,6 +282,43 @@ describe("auth session store", () => {
     expect(second.revocationReason).toBe("password_change");
     expect(otherUser.revokedAt).toBeNull();
     expect(repository.sessions.every((session) => session.accountId !== "account-b")).toBe(true);
+  });
+
+  it("makes every tenant mutation non-vacuous across account boundaries", async () => {
+    const { repository, store } = createStore();
+    const tenantA = await store.createSession({ scope: tenantScope, refreshToken: "tenant-a-session", expiresAt });
+    const tenantB = await store.createSession({
+      scope: { kind: "user", accountId: "account-b", userId: "user-b" },
+      refreshToken: "tenant-b-session",
+      expiresAt,
+    });
+
+    await expect(store.revokeSession({ scope: tenantScope, sessionId: tenantB.id, reason: "logout" })).resolves.toBe(0);
+    await expect(store.revokeSessionFamily({ scope: tenantScope, familyId: tenantB.familyId, reason: "security" }))
+      .resolves.toBe(0);
+    await expect(store.revokeUserSessions({ accountId: "account-a", userId: "user-b", reason: "password_change" }))
+      .resolves.toBe(0);
+
+    expect(tenantA.revokedAt).toBeNull();
+    expect(tenantB.revokedAt).toBeNull();
+    expect(repository.sessions).toHaveLength(2);
+  });
+
+  it("rejects rotation linkage when the successor is from another family or principal", async () => {
+    const { repository, store } = createStore();
+    const predecessor = await store.createSession({ scope: tenantScope, refreshToken: "link-source", expiresAt });
+    const crossFamily = await store.createSession({ scope: tenantScope, refreshToken: "link-cross-family", expiresAt });
+    const crossPrincipal = await store.createSession({
+      scope: { kind: "user", accountId: "account-a", userId: "user-b" },
+      refreshToken: "link-cross-principal",
+      expiresAt,
+    });
+
+    await expect(repository.linkRotation(tenantScope, predecessor.id, crossFamily.id, predecessor.familyId))
+      .rejects.toThrow("replacement");
+    await expect(repository.linkRotation(tenantScope, predecessor.id, crossPrincipal.id, predecessor.familyId))
+      .rejects.toThrow("replacement");
+    expect(predecessor.replacedBySessionId).toBeNull();
   });
 
   it("requires an explicit global-admin principal without inheriting a tenant", async () => {
