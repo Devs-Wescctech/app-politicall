@@ -143,18 +143,20 @@ describe("auth session route responses", () => {
     expect(response.headers.get("set-cookie")).toContain("politicall_refresh=");
   });
 
-  it("caps every active auth limiter store and emits no-store with rate-limit headers", async () => {
+  it("caps registration, user-login, and admin-login limiter state with no-store rate-limit rejections", async () => {
     const limiter = createAuthenticationRateLimiter({ maximumEntries: 2, now: () => 1_000 });
     const app = express();
     app.set("trust proxy", true);
-    app.post("/register", limiter("registration", 1), (_request, response) => response.status(204).end());
+    app.post("/api/auth/register", limiter("credential:registration", 1), (_request, response) => response.status(204).end());
+    app.post("/api/auth/login", limiter("credential:user-login", 1), (_request, response) => response.status(204).end());
+    app.post("/api/admin/login", limiter("credential:admin-login", 1), (_request, response) => response.status(204).end());
     const server = await new Promise<any>((resolve) => { const instance = app.listen(0, "127.0.0.1", () => resolve(instance)); });
     activeServer = { baseUrl: `http://127.0.0.1:${server.address().port}`, close: () => new Promise((resolve, reject) => server.close((error: Error | undefined) => error ? reject(error) : resolve())) };
 
-    const first = await fetch(`${activeServer.baseUrl}/register`, { method: "POST", headers: { "x-forwarded-for": "198.51.100.1" } });
-    const limited = await fetch(`${activeServer.baseUrl}/register`, { method: "POST", headers: { "x-forwarded-for": "198.51.100.1" } });
-    await fetch(`${activeServer.baseUrl}/register`, { method: "POST", headers: { "x-forwarded-for": "198.51.100.2" } });
-    await fetch(`${activeServer.baseUrl}/register`, { method: "POST", headers: { "x-forwarded-for": "198.51.100.3" } });
+    const first = await fetch(`${activeServer.baseUrl}/api/auth/register`, { method: "POST", headers: { "x-forwarded-for": "198.51.100.1" } });
+    const limited = await fetch(`${activeServer.baseUrl}/api/auth/register`, { method: "POST", headers: { "x-forwarded-for": "198.51.100.1" } });
+    await fetch(`${activeServer.baseUrl}/api/auth/login`, { method: "POST", headers: { "x-forwarded-for": "198.51.100.2" } });
+    await fetch(`${activeServer.baseUrl}/api/admin/login`, { method: "POST", headers: { "x-forwarded-for": "198.51.100.3" } });
 
     expect(first.status).toBe(204);
     expect(limited.status).toBe(429);
