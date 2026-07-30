@@ -19,6 +19,9 @@
 - Fourth review remediation base: `4fa55c913024c4f044ea4f7dd9bb5ebe3ef36860`
 - Fourth review RED: `e880811b638c26c6811159bf8561f5d28ef16b2e`
 - Fourth review GREEN: `a3909575e63d190fd8670421b3d79c94f7d570a6`
+- Fifth review remediation base: `fb2d4dc776b6865dc4fcdb3105631b3049bee05b`
+- Fifth review RED: `b3a53cb61eccd2f2093d0a350930b61d65f2823f`
+- Fifth review GREEN: `9cea029e295356752658d6711f765de865ebcd72`
 
 ## Delivered behavior
 
@@ -108,6 +111,18 @@
   `config.locawebAuthHeader`, `config["locawebAuthHeader"]`, and aliases used
   in a HeadersInit are all rejected while the declaration remains clean.
 
+## Fifth independent review remediation
+
+- Removed the client-side `locawebAuthHeader: "Authorization"` default. The
+  optional type field remains only for existing-record round trips; new drafts
+  omit it.
+- Removed the AST allowlist completely. Every static executable
+  `Authorization` expression in `client/src` is now a violation, including
+  destructuring, rest, and spread flows.
+- Moved the Locaweb provider adapter to `server/services/locaweb-config.ts`.
+  Omitted header values resolve server-side to `Authorization`; existing custom
+  provider headers are preserved.
+
 ## TDD evidence
 
 | Stage | Command | Result |
@@ -135,6 +150,10 @@
 | Fourth review GREEN focused | `npm test -- tests/admin-browser-auth-source.test.ts` | Passed: 1 file, 3 tests. |
 | Fourth review full suite | `npm test` | Passed: 76 files / 589 tests, 2 existing environment-gated skips. |
 | Fourth review gates | `npm run check`, `npm run build`, `npm run security:secrets`, `npm audit --omit=dev --audit-level=high`, `git diff --check 7f23bd2..HEAD` | All passed; audit reported 0 vulnerabilities. |
+| Fifth review RED | `npm test -- tests/admin-browser-auth-source.test.ts server/services/locaweb-config.test.ts` | Failed as intended: client default remained and the server-side provider adapter did not exist. |
+| Fifth review GREEN focused | `npm test -- tests/admin-browser-auth-source.test.ts server/services/locaweb-config.test.ts` | Passed: 2 files, 5 tests. |
+| Fifth review full suite | `npm test` | Passed: 77 files / 591 tests, 2 existing environment-gated skips. |
+| Fifth review gates | `npm run check`, `npm run build`, `npm run security:secrets`, `npm audit --omit=dev --audit-level=high`, `git diff --check 7f23bd2..HEAD` | All passed; audit reported 0 vulnerabilities. |
 
 The first parallel full-suite run had one timeout in the standalone Docker
 compose configuration test while build/check were running concurrently. Its
@@ -149,7 +168,8 @@ same-tab coordination, generation races, request-failure cleanup, logout
 fallback, bounded raw responses, server-side cookie/CSRF/role password bypass,
 tenant-cookie revocation with admin-cookie coexistence, terminal retry and
 remote coordinator failure cleanup, terminal generation invalidation, and AST
-HeadersInit/object-property mutation fixtures. No browser E2E or live
-production/Portainer session was run. Browsers without
+HeadersInit/object-property/destructuring mutation fixtures, plus the
+server-side Locaweb fallback. No browser E2E or live production/Portainer
+session was run. Browsers without
 `BroadcastChannel` retain same-tab deduplication but not multi-tab refresh
 coordination.
