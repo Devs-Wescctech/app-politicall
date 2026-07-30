@@ -16,6 +16,9 @@
 - Third review remediation base: `49ccf46eb1b1bd59789314a46025b4a62a33f562`
 - Third review RED: `d5cff92046d954d24a79690f878c90771988753b`
 - Third review GREEN: `8c32262e6a43fd909646f1ceefd84d5f0ba500c2`
+- Fourth review remediation base: `4fa55c913024c4f044ea4f7dd9bb5ebe3ef36860`
+- Fourth review RED: `e880811b638c26c6811159bf8561f5d28ef16b2e`
+- Fourth review GREEN: `a3909575e63d190fd8670421b3d79c94f7d570a6`
 
 ## Delivered behavior
 
@@ -95,6 +98,16 @@
   executable-string exception is the exact Locaweb provider metadata property
   `locawebAuthHeader` in `components/admin/AdminIntegrationsDialog.tsx`.
 
+## Fourth independent review remediation
+
+- The Locaweb exception now permits only the exact string-literal initializer
+  of `locawebAuthHeader` in the approved metadata file. It does not permit a
+  property read to become a header name.
+- Symbol-scoped static resolution follows constant object property and element
+  access through aliases, with visited-node cycle bounding. Thus
+  `config.locawebAuthHeader`, `config["locawebAuthHeader"]`, and aliases used
+  in a HeadersInit are all rejected while the declaration remains clean.
+
 ## TDD evidence
 
 | Stage | Command | Result |
@@ -118,6 +131,10 @@
 | Third review GREEN focused | `npm test -- client/src/lib/admin-session.test.ts tests/admin-browser-auth-source.test.ts` | Passed: 2 files, 18 tests. |
 | Third review full suite | `npm test` | Passed: 76 files / 589 tests, 2 existing environment-gated skips. |
 | Third review gates | `npm run check`, `npm run build`, `npm run security:secrets`, `npm audit --omit=dev --audit-level=high`, `git diff --check 7f23bd2..HEAD` | All passed; audit reported 0 vulnerabilities. |
+| Fourth review RED | `npm test -- tests/admin-browser-auth-source.test.ts` | Failed as intended: the Locaweb metadata declaration could be read into a fetch HeadersInit without a violation. |
+| Fourth review GREEN focused | `npm test -- tests/admin-browser-auth-source.test.ts` | Passed: 1 file, 3 tests. |
+| Fourth review full suite | `npm test` | Passed: 76 files / 589 tests, 2 existing environment-gated skips. |
+| Fourth review gates | `npm run check`, `npm run build`, `npm run security:secrets`, `npm audit --omit=dev --audit-level=high`, `git diff --check 7f23bd2..HEAD` | All passed; audit reported 0 vulnerabilities. |
 
 The first parallel full-suite run had one timeout in the standalone Docker
 compose configuration test while build/check were running concurrently. Its
@@ -132,7 +149,7 @@ same-tab coordination, generation races, request-failure cleanup, logout
 fallback, bounded raw responses, server-side cookie/CSRF/role password bypass,
 tenant-cookie revocation with admin-cookie coexistence, terminal retry and
 remote coordinator failure cleanup, terminal generation invalidation, and AST
-HeadersInit mutation fixtures. No browser E2E or live production/Portainer
-session was run. Browsers without
+HeadersInit/object-property mutation fixtures. No browser E2E or live
+production/Portainer session was run. Browsers without
 `BroadcastChannel` retain same-tab deduplication but not multi-tab refresh
 coordination.
