@@ -4,7 +4,7 @@
 
 O Politicall esta em producao como um projeto Docker Compose em Docker Standalone. A aplicacao usa uma imagem privada no GHCR, publica a porta 5000 e acessa um PostgreSQL que roda em outro container no mesmo servidor. O Nginx e o TLS sao externos ao container e nao ha acesso SSH disponivel.
 
-O container atual deve permanecer funcionando ate o gate final. O novo fluxo substituira atualizacoes manuais com `latest` por releases reproduziveis, auditaveis e reversiveis.
+O container atual deve permanecer funcionando ate o gate final. O novo fluxo substituira referencias mutaveis por releases reproduziveis, auditaveis e reversiveis.
 
 ## Decisoes aprovadas
 
@@ -13,7 +13,8 @@ O container atual deve permanecer funcionando ate o gate final. O novo fluxo sub
 - O ambiente alvo e Docker Standalone administrado pelo Portainer.
 - O repositorio de origem e `Devs-Wescctech/app-politicall`.
 - O GitHub Actions construira e publicara a imagem no GHCR.
-- A stack consumira uma tag imutavel por commit ou release.
+- A stack consumira `IMAGE_REFERENCE` completa, por tag SHA ou digest.
+- Decisao atualizada: o contrato passou a aceitar `ghcr.io/<org>/<app>:sha-<commit>` e `ghcr.io/<org>/<app>@sha256:<64-hex-digest>` em uma unica variavel, evitando concatenacao invalida e permitindo pin por digest.
 - O volume de `uploads` continuara persistente no host.
 - O Nginx existente continuara atendendo o dominio e a porta 5000.
 - Credenciais de teste nao serao copiadas para arquivos, logs, commits ou documentacao.
@@ -29,7 +30,7 @@ E a abordagem escolhida. TypeScript, testes, auditoria, build e scan de imagem e
 
 Foi descartado como fluxo principal porque mistura compilacao e operacao, aumenta o tempo de indisponibilidade e reduz a qualidade do gate.
 
-### Atualizacao manual usando somente `latest`
+### Atualizacao manual usando referencia mutavel
 
 Foi descartada porque nao identifica exatamente qual codigo esta em execucao e dificulta rollback.
 
@@ -78,7 +79,8 @@ O deploy exige backup do banco antes da migracao. O runbook tera comandos de `pg
 
 O Compose tera um unico servico de aplicacao e nao incluira PostgreSQL.
 
-- Imagem: `${IMAGE_REPOSITORY}:${IMAGE_TAG}`.
+- Imagem: `${IMAGE_REFERENCE}` completa e imutavel.
+- Rede: `production` externa, com nome obrigatorio em `${APP_NETWORK_NAME}`, compartilhada com o container PostgreSQL existente.
 - Porta publica: configuravel, com valor padrao 5000.
 - `PROD_DATABASE_URL`, `SESSION_SECRET`, `DATA_ENCRYPTION_KEY` e `ADMIN_MASTER_PASSWORD_HASH` obrigatorios.
 - Volume persistente configuravel para `/app/uploads`.
@@ -89,7 +91,7 @@ O Compose tera um unico servico de aplicacao e nao incluira PostgreSQL.
 - Logs Docker com `max-size` e `max-file`.
 - Periodo de parada suficiente para graceful shutdown.
 
-O acesso inicial ao PostgreSQL pode continuar pelo endpoint atual. A conexao por rede Docker externa e nome de servico sera documentada como melhoria operacional, sem bloquear a primeira substituicao segura.
+A conexao preferencial ao PostgreSQL usa a rede Docker externa estavel e o nome DNS do container. O endpoint publicado no host permanece opcao legada, com firewall restritivo, enquanto a aplicacao continua conectada a rede externa. O Compose nao cria nem altera o servico PostgreSQL.
 
 ## Pipeline GitHub
 
@@ -111,7 +113,7 @@ O workflow nao instalara a ultima versao do npm de forma implicita. Actions de t
 1. Gerar backup do banco e confirmar restaurabilidade.
 2. Registrar o digest atualmente em producao.
 3. Publicar a nova imagem imutavel.
-4. Atualizar `IMAGE_TAG` no Portainer.
+4. Atualizar `IMAGE_REFERENCE` no Portainer com a tag SHA ou digest aprovado.
 5. Recriar o container mantendo o volume de uploads.
 6. Aguardar `/api/ready`.
 7. Executar smoke de login, dashboard e atendimento.
@@ -146,4 +148,3 @@ Como nao ha controle do Nginx, a troca reutilizara a porta 5000 e podera causar 
 - Alterar DNS, certificado ou configuracao do Nginx no servidor.
 - Criar credenciais reais no GitHub ou Portainer.
 - Publicar o repositorio sem autorizacao e credenciais do proprietario.
-

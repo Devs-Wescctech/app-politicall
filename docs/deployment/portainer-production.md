@@ -9,9 +9,11 @@ This runbook defines the deployment contract only. Do not stop, recreate, or mod
 3. Resolve a SHA tag to its registry digest and capture IMAGE_REFERENCE and resolved digest in the same change record. Digest references are preferred for production deploys and rollbacks because they identify one manifest without relying on tag policy.
 4. Complete and validate the paired database/uploads procedure in [backup-restore.md](backup-restore.md). Keep its image reference, migration inventory, artifact paths, and hashes in the same change record.
 5. Confirm the Docker host has the persistent uploads directory and that container UID 1001 can write to it.
-6. Confirm the external PostgreSQL instance is reachable by one of the connection options below.
-7. Confirm APP_PORT and the Nginx `proxy_pass` port must match. The supplied Nginx file targets the default `APP_PORT=5000`; if the Portainer value changes, update and validate Nginx in the same change.
-8. From the Docker host, verify `http://127.0.0.1:<APP_PORT>/api/health` reaches the intended local listener before routing external traffic to it.
+6. Precreate or reuse one stable user-defined Docker network. Set its exact name as `APP_NETWORK_NAME`; when creation is required, an approved operator can run `docker network create <app-network-name>` before deploying the stack.
+7. Confirm the existing PostgreSQL container is attached to that network. When attachment is required, an approved operator can run `docker network connect <app-network-name> <postgres-container-name>` before the application deploy. This runbook does not execute either command or alter the current container.
+8. Confirm the external PostgreSQL instance is reachable by its container DNS name on the shared network.
+9. Confirm APP_PORT and the Nginx `proxy_pass` port must match. The supplied Nginx file targets the default `APP_PORT=5000`; if the Portainer value changes, update and validate Nginx in the same change.
+10. From the Docker host, verify `http://127.0.0.1:<APP_PORT>/api/health` reaches the intended local listener before routing external traffic to it.
 
 ## GHCR Registry
 
@@ -29,6 +31,7 @@ Set these environment variables in Portainer, not in a committed `.env` file:
 | --- | --- |
 | `IMAGE_REFERENCE` | Complete immutable GHCR SHA-tag or digest reference validated during preflight. |
 | `APP_PORT` | Local host port used by Nginx; default is `5000`. |
+| `APP_NETWORK_NAME` | Name of the pre-existing external Docker network shared with PostgreSQL. |
 | `UPLOADS_HOST_PATH` | Absolute, persistent directory on the Docker host. |
 | `PROD_DATABASE_URL` | Required PostgreSQL connection string. |
 | `SESSION_SECRET` | Required random session secret. |
@@ -41,9 +44,9 @@ The uploads mount is persistent: `${UPLOADS_HOST_PATH}` is mounted at `/app/uplo
 
 ## External PostgreSQL
 
-Preferred option: attach the application and database containers to an explicitly created shared Docker network, then use the database service DNS name in `PROD_DATABASE_URL`. Restrict the database port to that network and do not publish it publicly. Confirm DNS resolution and TLS settings before the first migration.
+Preferred option: set `APP_NETWORK_NAME` to the stable external network created during preflight, attach the existing PostgreSQL container to it, and configure `PROD_DATABASE_URL` with the database container DNS name. Compose attaches the application to this network but never creates or manages the database service. Restrict database access to the shared network and confirm DNS resolution and TLS settings before the first migration.
 
-Legacy option: when a shared Docker network cannot yet be used, connect through a host-published database port using the Docker host gateway or a host address permitted by the platform. Restrict the host firewall so the database port is not publicly reachable. Treat this as a transition path and move to shared-network DNS when operationally possible.
+The host-published database port remains a legacy option when DNS migration cannot be completed in the same window. Restrict the host firewall so the database port is not publicly reachable. The application remains attached to the external network even while this legacy endpoint is used, allowing the database connection to move to container DNS in a later reviewed change.
 
 ## Deploy And Smoke Test
 

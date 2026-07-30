@@ -84,6 +84,7 @@ function syntheticComposeEnvironment(imageReference: string): NodeJS.ProcessEnv 
     ...process.env,
     IMAGE_REFERENCE: imageReference,
     APP_PORT: "5000",
+    APP_NETWORK_NAME: "politicall-production-test",
     UPLOADS_HOST_PATH: "/srv/politicall-test/uploads",
     PROD_DATABASE_URL: "postgresql://database.invalid/politicall",
     SESSION_SECRET: "synthetic-session-secret-not-for-use",
@@ -140,6 +141,8 @@ describe("deployment configuration", () => {
     const loggingOptions = asYamlMap(logging.options, "services.app.logging.options");
     const ulimits = asYamlMap(app.ulimits, "services.app.ulimits");
     const nofile = asYamlMap(ulimits.nofile, "services.app.ulimits.nofile");
+    const networks = asYamlMap(compose.networks, "networks");
+    const productionNetwork = asYamlMap(networks.production, "networks.production");
 
     expect(Object.keys(services)).toEqual(["app"]);
     expect(app.image).toBe("${IMAGE_REFERENCE:?required}");
@@ -147,6 +150,11 @@ describe("deployment configuration", () => {
     expect(app.stop_grace_period).toBe("30s");
     expect(app.ports).toEqual(["127.0.0.1:${APP_PORT:-5000}:5000"]);
     expect(app.volumes).toEqual(["${UPLOADS_HOST_PATH:?required}:/app/uploads"]);
+    expect(app.networks).toEqual(["production"]);
+    expect(productionNetwork).toMatchObject({
+      external: "true",
+      name: "${APP_NETWORK_NAME:?required}",
+    });
     expect(environment).toMatchObject({
       NODE_ENV: "production",
       PORT: "5000",
@@ -173,9 +181,12 @@ describe("deployment configuration", () => {
       expect(imageReference).toMatch(immutableImageReference);
       const rendered = parseYamlMap(renderComposeTemplate(composeSource, syntheticComposeEnvironment(imageReference) as Record<string, string>));
       const app = asYamlMap(asYamlMap(rendered.services, "services").app, "services.app");
+      const productionNetwork = asYamlMap(asYamlMap(rendered.networks, "networks").production, "networks.production");
 
       expect(app.image).toBe(imageReference);
       expect(String(app.image)).not.toContain(":@");
+      expect(app.networks).toEqual(["production"]);
+      expect(productionNetwork).toMatchObject({ external: "true", name: "politicall-production-test" });
     }
 
     expect("ghcr.io/example-org/politicall:latest").not.toMatch(immutableImageReference);
@@ -211,6 +222,7 @@ describe("deployment configuration", () => {
     expect(environment).toMatchObject({
       IMAGE_REFERENCE: syntheticDigestReference,
       APP_PORT: "5000",
+      APP_NETWORK_NAME: "<existing-external-docker-network>",
       UPLOADS_HOST_PATH: "<absolute-host-path-to-persistent-uploads>",
       PROD_DATABASE_URL: "<postgresql-connection-string>",
       SESSION_SECRET: "<generate-with-openssl-rand-base64-48>",
@@ -252,6 +264,35 @@ describe("deployment configuration", () => {
     }
   });
 
+  it("keeps the release plan and specification aligned with the complete immutable image reference", async () => {
+    const [plan, specification] = await Promise.all([
+      readProjectFile("docs/superpowers/plans/2026-07-29-release-foundation.md"),
+      readProjectFile("docs/superpowers/specs/2026-07-29-release-foundation-design.md"),
+    ]);
+
+    for (const source of [plan, specification]) {
+      expect(source).toContain("IMAGE_REFERENCE");
+      expect(source).toContain("ghcr.io/<org>/<app>:sha-<commit>");
+      expect(source).toContain("ghcr.io/<org>/<app>@sha256:<64-hex-digest>");
+      expect(source).not.toContain("IMAGE_REPOSITORY");
+      expect(source).not.toContain("IMAGE_TAG");
+      expect(source).not.toMatch(/(^|[^\w-])latest(?:$|[^\w-])/im);
+    }
+    expect(plan).toContain("Decision update");
+    expect(specification).toContain("Decisao atualizada");
+  });
+
+  it("connects the app to the pre-existing external PostgreSQL network", async () => {
+    const portainer = await readProjectFile("docs/deployment/portainer-production.md");
+
+    expect(portainer).toContain("APP_NETWORK_NAME");
+    expect(portainer).toContain("docker network create <app-network-name>");
+    expect(portainer).toContain("docker network connect <app-network-name> <postgres-container-name>");
+    expect(portainer).toContain("database container DNS name");
+    expect(portainer).toContain("host-published database port remains a legacy option");
+    expect(portainer).toContain("The application remains attached to the external network");
+  });
+
   it("requires quiescence before paired database and uploads backup", async () => {
     const backup = await readProjectFile("docs/deployment/backup-restore.md");
     const flow = markdownSection(backup, "Consistent Backup");
@@ -264,19 +305,36 @@ describe("deployment configuration", () => {
       "politicall_schema_migrations",
       "pg_dump",
       "Archive the uploads",
-      "SHA-256 hashes",
+      "Compute SHA-256 hashes for all three artifacts",
       "Validate the database dump",
       "Validate the uploads archive",
-      "Only after both artifacts are validated",
+      "Validate the migration inventory hash",
+      "Only after all three artifacts are validated",
     ]);
     for (const requiredRecord of [
-      "database dump path",
-      "uploads archive path",
-      "SHA-256 hashes",
-      "politicall_schema_migrations",
+      "database dump path and SHA-256 hash",
+      "uploads archive path and SHA-256 hash",
+      "migration inventory path and SHA-256 hash",
     ]) {
       expect(flow).toContain(requiredRecord);
     }
+  });
+
+  it("verifies all three pair hashes before isolated or production restore changes state", async () => {
+    const backup = await readProjectFile("docs/deployment/backup-restore.md");
+    const isolated = markdownSection(backup, "Isolated Restore Validation (ambiente isolado)");
+    const production = markdownSection(backup, "Production Restore");
+
+    expectTextInOrder(isolated, [
+      "Verify all three SHA-256 hashes",
+      "Restore the database",
+      "Extract the paired uploads archive",
+    ]);
+    expectTextInOrder(production, [
+      "Verify all three SHA-256 hashes",
+      "Restore the captured database dump",
+      "Restore the paired uploads archive",
+    ]);
   });
 
   it("restores a captured database/uploads/image set before reopening traffic", async () => {
@@ -287,6 +345,7 @@ describe("deployment configuration", () => {
       "Keep inbound traffic and writes blocked",
       "Keep the application stopped",
       "Confirm that no application writers remain",
+      "Verify all three SHA-256 hashes",
       "Restore the captured database dump",
       "Restore the paired uploads archive",
       "Select the compatible captured `IMAGE_REFERENCE`",

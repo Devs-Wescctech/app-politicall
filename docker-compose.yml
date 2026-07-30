@@ -21,6 +21,8 @@ services:
       OKTOR_SMS_TIPO_ENVIO: "${OKTOR_SMS_TIPO_ENVIO:-7}"
     volumes:
       - "${UPLOADS_HOST_PATH:?required}:/app/uploads"
+    networks:
+      - production
     mem_limit: 1g
     memswap_limit: 2g
     pids_limit: 256
@@ -42,3 +44,8 @@ services:
       timeout: 10s
       retries: 5
       start_period: 90s
+
+networks:
+  production:
+    external: true
+    name: "${APP_NETWORK_NAME:?required}"

@@ -13,7 +13,8 @@
 - PostgreSQL remains external to the Politicall Compose project.
 - No real token, password, private key, connection string, upload, database dump, or Vault file may enter Git, Docker context, logs, or documentation.
 - The currently running production container is not modified by this plan.
-- Production images use immutable SHA/release tags; `latest` is not a deployment identifier.
+- Production deployments use a complete immutable `IMAGE_REFERENCE` in either `ghcr.io/<org>/<app>:sha-<commit>` or `ghcr.io/<org>/<app>@sha256:<64-hex-digest>` form.
+- Decision update: the original split image variables were replaced by one complete reference so Portainer supports both SHA tags and digest-pinned deploys without concatenation.
 - A failed migration prevents application startup.
 - Existing Excel import/export behavior must remain covered by automated tests.
 - Node.js 24 LTS is the only CI and container runtime.
@@ -389,7 +390,7 @@ git commit -m "feat: add graceful production lifecycle"
 
 - [ ] **Step 1: Write RED configuration tests**
 
-Require `${IMAGE_REPOSITORY}`, `${IMAGE_TAG}`, `${UPLOADS_HOST_PATH}`, `/api/ready`, log rotation, stop grace period, `no-new-privileges`, and mandatory secret placeholders. Reject literal database URLs and `:latest`.
+Require `${IMAGE_REFERENCE}`, `${APP_NETWORK_NAME}`, `${UPLOADS_HOST_PATH}`, `/api/ready`, log rotation, stop grace period, `no-new-privileges`, an external production network, and mandatory secret placeholders. Reject literal database URLs and mutable image references.
 
 - [ ] **Step 2: Verify RED**
 
@@ -404,7 +405,7 @@ Use:
 ```yaml
 services:
   app:
-    image: "${IMAGE_REPOSITORY:?required}:${IMAGE_TAG:?required}"
+    image: "${IMAGE_REFERENCE:?required}"
     ports:
       - "127.0.0.1:${APP_PORT:-5000}:5000"
     environment:
@@ -417,13 +418,20 @@ services:
       TRUST_PROXY: "${TRUST_PROXY:-1}"
     volumes:
       - "${UPLOADS_HOST_PATH:?required}:/app/uploads"
+    networks:
+      - production
+
+networks:
+  production:
+    external: true
+    name: "${APP_NETWORK_NAME:?required}"
 ```
 
-Add readiness health check, resource limits, logging limits and a 30-second stop grace period.
+Add readiness health check, resource limits, logging limits and a 30-second stop grace period. The external network must be pre-created and shared with the existing PostgreSQL container; this stack must not create a database service.
 
 - [ ] **Step 4: Write runbooks**
 
-Document Portainer registry setup, environment entry, immutable tag deploy, production backup, restore validation, smoke, rollback to the captured digest, and the Nginx WebSocket block. Never include real values.
+Document Portainer registry setup, complete immutable image reference entry, external-network preflight, production backup with hashes for database/uploads/migration inventory, paired restore validation, smoke, rollback to the captured digest, and the Nginx WebSocket block. Never include real values.
 
 - [ ] **Step 5: Verify GREEN**
 
