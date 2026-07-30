@@ -247,6 +247,19 @@ describe("attendance realtime controller", () => {
     expect(vi.getTimerCount()).toBe(1);
   });
 
+  it("closes the current socket on error and schedules only one reconnect", () => {
+    const harness = createHarness();
+    harness.controller.start();
+    const socket = harness.sockets[0];
+
+    socket.fail();
+    socket.remoteClose();
+
+    expect(socket.closeCalls).toBe(1);
+    expect(harness.controller.getSnapshot().mode).toBe("fallback");
+    expect(vi.getTimerCount()).toBe(1);
+  });
+
   it("defers heartbeat failure while hidden and evaluates staleness on visibility return", () => {
     const harness = createHarness();
     harness.controller.start();

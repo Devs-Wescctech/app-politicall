@@ -1,12 +1,24 @@
+import { randomUUID } from "node:crypto";
 import type { IncomingMessage, Server } from "http";
 import type { Duplex } from "node:stream";
-import jwt from "jsonwebtoken";
 import { WebSocket, WebSocketServer } from "ws";
+import {
+  ATTENDANCE_HEARTBEAT_INTERVAL_MS,
+  type AttendanceConnectedPacket,
+  type AttendanceHeartbeatPacket,
+} from "@shared/attendance-realtime";
+import { getAuthAllowedOrigins } from "./routes/auth-session-routes";
+import { readAccessToken } from "./security/auth-cookies";
+import {
+  resolveAccessSession,
+  type AuthSessionRecord,
+} from "./services/auth-session-store";
 import { storage } from "./storage";
 
 type AttendanceRealtimeClient = WebSocket & {
   accountId?: string;
   userId?: string;
+  connectionId?: string;
   isAlive?: boolean;
 };
 
@@ -32,6 +44,25 @@ export type AttendanceRealtimeEvent = {
   payload?: Record<string, any>;
   createdAt?: string;
 };
+
+type AttendanceRealtimeUser = {
+  id: string;
+  accountId: string;
+};
+
+export type AttendanceRealtimeDependencies = {
+  allowedOrigins?: readonly string[];
+  resolveAccessSession?: (input: {
+    kind: "user";
+    sessionId: string;
+  }) => Promise<AuthSessionRecord | undefined>;
+  getUser?: (userId: string) => Promise<AttendanceRealtimeUser | undefined>;
+  createConnectionId?: () => string;
+  now?: () => Date;
+  heartbeatIntervalMs?: number;
+};
+
+export { ATTENDANCE_HEARTBEAT_INTERVAL_MS };
 
 const clientsByAccount = new Map<string, Set<AttendanceRealtimeClient>>();
 let websocketServer: WebSocketServer | null = null;
@@ -76,21 +107,91 @@ export function publishAttendanceEvent(event: AttendanceRealtimeEvent) {
   }
 }
 
-export function setupAttendanceRealtime(server: Server) {
+function isActiveUserSession(
+  session: AuthSessionRecord | undefined,
+  sessionId: string,
+): session is AuthSessionRecord & { accountId: string; userId: string } {
+  return !!session
+    && session.id === sessionId
+    && session.principalType === "user"
+    && typeof session.accountId === "string"
+    && session.accountId.length > 0
+    && typeof session.userId === "string"
+    && session.userId.length > 0
+    && session.principalId === session.userId
+    && session.globalAdminPrincipalId === null
+    && session.revokedAt === null
+    && session.expiresAt > new Date();
+}
+
+function validHeartbeatInterval(value: number | undefined): number {
+  if (value === undefined) return ATTENDANCE_HEARTBEAT_INTERVAL_MS;
+  if (!Number.isSafeInteger(value) || value <= 0 || value > ATTENDANCE_HEARTBEAT_INTERVAL_MS) {
+    throw new Error("Attendance realtime heartbeat interval is invalid");
+  }
+  return value;
+}
+
+export function setupAttendanceRealtime(
+  server: Server,
+  dependencies: AttendanceRealtimeDependencies = {},
+) {
   if (closingRealtime) {
     throw new Error("Attendance realtime is unavailable");
   }
   if (websocketServer) return websocketServer;
 
+  const allowedOrigins = new Set(dependencies.allowedOrigins ?? getAuthAllowedOrigins());
+  const resolveSession = dependencies.resolveAccessSession ?? resolveAccessSession;
+  const getUser = dependencies.getUser ?? ((userId: string) => storage.getUser(userId));
+  const createConnectionId = dependencies.createConnectionId ?? randomUUID;
+  const now = dependencies.now ?? (() => new Date());
+  const heartbeatIntervalMs = validHeartbeatInterval(dependencies.heartbeatIntervalMs);
   const realtime = new WebSocketServer({ noServer: true });
   websocketServer = realtime;
   realtimeServer = server;
 
+  realtime.on("connection", (socket) => {
+    const client = socket as AttendanceRealtimeClient;
+    if (!client.accountId || !client.userId || !client.connectionId) {
+      client.terminate();
+      return;
+    }
+    addClient(client, client.accountId);
+
+    client.on("pong", () => {
+      client.isAlive = true;
+    });
+    client.on("close", () => removeClient(client));
+    client.on("error", () => removeClient(client));
+
+    const connected: AttendanceConnectedPacket = {
+      type: "attendance.realtime.connected",
+      connectionId: client.connectionId,
+      accountId: client.accountId,
+      userId: client.userId,
+      heartbeatIntervalMs,
+      createdAt: now().toISOString(),
+    };
+    sendJson(client, connected);
+  });
+
   const listener: AttendanceUpgradeListener = async (request, socket, head) => {
     pendingUpgradeSockets.add(socket);
+    let tracking = true;
     const stopTrackingSocket = () => {
+      if (!tracking) return;
+      tracking = false;
       pendingUpgradeSockets.delete(socket);
-      socket.off("close", stopTrackingSocket);
+      socket.off("close", onSocketClose);
+      socket.off("error", onSocketError);
+    };
+    const onSocketClose = () => {
+      stopTrackingSocket();
+    };
+    const onSocketError = () => {
+      stopTrackingSocket();
+      if (!socket.destroyed) socket.destroy();
     };
     const rejectUpgrade = (status: "401 Unauthorized" | "403 Forbidden" | "404 Not Found") => {
       if (socket.destroyed) {
@@ -106,7 +207,8 @@ export function setupAttendanceRealtime(server: Server) {
         socket.destroy();
       }
     };
-    socket.once("close", stopTrackingSocket);
+    socket.once("close", onSocketClose);
+    socket.on("error", onSocketError);
 
     try {
       const url = new URL(request.url ?? "", "http://localhost");
@@ -115,14 +217,24 @@ export function setupAttendanceRealtime(server: Server) {
         return;
       }
 
-      const token = url.searchParams.get("token");
-      if (!token || !process.env.SESSION_SECRET) {
+      if (url.search.length > 0) {
         rejectUpgrade("401 Unauthorized");
         return;
       }
 
-      const decoded = jwt.verify(token, process.env.SESSION_SECRET) as { userId: string; accountId: string };
-      const user = await storage.getUser(decoded.userId);
+      const origin = request.headers.origin;
+      if (typeof origin !== "string" || !allowedOrigins.has(origin)) {
+        rejectUpgrade("403 Forbidden");
+        return;
+      }
+
+      const access = readAccessToken(request, "user");
+      if (!access) {
+        rejectUpgrade("401 Unauthorized");
+        return;
+      }
+
+      const session = await resolveSession({ kind: "user", sessionId: access.sid });
       const realtimeIsActive = websocketServer === realtime
         && realtimeServer === server
         && upgradeListener === listener;
@@ -132,34 +244,37 @@ export function setupAttendanceRealtime(server: Server) {
         return;
       }
 
-      if (!user || user.accountId !== decoded.accountId) {
-        rejectUpgrade("403 Forbidden");
+      if (!isActiveUserSession(session, access.sid)) {
+        rejectUpgrade("401 Unauthorized");
         return;
       }
 
-      realtime.handleUpgrade(request, socket, head, (ws) => {
+      const user = await getUser(session.userId);
+      const realtimeStillActive = websocketServer === realtime
+        && realtimeServer === server
+        && upgradeListener === listener;
+      if (!realtimeStillActive || !pendingUpgradeSockets.has(socket) || socket.destroyed) {
         stopTrackingSocket();
+        if (!socket.destroyed) socket.destroy();
+        return;
+      }
+
+      if (!user || user.id !== session.userId || user.accountId !== session.accountId) {
+        rejectUpgrade("401 Unauthorized");
+        return;
+      }
+
+      stopTrackingSocket();
+      realtime.handleUpgrade(request, socket, head, (ws) => {
         const client = ws as AttendanceRealtimeClient;
         client.accountId = user.accountId;
         client.userId = user.id;
+        client.connectionId = createConnectionId();
         client.isAlive = true;
-        addClient(client, user.accountId);
-
-        client.on("pong", () => {
-          client.isAlive = true;
-        });
-        client.on("close", () => removeClient(client));
-        client.on("error", () => removeClient(client));
-
-        sendJson(client, {
-          type: "attendance.realtime.connected",
-          accountId: user.accountId,
-          userId: user.id,
-          createdAt: new Date().toISOString(),
-        });
+        realtime.emit("connection", client, request);
       });
     } catch {
-      rejectUpgrade("403 Forbidden");
+      rejectUpgrade("401 Unauthorized");
     }
   };
   upgradeListener = listener;
@@ -173,11 +288,18 @@ export function setupAttendanceRealtime(server: Server) {
           removeClient(client);
           continue;
         }
+        const applicationHeartbeat: AttendanceHeartbeatPacket = {
+          type: "attendance.realtime.heartbeat",
+          connectionId: client.connectionId!,
+          accountId: client.accountId!,
+          createdAt: now().toISOString(),
+        };
+        sendJson(client, applicationHeartbeat);
         client.isAlive = false;
         client.ping();
       }
     }
-  }, 30_000);
+  }, heartbeatIntervalMs);
   heartbeat.unref?.();
 
   return realtime;

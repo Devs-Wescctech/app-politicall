@@ -1,6 +1,6 @@
 import { createServer, type Server } from "node:http";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { WebSocket } from "ws";
+import { WebSocket, type RawData } from "ws";
 import { issueAccessToken } from "./security/auth-cookies";
 import {
   ATTENDANCE_HEARTBEAT_INTERVAL_MS,
@@ -18,6 +18,7 @@ const originalSessionSecret = process.env.SESSION_SECRET;
 const originalPublicAppUrl = process.env.PUBLIC_APP_URL;
 const servers: Server[] = [];
 const clients: WebSocket[] = [];
+const receivedPackets = new WeakMap<WebSocket, Record<string, unknown>[]>();
 
 function activeSession(overrides: Record<string, unknown> = {}) {
   return {
@@ -74,6 +75,17 @@ function openClient(
     headers,
   });
   clients.push(client);
+  receivedPackets.set(client, []);
+  client.on("message", (data) => {
+    try {
+      const packet = JSON.parse(data.toString());
+      if (packet && typeof packet === "object" && !Array.isArray(packet)) {
+        receivedPackets.get(client)?.push(packet);
+      }
+    } catch {
+      // Packet-specific assertions decide whether malformed data is relevant.
+    }
+  });
   return new Promise((resolve, reject) => {
     client.once("open", () => resolve(client));
     client.once("error", reject);
@@ -104,10 +116,14 @@ function rejectedStatus(
 }
 
 function packetOfType(client: WebSocket, type: string): Promise<Record<string, unknown>> {
+  const packets = receivedPackets.get(client) ?? [];
+  const existingIndex = packets.findIndex((packet) => packet.type === type);
+  if (existingIndex >= 0) return Promise.resolve(packets.splice(existingIndex, 1)[0]);
+
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => reject(new Error(`Timed out waiting for ${type}`)), 1_000);
     timeout.unref();
-    const onMessage = (data: WebSocket.RawData) => {
+    const onMessage = (data: RawData) => {
       try {
         const packet = JSON.parse(data.toString()) as Record<string, unknown>;
         if (packet.type !== type) return;
@@ -272,6 +288,7 @@ describe("attendance realtime cookie authentication", () => {
   });
 
   it.each([
+    ["session id mismatch", activeSession({ id: "session-2" }), user()],
     ["session user mismatch", activeSession({ userId: "user-2" }), user()],
     ["session account mismatch", activeSession({ accountId: "account-2" }), user()],
     ["reloaded user mismatch", activeSession(), user({ id: "user-2" })],
