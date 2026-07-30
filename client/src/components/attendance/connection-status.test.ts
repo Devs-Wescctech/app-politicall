@@ -1,29 +1,31 @@
 // @vitest-environment jsdom
 import { createElement, useState } from "react";
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { ConnectionStatus } from "./ConnectionStatus";
 import { retryChatDetailRefresh } from "./ChatPanel";
+
+afterEach(cleanup);
 
 describe("ConnectionStatus", () => {
   it("announces each realtime mode through one polite atomic live region", () => {
     const { rerender } = render(createElement(ConnectionStatus, { mode: "connected" }));
     const status = screen.getByRole("status");
 
-    expect(status).toHaveTextContent("Conectado");
-    expect(status).toHaveAttribute("aria-live", "polite");
-    expect(status).toHaveAttribute("aria-atomic", "true");
-    expect(screen.queryByRole("button", { name: "Tentar novamente" })).not.toBeInTheDocument();
+    expect(status.textContent).toContain("Conectado");
+    expect(status.getAttribute("aria-live")).toBe("polite");
+    expect(status.getAttribute("aria-atomic")).toBe("true");
+    expect(screen.queryByRole("button", { name: "Tentar novamente" })).toBeNull();
 
     rerender(createElement(ConnectionStatus, { mode: "reconnecting" }));
     expect(screen.getByRole("status")).toBe(status);
-    expect(status).toHaveTextContent("Reconectando");
-    expect(screen.getByRole("button", { name: "Tentar novamente" })).toBeInTheDocument();
+    expect(status.textContent).toContain("Reconectando");
+    expect(screen.getByRole("button", { name: "Tentar novamente" })).toBeTruthy();
 
     rerender(createElement(ConnectionStatus, { mode: "fallback" }));
     expect(screen.getByRole("status")).toBe(status);
-    expect(status).toHaveTextContent("Sincronização automática");
+    expect(status.textContent).toContain("Sincronização automática");
   });
 
   it("prioritizes a HTTP refresh failure and exposes a retry action", () => {
@@ -33,7 +35,7 @@ describe("ConnectionStatus", () => {
       onRetry: vi.fn(),
     }));
 
-    expect(screen.getByRole("status")).toHaveTextContent("Falha ao atualizar");
+    expect(screen.getByRole("status").textContent).toContain("Falha ao atualizar");
     expect(screen.getByRole("button", { name: "Tentar novamente" })).toBeInstanceOf(HTMLButtonElement);
   });
 
@@ -61,8 +63,8 @@ describe("ConnectionStatus", () => {
     await user.click(button);
 
     expect(retry).toHaveBeenCalledTimes(1);
-    expect(button).toBeDisabled();
-    expect(button).toHaveAttribute("aria-busy", "true");
+    expect(button.disabled).toBe(true);
+    expect(button.getAttribute("aria-busy")).toBe("true");
   });
 
   it("retries a failed chat detail read without sending, clearing cached messages, or changing the draft", async () => {

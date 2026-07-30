@@ -60,6 +60,7 @@ import { cn } from "@/lib/utils";
 import { TagSelector, labelColor, useAttendanceLabels } from "./TagSelector";
 import { buildComposerCommands, type ComposerCommand } from "@shared/attendance-composer";
 import TemplateVariableDialog, { type TemplateVariableConfirmation } from "./TemplateVariableDialog";
+import { ConnectionStatus } from "./ConnectionStatus";
 
 const STATUS_META: Record<string, { label: string; className: string }> = {
   new: { label: "Novo", className: "bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/30 dark:text-sky-300 dark:border-sky-900" },
@@ -89,6 +90,7 @@ interface Props {
   onOpenContact?: () => void;
   mode: AttendanceConnectionMode;
   visibility: AttendancePollingVisibility;
+  reconnectNow: () => void;
 }
 
 type AttendanceTemplate = {
@@ -195,7 +197,14 @@ function writeCachedConversation(conversation: AttConversation, data?: CachedCon
   }
 }
 
-export default function ChatPanel({ conversation, onClose, onOpenContact, mode, visibility }: Props) {
+export function retryChatDetailRefresh(reconnectNow: () => void, refetch: () => Promise<unknown>) {
+  return async () => {
+    reconnectNow();
+    await refetch();
+  };
+}
+
+export default function ChatPanel({ conversation, onClose, onOpenContact, mode, visibility, reconnectNow }: Props) {
   const [message, setMessage] = useState("");
   const [isWhisper, setIsWhisper] = useState(false);
   const [showQuickReplies, setShowQuickReplies] = useState(false);
@@ -212,7 +221,7 @@ export default function ChatPanel({ conversation, onClose, onOpenContact, mode, 
   const currentUser = getAuthUser();
   const { data: labels = [] } = useAttendanceLabels();
 
-  const { data: convData, isLoading, isFetching } = useQuery<(AttConversation & { messages: AttMessage[]; notes?: any[]; hasOlderMessages?: boolean; messageCursor?: string | null }) | CachedConversationData>({
+  const { data: convData, isLoading, isFetching, isError, refetch } = useQuery<(AttConversation & { messages: AttMessage[]; notes?: any[]; hasOlderMessages?: boolean; messageCursor?: string | null }) | CachedConversationData>({
     queryKey: ["/api/attendance/conversations", conversation.id],
     queryFn: async () => {
       const response = await apiRequest("GET", "/api/attendance/conversations/" + conversation.id + "?messagePageSize=50");
@@ -666,6 +675,16 @@ export default function ChatPanel({ conversation, onClose, onOpenContact, mode, 
           </DropdownMenu>
         </div>
       </div>
+
+      {isError ? (
+        <ConnectionStatus
+          mode={mode}
+          httpRefreshFailed
+          retryInProgress={isFetching}
+          onRetry={retryChatDetailRefresh(reconnectNow, refetch)}
+          className="shrink-0 bg-card px-3 sm:px-4"
+        />
+      ) : null}
 
       <div
         ref={messagesAreaRef}
