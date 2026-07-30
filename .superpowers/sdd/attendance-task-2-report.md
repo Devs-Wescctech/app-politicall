@@ -14,7 +14,8 @@ Status: AWAITING_RE_REVIEW
 ## Delivered API
 
 - `AttendanceConnectionState` retains public mode plus online, visibility,
-  reconnect attempt, socket-open, and stability-confirmation facts.
+  nullable zero-based reconnect attempt, socket-open, and stability-confirmation
+  facts.
 - `AttendanceConnectionEvent` exposes DOM-free events for the Task 3 hook.
 - `attendanceConnectionReducer` starts online in `reconnecting`, uses
   `fallback` after a socket open until two consecutive healthy confirmations,
@@ -114,6 +115,58 @@ d385ca9 fix: guard attendance socket callbacks by generation
   invalidate older socket generations. Old callbacks cannot contribute healthy
   confirmations or downgrade a replacement socket.
 
+## Review 2 remediation
+
+- Review contract: `.superpowers/sdd/attendance-task-2-review-2.md`
+- Reviewed head: `44c5cd6`
+- Review verdict: `CHANGES_REQUIRED`; this report remains awaiting re-review.
+
+### RED
+
+Command:
+
+```text
+npm test -- client/src/lib/attendance-connection-state.test.ts
+```
+
+Result: failed as intended before the fix. 7 of 18 tests failed because the
+state started and reset with `0`, while a first failure stored `1`. The new
+integration-style regression required the direct handoff sequence
+`null -> 0 -> 1 -> 2` and 1,000 ms, 2,000 ms, and 4,000 ms delays at jitter
+sample `0.5`.
+
+Checkpoint commit:
+
+```text
+824af88 test: specify zero-based attendance backoff handoff
+```
+
+### GREEN
+
+Command:
+
+```text
+npm test -- client/src/lib/attendance-connection-state.test.ts
+```
+
+Result: PASS, 1 test file and 18 tests passed.
+
+Checkpoint commit:
+
+```text
+fd96e69 fix: align attendance backoff state with delay index
+```
+
+### Changes made
+
+- `reconnectAttempt` is `null` before failure and after a successful open or
+  manual reset.
+- The first current-generation close or heartbeat failure records `0`; each
+  later current-generation failure increments the value without incrementing at
+  replacement-start time.
+- Task 3 can call `nextReconnectDelay(state.reconnectAttempt ?? 0, random)`
+  directly. Generation safety remains unchanged.
+
 ## Validation
 
 ```text
@@ -121,6 +174,32 @@ npm test -- client/src/lib/attendance-connection-state.test.ts
 ```
 
 Result: PASS, 1 test file and 13 tests passed.
+
+```text
+npm test -- client/src/lib/attendance-reconciliation.test.ts
+```
+
+Result: PASS, 1 test file and 7 tests passed.
+
+```text
+npm run check
+```
+
+Result: PASS (`tsc` exited 0).
+
+```text
+git diff --check fdfed3f..HEAD
+```
+
+Result: PASS, no whitespace errors reported.
+
+## Review 2 validation
+
+```text
+npm test -- client/src/lib/attendance-connection-state.test.ts
+```
+
+Result: PASS, 1 test file and 18 tests passed.
 
 ```text
 npm test -- client/src/lib/attendance-reconciliation.test.ts
@@ -177,5 +256,5 @@ later tasks and were intentionally not tested or changed here.
 
 ## Re-review status
 
-The Review 1 contract is implemented and all required local gates pass. No
-approval is claimed; an independent re-review remains required.
+The Review 1 and Review 2 contracts are implemented and all required local
+gates pass. No approval is claimed; an independent re-review remains required.
