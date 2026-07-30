@@ -52,6 +52,8 @@ describe("versioned data encryption", () => {
     expect(first).not.toBe(second);
     expect(() => decryptApiKey(first, { ...context, recordId: "int-2" })).toThrow(DataEncryptionError);
     expect(() => decryptApiKey(`${parts[0]}:unknown:${parts.slice(2).join(":")}`, context)).toThrow(DataEncryptionError);
+    expect(() => decryptApiKey(`${parts[0]}:sha256-aaaaaaaaaaaaaaaaaaaaaaaa:${parts.slice(2).join(":")}`, context)).toThrow(DataEncryptionError);
+    expect(() => decryptApiKey(`${parts.slice(0, 3).join(":")}:AAAAAAAAAAAAAAAAAAAAAA:${parts[4]}`, context)).toThrow(DataEncryptionError);
     expect(() => decryptApiKey(`v2:${getActiveDataEncryptionKeyId()}:bad:bad:bad`, context)).toThrow(DataEncryptionError);
     expect(() => decryptApiKey(`${parts.slice(0, 4).join(":")}:A`, context)).toThrow(DataEncryptionError);
   });
@@ -86,5 +88,14 @@ describe("versioned data encryption", () => {
       configureKeys({ DATA_ENCRYPTION_KEY: value });
       expect(() => encryptApiKey("secret")).toThrow(DataEncryptionError);
     }
+  });
+
+  it("bounds plaintext and legacy envelopes before allocating or parsing them", () => {
+    configureKeys({ LEGACY_DATA_ENCRYPTION_KEY: previousKey });
+    const oversized = "a".repeat(128 * 1024 + 1);
+    const oversizedV1 = `${"0".repeat(32)}:${"0".repeat(32)}:${"0".repeat((128 * 1024 + 1) * 2)}`;
+
+    expect(() => encryptApiKey(oversized)).toThrow(DataEncryptionError);
+    expect(() => decryptApiKey(oversizedV1)).toThrow(DataEncryptionError);
   });
 });

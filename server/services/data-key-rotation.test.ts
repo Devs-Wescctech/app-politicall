@@ -98,13 +98,18 @@ describe("data encryption rotation", () => {
     expect(secondRun.unchanged).toBe(1);
   });
 
+  it("requires the active key even for dry-run before reading rows", async () => {
+    delete process.env.DATA_ENCRYPTION_KEY;
+    const fixture = createStore([{ table: "integrations", id: "plain", field: "sendgridApiKey", value: "plain" }]);
+
+    await expect(rotateDataEncryption(fixture.store)).rejects.toMatchObject({ code: "configuration" });
+  });
+
   it("uses compare-and-set protection for concurrent edits and reports the race without overwriting", async () => {
     withKeys();
     const fixture = createStore([{ table: "integrations", id: "race", field: "sendgridApiKey", value: "plain" }]);
     fixture.store.compareAndSet = async () => false;
 
-    const report = await rotateDataEncryption(fixture.store, { apply: true });
-
-    expect(report).toMatchObject({ skipped: 1, rotated: 0, errors: 0 });
+    await expect(rotateDataEncryption(fixture.store, { apply: true })).rejects.toThrow("Data encryption rotation conflict");
   });
 });
