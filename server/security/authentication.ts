@@ -1,10 +1,10 @@
 import type { NextFunction, Request, Response } from "express";
-import jwt, { type JwtPayload } from "jsonwebtoken";
 import { parseCookie } from "cookie";
 import type { UserPermissions } from "@shared/schema";
 import { readAccessToken, ADMIN_ACCESS_COOKIE, USER_ACCESS_COOKIE } from "./auth-cookies";
 import { requireCsrf } from "./csrf";
 import { verifyPureLegacyGlobalAdminToken } from "./legacy-global-admin";
+import { verifyPureLegacyTenantToken } from "./legacy-tenant";
 
 export type BrowserAuthRequest = Request & {
   userId?: string;
@@ -55,23 +55,6 @@ function accessCookieWasSupplied(request: Request, kind: "user" | "admin"): bool
 function bearerToken(request: Request): string | undefined {
   const header = request.headers.authorization;
   return typeof header === "string" && header.startsWith("Bearer ") ? header.slice(7) : undefined;
-}
-
-function legacyUserClaims(token: string): { userId: string; accountId: string } | undefined {
-  const secret = process.env.SESSION_SECRET;
-  if (!secret) return undefined;
-  try {
-    const claims = jwt.verify(token, secret, { algorithms: ["HS256"] });
-    if (typeof claims !== "object" || claims === null || Array.isArray(claims)) return undefined;
-    const payload = claims as JwtPayload;
-    const forbiddenClaims = ["sid", "kind", "isAdmin", "principalId", "principalType", "globalAdminPrincipalId", "globalAdminId", "tenantId", "id", "user", "account", "sub"];
-    if (typeof payload.exp !== "number" || forbiddenClaims.some((claim) => Object.hasOwn(payload, claim))) return undefined;
-    if (typeof payload.userId !== "string" || !payload.userId || typeof payload.accountId !== "string" || !payload.accountId) return undefined;
-    if (payload.role !== undefined && typeof payload.role !== "string") return undefined;
-    return { userId: payload.userId, accountId: payload.accountId };
-  } catch {
-    return undefined;
-  }
 }
 
 function isActiveUserSession(session: AccessSession | undefined): session is AccessSession & { accountId: string; userId: string } {
@@ -130,7 +113,8 @@ export function createAuthenticationMiddleware(dependencies: AuthenticationDepen
     }
 
     const token = bearerToken(request);
-    const legacy = token && legacyBearerEnabled() ? legacyUserClaims(token) : undefined;
+    const secret = process.env.SESSION_SECRET;
+    const legacy = token && secret && legacyBearerEnabled() ? verifyPureLegacyTenantToken(token, secret) : undefined;
     if (!legacy) return reject(response);
     const user = await dependencies.getUser(legacy.userId);
     if (!user || user.id !== legacy.userId || user.accountId !== legacy.accountId) return reject(response);

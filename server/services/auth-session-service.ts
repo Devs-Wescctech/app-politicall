@@ -3,6 +3,7 @@ import jwt, { type JwtPayload } from "jsonwebtoken";
 import type { UserPermissions } from "@shared/schema";
 import { GLOBAL_ADMIN_REFRESH_SESSION_MAX_AGE_MS, USER_REFRESH_SESSION_MAX_AGE_MS, type AuthSessionRecord, type AuthSessionScope } from "./auth-session-store";
 import { isPureLegacyGlobalAdminClaims } from "../security/legacy-global-admin";
+import { verifyPureLegacyTenantToken } from "../security/legacy-tenant";
 
 export const GLOBAL_ADMIN_PRINCIPAL_ID = "politicall:global-admin";
 export type BrowserSessionKind = "user" | "admin";
@@ -127,14 +128,17 @@ export function createAuthSessionService(dependencies: AuthSessionServiceDepende
     },
     async exchangeLegacyBearer(input: { kind: BrowserSessionKind; token: string }) {
       if (process.env.ENABLE_BEARER_EXCHANGE !== "true") return { status: "disabled" as const };
-      const claims = legacyClaims(input.token);
-      if (!claims) return { status: "invalid" as const };
       if (input.kind === "admin") {
+        const claims = legacyClaims(input.token);
+        if (!claims) return { status: "invalid" as const };
         if (!isPureLegacyGlobalAdminClaims(claims)) return { status: "invalid" as const };
         if (!(await dependencies.legacyExchangeStore.claim({ tokenHash: createHash("sha256").update(input.token).digest("hex"), expiresAt: new Date(claims.exp! * 1000) }))) return { status: "invalid" as const };
         return { status: "exchanged" as const, ...(await issueAdminSession()) };
       }
-      if (typeof claims.userId !== "string" || !claims.userId || typeof claims.accountId !== "string" || !claims.accountId) return { status: "invalid" as const };
+      const secret = process.env.SESSION_SECRET;
+      if (!secret) throw new Error("SESSION_SECRET must be set in environment variables");
+      const claims = verifyPureLegacyTenantToken(input.token, secret);
+      if (!claims) return { status: "invalid" as const };
       const user = await dependencies.users.findByIdAndAccount(claims.userId, claims.accountId);
       if (!user || !(await dependencies.legacyExchangeStore.claim({ tokenHash: createHash("sha256").update(input.token).digest("hex"), expiresAt: new Date(claims.exp! * 1000) }))) return { status: "invalid" as const };
       return { status: "exchanged" as const, ...(await issueUserSession(user)) };
