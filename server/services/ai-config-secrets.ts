@@ -1,4 +1,11 @@
-import { decryptApiKey, encryptApiKey, isEncryptedDataValue, isMalformedEncryptedDataValue } from "../crypto";
+import {
+  decryptApiKey,
+  encryptApiKey,
+  getActiveDataEncryptionKeyId,
+  getV2KeyId,
+  isEncryptedDataValue,
+  isMalformedEncryptedDataValue,
+} from "../crypto";
 
 export const AI_CONFIG_PROVIDER_SECRET_FIELDS = [
   "facebookAppSecret",
@@ -28,7 +35,7 @@ function isBlankOrMaskedSecret(value: unknown): boolean {
   return typeof value === "string" && (!value.trim() || MASKED_SECRET_VALUES.has(value.trim().toLowerCase()));
 }
 
-export function encryptAiConfigProviderSecrets<T extends Record<string, any>>(config: T): T {
+export function encryptAiConfigProviderSecrets<T extends Record<string, any>>(config: T, existing?: Record<string, any> | null): T {
   const encrypted: Record<string, any> = { ...config };
 
   for (const field of AI_CONFIG_PROVIDER_SECRET_FIELDS) {
@@ -43,9 +50,15 @@ export function encryptAiConfigProviderSecrets<T extends Record<string, any>>(co
     if (isMalformedEncryptedDataValue(value)) {
       throw new Error("Invalid encrypted provider secret");
     }
-    if (typeof value === "string" && !isEncryptedSecret(value)) {
-      encrypted[field] = encryptApiKey(value.trim());
-    }
+    if (typeof value !== "string") continue;
+
+    const trimmed = value.trim();
+    const isTrustedActiveValue = trimmed === existing?.[field]
+      && getV2KeyId(trimmed) === getActiveDataEncryptionKeyId();
+    if (isTrustedActiveValue) continue;
+
+    const plaintext = isEncryptedSecret(trimmed) ? decryptApiKey(trimmed) : trimmed;
+    encrypted[field] = encryptApiKey(plaintext);
   }
 
   return encrypted as T;

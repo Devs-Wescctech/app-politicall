@@ -9,6 +9,7 @@ const MAX_BASE64URL_DATA_LENGTH = Math.ceil(MAX_CIPHERTEXT_BYTES * 4 / 3) + 4;
 const MAX_V1_ENVELOPE_LENGTH = 65 + (MAX_CIPHERTEXT_BYTES * 2);
 const MAX_V2_ENVELOPE_LENGTH = 4 + 80 + 1 + 16 + 1 + 22 + 1 + MAX_BASE64URL_DATA_LENGTH;
 const V1_PATTERN = /^(?<iv>[0-9a-f]{32}):(?<tag>[0-9a-f]{32}):(?<data>[0-9a-f]+)$/i;
+const V1_HEADER_PATTERN = /^[0-9a-f]{32}:[0-9a-f]{32}:/i;
 const V2_PATTERN = new RegExp(`^v2:(?<keyId>[a-z0-9-]{8,80}):(?<iv>[A-Za-z0-9_-]{16}):(?<tag>[A-Za-z0-9_-]{22}):(?<data>[A-Za-z0-9_-]{0,${MAX_BASE64URL_DATA_LENGTH}})$`);
 
 export type DataEncryptionContext = { table?: string; field?: string; recordId?: string };
@@ -92,6 +93,14 @@ function parseV1(value: string): { iv: Buffer; tag: Buffer; data: Buffer } | nul
   return iv.length === 16 && tag.length === TAG_BYTES && data.length > 0 ? { iv, tag, data } : null;
 }
 
+function isV1EnvelopeCandidate(value: string): boolean {
+  if (value.length > MAX_V1_ENVELOPE_LENGTH) {
+    return V1_HEADER_PATTERN.test(value.slice(0, 66));
+  }
+  const match = V1_PATTERN.exec(value);
+  return Boolean(match?.groups && match.groups.data.length % 2 === 0);
+}
+
 export function getActiveDataEncryptionKeyId(): string {
   return getKeyring().activeId;
 }
@@ -107,7 +116,7 @@ export function isEncryptedDataValue(value: unknown): boolean {
 export function isMalformedEncryptedDataValue(value: unknown): boolean {
   return typeof value === "string" && (
     (value.startsWith("v2:") && parseV2(value) === null)
-    || (/^[0-9a-f]{32}:/i.test(value) && parseV1(value) === null)
+    || (isV1EnvelopeCandidate(value) && parseV1(value) === null)
   );
 }
 

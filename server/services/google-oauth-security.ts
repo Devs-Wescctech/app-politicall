@@ -4,6 +4,7 @@ type OAuthErrorLike = {
 };
 
 export type SafeGoogleOauthFailure = { status: number | null; code: string; message: string };
+export type SafeGoogleOauthResponse = { error: string; category: "google_oauth"; status: number; code: string };
 
 export function redactGoogleOauthFailure(error: unknown): SafeGoogleOauthFailure {
   const source = (error && typeof error === "object" ? error : {}) as OAuthErrorLike;
@@ -13,4 +14,14 @@ export function redactGoogleOauthFailure(error: unknown): SafeGoogleOauthFailure
   const candidate = source.response?.data?.error ?? source.response?.data?.code ?? source.code;
   const code = typeof candidate === "string" && /^[a-z0-9_.-]{1,64}$/i.test(candidate) ? candidate : "oauth_error";
   return { status, code, message: "Google OAuth request failed" };
+}
+
+export function toSafeGoogleOauthResponse(error: unknown): SafeGoogleOauthResponse {
+  const failure = redactGoogleOauthFailure(error);
+  return {
+    error: failure.message,
+    category: "google_oauth",
+    status: failure.status ?? 500,
+    code: failure.code,
+  };
 }

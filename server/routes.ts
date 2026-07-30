@@ -75,10 +75,11 @@ import { sql, eq, desc, and } from "drizzle-orm";
 import { generateAiResponse, testOpenAiApiKey } from "./openai";
 import { requireRole } from "./authorization";
 import { authenticateAdminToken, authenticateToken, hasActiveGlobalAdminCookie, requirePermission, requireAnyPermission, type AuthRequest } from "./auth";
-import { encryptApiKey, decryptApiKey, isEncryptedDataValue, isMalformedEncryptedDataValue } from "./crypto";
+import { encryptApiKey, decryptApiKey } from "./crypto";
 import { sanitizeAiConfiguration } from "./services/ai-config-security";
-import { redactGoogleOauthFailure } from "./services/google-oauth-security";
+import { redactGoogleOauthFailure, toSafeGoogleOauthResponse } from "./services/google-oauth-security";
 import { prepareWhatsappOmniConnection } from "./services/data-secret-fields";
+import { normalizeIntegrationSecretForWrite } from "./services/integration-secret-fields";
 import { decryptAiConfigProviderSecrets } from "./services/ai-config-secrets";
 import {
   extractMetaWebhookTargetIds,
@@ -152,15 +153,6 @@ function maskIntegration<T extends Record<string, any>>(integration: T): T {
 function decryptSecretIfNeeded(value: unknown): unknown {
   if (typeof value !== "string" || !value) return value;
   return decryptApiKey(value);
-}
-
-function encryptSecretIfNeeded(value: unknown): unknown {
-  if (typeof value !== "string") return value;
-  const trimmed = value.trim();
-  if (!trimmed || trimmed === "***") return value;
-  if (isMalformedEncryptedDataValue(trimmed)) throw new Error("Invalid encrypted integration secret");
-  if (isEncryptedDataValue(trimmed)) return trimmed;
-  return encryptApiKey(trimmed);
 }
 
 function decryptIntegrationForUse<T extends Record<string, any> | null | undefined>(integration: T): T {
@@ -5038,7 +5030,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       for (const key of INTEGRATION_SENSITIVE_FIELDS) {
         if ((validatedData as any)[key] !== undefined) {
-          (validatedData as any)[key] = encryptSecretIfNeeded((validatedData as any)[key]);
+          (validatedData as any)[key] = normalizeIntegrationSecretForWrite((validatedData as any)[key], (existing as any)?.[key]);
         }
       }
 
@@ -5082,7 +5074,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       for (const key of INTEGRATION_SENSITIVE_FIELDS) {
         if ((validatedData as any)[key] !== undefined) {
-          (validatedData as any)[key] = encryptSecretIfNeeded((validatedData as any)[key]);
+          (validatedData as any)[key] = normalizeIntegrationSecretForWrite((validatedData as any)[key], (existing as any)?.[key]);
         }
       }
       const owner = req.userId || existing?.userId || (await storage.getAccountAdmin(accountId))?.id;
@@ -5208,7 +5200,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       for (const key of INTEGRATION_SENSITIVE_FIELDS) {
         if ((validatedData as any)[key] !== undefined) {
-          (validatedData as any)[key] = encryptSecretIfNeeded((validatedData as any)[key]);
+          (validatedData as any)[key] = normalizeIntegrationSecretForWrite((validatedData as any)[key], (existing as any)?.[key]);
         }
       }
 
@@ -7654,7 +7646,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.deleteGoogleCalendarIntegration(req.accountId!);
       res.json({ success: true, message: "Integração com Google Calendar removida" });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json(toSafeGoogleOauthResponse(error));
     }
   });
   
@@ -7999,7 +7991,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error: any) {
       console.error('[Google Calendar Sync] Failed:', redactGoogleOauthFailure(error));
-      res.status(500).json({ error: error.message });
+      res.status(500).json(toSafeGoogleOauthResponse(error));
     }
   });
 
