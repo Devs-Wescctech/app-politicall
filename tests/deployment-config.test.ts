@@ -85,6 +85,7 @@ function syntheticComposeEnvironment(imageReference: string): NodeJS.ProcessEnv 
     ...process.env,
     IMAGE_REFERENCE: imageReference,
     APP_PORT: "5000",
+    PUBLIC_APP_URL: "https://politicall.example",
     APP_NETWORK_NAME: "politicall-production-test",
     UPLOADS_HOST_PATH: "/srv/politicall-test/uploads",
     PROD_DATABASE_URL: "postgresql://database.invalid/politicall",
@@ -175,6 +176,7 @@ describe("deployment configuration", () => {
     expect(environment).toMatchObject({
       NODE_ENV: "production",
       PORT: "5000",
+      PUBLIC_APP_URL: "${PUBLIC_APP_URL:?required}",
       PROD_DATABASE_URL: "${PROD_DATABASE_URL:?required}",
       SESSION_SECRET: "${SESSION_SECRET:?required}",
       DATA_ENCRYPTION_KEY: "${DATA_ENCRYPTION_KEY:?required}",
