@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CircleAlert, RefreshCw, Wifi, WifiOff } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -27,6 +27,7 @@ export function ConnectionStatus({
   className,
 }: ConnectionStatusProps) {
   const [retryRequested, setRetryRequested] = useState(false);
+  const mountedRef = useRef(true);
   const isBusy = retryInProgress || retryRequested;
   const content = httpRefreshFailed
     ? { label: "Falha ao atualizar", icon: CircleAlert, className: "border-destructive/30 bg-destructive/10 text-destructive" }
@@ -41,9 +42,15 @@ export function ConnectionStatus({
     try {
       await onRetry();
     } finally {
-      setRetryRequested(false);
+      if (mountedRef.current) setRetryRequested(false);
     }
   };
+
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   return (
     <div className={cn("flex min-h-8 flex-wrap items-center gap-x-2 gap-y-1 border-b border-border/70 py-1 text-xs", className)}>

@@ -57,6 +57,7 @@ import type { AttendanceConnectionMode } from "@/lib/attendance-connection-state
 import { useToast } from "@/hooks/use-toast";
 import { getAuthUser } from "@/lib/auth";
 import { cn } from "@/lib/utils";
+import { createAttendanceDetailQueryFn } from "@/lib/attendance-detail-cache";
 import { TagSelector, labelColor, useAttendanceLabels } from "./TagSelector";
 import { buildComposerCommands, type ComposerCommand } from "@shared/attendance-composer";
 import TemplateVariableDialog, { type TemplateVariableConfirmation } from "./TemplateVariableDialog";
@@ -220,13 +221,17 @@ export default function ChatPanel({ conversation, onClose, onOpenContact, mode, 
   const { toast } = useToast();
   const currentUser = getAuthUser();
   const { data: labels = [] } = useAttendanceLabels();
+  const conversationDetailQueryKey = useMemo(
+    () => ["/api/attendance/conversations", conversation.id] as const,
+    [conversation.id],
+  );
 
   const { data: convData, isLoading, isFetching, isError, refetch } = useQuery<(AttConversation & { messages: AttMessage[]; notes?: any[]; hasOlderMessages?: boolean; messageCursor?: string | null }) | CachedConversationData>({
-    queryKey: ["/api/attendance/conversations", conversation.id],
-    queryFn: async () => {
+    queryKey: conversationDetailQueryKey,
+    queryFn: createAttendanceDetailQueryFn(queryClient, conversationDetailQueryKey, async () => {
       const response = await apiRequest("GET", "/api/attendance/conversations/" + conversation.id + "?messagePageSize=50");
       return response.json();
-    },
+    }),
     refetchOnMount: "always",
     refetchInterval: conversationPollingInterval(mode, visibility),
     refetchIntervalInBackground: true,
@@ -298,7 +303,7 @@ export default function ChatPanel({ conversation, onClose, onOpenContact, mode, 
     try {
       const response = await apiRequest("GET", "/api/attendance/conversations/" + conversation.id + "/messages?before=" + encodeURIComponent(cursor) + "&limit=50");
       const page = await response.json() as { data: AttMessage[]; hasMore: boolean; nextCursor: string | null };
-      queryClient.setQueryData<any>(["/api/attendance/conversations", conversation.id], (old: any) => {
+      queryClient.setQueryData<any>(conversationDetailQueryKey, (old: any) => {
         if (!old) return old;
         const existing = Array.isArray(old.messages) ? old.messages : [];
         const ids = new Set(existing.map((item: AttMessage) => item.id));
@@ -347,7 +352,7 @@ export default function ChatPanel({ conversation, onClose, onOpenContact, mode, 
         createdAt: new Date(),
       } as any;
 
-      queryClient.setQueryData<any>(["/api/attendance/conversations", conversation.id], (old: any) => {
+      queryClient.setQueryData<any>(conversationDetailQueryKey, (old: any) => {
         const base = old ?? { ...liveConversation, messages: [] };
         const existing = Array.isArray(base.messages) ? base.messages : [];
         if (existing.some((item: AttMessage) => item.id === tempMessage.id)) return base;
@@ -357,7 +362,7 @@ export default function ChatPanel({ conversation, onClose, onOpenContact, mode, 
       return { tempId: body.tempId };
     },
     onSuccess: (saved, _body, context) => {
-      queryClient.setQueryData<any>(["/api/attendance/conversations", conversation.id], (old: any) => {
+      queryClient.setQueryData<any>(conversationDetailQueryKey, (old: any) => {
         if (!old?.messages) return old;
         const byId = new Map<string, AttMessage>();
         for (const item of old.messages.map((item: AttMessage) => item.id === context?.tempId ? saved : item)) {
@@ -371,7 +376,7 @@ export default function ChatPanel({ conversation, onClose, onOpenContact, mode, 
       invalidateConversation();
     },
     onError: (e: any, _body, context) => {
-      queryClient.setQueryData<any>(["/api/attendance/conversations", conversation.id], (old: any) => {
+      queryClient.setQueryData<any>(conversationDetailQueryKey, (old: any) => {
         if (!old?.messages) return old;
         return {
           ...old,
@@ -406,7 +411,7 @@ export default function ChatPanel({ conversation, onClose, onOpenContact, mode, 
       return response.json() as Promise<AttConversation>;
     },
     onSuccess: (updated) => {
-      queryClient.setQueryData<any>(["/api/attendance/conversations", conversation.id], (old: any) => ({ ...(old ?? {}), ...updated }));
+      queryClient.setQueryData<any>(conversationDetailQueryKey, (old: any) => ({ ...(old ?? {}), ...updated }));
       queryClient.setQueriesData<AttConversation[]>({ queryKey: ["/api/attendance/conversations"] }, (old) =>
         Array.isArray(old) ? old.map(item => item.id === updated.id ? { ...item, ...updated } : item) : old
       );

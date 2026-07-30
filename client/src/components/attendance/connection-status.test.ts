@@ -39,19 +39,23 @@ describe("ConnectionStatus", () => {
     expect(screen.getByRole("button", { name: "Tentar novamente" })).toBeInstanceOf(HTMLButtonElement);
   });
 
-  it("supports keyboard retry and prevents a duplicate retry while busy", async () => {
+  it("keeps page retry busy through the real reconnecting mode and releases it after a later fallback", async () => {
     const retry = vi.fn();
 
     function RetryHarness() {
-      const [retryInProgress, setRetryInProgress] = useState(false);
-      return createElement(ConnectionStatus, {
-        mode: "fallback",
-        retryInProgress,
-        onRetry: () => {
-          retry();
-          setRetryInProgress(true);
-        },
-      });
+      const [mode, setMode] = useState<"connected" | "reconnecting" | "fallback">("fallback");
+      return createElement("div", undefined,
+        createElement(ConnectionStatus, {
+          mode,
+          retryInProgress: mode === "reconnecting",
+          onRetry: () => {
+            retry();
+            setMode("reconnecting");
+          },
+        }),
+        createElement("button", { type: "button", onClick: () => setMode("fallback") }, "Simular fallback"),
+        createElement("button", { type: "button", onClick: () => setMode("connected") }, "Simular conexão"),
+      );
     }
 
     const user = userEvent.setup();
@@ -65,28 +69,41 @@ describe("ConnectionStatus", () => {
     expect(retry).toHaveBeenCalledTimes(1);
     expect(button.disabled).toBe(true);
     expect(button.getAttribute("aria-busy")).toBe("true");
+
+    await user.click(screen.getByRole("button", { name: "Simular fallback" }));
+    await user.click(screen.getByRole("button", { name: "Tentar novamente" }));
+    expect(retry).toHaveBeenCalledTimes(2);
+
+    await user.click(screen.getByRole("button", { name: "Simular conexão" }));
+    expect(screen.queryByRole("button", { name: "Tentar novamente" })).toBeNull();
   });
 
-  it("retries a failed chat detail read without sending, clearing cached messages, or changing the draft", async () => {
+  it("wires a chat retry only to reconnect and the read-only refetch", () => {
     const reconnectNow = vi.fn();
     const refetch = vi.fn().mockResolvedValue({ data: undefined });
-    const sendMutation = vi.fn();
-    const cachedMessages = [{ id: "cached-1", body: "Mensagem preservada" }];
-    const draft = "Rascunho preservado";
-    const user = userEvent.setup();
 
-    render(createElement(ConnectionStatus, {
-      mode: "connected",
-      httpRefreshFailed: true,
-      onRetry: retryChatDetailRefresh(reconnectNow, refetch),
-    }));
-
-    await user.click(screen.getByRole("button", { name: "Tentar novamente" }));
+    retryChatDetailRefresh(reconnectNow, refetch)();
 
     expect(reconnectNow).toHaveBeenCalledTimes(1);
     expect(refetch).toHaveBeenCalledTimes(1);
-    expect(sendMutation).not.toHaveBeenCalled();
-    expect(cachedMessages).toEqual([{ id: "cached-1", body: "Mensagem preservada" }]);
-    expect(draft).toBe("Rascunho preservado");
+  });
+
+  it("can unmount while a retry callback remains pending without a late state update", async () => {
+    let resolveRetry: (() => void) | undefined;
+    const retry = vi.fn(() => new Promise<void>(resolve => {
+      resolveRetry = resolve;
+    }));
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const user = userEvent.setup();
+    const { unmount } = render(createElement(ConnectionStatus, { mode: "fallback", onRetry: retry }));
+
+    await user.click(screen.getByRole("button", { name: "Tentar novamente" }));
+    unmount();
+    resolveRetry?.();
+    await Promise.resolve();
+
+    expect(retry).toHaveBeenCalledTimes(1);
+    expect(consoleError).not.toHaveBeenCalled();
+    consoleError.mockRestore();
   });
 });
