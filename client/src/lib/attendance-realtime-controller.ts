@@ -11,13 +11,15 @@ import {
   type AttendanceRealtimeEvent,
 } from "@/lib/attendance-reconciliation";
 import {
+  ATTENDANCE_CONNECT_TIMEOUT_MS,
   ATTENDANCE_HEARTBEAT_INTERVAL_MS,
   ATTENDANCE_HEARTBEAT_TIMEOUT_MS,
+  ATTENDANCE_MAX_CLIENT_PACKET_CHARS,
   type AttendanceConnectedPacket,
   type AttendanceHeartbeatPacket,
 } from "@shared/attendance-realtime";
 
-export { ATTENDANCE_HEARTBEAT_TIMEOUT_MS };
+export { ATTENDANCE_CONNECT_TIMEOUT_MS, ATTENDANCE_HEARTBEAT_TIMEOUT_MS };
 
 export interface AttendanceRealtimeSocket {
   readyState: number;
@@ -67,12 +69,6 @@ type ConnectionScope = {
   accountId: string;
   userId: string;
 };
-
-const BUSINESS_PACKET_TYPES = new Set([
-  "attendance.message.created",
-  "attendance.conversation.updated",
-  "attendance.settings.updated",
-]);
 
 const SETTINGS_QUERY_KEYS = [
   "/api/attendance/connections",
@@ -126,7 +122,13 @@ function heartbeatPacket(value: Record<string, unknown>): AttendanceHeartbeatPac
 }
 
 function parsePacket(data: unknown): Record<string, unknown> | undefined {
-  if (typeof data !== "string") return undefined;
+  if (
+    typeof data !== "string"
+    || data.length === 0
+    || data.length > ATTENDANCE_MAX_CLIENT_PACKET_CHARS
+  ) {
+    return undefined;
+  }
   try {
     const value = JSON.parse(data);
     return isRecord(value) ? value : undefined;
@@ -161,9 +163,11 @@ export function createAttendanceRealtimeController(
   let disposed = false;
   let socket: AttendanceRealtimeSocket | null = null;
   let reconnectTimer: ReturnType<typeof globalThis.setTimeout> | undefined;
+  let connectTimer: ReturnType<typeof globalThis.setTimeout> | undefined;
   let heartbeatTimer: ReturnType<typeof globalThis.setTimeout> | undefined;
   let lastHeartbeatAt = 0;
   let connectionScope: ConnectionScope | null = null;
+  let manualReconnectPending = false;
 
   const dispatch = (event: Parameters<typeof attendanceConnectionReducer>[1]) => {
     const nextState = attendanceConnectionReducer(state, event);
@@ -187,6 +191,12 @@ export function createAttendanceRealtimeController(
     heartbeatTimer = undefined;
   };
 
+  const clearConnectTimer = () => {
+    if (connectTimer === undefined) return;
+    cancelTimeout(connectTimer);
+    connectTimer = undefined;
+  };
+
   const detachSocket = (target: AttendanceRealtimeSocket) => {
     target.onopen = null;
     target.onmessage = null;
@@ -198,6 +208,7 @@ export function createAttendanceRealtimeController(
     const current = socket;
     socket = null;
     connectionScope = null;
+    clearConnectTimer();
     clearHeartbeatTimer();
     if (!current) return;
     detachSocket(current);
@@ -224,6 +235,8 @@ export function createAttendanceRealtimeController(
     if (!isCurrentGeneration(target, generation)) return;
     socket = null;
     connectionScope = null;
+    manualReconnectPending = false;
+    clearConnectTimer();
     clearHeartbeatTimer();
     detachSocket(target);
     if (target.readyState < 2) target.close();
@@ -288,7 +301,9 @@ export function createAttendanceRealtimeController(
 
     if (
       !connectionScope
-      || !BUSINESS_PACKET_TYPES.has(String(packet.type))
+      || typeof packet.type !== "string"
+      || !packet.type.startsWith("attendance.")
+      || packet.type.startsWith("attendance.realtime.")
       || packet.accountId !== connectionScope.accountId
     ) {
       return;
@@ -313,15 +328,22 @@ export function createAttendanceRealtimeController(
     try {
       candidate = dependencies.createSocket(realtimeUrl(dependencies.location));
     } catch {
+      manualReconnectPending = false;
       dispatch({ type: "socket.close", generation });
       scheduleReconnect();
       return;
     }
     socket = candidate;
     connectionScope = null;
+    connectTimer = scheduleTimeout(() => {
+      connectTimer = undefined;
+      failCurrentSocket(candidate, generation, "socket.close");
+    }, ATTENDANCE_CONNECT_TIMEOUT_MS);
 
     candidate.onopen = () => {
       if (!isCurrentGeneration(candidate, generation)) return;
+      clearConnectTimer();
+      manualReconnectPending = false;
       dispatch({ type: "socket.open", generation });
       lastHeartbeatAt = now();
       armHeartbeatTimeout(candidate, generation);
@@ -334,6 +356,7 @@ export function createAttendanceRealtimeController(
   const onOffline = () => {
     if (!active || !state.online) return;
     clearReconnectTimer();
+    manualReconnectPending = false;
     closeCurrentSocket();
     dispatch({ type: "network.offline" });
   };
@@ -392,14 +415,24 @@ export function createAttendanceRealtimeController(
       dependencies.networkTarget.removeEventListener("offline", onOffline);
       dependencies.visibilityTarget.removeEventListener("visibilitychange", onVisibilityChange);
       clearReconnectTimer();
+      clearConnectTimer();
+      manualReconnectPending = false;
       closeCurrentSocket();
       subscribers.clear();
     },
 
     reconnectNow() {
-      if (!active || !dependencies.isOnline() || (state.mode === "connected" && state.socketOpen)) return;
+      if (
+        !active
+        || !dependencies.isOnline()
+        || manualReconnectPending
+        || (state.mode === "connected" && state.socketOpen)
+      ) {
+        return;
+      }
       clearReconnectTimer();
       closeCurrentSocket();
+      manualReconnectPending = true;
       dispatch({ type: "reconnect.reset" });
       connect();
     },

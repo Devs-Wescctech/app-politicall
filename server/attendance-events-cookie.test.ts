@@ -263,7 +263,7 @@ describe("attendance realtime cookie authentication", () => {
       expect(await rejectedStatus(websocketUrl(port, query), {
         origin: ORIGIN,
         cookie: accessCookie(),
-      })).toBe(401);
+      })).toBe(404);
       expect(resolveAccessSession).not.toHaveBeenCalled();
     },
   );
@@ -418,6 +418,7 @@ describe("attendance realtime cookie authentication", () => {
     expect(resolveAccessSession).toHaveBeenCalledTimes(1);
 
     first.terminate();
+    await new Promise<void>((resolve) => setTimeout(resolve, 50));
     const replacement = pendingClient(websocketUrl(port), "session-2");
     await vi.waitFor(() => expect(resolveAccessSession).toHaveBeenCalledTimes(2));
     replacement.terminate();
@@ -447,7 +448,7 @@ describe("attendance realtime cookie authentication", () => {
     const firstClosed = new Promise<void>((resolve) => first.once("close", () => resolve()));
     first.terminate();
     await firstClosed;
-    await new Promise<void>((resolve) => setImmediate(resolve));
+    await new Promise<void>((resolve) => setTimeout(resolve, 50));
     const sameSessionReplacement = pendingClient(websocketUrl(port), "session-1");
     await vi.waitFor(() => expect(resolveAccessSession).toHaveBeenCalledTimes(3));
     otherSession.terminate();
@@ -501,6 +502,33 @@ describe("attendance realtime cookie authentication", () => {
     });
     resolveFirst(activeSession());
     await new Promise<void>((resolve) => setImmediate(resolve));
+
+    expect(accepted.readyState).toBe(WebSocket.OPEN);
+    expect(resolveAccessSession).toHaveBeenCalledTimes(2);
+  });
+
+  it("releases admission when authoritative authentication throws", async () => {
+    const server = createServer();
+    const resolveAccessSession = vi.fn(async ({ sessionId }: { sessionId: string }) => {
+      if (sessionId === "session-1") throw new Error("lookup failed");
+      return activeSession({ id: sessionId });
+    });
+    setupAttendanceRealtime(server, {
+      resolveAccessSession,
+      getUser: async () => user(),
+      maxPendingUpgrades: 1,
+      maxPendingUpgradesPerSession: 1,
+    });
+    const port = await listen(server);
+
+    expect(await rejectedStatus(websocketUrl(port), {
+      origin: ORIGIN,
+      cookie: accessCookie("session-1"),
+    })).toBe(401);
+    const accepted = await openClient(websocketUrl(port), {
+      origin: ORIGIN,
+      cookie: accessCookie("session-2"),
+    });
 
     expect(accepted.readyState).toBe(WebSocket.OPEN);
     expect(resolveAccessSession).toHaveBeenCalledTimes(2);

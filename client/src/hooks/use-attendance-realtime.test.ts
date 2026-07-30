@@ -319,7 +319,7 @@ describe("attendance realtime controller", () => {
 
     harness.controller.reconnectNow();
     expect(harness.sockets).toHaveLength(2);
-    expect(vi.getTimerCount()).toBe(0);
+    expect(vi.getTimerCount()).toBe(1);
 
     const healthy = harness.sockets[1];
     healthy.open();

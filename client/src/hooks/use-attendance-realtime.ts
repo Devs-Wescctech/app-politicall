@@ -7,6 +7,7 @@ import {
 } from "@/lib/attendance-realtime-controller";
 
 export {
+  ATTENDANCE_CONNECT_TIMEOUT_MS,
   ATTENDANCE_HEARTBEAT_TIMEOUT_MS,
   createAttendanceRealtimeController,
   type AttendanceRealtimeSocket,

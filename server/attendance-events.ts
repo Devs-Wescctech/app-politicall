@@ -36,6 +36,11 @@ type ClosingRealtimeState = {
   promise: Promise<void>;
 };
 
+type PendingUpgradeAdmission = {
+  sessionId: string;
+  timeout: NodeJS.Timeout;
+};
+
 export type AttendanceRealtimeEvent = {
   type: string;
   accountId: string;
@@ -60,9 +65,17 @@ export type AttendanceRealtimeDependencies = {
   createConnectionId?: () => string;
   now?: () => Date;
   heartbeatIntervalMs?: number;
+  authenticationTimeoutMs?: number;
+  maxPendingUpgrades?: number;
+  maxPendingUpgradesPerSession?: number;
 };
 
 export { ATTENDANCE_HEARTBEAT_INTERVAL_MS };
+
+export const ATTENDANCE_AUTHENTICATION_TIMEOUT_MS = 8_000;
+export const ATTENDANCE_MAX_PENDING_UPGRADES = 128;
+export const ATTENDANCE_MAX_PENDING_UPGRADES_PER_SESSION = 8;
+export const ATTENDANCE_MAX_PAYLOAD_BYTES = 4 * 1024;
 
 const clientsByAccount = new Map<string, Set<AttendanceRealtimeClient>>();
 let websocketServer: WebSocketServer | null = null;
@@ -71,6 +84,8 @@ let upgradeListener: AttendanceUpgradeListener | null = null;
 let heartbeat: NodeJS.Timeout | null = null;
 let closingRealtime: ClosingRealtimeState | null = null;
 const pendingUpgradeSockets = new Set<Duplex>();
+const pendingUpgradeAdmissions = new Map<Duplex, PendingUpgradeAdmission>();
+const pendingUpgradeCountBySession = new Map<string, number>();
 
 function addClient(ws: AttendanceRealtimeClient, accountId: string) {
   let clients = clientsByAccount.get(accountId);
@@ -132,6 +147,24 @@ function validHeartbeatInterval(value: number | undefined): number {
   return value;
 }
 
+function boundedPositiveInteger(value: number | undefined, defaultValue: number, maximum: number, name: string): number {
+  if (value === undefined) return defaultValue;
+  if (!Number.isSafeInteger(value) || value <= 0 || value > maximum) {
+    throw new Error(`${name} is invalid`);
+  }
+  return value;
+}
+
+function releasePendingAdmission(socket: Duplex): void {
+  const admission = pendingUpgradeAdmissions.get(socket);
+  if (!admission) return;
+  pendingUpgradeAdmissions.delete(socket);
+  clearTimeout(admission.timeout);
+  const nextSessionCount = (pendingUpgradeCountBySession.get(admission.sessionId) ?? 1) - 1;
+  if (nextSessionCount <= 0) pendingUpgradeCountBySession.delete(admission.sessionId);
+  else pendingUpgradeCountBySession.set(admission.sessionId, nextSessionCount);
+}
+
 export function setupAttendanceRealtime(
   server: Server,
   dependencies: AttendanceRealtimeDependencies = {},
@@ -147,7 +180,32 @@ export function setupAttendanceRealtime(
   const createConnectionId = dependencies.createConnectionId ?? randomUUID;
   const now = dependencies.now ?? (() => new Date());
   const heartbeatIntervalMs = validHeartbeatInterval(dependencies.heartbeatIntervalMs);
-  const realtime = new WebSocketServer({ noServer: true });
+  const authenticationTimeoutMs = boundedPositiveInteger(
+    dependencies.authenticationTimeoutMs,
+    ATTENDANCE_AUTHENTICATION_TIMEOUT_MS,
+    ATTENDANCE_AUTHENTICATION_TIMEOUT_MS,
+    "Attendance realtime authentication timeout",
+  );
+  const maxPendingUpgrades = boundedPositiveInteger(
+    dependencies.maxPendingUpgrades,
+    ATTENDANCE_MAX_PENDING_UPGRADES,
+    ATTENDANCE_MAX_PENDING_UPGRADES,
+    "Attendance realtime pending-upgrade limit",
+  );
+  const maxPendingUpgradesPerSession = boundedPositiveInteger(
+    dependencies.maxPendingUpgradesPerSession,
+    ATTENDANCE_MAX_PENDING_UPGRADES_PER_SESSION,
+    ATTENDANCE_MAX_PENDING_UPGRADES_PER_SESSION,
+    "Attendance realtime per-session pending-upgrade limit",
+  );
+  if (maxPendingUpgradesPerSession > maxPendingUpgrades) {
+    throw new Error("Attendance realtime per-session limit exceeds the global limit");
+  }
+  const realtime = new WebSocketServer({
+    noServer: true,
+    maxPayload: ATTENDANCE_MAX_PAYLOAD_BYTES,
+    perMessageDeflate: false,
+  });
   websocketServer = realtime;
   realtimeServer = server;
 
@@ -182,43 +240,54 @@ export function setupAttendanceRealtime(
     const stopTrackingSocket = () => {
       if (!tracking) return;
       tracking = false;
+      releasePendingAdmission(socket);
       pendingUpgradeSockets.delete(socket);
       socket.off("close", onSocketClose);
+      socket.off("end", onSocketEnd);
       socket.off("error", onSocketError);
     };
     const onSocketClose = () => {
       stopTrackingSocket();
     };
+    const onSocketEnd = () => {
+      stopTrackingSocket();
+      if (!socket.destroyed) socket.destroy();
+    };
     const onSocketError = () => {
       stopTrackingSocket();
       if (!socket.destroyed) socket.destroy();
     };
-    const rejectUpgrade = (status: "401 Unauthorized" | "403 Forbidden" | "404 Not Found") => {
+    const rejectUpgrade = (status:
+      | "401 Unauthorized"
+      | "403 Forbidden"
+      | "404 Not Found"
+      | "429 Too Many Requests"
+      | "503 Service Unavailable") => {
       if (socket.destroyed) {
         stopTrackingSocket();
         return;
       }
+      stopTrackingSocket();
+      const destroyOnError = () => {
+        if (!socket.destroyed) socket.destroy();
+      };
+      socket.once("error", destroyOnError);
       try {
         socket.end(`HTTP/1.1 ${status}\r\nConnection: close\r\n\r\n`, () => {
+          socket.off("error", destroyOnError);
           if (!socket.destroyed) socket.destroy();
         });
       } catch {
-        stopTrackingSocket();
         socket.destroy();
       }
     };
     socket.once("close", onSocketClose);
+    socket.once("end", onSocketEnd);
     socket.on("error", onSocketError);
 
     try {
-      const url = new URL(request.url ?? "", "http://localhost");
-      if (url.pathname !== "/api/attendance/realtime") {
+      if (request.url !== "/api/attendance/realtime") {
         rejectUpgrade("404 Not Found");
-        return;
-      }
-
-      if (url.search.length > 0) {
-        rejectUpgrade("401 Unauthorized");
         return;
       }
 
@@ -233,6 +302,25 @@ export function setupAttendanceRealtime(
         rejectUpgrade("401 Unauthorized");
         return;
       }
+
+      if (pendingUpgradeAdmissions.size >= maxPendingUpgrades) {
+        rejectUpgrade("503 Service Unavailable");
+        return;
+      }
+      const sessionPending = pendingUpgradeCountBySession.get(access.sid) ?? 0;
+      if (sessionPending >= maxPendingUpgradesPerSession) {
+        rejectUpgrade("429 Too Many Requests");
+        return;
+      }
+      const authenticationTimeout = setTimeout(() => {
+        rejectUpgrade("503 Service Unavailable");
+      }, authenticationTimeoutMs);
+      authenticationTimeout.unref?.();
+      pendingUpgradeAdmissions.set(socket, {
+        sessionId: access.sid,
+        timeout: authenticationTimeout,
+      });
+      pendingUpgradeCountBySession.set(access.sid, sessionPending + 1);
 
       const session = await resolveSession({ kind: "user", sessionId: access.sid });
       const realtimeIsActive = websocketServer === realtime
@@ -338,6 +426,7 @@ export function closeAttendanceRealtime(): Promise<void> {
   }
 
   for (const socket of pendingUpgradeSockets) {
+    releasePendingAdmission(socket);
     try {
       socket.destroy();
     } catch {
@@ -345,6 +434,11 @@ export function closeAttendanceRealtime(): Promise<void> {
     }
   }
   pendingUpgradeSockets.clear();
+  for (const admission of pendingUpgradeAdmissions.values()) {
+    clearTimeout(admission.timeout);
+  }
+  pendingUpgradeAdmissions.clear();
+  pendingUpgradeCountBySession.clear();
 
   for (const clients of clientsByAccount.values()) {
     for (const client of clients) {
