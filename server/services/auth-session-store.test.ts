@@ -270,6 +270,17 @@ describe("auth session store", () => {
     expect(result).toEqual({ status: "rotated", session: expect.objectContaining({ expiresAt: source.expiresAt, familyId: source.familyId }) });
   });
 
+  it("revokes the full stored family when a trusted rotated refresh is replayed", async () => {
+    const { repository, store } = createStore();
+    const source = await store.createSession({ scope: tenantScope, refreshToken: "trusted-replay", expiresAt });
+    await store.rotateRefreshSession({ kind: "user", refreshToken: "trusted-replay", nextRefreshToken: "trusted-replay-next" });
+
+    await expect(store.rotateRefreshSession({ kind: "user", refreshToken: "trusted-replay", nextRefreshToken: "trusted-replay-later" }))
+      .resolves.toEqual({ status: "reuse_detected" });
+    expect(repository.sessions.filter((session) => session.familyId === source.familyId).every((session) => session.revocationReason === "reuse_detected" || session.revocationReason === "rotated")).toBe(true);
+    expect(repository.sessions.filter((session) => session.familyId === source.familyId).every((session) => session.revokedAt !== null)).toBe(true);
+  });
+
   it("does not allow a lookup caller to override the store clock for an expired session", async () => {
     const clock = new Date("2030-01-01T00:00:00.000Z");
     const { store } = createStore(clock);

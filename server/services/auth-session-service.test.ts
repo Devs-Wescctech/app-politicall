@@ -175,7 +175,7 @@ describe("auth session service", () => {
     });
 
     await expect(service.refresh({ kind: "user", refreshToken: "expired-refresh" }))
-      .resolves.toEqual({ status: "expired" });
+      .resolves.toEqual({ status: "expired", clearCookies: "user" });
   });
 
   it("clears the affected kind and reports generic failure when a refresh is reused", async () => {
