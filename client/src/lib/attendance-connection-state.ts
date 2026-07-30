@@ -4,7 +4,7 @@ export interface AttendanceConnectionState {
   mode: AttendanceConnectionMode;
   online: boolean;
   visible: boolean;
-  reconnectAttempt: number;
+  reconnectAttempt: number | null;
   socketOpen: boolean;
   socketPending: boolean;
   connectionGeneration: number;
@@ -26,7 +26,7 @@ export const initialAttendanceConnectionState: AttendanceConnectionState = {
   mode: "reconnecting",
   online: true,
   visible: true,
-  reconnectAttempt: 0,
+  reconnectAttempt: null,
   socketOpen: false,
   socketPending: false,
   connectionGeneration: 0,
@@ -43,6 +43,10 @@ function isCurrentSocketEvent(state: AttendanceConnectionState, generation: numb
 
 function invalidateSocketGeneration(state: AttendanceConnectionState): number {
   return state.connectionGeneration + 1;
+}
+
+function nextReconnectAttempt(reconnectAttempt: number | null): number {
+  return reconnectAttempt === null ? 0 : reconnectAttempt + 1;
 }
 
 export function attendanceConnectionReducer(
@@ -68,7 +72,7 @@ export function attendanceConnectionReducer(
       return {
         ...state,
         mode: "fallback",
-        reconnectAttempt: 0,
+        reconnectAttempt: null,
         socketOpen: true,
         socketPending: false,
         stabilityConfirmations: 0,
@@ -81,7 +85,7 @@ export function attendanceConnectionReducer(
       return {
         ...state,
         mode: "fallback",
-        reconnectAttempt: state.reconnectAttempt + 1,
+        reconnectAttempt: nextReconnectAttempt(state.reconnectAttempt),
         socketOpen: false,
         socketPending: false,
         stabilityConfirmations: 0,
@@ -92,7 +96,7 @@ export function attendanceConnectionReducer(
       return {
         ...state,
         mode: "fallback",
-        reconnectAttempt: state.reconnectAttempt + 1,
+        reconnectAttempt: nextReconnectAttempt(state.reconnectAttempt),
         socketOpen: false,
         socketPending: false,
         stabilityConfirmations: 0,
