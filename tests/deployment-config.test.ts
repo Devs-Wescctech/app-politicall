@@ -7,6 +7,9 @@ import { describe, expect, it } from "vitest";
 const root = process.cwd();
 const execFileAsync = promisify(execFile);
 const readProjectFile = (name: string) => readFile(path.join(root, name), "utf8");
+const syntheticShaTagReference = "ghcr.io/example-org/politicall:sha-0123456789abcdef";
+const syntheticDigestReference = `ghcr.io/example-org/politicall@sha256:${"0".repeat(64)}`;
+const immutableImageReference = /^ghcr\.io\/[a-z0-9._-]+\/[a-z0-9._-]+(?::sha-[0-9a-f]{7,64}|@sha256:[0-9a-f]{64})$/;
 
 type YamlMap = Record<string, unknown>;
 
@@ -68,6 +71,55 @@ function parseEnvExample(source: string): Record<string, string> {
   );
 }
 
+function renderComposeTemplate(source: string, variables: Record<string, string>): string {
+  return source.replace(/\$\{([A-Z][A-Z0-9_]*):([?-])([^}]*)\}/g, (_match, name, operator, fallback) => {
+    const value = variables[name];
+    if (operator === "?" && !value) throw new Error(`Missing required Compose variable: ${name}`);
+    return value || fallback;
+  });
+}
+
+function syntheticComposeEnvironment(imageReference: string): NodeJS.ProcessEnv {
+  return {
+    ...process.env,
+    IMAGE_REFERENCE: imageReference,
+    APP_PORT: "5000",
+    UPLOADS_HOST_PATH: "/srv/politicall-test/uploads",
+    PROD_DATABASE_URL: "postgresql://database.invalid/politicall",
+    SESSION_SECRET: "synthetic-session-secret-not-for-use",
+    DATA_ENCRYPTION_KEY: "synthetic-encryption-key-not-for-use",
+    ADMIN_MASTER_PASSWORD_HASH: "synthetic-bcrypt-hash-not-for-use",
+    TRUST_PROXY: "1",
+  };
+}
+
+async function hasStandaloneDockerCompose(): Promise<boolean> {
+  try {
+    await execFileAsync("docker-compose", ["version"], { cwd: root });
+    return true;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return false;
+    throw error;
+  }
+}
+
+function markdownSection(source: string, heading: string): string {
+  const marker = `## ${heading}`;
+  const start = source.indexOf(marker);
+  if (start < 0) throw new Error(`Missing Markdown section: ${heading}`);
+  const end = source.indexOf("\n## ", start + marker.length);
+  return source.slice(start, end < 0 ? source.length : end);
+}
+
+function expectTextInOrder(source: string, fragments: string[]): void {
+  let cursor = -1;
+  for (const fragment of fragments) {
+    const next = source.indexOf(fragment, cursor + 1);
+    expect(next, `Expected "${fragment}" after offset ${cursor}`).toBeGreaterThan(cursor);
+    cursor = next;
+  }
+}
+
 describe("deployment configuration", () => {
   it("injects production secrets instead of committing them", async () => {
     const compose = await readProjectFile("docker-compose.yml");
@@ -78,7 +130,7 @@ describe("deployment configuration", () => {
     expect(compose).not.toMatch(/SESSION_SECRET=[A-Za-z0-9+/]{24,}={0,2}/);
   });
 
-  it("defines an immutable, localhost-only Portainer application contract", async () => {
+  it("defines a complete-image-reference, localhost-only Portainer application contract", async () => {
     const compose = parseYamlMap(await readProjectFile("docker-compose.yml"));
     const services = asYamlMap(compose.services, "services");
     const app = asYamlMap(services.app, "services.app");
@@ -90,7 +142,7 @@ describe("deployment configuration", () => {
     const nofile = asYamlMap(ulimits.nofile, "services.app.ulimits.nofile");
 
     expect(Object.keys(services)).toEqual(["app"]);
-    expect(app.image).toBe("${IMAGE_REPOSITORY:?required}:${IMAGE_TAG:?required}");
+    expect(app.image).toBe("${IMAGE_REFERENCE:?required}");
     expect(app.restart).toBe("unless-stopped");
     expect(app.stop_grace_period).toBe("30s");
     expect(app.ports).toEqual(["127.0.0.1:${APP_PORT:-5000}:5000"]);
@@ -114,6 +166,32 @@ describe("deployment configuration", () => {
     expect(nofile).toMatchObject({ soft: "65536", hard: "65536" });
   });
 
+  it("renders immutable SHA-tag and digest image references without concatenating them", async () => {
+    const composeSource = await readProjectFile("docker-compose.yml");
+
+    for (const imageReference of [syntheticShaTagReference, syntheticDigestReference]) {
+      expect(imageReference).toMatch(immutableImageReference);
+      const rendered = parseYamlMap(renderComposeTemplate(composeSource, syntheticComposeEnvironment(imageReference) as Record<string, string>));
+      const app = asYamlMap(asYamlMap(rendered.services, "services").app, "services.app");
+
+      expect(app.image).toBe(imageReference);
+      expect(String(app.image)).not.toContain(":@");
+    }
+
+    expect("ghcr.io/example-org/politicall:latest").not.toMatch(immutableImageReference);
+  });
+
+  it("passes standalone docker-compose config for synthetic SHA-tag and digest references when available", async () => {
+    if (!(await hasStandaloneDockerCompose())) return;
+
+    for (const imageReference of [syntheticShaTagReference, syntheticDigestReference]) {
+      await expect(execFileAsync("docker-compose", ["config", "--quiet"], {
+        cwd: root,
+        env: syntheticComposeEnvironment(imageReference),
+      })).resolves.toBeDefined();
+    }
+  });
+
   it("keeps the Compose contract free of public binds, mutable tags, and literal credentials", async () => {
     const compose = await readProjectFile("docker-compose.yml");
     const activeCompose = compose
@@ -131,8 +209,7 @@ describe("deployment configuration", () => {
     const environment = parseEnvExample(exampleSource);
 
     expect(environment).toMatchObject({
-      IMAGE_REPOSITORY: "ghcr.io/example-org/politicall",
-      IMAGE_TAG: "sha-0123456789abcdef",
+      IMAGE_REFERENCE: syntheticDigestReference,
       APP_PORT: "5000",
       UPLOADS_HOST_PATH: "<absolute-host-path-to-persistent-uploads>",
       PROD_DATABASE_URL: "<postgresql-connection-string>",
@@ -146,11 +223,94 @@ describe("deployment configuration", () => {
       OKTOR_SMS_CLIENT: "",
       OKTOR_SMS_TIPO_ENVIO: "7",
     });
+    expect(environment).not.toHaveProperty("IMAGE_REPOSITORY");
+    expect(environment).not.toHaveProperty("IMAGE_TAG");
     expect(exampleSource).not.toMatch(/postgres(?:ql)?:\/\/[^\s"']+:[^\s"']+@/i);
     expect(exampleSource).not.toMatch(/(^|[^\w-])latest(?:$|[^\w-])/im);
   });
 
-  it("ships Portainer, backup, and websocket proxy runbooks", async () => {
+  it("documents immutable image preflight without claiming Compose validates the reference format", async () => {
+    const [compose, example, portainer, backup] = await Promise.all([
+      readProjectFile("docker-compose.yml"),
+      readProjectFile(".env.example"),
+      readProjectFile("docs/deployment/portainer-production.md"),
+      readProjectFile("docs/deployment/backup-restore.md"),
+    ]);
+
+    expect(portainer).toContain("ghcr.io/<org>/<app>:sha-<commit>");
+    expect(portainer).toContain("ghcr.io/<org>/<app>@sha256:<64-hex-digest>");
+    expect(portainer).toContain("Compose only checks that `IMAGE_REFERENCE` is non-empty");
+    expect(portainer).toContain("Digest references are preferred for production deploys and rollbacks");
+    expect(portainer).toContain("IMAGE_REFERENCE and resolved digest");
+
+    for (const source of [compose, example, portainer, backup]) {
+      expect(source).not.toMatch(/(^|[^\w-])latest(?:$|[^\w-])/im);
+    }
+    for (const source of [compose, example, portainer]) {
+      expect(source).not.toContain("IMAGE_REPOSITORY");
+      expect(source).not.toContain("IMAGE_TAG");
+    }
+  });
+
+  it("requires quiescence before paired database and uploads backup", async () => {
+    const backup = await readProjectFile("docs/deployment/backup-restore.md");
+    const flow = markdownSection(backup, "Consistent Backup");
+
+    expectTextInOrder(flow, [
+      "Block inbound traffic and new writes",
+      "Stop the application gracefully",
+      "Confirm that no application writers remain",
+      "IMAGE_REFERENCE and resolved digest",
+      "politicall_schema_migrations",
+      "pg_dump",
+      "Archive the uploads",
+      "SHA-256 hashes",
+      "Validate the database dump",
+      "Validate the uploads archive",
+      "Only after both artifacts are validated",
+    ]);
+    for (const requiredRecord of [
+      "database dump path",
+      "uploads archive path",
+      "SHA-256 hashes",
+      "politicall_schema_migrations",
+    ]) {
+      expect(flow).toContain(requiredRecord);
+    }
+  });
+
+  it("restores a captured database/uploads/image set before reopening traffic", async () => {
+    const backup = await readProjectFile("docs/deployment/backup-restore.md");
+    const flow = markdownSection(backup, "Production Restore");
+
+    expectTextInOrder(flow, [
+      "Keep inbound traffic and writes blocked",
+      "Keep the application stopped",
+      "Confirm that no application writers remain",
+      "Restore the captured database dump",
+      "Restore the paired uploads archive",
+      "Select the compatible captured `IMAGE_REFERENCE`",
+      "Start the application",
+      "Wait for migrations",
+      "/api/ready",
+      "smoke checks",
+      "Reopen traffic only after",
+    ]);
+    expect(backup).toContain("backward-compatible");
+    expect(backup).toContain("restore the paired database and uploads artifacts");
+  });
+
+  it("keeps database credentials out of backup command arguments", async () => {
+    const backup = await readProjectFile("docs/deployment/backup-restore.md");
+
+    expect(backup).toContain("PGSERVICE");
+    expect(backup).toContain("PGPASSFILE");
+    expect(backup).toContain("0600");
+    expect(backup).not.toContain("PGPASSWORD");
+    expect(backup).not.toMatch(/postgres(?:ql)?:\/\/[^<\s/:@]+:[^<\s/@]+@/i);
+  });
+
+  it("ships Portainer and websocket proxy runbooks with matching APP_PORT guidance", async () => {
     const [portainer, nginx, backup] = await Promise.all([
       readProjectFile("docs/deployment/portainer-production.md"),
       readProjectFile("docs/deployment/nginx-websocket.conf"),
@@ -162,7 +322,11 @@ describe("deployment configuration", () => {
     expect(portainer).toContain("/api/ready");
     expect(portainer).toContain("/api/health");
     expect(portainer).toContain("/api/attendance/realtime");
+    expect(portainer).toContain("APP_PORT and the Nginx `proxy_pass` port must match");
+    expect(portainer).toContain("http://127.0.0.1:<APP_PORT>/api/health");
     expect(nginx).toContain("location = /api/attendance/realtime");
+    expect(nginx).toContain("default APP_PORT=5000");
+    expect(nginx).toContain("update this proxy_pass port in the same change");
     expect(nginx).toContain("proxy_set_header Upgrade $http_upgrade");
     expect(nginx).toContain("proxy_set_header Connection $connection_upgrade");
     expect(backup).toContain("pg_dump");

@@ -1,6 +1,6 @@
 services:
   app:
-    image: "${IMAGE_REPOSITORY:?required}:${IMAGE_TAG:?required}"
+    image: "${IMAGE_REFERENCE:?required}"
     container_name: app-politicall
     restart: unless-stopped
     stop_grace_period: 30s
