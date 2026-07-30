@@ -70,7 +70,7 @@ function isActiveUserSession(session: AccessSession | undefined): session is Acc
     && session.expiresAt > new Date();
 }
 
-function isActiveGlobalAdminSession(session: AccessSession | undefined): session is AccessSession & { globalAdminPrincipalId: string } {
+export function isActiveGlobalAdminSession(session: AccessSession | undefined): session is AccessSession & { globalAdminPrincipalId: string } {
   return !!session
     && session.principalType === "global_admin"
     && typeof session.globalAdminPrincipalId === "string"

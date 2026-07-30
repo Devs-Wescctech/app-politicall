@@ -310,9 +310,9 @@ export function createRefreshCoordinator(options: CoordinatorOptions): RefreshCo
   };
 }
 
-export function createBrowserRefreshCoordinator(): RefreshCoordinatorHandle | undefined {
+export function createBrowserRefreshCoordinator(channelName = "politicall-session-refresh"): RefreshCoordinatorHandle | undefined {
   if (typeof window === "undefined" || typeof BroadcastChannel === "undefined") return undefined;
-  const broadcastChannel = new BroadcastChannel("politicall-session-refresh");
+  const broadcastChannel = new BroadcastChannel(channelName);
   const participantId = typeof crypto !== "undefined" && "randomUUID" in crypto
     ? crypto.randomUUID()
     : `${Date.now()}-${Math.random()}`;

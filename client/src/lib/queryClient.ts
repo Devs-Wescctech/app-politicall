@@ -1,6 +1,7 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 import { clearAttendanceCache } from "./auth";
 import { configureSessionCleanup, sessionClient } from "./session";
+import { configureAdminSessionCleanup } from "./admin-session";
 
 export const apiRequest = sessionClient.apiRequest;
 export const publicApiRequest = sessionClient.publicApiRequest;
@@ -38,6 +39,14 @@ export const queryClient = new QueryClient({
 configureSessionCleanup({
   clearQueryCache: () => queryClient.clear(),
   clearAttendanceCache,
+  clearImpersonationMarker: () => {
+    if (typeof localStorage !== "undefined") localStorage.removeItem("isImpersonating");
+  },
+});
+
+configureAdminSessionCleanup({
+  clearQueryCache: () => queryClient.clear(),
+  clearAdminCache: () => queryClient.removeQueries({ predicate: (query) => String(query.queryKey[0] ?? "").startsWith("/api/admin") }),
   clearImpersonationMarker: () => {
     if (typeof localStorage !== "undefined") localStorage.removeItem("isImpersonating");
   },

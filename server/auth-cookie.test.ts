@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { issueAccessToken } from "./security/auth-cookies";
 import { issueCsrfToken } from "./security/csrf";
-import { createAuthenticationMiddleware } from "./security/authentication";
+import { createAuthenticationMiddleware, isActiveGlobalAdminSession } from "./security/authentication";
 
 const SESSION_SECRET = "task-4-auth-cookie-test-secret";
 
@@ -263,5 +263,19 @@ describe("cookie-first browser authentication", () => {
     expect(routes).toContain("Senha atual é obrigatória para alterar a senha");
     expect(serverSources.join("\n").toLowerCase()).not.toContain("x-admin-token");
     expect(routes).not.toContain("function authenticateAdminToken");
+  });
+
+  it("accepts an impersonation password bypass only for an active, structurally valid global-admin session", () => {
+    expect(isActiveGlobalAdminSession(activeAdminSession() as any)).toBe(true);
+    for (const session of [
+      activeAdminSession({ revokedAt: new Date() }),
+      activeAdminSession({ expiresAt: new Date(0) }),
+      activeAdminSession({ accountId: "account-a" }),
+      activeAdminSession({ userId: "user-a" }),
+      activeAdminSession({ principalId: "different" }),
+      activeAdminSession({ globalAdminPrincipalId: null }),
+      activeUserSession(),
+      undefined,
+    ]) expect(isActiveGlobalAdminSession(session as any)).toBe(false);
   });
 });

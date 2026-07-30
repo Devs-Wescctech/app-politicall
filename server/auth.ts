@@ -1,9 +1,10 @@
-import type { NextFunction, Response } from "express";
+import type { NextFunction, Request, Response } from "express";
 import { storage } from "./storage";
 import type { UserPermissions } from "@shared/schema";
 import { getAuthAllowedOrigins } from "./routes/auth-session-routes";
-import { createAuthenticationMiddleware, type BrowserAuthRequest } from "./security/authentication";
+import { createAuthenticationMiddleware, isActiveGlobalAdminSession, type BrowserAuthRequest } from "./security/authentication";
 import { resolveAccessSession } from "./services/auth-session-store";
+import { readAccessToken } from "./security/auth-cookies";
 
 // Default permissions if user has none
 const DEFAULT_USER_PERMISSIONS: UserPermissions = {
@@ -51,6 +52,14 @@ const browserAuthentication = createAuthenticationMiddleware({
 
 export const authenticateToken = browserAuthentication.authenticateUser;
 export const authenticateAdminToken = browserAuthentication.authenticateGlobalAdmin;
+
+// Impersonation bypasses require an independent, active global-admin cookie.
+export async function hasActiveGlobalAdminCookie(request: Request): Promise<boolean> {
+  const access = readAccessToken(request, "admin");
+  if (!access) return false;
+  const session = await resolveAccessSession({ kind: "admin", sessionId: access.sid });
+  return isActiveGlobalAdminSession(session);
+}
 
 // Middleware to verify user has required permission
 export function requirePermission(permission: keyof UserPermissions) {

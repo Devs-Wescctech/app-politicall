@@ -25,10 +25,9 @@ function dependencies(overrides: Partial<Parameters<typeof createAdminSessionCli
 }
 
 describe("admin cookie session", () => {
-  it("logs in with credentials included, ignores a legacy token payload, and probes before protected UI resolves", async () => {
+  it("logs in with credentials included, ignores a legacy token payload, and exposes an independent probe", async () => {
     const fetch = vi.fn<typeof fetch>()
-      .mockResolvedValueOnce(response({ admin: true, token: "must-not-be-stored" }))
-      .mockResolvedValueOnce(response({ valid: true }));
+      .mockResolvedValueOnce(response({ admin: true, token: "must-not-be-stored" }));
     const client = createAdminSessionClient({
       fetch,
       readCookie: () => null,
@@ -39,8 +38,14 @@ describe("admin cookie session", () => {
     expect(client.getSnapshot()).toEqual({ status: "authenticated" });
     expect(fetch.mock.calls[0]).toEqual(["/api/admin/login", expect.objectContaining({ method: "POST", credentials: "include" })]);
 
-    await client.bootstrap();
-    expect(fetch.mock.calls[1]).toEqual(["/api/admin/verify", { credentials: "include" }]);
+    const probeFetch = vi.fn<typeof fetch>().mockResolvedValue(response({ valid: true }));
+    const probeClient = createAdminSessionClient({
+      fetch: probeFetch,
+      readCookie: () => null,
+      cleanup: { clearQueryCache: vi.fn(), clearAdminCache: vi.fn(), clearImpersonationMarker: vi.fn() },
+    });
+    await probeClient.bootstrap();
+    expect(probeFetch.mock.calls[0]).toEqual(["/api/admin/verify", { credentials: "include" }]);
   });
 
   it("sends only the admin CSRF cookie for mutations and retries an unauthorized request once after one refresh", async () => {

@@ -177,9 +177,14 @@ export function AppSidebar() {
   });
 
   const handleLogout = async () => {
+    const wasImpersonating = typeof localStorage !== "undefined" && localStorage.getItem("isImpersonating") === "true";
     const result = await sessionClient.logoutSession();
     if (result.error) {
       toast({ title: "Sessão encerrada", description: "Não foi possível confirmar o encerramento no servidor.", variant: "destructive" });
+    }
+    if (wasImpersonating) {
+      setLocation("/contracts");
+      return;
     }
     window.location.href = "/login";
   };

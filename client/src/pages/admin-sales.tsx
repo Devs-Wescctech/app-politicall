@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { adminRequest } from "@/lib/admin-session";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -58,14 +59,7 @@ export default function AdminSales({ onClose }: AdminSalesProps) {
   const { data: accounts = [], isLoading } = useQuery<Account[]>({
     queryKey: ["/api/admin/sales"],
     queryFn: async () => {
-      const token = localStorage.getItem("admin_token");
-      const response = await fetch("/api/admin/sales", {
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-      if (!response.ok) throw new Error("Failed to fetch sales");
+      const response = await adminRequest("GET", "/api/admin/sales");
       return response.json();
     },
   });
@@ -111,16 +105,7 @@ export default function AdminSales({ onClose }: AdminSalesProps) {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, paymentStatus, commissionPaid }: { id: string; paymentStatus: string; commissionPaid: boolean }) => {
-      const token = localStorage.getItem("admin_token");
-      const response = await fetch(`/api/admin/sales/${id}`, {
-        method: "PATCH",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ paymentStatus, commissionPaid }),
-      });
-      if (!response.ok) throw new Error("Failed to update sale");
+      const response = await adminRequest("PATCH", `/api/admin/sales/${id}`, { paymentStatus, commissionPaid });
       return response.json();
     },
     onSuccess: () => {

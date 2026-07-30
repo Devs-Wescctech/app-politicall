@@ -74,7 +74,7 @@ import {
 import { sql, eq, desc, and } from "drizzle-orm";
 import { generateAiResponse, testOpenAiApiKey } from "./openai";
 import { requireRole } from "./authorization";
-import { authenticateAdminToken, authenticateToken, requirePermission, requireAnyPermission, type AuthRequest } from "./auth";
+import { authenticateAdminToken, authenticateToken, hasActiveGlobalAdminCookie, requirePermission, requireAnyPermission, type AuthRequest } from "./auth";
 import { encryptApiKey, decryptApiKey } from "./crypto";
 import { sanitizeAiConfiguration } from "./services/ai-config-security";
 import { decryptAiConfigProviderSecrets } from "./services/ai-config-secrets";
@@ -902,10 +902,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const validatedData = profileUpdateSchema.parse(req.body);
       
-      // Password changes require the current password until Task 6 introduces bounded impersonation.
+      // The tenant session identifies the target; bypass requires a separate active admin session.
       if (validatedData.newPassword) {
         res.set("Cache-Control", "no-store");
-        if (!validatedData.currentPassword) {
+        const adminBypass = !validatedData.currentPassword
+          && req.user?.role === "admin"
+          && await hasActiveGlobalAdminCookie(req);
+        if (!validatedData.currentPassword && !adminBypass) {
           return res.status(400).json({ error: "Senha atual é obrigatória para alterar a senha" });
         }
 
@@ -914,7 +917,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(404).json({ error: "Usuário não encontrado" });
         }
 
-        const isPasswordValid = await bcrypt.compare(validatedData.currentPassword, user.password);
+        const isPasswordValid = adminBypass || await bcrypt.compare(validatedData.currentPassword!, user.password);
         if (!isPasswordValid) {
           return res.status(400).json({ error: "Senha atual incorreta" });
         }

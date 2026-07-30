@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
+import { adminSessionClient } from "@/lib/admin-session";
 import logoUrl from "@assets/logo pol_1763308638963.png";
 
 interface AdminLoginForm {
@@ -28,10 +28,7 @@ export default function AdminLogin() {
     setIsLoading(true);
     
     try {
-      const response = await apiRequest("POST", "/api/admin/login", { password: data.password });
-      const result = await response.json();
-      
-      localStorage.setItem("admin_token", result.token);
+      await adminSessionClient.login({ password: data.password });
       setLocation("/admin");
     } catch (error: any) {
       toast({
