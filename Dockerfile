@@ -1,10 +1,10 @@
 # Build stage
-FROM node:24.18.0-bookworm-slim AS builder
+FROM node:24.18.0-alpine3.23@sha256:595398b0081eacda8e1c4c5b97b76cd1020e4d58a8ebcb4843b9bca1e79e7436 AS builder
 
 WORKDIR /app
 
 # Install build dependencies for native modules
-RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache python3 make g++
 
 # Install dependencies first (better caching)
 COPY package*.json ./
@@ -17,20 +17,22 @@ COPY . .
 RUN npm run build
 
 # Production stage
-FROM node:24.18.0-bookworm-slim AS production
+FROM node:24.18.0-alpine3.23@sha256:595398b0081eacda8e1c4c5b97b76cd1020e4d58a8ebcb4843b9bca1e79e7436 AS production
 
 WORKDIR /app
 
-# Install the health-check client and init process without recommended packages.
-RUN apt-get update && apt-get install -y --no-install-recommends wget tini && rm -rf /var/lib/apt/lists/*
+# Install the init process only.
+RUN apk add --no-cache tini
 
 # Create non-root user for security
-RUN groupadd --gid 1001 nodejs && \
-    useradd --uid 1001 --gid nodejs --create-home --shell /usr/sbin/nologin nodejs
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S -D -H -u 1001 -G nodejs -s /sbin/nologin nodejs
 
 # Install only dependencies required by the production bundle.
 COPY package*.json ./
-RUN npm ci --omit=dev && npm cache clean --force
+RUN npm ci --omit=dev && \
+    npm cache clean --force && \
+    rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack
 
 # Copy the built application, deterministic production migration inputs, and persistent bundled assets.
 COPY --from=builder --chown=1001:1001 /app/dist ./dist
@@ -50,11 +52,11 @@ EXPOSE 5000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
-    CMD wget --spider -q http://localhost:5000/api/health || exit 1
+    CMD ["node", "-e", "fetch('http://localhost:5000/api/health').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"]
 
 # Start the application
 ENV NODE_ENV=production
 ENV PORT=5000
 
-ENTRYPOINT ["/usr/bin/tini", "--"]
+ENTRYPOINT ["/sbin/tini", "--"]
 CMD ["sh", "-c", "node dist/migrate-production.js && exec node dist/index.js"]
