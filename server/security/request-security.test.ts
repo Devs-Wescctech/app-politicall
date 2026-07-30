@@ -1,5 +1,5 @@
 import express from "express";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   createFixedWindowRateLimiter,
   createRequestSecurity,
@@ -102,19 +102,29 @@ describe("request security", () => {
     expect((await fetch(`${server.baseUrl}/api/normal`, { headers: { "x-forwarded-for": "198.51.100.1" } })).status).toBe(204);
   });
 
-  it("does not apply the API limiter to health or readiness probes", async () => {
+  it("exempts only safe requests to exact Express health and readiness paths", async () => {
     const app = express();
-    createRequestSecurity(app, { globalLimiter: createFixedWindowRateLimiter({ limit: 1, windowMs: 60_000, maximumEntries: 2 }) });
-    app.get("/api/health", (_req, res) => res.status(204).end());
-    app.get("/api/ready", (_req, res) => res.status(204).end());
+    createRequestSecurity(app, { globalLimiter: createFixedWindowRateLimiter({ limit: 1, windowMs: 60_000, maximumEntries: 20 }) });
+    app.all("/api/health", (_req, res) => res.status(204).end());
+    app.all("/api/ready", (_req, res) => res.status(204).end());
+    app.get("/api/normal", (_req, res) => res.status(204).end());
     server = await start(app);
 
-    expect((await fetch(`${server.baseUrl}/api/health`)).status).toBe(204);
-    expect((await fetch(`${server.baseUrl}/api/health`)).status).toBe(204);
-    expect((await fetch(`${server.baseUrl}/api/ready`)).status).toBe(204);
-    expect((await fetch(`${server.baseUrl}/api/ready`)).status).toBe(204);
-    expect((await fetch(`${server.baseUrl}/api/health/`)).status).toBe(204);
-    expect((await fetch(`${server.baseUrl}/api/ready/`)).status).toBe(204);
+    expect((await fetch(`${server.baseUrl}/api/normal`)).status).toBe(204);
+    for (const path of ["/api/health", "/api/health/", "/api/ready", "/api/ready/", "/API/HEALTH", "/API/READY/"]) {
+      expect((await fetch(`${server.baseUrl}${path}`)).status).toBe(204);
+      expect((await fetch(`${server.baseUrl}${path}`, { method: "HEAD" })).status).toBe(204);
+    }
+    expect((await fetch(`${server.baseUrl}/api/normal`)).status).toBe(429);
+
+    for (const method of ["POST", "PUT", "PATCH", "DELETE", "OPTIONS"]) {
+      const headers = { "x-forwarded-for": `198.51.100.${method.length}` };
+      expect((await fetch(`${server.baseUrl}/api/health`, { method, headers })).status).toBe(204);
+      expect((await fetch(`${server.baseUrl}/api/health`, { method, headers })).status).toBe(429);
+    }
+    const repeatedSlashHeaders = { "x-forwarded-for": "198.51.100.99" };
+    expect((await fetch(`${server.baseUrl}/api/health//`, { headers: repeatedSlashHeaders })).status).toBe(404);
+    expect((await fetch(`${server.baseUrl}/api/health//`, { headers: repeatedSlashHeaders })).status).toBe(429);
   });
 
   it("exposes exact production request contracts and enforces byte-accurate JSON and URL-encoded bounds", async () => {
@@ -168,6 +178,32 @@ describe("request security", () => {
     const error = await fetch(`${server.baseUrl}/api/error`);
     expect(error.status).toBe(500);
     expect(await error.json()).toEqual({ error: "Internal Server Error" });
+  });
+
+  it("never logs an unmatched parser-error URL or request body", async () => {
+    const app = express();
+    createRequestSecurity(app);
+    installApiResponseGuards(app);
+    server = await start(app);
+    const pathToken = "token-like-path-segment-7f3d0a";
+    const bodyToken = "body-must-not-appear-9b21c4";
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    try {
+      const response = await fetch(`${server.baseUrl}/api/${pathToken}`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: `{"payload":"${bodyToken}"`,
+      });
+      expect(response.status).toBe(400);
+      expect(await response.json()).toEqual({ error: "Request rejected" });
+      const logs = errorSpy.mock.calls.flat().map(String).join("\n");
+      expect(logs).toContain("route=unmatched");
+      expect(logs).not.toContain(pathToken);
+      expect(logs).not.toContain(bodyToken);
+    } finally {
+      errorSpy.mockRestore();
+    }
   });
 
   it("uses the production bootstrap order so rejection responses retain hardening headers", async () => {
