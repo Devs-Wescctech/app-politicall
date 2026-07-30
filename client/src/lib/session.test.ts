@@ -82,6 +82,37 @@ describe("cookie session client", () => {
     expect(session.getSnapshot()).toMatchObject({ status: "authenticated", user: DISPLAY_USER });
   });
 
+  it("bootstraps only once after the session state resolves", async () => {
+    const { dependencies, fetch } = createDependencies();
+    fetch.mockImplementation(async () => response(DISPLAY_USER));
+    const session = createSessionClient(dependencies);
+    const listener = vi.fn();
+    session.subscribe(listener);
+
+    await session.bootstrap();
+    listener.mockClear();
+    await session.bootstrap();
+
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(listener).not.toHaveBeenCalled();
+    expect(session.getSnapshot()).toMatchObject({ status: "authenticated", user: DISPLAY_USER });
+  });
+
+  it.each([
+    ["network failure", () => Promise.reject(new Error("offline"))],
+    ["invalid JSON", () => Promise.resolve(new Response("not-json", { status: 200 }))],
+  ])("leaves loading deterministically after %s during bootstrap", async (_case, result) => {
+    const { dependencies, fetch, storage } = createDependencies();
+    fetch.mockImplementation(result);
+    const session = createSessionClient(dependencies);
+    session.cacheUser(DISPLAY_USER);
+
+    await expect(session.bootstrap()).resolves.toEqual({ status: "unauthenticated", user: null });
+
+    expect(session.getSnapshot()).toEqual({ status: "unauthenticated", user: null });
+    expect(storage.removeItem).toHaveBeenCalledWith("auth_user");
+  });
+
   it("includes credentials and CSRF on JSON mutations without an Authorization header", async () => {
     const { dependencies, fetch, cookies } = createDependencies();
     cookies.set("politicall_csrf", "csrf-token");
@@ -137,6 +168,35 @@ describe("cookie session client", () => {
     expect(request.credentials).toBe("include");
     expect((request.headers as Headers).get("x-csrf-token")).toBeNull();
     expect((request.headers as Headers).get("Authorization")).toBeNull();
+  });
+
+  it("sends public JSON and FormData requests with cookies but without authenticated CSRF or refresh", async () => {
+    const { dependencies, fetch } = createDependencies();
+    fetch.mockResolvedValue(response({ ok: true }));
+    const session = createSessionClient(dependencies);
+    const form = new FormData();
+    form.append("file", new Blob(["content"]), "attachment.txt");
+
+    const jsonResponse = await session.publicApiRequest("POST", "/api/public/support/candidate", { name: "Ana" });
+    const formResponse = await session.publicApiRequest("POST", "/api/public/petitions/upload", form);
+
+    expect(jsonResponse).toBeInstanceOf(Response);
+    expect(formResponse).toBeInstanceOf(Response);
+    expect(fetch.mock.calls.map(([url]) => url)).toEqual([
+      "/api/public/support/candidate",
+      "/api/public/petitions/upload",
+    ]);
+    const jsonRequest = fetch.mock.calls[0][1]!;
+    const formRequest = fetch.mock.calls[1][1]!;
+    expect(jsonRequest).toMatchObject({
+      method: "POST",
+      credentials: "include",
+      body: JSON.stringify({ name: "Ana" }),
+    });
+    expect((jsonRequest.headers as Headers).get("Content-Type")).toBe("application/json");
+    expect((jsonRequest.headers as Headers).get("x-csrf-token")).toBeNull();
+    expect(formRequest).toMatchObject({ method: "POST", credentials: "include", body: form });
+    expect((formRequest.headers as Headers).get("Content-Type")).toBeNull();
   });
 
   it("preserves FormData and download responses while using cookie credentials", async () => {
@@ -216,10 +276,10 @@ describe("cookie session client", () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it("uses access logout, falls back to refresh revocation, then clears every cache after the request settles", async () => {
+  it.each([401, 403])("falls back to refresh revocation after logout status %s and clears every cache", async (status) => {
     const { dependencies, fetch, cookies, cleanup, storage } = createDependencies();
     cookies.set("politicall_csrf", "csrf-token");
-    fetch.mockResolvedValueOnce(response({ error: "Authentication failed" }, 401)).mockResolvedValueOnce(response(undefined, 204));
+    fetch.mockResolvedValueOnce(response({ error: "Authentication failed" }, status)).mockResolvedValueOnce(response(undefined, 204));
     const session = createSessionClient(dependencies);
     session.cacheUser(DISPLAY_USER);
 
@@ -232,5 +292,17 @@ describe("cookie session client", () => {
     expect(cleanup.clearQueryCache).toHaveBeenCalledOnce();
     expect(cleanup.clearAttendanceCache).toHaveBeenCalledOnce();
     expect(cleanup.clearImpersonationMarker).toHaveBeenCalledOnce();
+  });
+
+  it("does not mask a non-authentication logout error with refresh revocation", async () => {
+    const { dependencies, fetch, cookies, cleanup } = createDependencies();
+    cookies.set("politicall_csrf", "csrf-token");
+    fetch.mockResolvedValue(response({ error: "Service unavailable" }, 503));
+    const session = createSessionClient(dependencies);
+
+    await expect(session.logoutSession()).resolves.toEqual({ error: "Unable to end session" });
+
+    expect(fetch.mock.calls.map(([url]) => url)).toEqual(["/api/auth/logout"]);
+    expect(cleanup.clearQueryCache).toHaveBeenCalledOnce();
   });
 });

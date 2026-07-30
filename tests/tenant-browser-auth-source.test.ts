@@ -3,7 +3,12 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 const clientRoot = path.resolve(process.cwd(), "client/src");
-const taskSixBoundary = new Set(["pages/contracts.tsx"]);
+const publicSessionPages = [
+  "pages/petition-public.tsx",
+  "pages/survey-landing.tsx",
+  "pages/public-support.tsx",
+  "pages/alliance-invite.tsx",
+] as const;
 
 async function sourceFiles(directory: string, relative = ""): Promise<Array<{ relative: string; source: string }>> {
   const entries = await readdir(directory, { withFileTypes: true });
@@ -17,17 +22,78 @@ async function sourceFiles(directory: string, relative = ""): Promise<Array<{ re
   return nested.flat();
 }
 
-describe("tenant browser auth source gate", () => {
-  it("does not persist tenant credentials or construct tenant Bearer headers", async () => {
-    const files = (await sourceFiles(clientRoot)).filter((file) => !taskSixBoundary.has(file.relative));
-    const source = files.map((file) => `// ${file.relative}\n${file.source}`).join("\n");
-    const tenantConsumers = files
-      .filter((file) => file.relative !== "lib/auth.ts")
-      .map((file) => `// ${file.relative}\n${file.source}`).join("\n");
+function isTaskSixAdminBoundary(relative: string): boolean {
+  return relative === "pages/contracts.tsx"
+    || relative === "pages/admin.tsx"
+    || relative === "pages/admin-login.tsx"
+    || relative === "pages/admin-sales.tsx"
+    || relative === "components/admin-bottom-nav.tsx"
+    || relative.startsWith("components/admin/");
+}
 
-    expect(source).not.toMatch(/localStorage\.(?:getItem|setItem|removeItem)\(\s*["']auth_token["']/);
-    expect(source).not.toMatch(/Authorization\s*:\s*`Bearer \$\{(?:getAuthToken|token)\(/);
-    expect(source).not.toMatch(/headers\[["']Authorization["']\]\s*=\s*`Bearer/);
-    expect(tenantConsumers).not.toMatch(/setAuthToken\(/);
+function withoutAllowedApiKeyExamples(source: string): string {
+  return source
+    .replaceAll(/Bearer\s+YOUR_API_KEY/g, "ALLOWED_API_KEY")
+    .replaceAll(/Bearer\s+pk_[A-Za-z0-9_.*-]+/g, "ALLOWED_API_KEY");
+}
+
+function tenantCredentialViolations(source: string): string[] {
+  const candidate = withoutAllowedApiKeyExamples(source);
+  const patterns = [
+    /(?:window\.)?(?:localStorage|sessionStorage)\.(?:getItem|setItem|removeItem)\(\s*["']auth_token["']/,
+    /(?:Authorization|["']Authorization["'])\s*:\s*(?:`|["'])Bearer\s+/,
+    /\.set\(\s*["']Authorization["']\s*,\s*(?:`|["'])Bearer\s+/,
+    /\[\s*["']Authorization["']\s*\]\s*=\s*(?:`|["'])Bearer\s+/,
+  ];
+  return patterns.filter((pattern) => pattern.test(candidate)).map((pattern) => pattern.source);
+}
+
+describe("tenant browser auth source gate", () => {
+  it("recognizes tenant storage and direct Bearer construction variants", () => {
+    const prohibited = [
+      'window.localStorage.getItem("auth_token")',
+      'localStorage.setItem("auth_token", token)',
+      'const headers = { Authorization: `Bearer ${token}` }',
+      'headers.set("Authorization", `Bearer ${token}`)',
+      'headers["Authorization"] = `Bearer ${token}`',
+    ];
+    for (const fixture of prohibited) expect(tenantCredentialViolations(fixture), fixture).not.toEqual([]);
+    expect(tenantCredentialViolations('const docs = "Bearer YOUR_API_KEY"')).toEqual([]);
+    expect(tenantCredentialViolations('const docs = "Bearer pk_example"')).toEqual([]);
+  });
+
+  it("does not persist tenant credentials or construct tenant Bearer headers outside Task 6 admin code", async () => {
+    const files = (await sourceFiles(clientRoot)).filter((file) => !isTaskSixAdminBoundary(file.relative));
+    const violations = files.flatMap((file) =>
+      tenantCredentialViolations(file.source).map((pattern) => `${file.relative}:${pattern}`),
+    );
+    const tenantConsumers = files.filter((file) => file.relative !== "lib/auth.ts");
+
+    expect(violations).toEqual([]);
+    expect(tenantConsumers.map((file) => file.source).join("\n")).not.toMatch(/\bsetAuthToken\(/);
+  });
+
+  it("keeps public session pages on the explicit public helper", async () => {
+    const files = await sourceFiles(clientRoot);
+    for (const relative of publicSessionPages) {
+      const source = files.find((file) => file.relative === relative)?.source ?? "";
+      expect(source, relative).toContain("publicApiRequest");
+      expect(source, relative).not.toMatch(/\bapiRequest\b/);
+      expect(source, relative).not.toMatch(/\bfetch\(/);
+    }
+  });
+
+  it("requires cookie credentials in both first-party request abstractions", async () => {
+    const sessionSource = await readFile(path.join(clientRoot, "lib/session.ts"), "utf8");
+
+    expect(sessionSource).toMatch(/rawRequest[\s\S]+credentials:\s*["']include["']/);
+    expect(sessionSource).toMatch(/publicApiRequest[\s\S]+rawRequest/);
+  });
+
+  it("keeps the landing page neutral until session bootstrap resolves", async () => {
+    const landing = await readFile(path.join(clientRoot, "pages/landing.tsx"), "utf8");
+
+    expect(landing).toContain('session.status !== "unauthenticated"');
+    expect(landing.indexOf('session.status !== "unauthenticated"')).toBeLessThan(landing.indexOf('data-testid="img-header-logo"'));
   });
 });
