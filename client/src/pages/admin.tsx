@@ -169,7 +169,7 @@ export default function Admin() {
   // Update budget ADS mutation
   const updateBudgetMutation = useMutation({
     mutationFn: async (value: string) => {
-      const response = await adminRequest("PUT", "/api/admin/settings/budget_ads", { 
+      const response = await adminRequest("PUT", "/api/admin/settings/budget_ads", {
           value, 
           description: "Valor cobrado por pesquisa com ADS" 
         });
