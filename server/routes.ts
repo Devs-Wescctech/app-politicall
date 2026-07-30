@@ -93,8 +93,6 @@ import { sendOktorSms, queryOktorSms } from "./services/oktor-sms";
 import { locawebEmail } from "./services/locaweb-email-marketing";
 import { resolveChannels, channelToService, channelLabel, computeFinalStatus, canCancel, canSend, normalizeCampaignStatus, canPause, canResume, canEditCritical, normalizeSendConfig, isWithinSendWindow, classifyFailure, canRetry, shouldRetryDispatch, retryBackoffMs, computeRateBudget, buildRecipientCounts, computeRecipientMetrics, estimateSmsCost, friendlyErrorMessage, groupErrorsByReason, summarizeChannels, computeSendTiming, parseWhatsAppStatusEvents, type RecipientLite } from "./services/campaigns";
 import {
-  allowFixedWindowAttempt,
-  type FixedWindowEntry,
   normalizePetitionCampaignLogStatus,
   normalizePetitionCollectionConfig,
   sanitizePetitionCampaign,
@@ -119,7 +117,8 @@ import { getAdminPasswordHash, isReservedAdminSettingKey, updateAdminPasswordHas
 import { clearSessionCookies } from "./security/auth-cookies";
 import { GLOBAL_ADMIN_PRINCIPAL_ID } from "./services/auth-session-service";
 import { revokeGlobalAdminSessions, revokeUserSessions } from "./services/auth-session-store";
-import { createRuntimeAuthSessionService, getAuthAllowedOrigins, registerAuthSessionRoutes, sendAuthSessionResponse } from "./routes/auth-session-routes";
+import { verifyPureLegacyGlobalAdminToken } from "./security/legacy-global-admin";
+import { createAuthenticationRateLimiter, createRuntimeAuthSessionService, getAuthAllowedOrigins, registerAuthSessionRoutes, sendAuthSessionResponse, toAuthSessionUser } from "./routes/auth-session-routes";
 const require = createRequire(import.meta.url);
 
 // Sensitive integration fields that must never be returned in plaintext.
@@ -372,28 +371,27 @@ function generateSlugFromName(name: string): string {
 function authenticateAdminToken(req: AuthRequest, res: Response, next: NextFunction) {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return res.status(401).json({ error: "Token não fornecido" });
+    res.setHeader("Cache-Control", "no-store");
+    return res.status(401).json({ error: "Authentication failed" });
   }
   const token = authHeader.substring(7);
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as { isAdmin?: boolean; userId?: string; accountId?: string };
-    if (decoded.isAdmin !== true) {
-      return res.status(403).json({ error: "Acesso negado" });
+    if (!verifyPureLegacyGlobalAdminToken(token, JWT_SECRET)) {
+      res.setHeader("Cache-Control", "no-store");
+      return res.status(403).json({ error: "Authentication failed" });
     }
-    // Set userId and accountId in request for admin routes
-    req.userId = decoded.userId;
-    req.accountId = decoded.accountId;
     next();
   } catch (error) {
-    return res.status(401).json({ error: "Token inválido" });
+    res.setHeader("Cache-Control", "no-store");
+    return res.status(401).json({ error: "Authentication failed" });
   }
 }
 
-const authAttemptRateLimitStore = new Map<string, FixedWindowEntry>();
-const AUTH_ATTEMPT_WINDOW_MS = 15 * 60 * 1000;
-const USER_LOGIN_ATTEMPT_LIMIT = 10;
-const ADMIN_LOGIN_ATTEMPT_LIMIT = 5;
-const ADMIN_PASSWORD_ATTEMPT_LIMIT = 5;
+const authAttemptLimiter = createAuthenticationRateLimiter();
+const USER_REGISTRATION_ATTEMPT_LIMIT = 3;
+const USER_LOGIN_ATTEMPT_LIMIT = 5;
+const ADMIN_LOGIN_ATTEMPT_LIMIT = 3;
+const ADMIN_PASSWORD_ATTEMPT_LIMIT = 3;
 
 function authAttemptIp(req: Request): string {
   return req.ip || req.socket.remoteAddress || "unknown";
@@ -409,22 +407,10 @@ function enforceAuthAttemptLimit(
   res: Response,
   key: string,
   limit: number,
-  windowMs = AUTH_ATTEMPT_WINDOW_MS,
 ): boolean {
-  const result = allowFixedWindowAttempt(authAttemptRateLimitStore, key, limit, windowMs);
-
-  res.setHeader("X-RateLimit-Limit", String(limit));
-  res.setHeader("X-RateLimit-Remaining", String(result.remaining));
-  res.setHeader("X-RateLimit-Reset", String(Math.ceil(result.resetAt / 1000)));
-
-  if (result.allowed) return true;
-
-  res.setHeader("Retry-After", String(Math.max(1, Math.ceil((result.resetAt - Date.now()) / 1000))));
-
-  res.status(429).json({
-    error: "Muitas tentativas. Aguarde alguns minutos antes de tentar novamente.",
-  });
-  return false;
+  let allowed = false;
+  authAttemptLimiter(`credential:${key}`, limit)(req, res, () => { allowed = true; });
+  return allowed;
 }
 
 // Seed political parties data - All 29 Brazilian political parties from 2025
@@ -832,12 +818,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       res.set("Cache-Control", "no-store");
       if (!hasTrustedAuthOrigin(req)) return res.status(403).json({ error: "Authentication failed" });
+      if (!enforceAuthAttemptLimit(req, res, authAttemptKey(req, "registration", typeof req.body?.email === "string" ? req.body.email : undefined), USER_REGISTRATION_ATTEMPT_LIMIT)) return;
       const validatedData = insertUserSchema.parse(req.body);
       
       // Check if user already exists
       const existingUser = await storage.getUserByEmail(validatedData.email);
       if (existingUser) {
-        return res.status(400).json({ error: "Email já cadastrado" });
+        return res.status(401).json({ error: "Authentication failed" });
       }
 
       // Hash password
@@ -869,12 +856,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         slug: uniqueSlug, // USA SLUG ÚNICO: garante que não há conflitos
       } as any);
 
-      sendAuthSessionResponse(res, await authSessionService.issueUserSession(user as any, {
+      sendAuthSessionResponse(res, await authSessionService.issueUserSession(toAuthSessionUser(user), {
         deviceMetadata: req.get("user-agent"),
         ipMetadata: req.ip || req.socket.remoteAddress,
       }));
-    } catch (error: any) {
-      res.status(400).json({ error: error.message || "Erro ao criar conta" });
+    } catch {
+      res.set("Cache-Control", "no-store");
+      res.status(400).json({ error: "Authentication failed" });
     }
   });
 
@@ -892,11 +880,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const issued = await authSessionService.loginUser({ ...validatedData, deviceMetadata: req.get("user-agent"), ipMetadata: req.ip || req.socket.remoteAddress });
       if (!issued) return res.status(401).json({ error: "Email ou senha incorretos" });
 
-      authAttemptRateLimitStore.delete(rateLimitKey);
-
       sendAuthSessionResponse(res, issued);
-    } catch (error: any) {
-      res.status(400).json({ error: error.message || "Erro ao fazer login" });
+    } catch {
+      res.set("Cache-Control", "no-store");
+      res.status(400).json({ error: "Authentication failed" });
     }
   });
 
@@ -1420,8 +1407,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Senha incorreta" });
       }
 
-      authAttemptRateLimitStore.delete(rateLimitKey);
-      
       res.json({ valid: true });
     } catch (error: any) {
       res.status(400).json({ error: error.message || "Erro ao validar senha" });
@@ -1450,17 +1435,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Senha incorreta" });
       }
 
-      authAttemptRateLimitStore.delete(rateLimitKey);
-
       sendAuthSessionResponse(res, issued);
-    } catch (error: any) {
-      res.status(400).json({ error: error.message || "Erro ao fazer login admin" });
+    } catch {
+      res.set("Cache-Control", "no-store");
+      res.status(400).json({ error: "Authentication failed" });
     }
   });
 
   // Admin change password endpoint (PROTECTED)
   app.post("/api/admin/change-password", authenticateAdminToken, async (req: AuthRequest, res) => {
     try {
+      res.set("Cache-Control", "no-store");
       const changePasswordSchema = z.object({
         newPassword: z.string().min(6, "Senha deve ter pelo menos 6 caracteres"),
       });
@@ -1473,14 +1458,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       clearSessionCookies(res, "admin");
       
       res.json({ success: true, message: "Senha alterada com sucesso" });
-    } catch (error: any) {
-      res.status(400).json({ error: error.message || "Erro ao alterar senha" });
+    } catch {
+      res.set("Cache-Control", "no-store");
+      res.status(400).json({ error: "Authentication failed" });
     }
   });
 
   // Admin token verification endpoint (PUBLIC)
   app.get("/api/admin/verify", async (req, res) => {
     try {
+      res.set("Cache-Control", "no-store");
       const authHeader = req.headers.authorization;
       
       if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -1490,9 +1477,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const token = authHeader.substring(7);
       
       try {
-        const decoded = jwt.verify(token, JWT_SECRET) as { isAdmin?: boolean };
-        
-        if (decoded.isAdmin === true) {
+      if (verifyPureLegacyGlobalAdminToken(token, JWT_SECRET)) {
           return res.json({ valid: true });
         } else {
           return res.status(401).json({ valid: false });
@@ -2029,7 +2014,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Só é possível entrar em contas de administradores de gabinete" });
       }
       
-      sendAuthSessionResponse(res, await authSessionService.issueUserSession(user as any, {
+      sendAuthSessionResponse(res, await authSessionService.issueUserSession(toAuthSessionUser(user), {
         deviceMetadata: req.get("user-agent"),
         ipMetadata: req.ip || req.socket.remoteAddress,
       }));

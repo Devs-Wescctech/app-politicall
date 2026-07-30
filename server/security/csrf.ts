@@ -49,6 +49,7 @@ function csrfCookieName(kind: SessionCookieKind): string {
 }
 
 function rejectCsrf(response: Response): void {
+  response.setHeader("Cache-Control", "no-store");
   response.status(403).json({ error: "Invalid CSRF token" });
 }
 

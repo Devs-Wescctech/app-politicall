@@ -140,42 +140,6 @@ export function createAuthSessionStore(
       return session;
     },
 
-    async rotateSession(input: CreateSessionInput & { nextRefreshToken: string }) {
-      assertScope(input.scope);
-      const rotationNow = now();
-      buildSession({ ...input, refreshToken: input.nextRefreshToken }, { now: rotationNow });
-      return repository.transaction(async (transaction) => {
-        const source = await transaction.findByRefreshHash(input.scope, hashRefreshToken(input.refreshToken));
-        if (!source) return { status: "missing" as const };
-        if (source.revokedAt) {
-          await transaction.revokeByFamily(input.scope, source.familyId, "reuse_detected", rotationNow);
-          return { status: "reuse_detected" as const };
-        }
-        if (source.expiresAt <= rotationNow) {
-          await transaction.revokeById(input.scope, source.id, "expired", rotationNow);
-          return { status: "expired" as const };
-        }
-
-        const session = buildSession({
-          ...input,
-          refreshToken: input.nextRefreshToken,
-        }, {
-          familyId: source.familyId,
-          rotatedFromSessionId: source.id,
-          now: rotationNow,
-        });
-        await transaction.markUsed(input.scope, source.id, rotationNow);
-        const revoked = await transaction.revokeById(input.scope, source.id, "rotated", rotationNow);
-        if (revoked === 0) {
-          await transaction.revokeByFamily(input.scope, source.familyId, "reuse_detected", rotationNow);
-          return { status: "reuse_detected" as const };
-        }
-        const inserted = await transaction.insert(session);
-        await transaction.linkRotation(input.scope, source.id, inserted.id, source.familyId);
-        return { status: "rotated" as const, session: inserted };
-      });
-    },
-
     async resolveRefreshSession(input: { kind: "user" | "admin"; refreshToken: string; includeInactive?: boolean }) {
       const kind: AuthSessionKind = input.kind === "user" ? "user" : "global_admin";
       const session = await repository.findByRefreshHashAndKind?.(kind, hashRefreshToken(input.refreshToken));
@@ -401,10 +365,6 @@ export async function createSession(input: CreateSessionInput) {
 
 export async function findRefreshSession(input: { scope: AuthSessionScope; refreshToken: string }) {
   return (await getRuntimeStore()).findRefreshSession(input);
-}
-
-export async function rotateSession(input: CreateSessionInput & { nextRefreshToken: string }) {
-  return (await getRuntimeStore()).rotateSession(input);
 }
 
 export async function resolveRefreshSession(input: { kind: "user" | "admin"; refreshToken: string; includeInactive?: boolean }) {

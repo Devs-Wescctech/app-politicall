@@ -1,11 +1,12 @@
 import { createHash } from "node:crypto";
 import jwt, { type JwtPayload } from "jsonwebtoken";
+import type { UserPermissions } from "@shared/schema";
 import { GLOBAL_ADMIN_REFRESH_SESSION_MAX_AGE_MS, USER_REFRESH_SESSION_MAX_AGE_MS, type AuthSessionRecord, type AuthSessionScope } from "./auth-session-store";
 
 export const GLOBAL_ADMIN_PRINCIPAL_ID = "politicall:global-admin";
 export type BrowserSessionKind = "user" | "admin";
 
-export type AuthSessionUser = { id: string; accountId: string; email: string; name: string; role: string; permissions: string[]; password: string };
+export type AuthSessionUser = { id: string; accountId: string; email: string; name: string; role: string; permissions: UserPermissions; password: string };
 type PublicUser = Omit<AuthSessionUser, "accountId" | "password">;
 export type IssuedSessionCookies = { kind: BrowserSessionKind; principalId: string; sessionId: string; accessToken: string; refreshToken: string; csrfToken: string; refreshMaxAgeMs: number };
 
@@ -129,8 +130,12 @@ export function createAuthSessionService(dependencies: AuthSessionServiceDepende
     },
     async logoutRefresh(input: { kind: BrowserSessionKind; refreshToken: string }) {
       const session = await dependencies.sessionStore.resolveRefreshSession({ ...input, includeInactive: true });
+      if (session?.revokedAt) {
+        await dependencies.sessionStore.rotateRefreshSession({ ...input, nextRefreshToken: dependencies.createRefreshToken() });
+        return { clearCookies: input.kind, status: "reuse_detected" as const };
+      }
       if (session) await dependencies.sessionStore.revokeSession({ kind: input.kind, sessionId: session.id, reason: "logout" });
-      return { clearCookies: input.kind };
+      return { clearCookies: input.kind, status: "logged_out" as const };
     },
   };
 }
