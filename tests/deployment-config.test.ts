@@ -468,24 +468,23 @@ describe("deployment configuration", () => {
 
   it("builds a minimal Node 24 production image", async () => {
     const dockerfile = await readProjectFile("Dockerfile");
-    const pinnedNodeAlpine = "node:24.18.0-alpine3.23@sha256:595398b0081eacda8e1c4c5b97b76cd1020e4d58a8ebcb4843b9bca1e79e7436";
-    const productionStage = dockerfile.split(`FROM ${pinnedNodeAlpine} AS production`)[1];
+    const pinnedNodeRuntime = "node:24.18.0-trixie-slim@sha256:ae91dcc111a68c9d2d81ff2a17bda61be126426176fde6fe7d08ab13b7f50573";
+    const productionStage = dockerfile.split(`FROM ${pinnedNodeRuntime} AS production`)[1];
 
-    expect(dockerfile).toContain(`FROM ${pinnedNodeAlpine} AS builder`);
+    expect(dockerfile).toContain(`FROM ${pinnedNodeRuntime} AS builder`);
     expect(productionStage).toBeDefined();
-    expect(productionStage).toContain("apk add --no-cache tini");
+    expect(productionStage).toContain("apt-get install -y --no-install-recommends tini");
     expect(productionStage).toContain("RUN npm ci --omit=dev");
     expect(productionStage).toContain("rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack");
-    expect(productionStage).toContain("addgroup -g 1001 -S nodejs");
-    expect(productionStage).toContain("adduser -S -D -H -u 1001 -G nodejs -s /sbin/nologin nodejs");
+    expect(productionStage).toContain("groupadd --gid 1001 nodejs");
+    expect(productionStage).toContain("useradd --uid 1001 --gid nodejs");
     expect(productionStage).toContain("uploads/avatars uploads/backgrounds uploads/petitions uploads/temp");
     expect(productionStage).toContain("chown -R 1001:1001 /app/attached_assets /app/uploads");
-    expect(productionStage).toContain('ENTRYPOINT ["/sbin/tini", "--"]');
+    expect(productionStage).toContain('ENTRYPOINT ["/usr/bin/tini", "--"]');
     expect(productionStage).toContain("fetch('http://localhost:5000/api/health')");
     expect(productionStage).toContain('COPY --from=builder --chown=1001:1001 /app/migrations ./migrations');
     expect(productionStage).toContain('COPY --from=builder --chown=1001:1001 /app/scripts/full_schema.sql ./scripts/full_schema.sql');
     expect(productionStage).toContain('CMD ["sh", "-c", "node dist/migrate-production.js && exec node dist/index.js"]');
-    expect(productionStage).not.toContain("apt-get");
     expect(productionStage).not.toContain("wget");
 
     for (const sourceOnlyPath of ["./client", "./vite.config.ts", "./shared", "./tsconfig.json", "./drizzle.config.ts"]) {
