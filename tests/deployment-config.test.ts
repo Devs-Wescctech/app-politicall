@@ -320,6 +320,51 @@ describe("deployment configuration", () => {
     }
   });
 
+  it("captures migration inventory without mutating a first-runner database", async () => {
+    const backup = await readProjectFile("docs/deployment/backup-restore.md");
+    const restoreHeading = "## Isolated Restore Validation (ambiente isolado)";
+    const preflight = backup.slice(0, backup.indexOf(restoreHeading));
+    const absentMarker = "politicall_schema_migrations=absent-before-production-runner";
+    const mutatingSql = /\b(?:(?:CREATE|ALTER|DROP)\s+(?:TABLE|SCHEMA|DATABASE|INDEX|VIEW|TYPE|EXTENSION|FUNCTION|TRIGGER|SEQUENCE)|TRUNCATE\s+(?:TABLE\s+)?|INSERT\s+INTO|UPDATE\s+\S+\s+SET|DELETE\s+FROM|GRANT\s+|REVOKE\s+)\b/i;
+
+    expectTextInOrder(preflight, [
+      "SELECT to_regclass('public.politicall_schema_migrations')",
+      "If the result is non-null",
+      "SELECT name, hash, applied_at FROM politicall_schema_migrations ORDER BY name",
+      "If the result is null",
+      absentMarker,
+      "Compute and record the SHA-256",
+    ]);
+    expect(preflight).toContain("write the marker locally");
+    expect(preflight).toContain("runner creates `politicall_schema_migrations` on its first start");
+    expect(preflight).toContain("pre-runner state");
+    expect(preflight).not.toMatch(mutatingSql);
+  });
+
+  it("accepts the hashed pre-runner marker before isolated and production restore", async () => {
+    const backup = await readProjectFile("docs/deployment/backup-restore.md");
+    const absentMarker = "politicall_schema_migrations=absent-before-production-runner";
+    const restoreSections = [
+      markdownSection(backup, "Isolated Restore Validation (ambiente isolado)"),
+      markdownSection(backup, "Production Restore"),
+    ];
+
+    for (const section of restoreSections) {
+      expect(section).toContain(absentMarker);
+      expect(section).toContain("accept the marker only when its SHA-256 hash matches");
+    }
+    expectTextInOrder(restoreSections[0], [
+      "Verify all three SHA-256 hashes",
+      absentMarker,
+      "Restore the database",
+    ]);
+    expectTextInOrder(restoreSections[1], [
+      "Verify all three SHA-256 hashes",
+      absentMarker,
+      "Restore the captured database dump",
+    ]);
+  });
+
   it("verifies all three pair hashes before isolated or production restore changes state", async () => {
     const backup = await readProjectFile("docs/deployment/backup-restore.md");
     const isolated = markdownSection(backup, "Isolated Restore Validation (ambiente isolado)");
