@@ -326,12 +326,136 @@ git diff --check d463e1b..HEAD
 
 PASS: no whitespace errors.
 
+## Review 2 remediation
+
+- Review contract: `.superpowers/sdd/attendance-task-3-review-2.md`
+- Reviewed head: `a10142c`
+- Review verdict: `CHANGES_REQUIRED`
+- Current status: fixes implemented and awaiting independent re-review. This
+  report does not mark the task approved.
+
+### Review 2 commits
+
+```text
+70c6db7 test: specify URL-scoped smoke cookies
+ac05173 fix: scope smoke cookies to request URLs
+```
+
+### Review 2 RED evidence
+
+Command:
+
+```text
+npm test -- tests/attendance-smoke-helpers.test.ts
+```
+
+Result: FAIL as intended, 6 failed and 2 passed. The failures proved that the
+refresh cookie reached both the attendance HTTP request and realtime WebSocket,
+and that the existing jar ignored path boundaries, Secure transport, expiry,
+clearing, and host scope.
+
+### Review 2 changes
+
+- The smoke cookie jar now absorbs each Set-Cookie against the exact response
+  URL and retains host-only/domain scope, browser default or explicit Path,
+  Secure, expiry/max-age, and creation order.
+- Cookie identity is scoped by name, domain, and path. Expired and cleared
+  entries are removed, invalid cross-domain Set-Cookie values are ignored, and
+  raw encoded values are preserved for the Cookie header.
+- `header(targetUrl)` and CSRF lookup select only cookies matching the target
+  scheme, host, browser-compatible path boundary, and expiry. `wss:` is treated
+  as secure.
+- Every HTTP request selects cookies for its exact destination and absorbs
+  response cookies against the effective response URL. The realtime helper
+  selects against the exact credential-free `ws:`/`wss:` URL.
+- The executable login fixture now contains access, refresh, and CSRF cookies.
+  Tests prove that attendance HTTP and realtime WS include access and CSRF but
+  exclude refresh, while the exact refresh endpoint includes refresh.
+- Executable regressions also cover Secure behavior across HTTP/HTTPS/WS/WSS,
+  expired and cleared cookies, host-only isolation, Domain scope, encoded
+  values, and exact/slash-boundary Path matching.
+
+### Review 2 final validation
+
+```text
+npm test -- tests/attendance-smoke-helpers.test.ts
+```
+
+PASS: 1 file, 8 tests.
+
+```text
+npm test -- client/src/hooks/use-attendance-realtime.test.ts server/attendance-events-cookie.test.ts server/attendance-events.test.ts
+```
+
+PASS: 3 files, 51 tests.
+
+```text
+npm test -- client/src/lib/attendance-reconciliation.test.ts client/src/lib/attendance-connection-state.test.ts
+```
+
+PASS: 2 files, 25 tests.
+
+```text
+npm test -- client/src/hooks/use-attendance-realtime.test.ts server/attendance-events-cookie.test.ts server/attendance-events.test.ts tests/attendance-smoke-helpers.test.ts client/src/lib/attendance-reconciliation.test.ts client/src/lib/attendance-connection-state.test.ts
+```
+
+PASS: 6 files, 84 tests.
+
+```text
+npm test
+```
+
+PASS: 88 files passed, 2 skipped; 689 tests passed, 2 skipped.
+
+```text
+npm run check
+```
+
+PASS: TypeScript exited 0.
+
+```text
+npm run build
+```
+
+PASS: Vite client build and all three esbuild server/script bundles exited 0.
+
+```text
+npm run security:secrets
+```
+
+PASS: release secret scan exited 0.
+
+```text
+npm audit --omit=dev
+```
+
+PASS: 0 vulnerabilities.
+
+```text
+node --check scripts/attendance-smoke-test.mjs
+node --check scripts/attendance-smoke-helpers.mjs
+```
+
+PASS: both scripts parsed successfully.
+
+```text
+rg -n "Authorization|\?token=|\.token\b|admin123|Bearer|options\.token|token:" scripts/attendance-smoke-test.mjs scripts/attendance-smoke-helpers.mjs
+```
+
+PASS: no matches.
+
+```text
+git diff --check d463e1b..HEAD
+```
+
+PASS: no whitespace errors, including the report update.
+
 ## Current concerns
 
 - Independent re-review is still required; the task is not marked approved.
 - The destructive end-to-end smoke script was not run because no explicit
   `TEST_EMAIL`/`TEST_PASSWORD` or dedicated live smoke environment was
-  provided. Its authentication transport is covered by four executable helper
+  provided. Its authentication transport is covered by eight executable helper
   tests, and the complete script passes syntax validation.
 - Browser fallback polling and connection-status UI remain assigned to later
   tasks in the approved plan and were not implemented here.
