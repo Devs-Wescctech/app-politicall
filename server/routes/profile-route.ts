@@ -24,10 +24,11 @@ export function registerProfileRoute(app: Express, dependencies: {
       const data = profileUpdateSchema.parse(request.body);
       if (data.newPassword) {
         response.set("Cache-Control", "no-store");
-        const bypass = !data.currentPassword && request.user?.role === "admin" && await dependencies.hasActiveGlobalAdminCookie(request);
-        if (!data.currentPassword && !bypass) return response.status(400).json({ error: "Senha atual é obrigatória para alterar a senha" });
+        const bypassRequested = !data.currentPassword && request.user?.role === "admin" && await dependencies.hasActiveGlobalAdminCookie(request);
         const user = await dependencies.getUser(request.userId);
         if (!user) return response.status(404).json({ error: "Usuário não encontrado" });
+        const bypass = bypassRequested && user.role === "admin";
+        if (!data.currentPassword && !bypass) return response.status(400).json({ error: "Senha atual é obrigatória para alterar a senha" });
         if (!bypass && !(await bcrypt.compare(data.currentPassword!, user.password))) return response.status(400).json({ error: "Senha atual incorreta" });
         const { currentPassword, newPassword, ...userData } = data;
         const updated = await dependencies.changePassword({ accountId: request.accountId, userId: request.userId, passwordHash: await bcrypt.hash(newPassword, 10), userData });

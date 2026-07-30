@@ -337,11 +337,6 @@ export default function ContractsPage() {
           permissions: data.permissions,
       });
       
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Erro ao salvar');
-      }
-      
       return response.json();
     },
     onSuccess: async () => {
@@ -377,11 +372,6 @@ export default function ContractsPage() {
   const paymentMutation = useMutation({
     mutationFn: async (userId: string) => {
       const response = await adminRequest("POST", `/api/admin/users/${userId}/payment`);
-      
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Erro ao confirmar pagamento');
-      }
       
       return response.json();
     },
@@ -423,11 +413,6 @@ export default function ContractsPage() {
     mutationFn: async (userId: string) => {
       const response = await adminRequest("DELETE", `/api/admin/users/${userId}`);
       
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Erro ao excluir conta');
-      }
-      
       return response.json();
     },
     onSuccess: async () => {
@@ -460,11 +445,6 @@ export default function ContractsPage() {
   const changeAdminPasswordMutation = useMutation({
     mutationFn: async (data: { newPassword: string }) => {
       const response = await adminRequest("POST", "/api/admin/change-password", data);
-      
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Erro ao alterar senha');
-      }
       
       return response.json();
     },
@@ -515,11 +495,6 @@ export default function ContractsPage() {
   const handleImpersonate = async (userId: string) => {
     try {
       const response = await adminRequest("POST", `/api/admin/users/${userId}/impersonate`);
-      
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Erro ao entrar na conta");
-      }
       
       const result = await response.json();
       

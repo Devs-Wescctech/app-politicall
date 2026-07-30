@@ -483,11 +483,6 @@ export default function Admin() {
       const response = await adminRequest("POST", "/api/admin/system-sync/pull", { sourceUrl, apiKey });
       
       const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.error || "Erro ao sincronizar sistema");
-      }
-      
       return data;
     },
     onSuccess: (data) => {

@@ -123,20 +123,21 @@ export function createAdminSessionClient(dependencies: AdminSessionDependencies)
     const request = async () => {
       try {
         const response = await rawRequest("POST", "/api/admin/auth/refresh", undefined, true);
+        return current(activeGeneration) && response.ok;
+      } catch {
+        return false;
+      }
+    };
+    const promise = (dependencies.coordinateRefresh ? dependencies.coordinateRefresh(request) : request())
+      .then((success) => {
         if (!current(activeGeneration)) return false;
-        if (!response.ok) {
+        if (!success) {
           invalidate(activeGeneration);
           return false;
         }
         publish({ status: "authenticated" });
         return true;
-      } catch {
-        invalidate(activeGeneration);
-        return false;
-      }
-    };
-    const promise = (dependencies.coordinateRefresh ? dependencies.coordinateRefresh(request) : request())
-      .then((success) => current(activeGeneration) && success)
+      })
       .finally(() => { if (refreshInFlight === flight) refreshInFlight = undefined; });
     flight = { generation: activeGeneration, promise };
     refreshInFlight = flight;
@@ -188,10 +189,11 @@ export function createAdminSessionClient(dependencies: AdminSessionDependencies)
     const activeGeneration = generation;
     const csrf = MUTATING_METHODS.has(method.toUpperCase());
     let response = await rawRequest(method, url, data, csrf);
-    if (response.status === 401 && current(activeGeneration) && !NON_REFRESHABLE_PATHS.has(url)
+    if (await isAuthenticationRejection(response) && current(activeGeneration) && !NON_REFRESHABLE_PATHS.has(url)
       && await refresh() && current(activeGeneration)) {
       response = await rawRequest(method, url, data, csrf);
     }
+    if (current(activeGeneration) && await isAuthenticationRejection(response)) invalidate(activeGeneration);
     if (!response.ok && !options.returnErrorResponse) throw new Error("Admin request failed");
     return response;
   };

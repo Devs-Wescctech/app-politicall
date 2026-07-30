@@ -41,17 +41,6 @@ function staticString(expression: ts.Expression, checker: ts.TypeChecker): strin
   return undefined;
 }
 
-function staticPrefix(expression: ts.Expression, checker: ts.TypeChecker): string | undefined {
-  const resolved = resolveConstExpression(expression, checker);
-  if (ts.isStringLiteralLike(resolved) || ts.isNoSubstitutionTemplateLiteral(resolved)) return resolved.text;
-  if (ts.isTemplateExpression(resolved)) return resolved.head.text;
-  if (ts.isBinaryExpression(resolved) && resolved.operatorToken.kind === ts.SyntaxKind.PlusToken) {
-    const left = staticString(resolved.left, checker);
-    return left === undefined ? staticPrefix(resolved.left, checker) : left + (staticPrefix(resolved.right, checker) ?? "");
-  }
-  return undefined;
-}
-
 function propertyName(name: ts.PropertyName, checker: ts.TypeChecker): string | undefined {
   if (ts.isIdentifier(name) || ts.isStringLiteralLike(name)) return name.text;
   return ts.isComputedPropertyName(name) ? staticString(name.expression, checker) : undefined;
@@ -73,6 +62,26 @@ function assignedHeaderName(expression: ts.Expression, checker: ts.TypeChecker):
   return ts.isElementAccessExpression(expression) && expression.argumentExpression
     ? staticString(expression.argumentExpression, checker)
     : undefined;
+}
+
+function memberName(expression: ts.Expression, checker: ts.TypeChecker): string | undefined {
+  if (ts.isPropertyAccessExpression(expression)) return expression.name.text;
+  return ts.isElementAccessExpression(expression) && expression.argumentExpression
+    ? staticString(expression.argumentExpression, checker)
+    : undefined;
+}
+
+function isBoundHeaderMutator(expression: ts.Expression, checker: ts.TypeChecker): boolean {
+  const resolved = resolveConstExpression(expression, checker);
+  return ts.isCallExpression(resolved)
+    && ts.isPropertyAccessExpression(resolved.expression)
+    && resolved.expression.name.text === "bind"
+    && ts.isPropertyAccessExpression(resolved.expression.expression)
+    && ["set", "append"].includes(resolved.expression.expression.name.text);
+}
+
+function isAuthorizationHeader(value: string | undefined): boolean {
+  return value?.toLowerCase() === "authorization";
 }
 
 function createAnalysis(source: string): { sourceFile: ts.SourceFile; checker: ts.TypeChecker } {
@@ -98,27 +107,36 @@ function adminCredentialViolations(source: string): string[] {
   const violations: string[] = [];
   const report = (node: ts.Node, kind: string) => violations.push(`${kind}:${sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile)).line + 1}`);
   const isForbiddenName = (value: string) => forbiddenCredentialNames.has(value.toLowerCase());
-  const isForbiddenBearer = (expression: ts.Expression) => /^\s*Bearer\s+/i.test(staticPrefix(expression, checker) ?? "");
 
   const visit = (node: ts.Node) => {
     if (ts.isStringLiteralLike(node) && isForbiddenName(node.text)) report(node, "browser credential literal");
-    if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression)
+    if (ts.isCallExpression(node) && (ts.isPropertyAccessExpression(node.expression) || ts.isElementAccessExpression(node.expression))
       && isBrowserStorage(node.expression.expression, checker)
-      && ["getItem", "setItem", "removeItem"].includes(node.expression.name.text)
+      && ["getItem", "setItem", "removeItem"].includes(memberName(node.expression, checker) ?? "")
       && node.arguments[0] && isForbiddenName(staticString(node.arguments[0], checker) ?? "")) report(node, "browser credential storage");
     if (ts.isElementAccessExpression(node) && isBrowserStorage(node.expression, checker)
       && node.argumentExpression && isForbiddenName(staticString(node.argumentExpression, checker) ?? "")) report(node, "browser credential property");
     if (ts.isPropertyAccessExpression(node) && isBrowserStorage(node.expression, checker)
       && isForbiddenName(node.name.text)) report(node, "browser credential property");
-    if (ts.isPropertyAssignment(node) && propertyName(node.name, checker)?.toLowerCase() === "authorization"
-      && isForbiddenBearer(node.initializer)) report(node, "first-party Bearer object");
-    if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression)
-      && ["set", "append"].includes(node.expression.name.text) && node.arguments[0] && node.arguments[1]
-      && staticString(node.arguments[0], checker)?.toLowerCase() === "authorization" && isForbiddenBearer(node.arguments[1])) {
-      report(node, `first-party Headers.${node.expression.name.text}`);
+    if (ts.isPropertyAssignment(node) && isAuthorizationHeader(propertyName(node.name, checker))) report(node, "Authorization object");
+    if (ts.isShorthandPropertyAssignment(node) && isAuthorizationHeader(node.name.text)) report(node, "Authorization shorthand");
+    if (ts.isNewExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === "Headers") {
+      const tuples = node.arguments?.[0];
+      if (tuples && ts.isArrayLiteralExpression(tuples) && tuples.elements.some((tuple) =>
+        ts.isArrayLiteralExpression(tuple) && tuple.elements[0] && ts.isExpression(tuple.elements[0])
+          && isAuthorizationHeader(staticString(tuple.elements[0], checker)))) report(node, "Authorization Headers tuple");
+    }
+    if (ts.isCallExpression(node) && (ts.isPropertyAccessExpression(node.expression) || ts.isElementAccessExpression(node.expression))
+      && ["set", "append"].includes(memberName(node.expression, checker) ?? "") && node.arguments[0]
+      && isAuthorizationHeader(staticString(node.arguments[0], checker))) {
+      report(node, `Authorization Headers.${memberName(node.expression, checker)}`);
+    }
+    if (ts.isCallExpression(node) && isBoundHeaderMutator(node.expression, checker) && node.arguments[0]
+      && isAuthorizationHeader(staticString(node.arguments[0], checker))) {
+      report(node, "Authorization bound Headers mutator");
     }
     if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.EqualsToken
-      && assignedHeaderName(node.left, checker)?.toLowerCase() === "authorization" && isForbiddenBearer(node.right)) report(node, "first-party Bearer assignment");
+      && isAuthorizationHeader(assignedHeaderName(node.left, checker))) report(node, "Authorization assignment");
     ts.forEachChild(node, visit);
   };
   visit(sourceFile);
