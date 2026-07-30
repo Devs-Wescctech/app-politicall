@@ -82,7 +82,7 @@ Commit: `feat: add revocable authentication sessions`
 - Modify: `package-lock.json`
 
 **Interfaces:**
-- Produces: `issueAccessToken`, `readAccessToken`, `setSessionCookies`, `clearSessionCookies`, `issueCsrfToken`, `requireCsrf`.
+- Produces: `issueAccessToken`, `readAccessToken`, `createRefreshToken`, `setSessionCookies`, `clearSessionCookies`, `issueCsrfToken`, `requireCsrf`.
 
 - [ ] **Step 1: Write RED tests**
 
@@ -99,10 +99,13 @@ Expected: FAIL.
 - [ ] **Step 3: Add `cookie@2.0.1` and implement primitives**
 
 Use `crypto.randomBytes(32).toString("base64url")` for refresh and CSRF nonces. Access
-JWT claims include `sid` and session kind. Bind each CSRF token to that `sid` with an
-HMAC under `SESSION_SECRET`; require header, cookie and signature to agree. Parse
-request cookies with `cookie.parse`; use Express `res.cookie`/`res.clearCookie` with
-identical path attributes.
+JWT claims include `sid` and session kind, use an explicit issuer/audience/algorithm,
+and expire after exactly 15 minutes. Bind each CSRF token to that `sid` and session
+kind with an HMAC under `SESSION_SECRET`; require header, cookie and signature to
+agree using constant-time comparison. Use distinct readable `politicall_csrf` and
+`politicall_admin_csrf` cookies so user and global-admin sessions can coexist. Parse
+request cookies with the actual `cookie@2.0.1` API, `cookie.parseCookie`; use Express
+`res.cookie`/`res.clearCookie` with matching path/security attributes.
 
 Use `/` for access/CSRF cookies, `/api/auth/refresh` for the user refresh cookie and
 `/api/admin/auth/refresh` for the admin refresh cookie.
