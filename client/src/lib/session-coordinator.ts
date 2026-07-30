@@ -251,6 +251,11 @@ export function createRefreshCoordinator(options: CoordinatorOptions): RefreshCo
       await delay(claimWindowMs);
       if (disposed || generation !== stateGeneration) return false;
 
+      const resultAfterClaim = validRecentResult();
+      if (resultAfterClaim) {
+        candidateClaimId = undefined;
+        return resultAfterClaim.success;
+      }
       const claimedByAnother = validRemoteOwner();
       if (claimedByAnother && claimedByAnother.claimId !== claimId) {
         candidateClaimId = undefined;

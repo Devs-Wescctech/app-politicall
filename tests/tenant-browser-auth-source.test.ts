@@ -32,74 +32,61 @@ function isTaskSixAdminBoundary(relative: string): boolean {
     || relative.startsWith("components/admin/");
 }
 
-type ConstInitializers = ReadonlyMap<string, ts.Expression | null>;
-
-function collectConstInitializers(sourceFile: ts.SourceFile): ConstInitializers {
-  const initializers = new Map<string, ts.Expression | null>();
-  const visit = (node: ts.Node) => {
-    if (ts.isVariableDeclaration(node)
-      && ts.isIdentifier(node.name)
-      && node.initializer
-      && ts.isVariableDeclarationList(node.parent)
-      && (node.parent.flags & ts.NodeFlags.Const) !== 0) {
-      const name = node.name.text;
-      initializers.set(name, initializers.has(name) ? null : node.initializer);
-    }
-    ts.forEachChild(node, visit);
-  };
-  visit(sourceFile);
-  return initializers;
-}
-
 function resolveConstExpression(
   expression: ts.Expression,
-  initializers: ConstInitializers,
-  seen = new Set<string>(),
+  checker: ts.TypeChecker,
+  seen = new Set<ts.Symbol>(),
 ): ts.Expression {
   if (ts.isParenthesizedExpression(expression)
     || ts.isAsExpression(expression)
     || ts.isTypeAssertionExpression(expression)
     || ts.isNonNullExpression(expression)) {
-    return resolveConstExpression(expression.expression, initializers, seen);
+    return resolveConstExpression(expression.expression, checker, seen);
   }
-  if (!ts.isIdentifier(expression) || seen.has(expression.text)) return expression;
-  const initializer = initializers.get(expression.text);
-  if (!initializer) return expression;
+  if (!ts.isIdentifier(expression)) return expression;
+  const symbol = checker.getSymbolAtLocation(expression);
+  if (!symbol || seen.has(symbol)) return expression;
+  const declaration = symbol.valueDeclaration;
+  if (!declaration
+    || !ts.isVariableDeclaration(declaration)
+    || !declaration.initializer
+    || !ts.isVariableDeclarationList(declaration.parent)
+    || (declaration.parent.flags & ts.NodeFlags.Const) === 0) return expression;
   const nextSeen = new Set(seen);
-  nextSeen.add(expression.text);
-  return resolveConstExpression(initializer, initializers, nextSeen);
+  nextSeen.add(symbol);
+  return resolveConstExpression(declaration.initializer, checker, nextSeen);
 }
 
-function staticString(expression: ts.Expression, initializers: ConstInitializers): string | undefined {
-  const resolved = resolveConstExpression(expression, initializers);
+function staticString(expression: ts.Expression, checker: ts.TypeChecker): string | undefined {
+  const resolved = resolveConstExpression(expression, checker);
   if (ts.isStringLiteralLike(resolved)) return resolved.text;
   if (ts.isBinaryExpression(resolved) && resolved.operatorToken.kind === ts.SyntaxKind.PlusToken) {
-    const left = staticString(resolved.left, initializers);
-    const right = staticString(resolved.right, initializers);
+    const left = staticString(resolved.left, checker);
+    const right = staticString(resolved.right, checker);
     return left === undefined || right === undefined ? undefined : left + right;
   }
   return undefined;
 }
 
-function staticPrefix(expression: ts.Expression, initializers: ConstInitializers): string | undefined {
-  const resolved = resolveConstExpression(expression, initializers);
+function staticPrefix(expression: ts.Expression, checker: ts.TypeChecker): string | undefined {
+  const resolved = resolveConstExpression(expression, checker);
   if (ts.isStringLiteralLike(resolved)) return resolved.text;
   if (ts.isTemplateExpression(resolved)) return resolved.head.text;
   if (ts.isBinaryExpression(resolved) && resolved.operatorToken.kind === ts.SyntaxKind.PlusToken) {
-    const left = staticString(resolved.left, initializers);
-    if (left !== undefined) return left + (staticPrefix(resolved.right, initializers) ?? "");
-    return staticPrefix(resolved.left, initializers);
+    const left = staticString(resolved.left, checker);
+    if (left !== undefined) return left + (staticPrefix(resolved.right, checker) ?? "");
+    return staticPrefix(resolved.left, checker);
   }
   return undefined;
 }
 
-function isForbiddenBearer(expression: ts.Expression, initializers: ConstInitializers): boolean {
-  const resolved = resolveConstExpression(expression, initializers);
+function isForbiddenBearer(expression: ts.Expression, checker: ts.TypeChecker): boolean {
+  const resolved = resolveConstExpression(expression, checker);
   if (ts.isConditionalExpression(resolved)) {
-    return isForbiddenBearer(resolved.whenTrue, initializers)
-      || isForbiddenBearer(resolved.whenFalse, initializers);
+    return isForbiddenBearer(resolved.whenTrue, checker)
+      || isForbiddenBearer(resolved.whenFalse, checker);
   }
-  const prefix = staticPrefix(resolved, initializers);
+  const prefix = staticPrefix(resolved, checker);
   const match = prefix?.match(/^\s*Bearer\s+(\S*)/i);
   if (!match) return false;
   return match[1] !== "YOUR_API_KEY" && !match[1].startsWith("pk_");
@@ -107,18 +94,18 @@ function isForbiddenBearer(expression: ts.Expression, initializers: ConstInitial
 
 function propertyName(
   name: ts.PropertyName,
-  initializers: ConstInitializers,
+  checker: ts.TypeChecker,
 ): string | undefined {
   if (ts.isIdentifier(name) || ts.isStringLiteralLike(name)) return name.text;
-  if (ts.isComputedPropertyName(name)) return staticString(name.expression, initializers);
+  if (ts.isComputedPropertyName(name)) return staticString(name.expression, checker);
   return undefined;
 }
 
 function isBrowserStorage(
   expression: ts.Expression,
-  initializers: ConstInitializers,
+  checker: ts.TypeChecker,
 ): boolean {
-  const resolved = resolveConstExpression(expression, initializers);
+  const resolved = resolveConstExpression(expression, checker);
   if (ts.isIdentifier(resolved)) {
     return resolved.text === "localStorage" || resolved.text === "sessionStorage";
   }
@@ -128,7 +115,7 @@ function isBrowserStorage(
       && (resolved.name.text === "localStorage" || resolved.name.text === "sessionStorage");
   }
   if (ts.isElementAccessExpression(resolved) && ts.isIdentifier(resolved.expression) && resolved.expression.text === "window") {
-    const storageName = resolved.argumentExpression && staticString(resolved.argumentExpression, initializers);
+    const storageName = resolved.argumentExpression && staticString(resolved.argumentExpression, checker);
     return storageName === "localStorage" || storageName === "sessionStorage";
   }
   return false;
@@ -136,24 +123,53 @@ function isBrowserStorage(
 
 function assignedHeaderName(
   expression: ts.Expression,
-  initializers: ConstInitializers,
+  checker: ts.TypeChecker,
 ): string | undefined {
   if (ts.isPropertyAccessExpression(expression)) return expression.name.text;
   if (ts.isElementAccessExpression(expression) && expression.argumentExpression) {
-    return staticString(expression.argumentExpression, initializers);
+    return staticString(expression.argumentExpression, checker);
   }
   return undefined;
 }
 
-function tenantCredentialViolations(source: string): string[] {
+function createSourceAnalysis(source: string): {
+  sourceFile: ts.SourceFile;
+  checker: ts.TypeChecker;
+} {
+  const fileName = "tenant-source.tsx";
+  const compilerOptions: ts.CompilerOptions = {
+    jsx: ts.JsxEmit.Preserve,
+    noLib: true,
+    noResolve: true,
+    target: ts.ScriptTarget.Latest,
+  };
   const sourceFile = ts.createSourceFile(
-    "tenant-source.tsx",
+    fileName,
     source,
-    ts.ScriptTarget.Latest,
+    compilerOptions.target ?? ts.ScriptTarget.Latest,
     true,
     ts.ScriptKind.TSX,
   );
-  const initializers = collectConstInitializers(sourceFile);
+  const host: ts.CompilerHost = {
+    fileExists: (requestedFileName) => requestedFileName === fileName,
+    getCanonicalFileName: (requestedFileName) => requestedFileName,
+    getCurrentDirectory: () => "",
+    getDefaultLibFileName: () => "lib.d.ts",
+    getNewLine: () => "\n",
+    getSourceFile: (requestedFileName) => requestedFileName === fileName ? sourceFile : undefined,
+    readFile: (requestedFileName) => requestedFileName === fileName ? source : undefined,
+    useCaseSensitiveFileNames: () => true,
+    writeFile: () => undefined,
+  };
+  const program = ts.createProgram([fileName], compilerOptions, host);
+  return {
+    sourceFile: program.getSourceFile(fileName) ?? sourceFile,
+    checker: program.getTypeChecker(),
+  };
+}
+
+function tenantCredentialViolations(source: string): string[] {
+  const { sourceFile, checker } = createSourceAnalysis(source);
   const violations: string[] = [];
   const report = (node: ts.Node, kind: string) => {
     const { line } = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile));
@@ -163,46 +179,46 @@ function tenantCredentialViolations(source: string): string[] {
   const visit = (node: ts.Node) => {
     if (ts.isCallExpression(node)
       && ts.isPropertyAccessExpression(node.expression)
-      && isBrowserStorage(node.expression.expression, initializers)
+      && isBrowserStorage(node.expression.expression, checker)
       && ["getItem", "setItem", "removeItem"].includes(node.expression.name.text)
       && node.arguments[0]
-      && staticString(node.arguments[0], initializers) === "auth_token") {
+      && staticString(node.arguments[0], checker) === "auth_token") {
       report(node, "browser auth_token storage");
     }
 
     if (ts.isElementAccessExpression(node)
-      && isBrowserStorage(node.expression, initializers)
+      && isBrowserStorage(node.expression, checker)
       && node.argumentExpression
-      && staticString(node.argumentExpression, initializers) === "auth_token") {
+      && staticString(node.argumentExpression, checker) === "auth_token") {
       report(node, "browser auth_token property");
     }
 
     if (ts.isPropertyAccessExpression(node)
-      && isBrowserStorage(node.expression, initializers)
+      && isBrowserStorage(node.expression, checker)
       && node.name.text === "auth_token") {
       report(node, "browser auth_token property");
     }
 
     if (ts.isPropertyAssignment(node)
-      && propertyName(node.name, initializers)?.toLowerCase() === "authorization"
-      && isForbiddenBearer(node.initializer, initializers)) {
+      && propertyName(node.name, checker)?.toLowerCase() === "authorization"
+      && isForbiddenBearer(node.initializer, checker)) {
       report(node, "tenant bearer object");
     }
 
     if (ts.isCallExpression(node)
       && ts.isPropertyAccessExpression(node.expression)
-      && node.expression.name.text === "set"
+      && ["set", "append"].includes(node.expression.name.text)
       && node.arguments[0]
       && node.arguments[1]
-      && staticString(node.arguments[0], initializers)?.toLowerCase() === "authorization"
-      && isForbiddenBearer(node.arguments[1], initializers)) {
-      report(node, "tenant bearer Headers.set");
+      && staticString(node.arguments[0], checker)?.toLowerCase() === "authorization"
+      && isForbiddenBearer(node.arguments[1], checker)) {
+      report(node, `tenant bearer Headers.${node.expression.name.text}`);
     }
 
     if (ts.isBinaryExpression(node)
       && node.operatorToken.kind === ts.SyntaxKind.EqualsToken
-      && assignedHeaderName(node.left, initializers)?.toLowerCase() === "authorization"
-      && isForbiddenBearer(node.right, initializers)) {
+      && assignedHeaderName(node.left, checker)?.toLowerCase() === "authorization"
+      && isForbiddenBearer(node.right, checker)) {
       report(node, "tenant bearer assignment");
     }
 
