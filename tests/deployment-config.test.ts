@@ -8,6 +8,66 @@ const root = process.cwd();
 const execFileAsync = promisify(execFile);
 const readProjectFile = (name: string) => readFile(path.join(root, name), "utf8");
 
+type YamlMap = Record<string, unknown>;
+
+function parseYamlMap(source: string): YamlMap {
+  const lines = source
+    .split(/\r?\n/)
+    .map((line) => ({ indent: line.match(/^\s*/)?.[0].length ?? 0, content: line.trim() }))
+    .filter(({ content }) => content.length > 0 && !content.startsWith("#"));
+  const root: YamlMap = {};
+  const stack: Array<{ indent: number; value: YamlMap | string[] }> = [{ indent: -1, value: root }];
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const { indent, content } = lines[index];
+    while (stack.at(-1)!.indent >= indent) stack.pop();
+
+    const parent = stack.at(-1)!.value;
+    if (content.startsWith("- ")) {
+      if (!Array.isArray(parent)) throw new Error(`Unexpected YAML list item: ${content}`);
+      parent.push(content.slice(2).replace(/^(?:["'])|(?:["'])$/g, ""));
+      continue;
+    }
+
+    const match = content.match(/^([^:#][^:]*):(?:\s+(.*))?$/);
+    if (!match || Array.isArray(parent)) throw new Error(`Unsupported YAML line: ${content}`);
+
+    const [, key, rawValue = ""] = match;
+    if (rawValue.length > 0) {
+      parent[key] = rawValue.replace(/^(?:["'])|(?:["'])$/g, "");
+      continue;
+    }
+
+    const next = lines[index + 1];
+    const value: YamlMap | string[] = next?.indent > indent && next.content.startsWith("- ") ? [] : {};
+    parent[key] = value;
+    stack.push({ indent, value });
+  }
+
+  return root;
+}
+
+function asYamlMap(value: unknown, name: string): YamlMap {
+  if (!value || Array.isArray(value) || typeof value !== "object") {
+    throw new Error(`Expected ${name} to be a YAML map`);
+  }
+  return value as YamlMap;
+}
+
+function parseEnvExample(source: string): Record<string, string> {
+  return Object.fromEntries(
+    source
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0 && !line.startsWith("#"))
+      .map((line) => {
+        const separator = line.indexOf("=");
+        if (separator < 1) throw new Error(`Invalid environment entry: ${line}`);
+        return [line.slice(0, separator), line.slice(separator + 1)];
+      }),
+  );
+}
+
 describe("deployment configuration", () => {
   it("injects production secrets instead of committing them", async () => {
     const compose = await readProjectFile("docker-compose.yml");
@@ -16,6 +76,97 @@ describe("deployment configuration", () => {
     expect(compose).toMatch(/SESSION_SECRET:\s*["']?\$\{SESSION_SECRET:\?required\}["']?/);
     expect(compose).not.toMatch(/postgres(?:ql)?:\/\/[^$\s]+/i);
     expect(compose).not.toMatch(/SESSION_SECRET=[A-Za-z0-9+/]{24,}={0,2}/);
+  });
+
+  it("defines an immutable, localhost-only Portainer application contract", async () => {
+    const compose = parseYamlMap(await readProjectFile("docker-compose.yml"));
+    const services = asYamlMap(compose.services, "services");
+    const app = asYamlMap(services.app, "services.app");
+    const environment = asYamlMap(app.environment, "services.app.environment");
+    const healthcheck = asYamlMap(app.healthcheck, "services.app.healthcheck");
+    const logging = asYamlMap(app.logging, "services.app.logging");
+    const loggingOptions = asYamlMap(logging.options, "services.app.logging.options");
+    const ulimits = asYamlMap(app.ulimits, "services.app.ulimits");
+    const nofile = asYamlMap(ulimits.nofile, "services.app.ulimits.nofile");
+
+    expect(Object.keys(services)).toEqual(["app"]);
+    expect(app.image).toBe("${IMAGE_REPOSITORY:?required}:${IMAGE_TAG:?required}");
+    expect(app.restart).toBe("unless-stopped");
+    expect(app.stop_grace_period).toBe("30s");
+    expect(app.ports).toEqual(["127.0.0.1:${APP_PORT:-5000}:5000"]);
+    expect(app.volumes).toEqual(["${UPLOADS_HOST_PATH:?required}:/app/uploads"]);
+    expect(environment).toMatchObject({
+      NODE_ENV: "production",
+      PORT: "5000",
+      PROD_DATABASE_URL: "${PROD_DATABASE_URL:?required}",
+      SESSION_SECRET: "${SESSION_SECRET:?required}",
+      DATA_ENCRYPTION_KEY: "${DATA_ENCRYPTION_KEY:?required}",
+      ADMIN_MASTER_PASSWORD_HASH: "${ADMIN_MASTER_PASSWORD_HASH:?required}",
+      TRUST_PROXY: "${TRUST_PROXY:-1}",
+    });
+    expect(healthcheck.test).toContain("/api/ready");
+    expect(String(healthcheck.test)).not.toContain("/api/health");
+    expect(healthcheck).toMatchObject({ interval: "30s", timeout: "10s", retries: "5", start_period: "90s" });
+    expect(logging.driver).toBe("json-file");
+    expect(loggingOptions).toMatchObject({ "max-size": "10m", "max-file": "5" });
+    expect(app.security_opt).toEqual(["no-new-privileges:true"]);
+    expect(app).toMatchObject({ mem_limit: "1g", memswap_limit: "2g", pids_limit: "256", shm_size: "256mb" });
+    expect(nofile).toMatchObject({ soft: "65536", hard: "65536" });
+  });
+
+  it("keeps the Compose contract free of public binds, mutable tags, and literal credentials", async () => {
+    const compose = await readProjectFile("docker-compose.yml");
+    const activeCompose = compose
+      .split(/\r?\n/)
+      .filter((line) => !line.trimStart().startsWith("#"))
+      .join("\n");
+
+    expect(activeCompose).not.toMatch(/(^|[^\w-])latest(?:$|[^\w-])/im);
+    expect(activeCompose).not.toMatch(/postgres(?:ql)?:\/\/[^\s"']+:[^\s"']+@/i);
+    expect(activeCompose).not.toMatch(/^\s*-\s*["']?(?:0\.0\.0\.0:)?\$?\{?APP_PORT/im);
+  });
+
+  it("documents only safe Portainer environment placeholders", async () => {
+    const exampleSource = await readProjectFile(".env.example");
+    const environment = parseEnvExample(exampleSource);
+
+    expect(environment).toMatchObject({
+      IMAGE_REPOSITORY: "ghcr.io/example-org/politicall",
+      IMAGE_TAG: "sha-0123456789abcdef",
+      APP_PORT: "5000",
+      UPLOADS_HOST_PATH: "<absolute-host-path-to-persistent-uploads>",
+      PROD_DATABASE_URL: "<postgresql-connection-string>",
+      SESSION_SECRET: "<generate-with-openssl-rand-base64-48>",
+      DATA_ENCRYPTION_KEY: "<generate-32-byte-key-base64>",
+      ADMIN_MASTER_PASSWORD_HASH: "<generate-with-bcrypt>",
+      TRUST_PROXY: "1",
+      OKTOR_SMS_ENDPOINT: "<optional-n8n-webhook-url>",
+      OKTOR_SMS_ACCOUNT: "",
+      OKTOR_SMS_CODE: "",
+      OKTOR_SMS_CLIENT: "",
+      OKTOR_SMS_TIPO_ENVIO: "7",
+    });
+    expect(exampleSource).not.toMatch(/postgres(?:ql)?:\/\/[^\s"']+:[^\s"']+@/i);
+    expect(exampleSource).not.toMatch(/(^|[^\w-])latest(?:$|[^\w-])/im);
+  });
+
+  it("ships Portainer, backup, and websocket proxy runbooks", async () => {
+    const [portainer, nginx, backup] = await Promise.all([
+      readProjectFile("docs/deployment/portainer-production.md"),
+      readProjectFile("docs/deployment/nginx-websocket.conf"),
+      readProjectFile("docs/deployment/backup-restore.md"),
+    ]);
+
+    expect(portainer).toContain("GHCR");
+    expect(portainer).toContain("digest");
+    expect(portainer).toContain("/api/ready");
+    expect(portainer).toContain("/api/health");
+    expect(portainer).toContain("/api/attendance/realtime");
+    expect(nginx).toContain("location = /api/attendance/realtime");
+    expect(nginx).toContain("proxy_set_header Upgrade $http_upgrade");
+    expect(nginx).toContain("proxy_set_header Connection $connection_upgrade");
+    expect(backup).toContain("pg_dump");
+    expect(backup).toContain("isolado");
   });
 
   it("copies the restored attached_assets directory into the runtime image", async () => {
