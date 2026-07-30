@@ -122,6 +122,22 @@ function expectTextInOrder(source: string, fragments: string[]): void {
   }
 }
 
+function workflowJob(source: string, name: string): string {
+  const match = source.match(new RegExp(`^  ${name}:\\s*$([\\s\\S]*?)(?=^  [a-z][a-z0-9-]*:\\s*$|(?![\\s\\S]))`, "m"));
+  if (!match) throw new Error(`Missing workflow job: ${name}`);
+  return match[0];
+}
+
+function workflowStep(source: string, name: string): string {
+  const match = source.match(new RegExp(`^      - name: ${name}\\s*$([\\s\\S]*?)(?=^      - name:|(?![\\s\\S]))`, "m"));
+  if (!match) throw new Error(`Missing workflow step: ${name}`);
+  return match[0];
+}
+
+function actionReferences(source: string): string[] {
+  return [...source.matchAll(/^\s*uses:\s*([^\s#]+)(?:\s+#.*)?$/gm)].map((match) => match[1]);
+}
+
 describe("deployment configuration", () => {
   it("injects production secrets instead of committing them", async () => {
     const compose = await readProjectFile("docker-compose.yml");
@@ -598,30 +614,97 @@ describe("deployment configuration", () => {
     expect(migration).toContain("CREATE INDEX IF NOT EXISTS petitions_account_status_idx");
   });
 
-  it("publishes a full-commit SHA tag compatible with IMAGE_REFERENCE", async () => {
+  it("keeps the CI runtime deterministic and pins every action to a reviewed full SHA", async () => {
+    const workflow = await readProjectFile(".github/workflows/build.yml");
+    const expectedActions = [
+      "actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd",
+      "actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e",
+      "docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd",
+      "docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2",
+      "docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf",
+      "aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25",
+    ];
+
+    expect(workflow).toContain("NODE_VERSION: '24.18.0'");
+    expect(workflow).not.toMatch(/npm\s+install\s+-g\s+npm(?:@latest)?/i);
+    expect(workflow).not.toMatch(/(?:uses:\s*[^\s@]+@|npm@)(?:latest|master)\b/i);
+    expect(workflow.match(/run: npm ci/g)).toHaveLength(3);
+    expect(actionReferences(workflow)).toEqual(expect.arrayContaining(expectedActions));
+    for (const reference of actionReferences(workflow)) {
+      expect(reference).toMatch(/^[\w.-]+\/[\w.-]+@[a-f0-9]{40}$/);
+    }
+  });
+
+  it("requires typecheck, real PostgreSQL migration tests, build, and security gates before Docker", async () => {
+    const workflow = await readProjectFile(".github/workflows/build.yml");
+    const build = workflowJob(workflow, "build");
+    const security = workflowJob(workflow, "security");
+    const docker = workflowJob(workflow, "docker");
+
+    expect(workflow).toMatch(/^permissions:\n  contents: read$/m);
+    expect(build).toContain("postgres:");
+    expect(build).toContain("image: postgres:16");
+    expect(build).toContain("pg_isready");
+    expect(build).toContain("POSTGRES_PASSWORD: ${{ github.run_id }}");
+    expect(build).toContain("new URL('postgresql://127.0.0.1:5432/postgres')");
+    expect(build).toContain("MIGRATION_TEST_DATABASE_URL");
+    expect(build).toContain("npm test");
+    expect(build).not.toContain("DATABASE_URL");
+    expect(security).toContain("npm run security:secrets");
+    expect(security).toContain("npm audit --omit=dev --audit-level=high");
+    expect(security).not.toContain("continue-on-error: true");
+    expect(docker).toContain("needs: [typecheck, build, security]");
+    expect(docker).toContain("github.event_name == 'push'");
+    expect(docker).toContain("github.ref == 'refs/heads/main'");
+    expect(docker).toMatch(/permissions:\n      contents: read\n      packages: write/);
+    expect(docker).not.toContain("security-events:");
+  });
+
+  it("keeps pull requests unauthenticated and publishes only one scanned SHA-tagged local candidate", async () => {
     const [workflow, compose, portainer] = await Promise.all([
       readProjectFile(".github/workflows/build.yml"),
       readProjectFile("docker-compose.yml"),
       readProjectFile("docs/deployment/portainer-production.md"),
     ]);
-    const metadataStep = workflow.match(
-      /^\s+- name: Extract metadata for Docker\s*$[\s\S]*?(?=^\s+- name:)/m,
-    )?.[0] ?? "";
+    const docker = workflowJob(workflow, "docker");
+    const buildCandidate = workflowStep(docker, "Build local Docker candidate");
+    const trivy = workflowStep(docker, "Scan local Docker candidate with Trivy");
+    const login = workflowStep(docker, "Login to GitHub Container Registry");
+    const push = workflowStep(docker, "Push scanned Docker candidate");
+    const buildAction = "docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf";
 
-    expect(metadataStep).toContain("type=sha,prefix=sha-,format=long");
-    expect(metadataStep).not.toContain("format=short");
+    expect(docker).toContain("tr '[:upper:]' '[:lower:]'");
+    expect(docker).toContain("IMAGE_REFERENCE=ghcr.io/${repository}:sha-${GITHUB_SHA}");
+    expect(buildCandidate).toContain(`uses: ${buildAction}`);
+    expect(buildCandidate).toContain("platforms: linux/amd64");
+    expect(buildCandidate).toContain("load: true");
+    expect(buildCandidate).toContain("push: false");
+    expect(trivy).toContain("image-ref: ${{ steps.image.outputs.reference }}");
+    expect(trivy).toContain("severity: HIGH,CRITICAL");
+    expect(trivy).toContain("exit-code: '1'");
+    expect(trivy).not.toContain("version: latest");
+    expectTextInOrder(docker, [buildCandidate, trivy, login, push]);
+    expect([...docker.matchAll(new RegExp(buildAction.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g"))]).toHaveLength(1);
+    expect(docker).toContain('docker push "$IMAGE_REFERENCE"');
+    expect(docker).toContain("docker buildx imagetools inspect");
+    expect(docker).toContain("$GITHUB_STEP_SUMMARY");
+    expect(workflowJob(workflow, "typecheck")).not.toContain("docker/login-action");
+    expect(buildCandidate).not.toContain("latest");
+    expect(docker).not.toMatch(/(?:latest|type=ref|type=semver|type=sha)/);
     expect(syntheticShaTagReference).toMatch(/:sha-[0-9a-f]{40}$/);
     expect(syntheticShaTagReference).toMatch(immutableImageReference);
     expect(compose).toContain('image: "${IMAGE_REFERENCE:?required}"');
     expect(portainer).toContain("ghcr.io/<org>/<app>:sha-<commit>");
   });
 
-  it("runs automated tests and blocks high severity dependency audit failures in CI", async () => {
-    const workflow = await readProjectFile(".github/workflows/build.yml");
-    const auditStep = workflow.match(/- name: Run security audit[\s\S]*?(?=\n\s*- name:|\n\s*# Job|\n\s*[a-z-]+:\n)/)?.[0] ?? "";
+  it("configures bounded weekly Dependabot updates for npm and GitHub Actions", async () => {
+    const dependabot = await readProjectFile(".github/dependabot.yml");
 
-    expect(workflow).toContain("run: npm test");
-    expect(workflow).toContain("run: npm audit --omit=dev --audit-level=high");
-    expect(auditStep).not.toContain("continue-on-error: true");
+    expect(dependabot).toContain('package-ecosystem: "npm"');
+    expect(dependabot).toContain('package-ecosystem: "github-actions"');
+    expect(dependabot.match(/interval: "weekly"/g)).toHaveLength(2);
+    expect(dependabot.match(/open-pull-requests-limit: 5/g)).toHaveLength(2);
+    expect(dependabot).toContain('"dependencies"');
+    expect(dependabot).toContain('"github-actions"');
   });
 });
