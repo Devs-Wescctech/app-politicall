@@ -254,11 +254,11 @@ describe("auth session service", () => {
       .resolves.toEqual({ status: "expired", clearCookies: "admin" });
   });
 
-  it("exchanges a valid legacy user JWT once, re-reading its exact user and account", async () => {
+  it("exchanges an exact historical tenant-admin JWT once, re-reading its exact user and account", async () => {
     process.env.ENABLE_BEARER_EXCHANGE = "true";
     const claim = async () => true;
     const { dependencies } = createDependencies({ legacyExchangeStore: { claim } });
-    const token = jwt.sign({ userId: user.id, accountId: user.accountId, isAdmin: true }, process.env.SESSION_SECRET!, {
+    const token = jwt.sign({ userId: user.id, accountId: user.accountId, role: user.role, isAdmin: true }, process.env.SESSION_SECRET!, {
       algorithm: "HS256",
       expiresIn: "1h",
     });
@@ -272,10 +272,32 @@ describe("auth session service", () => {
     });
   });
 
+  it("exchanges an exact historical non-admin tenant JWT using the authoritative user", async () => {
+    process.env.ENABLE_BEARER_EXCHANGE = "true";
+    const assessor = { ...user, role: "assessor", permissions: DEFAULT_PERMISSIONS.assessor };
+    const { dependencies } = createDependencies({
+      users: {
+        findByEmail: async () => undefined,
+        findByIdAndAccount: async (userId, accountId) => userId === assessor.id && accountId === assessor.accountId ? assessor : undefined,
+      },
+    });
+    const token = jwt.sign({ userId: assessor.id, accountId: assessor.accountId, role: "assessor", isAdmin: false }, process.env.SESSION_SECRET!, {
+      algorithm: "HS256",
+      expiresIn: "1h",
+    });
+
+    await expect(createAuthSessionService(dependencies).exchangeLegacyBearer({ kind: "user", token }))
+      .resolves.toEqual({
+        status: "exchanged",
+        user: { id: assessor.id, email: assessor.email, name: assessor.name, role: assessor.role, permissions: assessor.permissions },
+        cookies: expect.objectContaining({ kind: "user" }),
+      });
+  });
+
   it("never promotes a legacy tenant user JWT to a global-admin session", async () => {
     process.env.ENABLE_BEARER_EXCHANGE = "true";
     const { dependencies } = createDependencies();
-    const token = jwt.sign({ userId: user.id, accountId: user.accountId, isAdmin: true }, process.env.SESSION_SECRET!, {
+    const token = jwt.sign({ userId: user.id, accountId: user.accountId, role: user.role, isAdmin: true }, process.env.SESSION_SECRET!, {
       algorithm: "HS256",
       expiresIn: "1h",
     });
@@ -312,10 +334,10 @@ describe("auth session service", () => {
 
   it("rejects malformed or expired legacy JWTs and user account mismatches", async () => {
     process.env.ENABLE_BEARER_EXCHANGE = "true";
-    const expired = jwt.sign({ userId: user.id, accountId: user.accountId }, process.env.SESSION_SECRET!, {
+    const expired = jwt.sign({ userId: user.id, accountId: user.accountId, role: user.role, isAdmin: true }, process.env.SESSION_SECRET!, {
       algorithm: "HS256", expiresIn: -1,
     });
-    const mismatch = jwt.sign({ userId: user.id, accountId: "account-b" }, process.env.SESSION_SECRET!, {
+    const mismatch = jwt.sign({ userId: user.id, accountId: "account-b", role: user.role, isAdmin: true }, process.env.SESSION_SECRET!, {
       algorithm: "HS256", expiresIn: "1h",
     });
     const { dependencies } = createDependencies();
@@ -327,7 +349,7 @@ describe("auth session service", () => {
   });
 
   it("requires the feature gate and atomically rejects a second legacy exchange", async () => {
-    const token = jwt.sign({ userId: user.id, accountId: user.accountId }, process.env.SESSION_SECRET!, {
+    const token = jwt.sign({ userId: user.id, accountId: user.accountId, role: user.role, isAdmin: true }, process.env.SESSION_SECRET!, {
       algorithm: "HS256",
       expiresIn: "1h",
     });

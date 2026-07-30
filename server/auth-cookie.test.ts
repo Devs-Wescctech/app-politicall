@@ -124,7 +124,7 @@ describe("cookie-first browser authentication", () => {
   });
 
   it("never downgrades an invalid access cookie to a legacy Bearer token", async () => {
-    const legacy = jwt.sign({ userId: "user-a", accountId: "account-a" }, SESSION_SECRET, { algorithm: "HS256", expiresIn: "1h" });
+    const legacy = jwt.sign({ userId: "user-a", accountId: "account-a", role: "admin", isAdmin: true }, SESSION_SECRET, { algorithm: "HS256", expiresIn: "1h" });
     server = await startApp({ bearer: true });
     const response = await fetch(`${server.baseUrl}/user`, {
       headers: { Authorization: `Bearer ${legacy}`, Cookie: "politicall_access=invalid" },
@@ -134,8 +134,8 @@ describe("cookie-first browser authentication", () => {
     expect(response.headers.get("cache-control")).toBe("no-store");
   });
 
-  it("keeps legacy Bearer disabled by default, enables only legacy user shapes, and excludes CSRF during transition", async () => {
-    const legacy = jwt.sign({ userId: "user-a", accountId: "account-a" }, SESSION_SECRET, { algorithm: "HS256", expiresIn: "1h" });
+  it("keeps legacy Bearer disabled by default, enables only exact historical tenant shapes, and excludes CSRF during transition", async () => {
+    const legacy = jwt.sign({ userId: "user-a", accountId: "account-a", role: "admin", isAdmin: true }, SESSION_SECRET, { algorithm: "HS256", expiresIn: "1h" });
     const newSession = issueAccessToken({ sid: "user-session", kind: "user" });
     server = await startApp();
     expect((await fetch(`${server.baseUrl}/user`, { headers: { Authorization: `Bearer ${legacy}` } })).status).toBe(401);
@@ -144,22 +144,56 @@ describe("cookie-first browser authentication", () => {
     server = await startApp({ bearer: true });
     expect((await fetch(`${server.baseUrl}/user`, { headers: { Authorization: `Bearer ${legacy}` } })).status).toBe(200);
     expect((await fetch(`${server.baseUrl}/user`, { headers: { Authorization: `Bearer ${newSession}` } })).status).toBe(401);
-    expect((await fetch(`${server.baseUrl}/user`, { headers: { Authorization: `Bearer ${jwt.sign({ userId: "user-a", accountId: "account-a", kind: "user" }, SESSION_SECRET, { algorithm: "HS256", expiresIn: "1h" })}` } })).status).toBe(401);
+    expect((await fetch(`${server.baseUrl}/user`, { headers: { Authorization: `Bearer ${jwt.sign({ userId: "user-a", accountId: "account-a", role: "admin", isAdmin: true, kind: "user" }, SESSION_SECRET, { algorithm: "HS256", expiresIn: "1h" })}` } })).status).toBe(401);
     expect((await fetch(`${server.baseUrl}/user`, { method: "POST", headers: { Authorization: `Bearer ${legacy}` } })).status).toBe(204);
   });
 
-  it("rejects every new-session or global-principal claim on legacy tenant Bearer tokens", async () => {
+  it("accepts the exact historical admin and non-admin tenant Bearer shapes", async () => {
     server = await startApp({ bearer: true });
-    for (const claim of [
-      { sid: 0 }, { kind: false }, { isAdmin: true }, { principalId: "user-a" }, { principalType: "global_admin" },
-      { globalAdminPrincipalId: "admin" }, { globalAdminId: "admin" }, { tenantId: "account-a" }, { id: "user-a" },
-      { user: {} }, { account: {} }, { sub: "user-a" },
+    for (const claims of [
+      { role: "admin", isAdmin: true },
+      { role: "assessor", isAdmin: false },
     ]) {
-      const token = jwt.sign({ userId: "user-a", accountId: "account-a", role: "admin", ...claim }, SESSION_SECRET, { algorithm: "HS256", expiresIn: "1h" });
+      const token = jwt.sign({ userId: "user-a", accountId: "account-a", ...claims }, SESSION_SECRET, { algorithm: "HS256", expiresIn: "1h" });
+      expect((await fetch(`${server.baseUrl}/user`, { headers: { Authorization: `Bearer ${token}` } })).status).toBe(200);
+    }
+  });
+
+  it("rejects every tenant Bearer token outside the exact historical shape", async () => {
+    server = await startApp({ bearer: true });
+    for (const claims of [
+      { userId: "user-a", accountId: "account-a", role: "admin", isAdmin: false },
+      { userId: "user-a", accountId: "account-a", role: "assessor", isAdmin: true },
+      { userId: "user-a", accountId: "account-a", role: "admin", isAdmin: "true" },
+      { userId: "user-a", accountId: "account-a", role: "unknown", isAdmin: false },
+      { userId: "user-a", accountId: "account-a", role: "admin" },
+      { userId: "user-a", accountId: "account-a", isAdmin: true },
+      { accountId: "account-a", role: "admin", isAdmin: true },
+      { userId: "user-a", role: "admin", isAdmin: true },
+      { isAdmin: true },
+      { userId: "user-a", accountId: "account-a", role: "admin", isAdmin: true, unknown: "claim" },
+      { userId: "user-a", accountId: "account-a", role: "admin", isAdmin: true, sid: 0 },
+      { userId: "user-a", accountId: "account-a", role: "admin", isAdmin: true, kind: false },
+      { userId: "user-a", accountId: "account-a", role: "admin", isAdmin: true, principalId: "user-a" },
+      { userId: "user-a", accountId: "account-a", role: "admin", isAdmin: true, principalType: "global_admin" },
+      { userId: "user-a", accountId: "account-a", role: "admin", isAdmin: true, globalAdminPrincipalId: "admin" },
+      { userId: "user-a", accountId: "account-a", role: "admin", isAdmin: true, globalAdminId: "admin" },
+      { userId: "user-a", accountId: "account-a", role: "admin", isAdmin: true, tenantId: "account-a" },
+      { userId: "user-a", accountId: "account-a", role: "admin", isAdmin: true, id: "user-a" },
+      { userId: "user-a", accountId: "account-a", role: "admin", isAdmin: true, user: {} },
+      { userId: "user-a", accountId: "account-a", role: "admin", isAdmin: true, account: {} },
+      { userId: "user-a", accountId: "account-a", role: "admin", isAdmin: true, sub: "user-a" },
+    ]) {
+      const token = jwt.sign(claims, SESSION_SECRET, { algorithm: "HS256", expiresIn: "1h" });
       const response = await fetch(`${server.baseUrl}/user`, { headers: { Authorization: `Bearer ${token}` } });
       expect(response.status).toBe(401);
       expect(response.headers.get("cache-control")).toBe("no-store");
     }
+
+    const missingIat = jwt.sign({ userId: "user-a", accountId: "account-a", role: "admin", isAdmin: true, exp: Math.floor(Date.now() / 1000) + 3600 }, SESSION_SECRET, { algorithm: "HS256", noTimestamp: true });
+    const missingExp = jwt.sign({ userId: "user-a", accountId: "account-a", role: "admin", isAdmin: true }, SESSION_SECRET, { algorithm: "HS256" });
+    expect((await fetch(`${server.baseUrl}/user`, { headers: { Authorization: `Bearer ${missingIat}` } })).status).toBe(401);
+    expect((await fetch(`${server.baseUrl}/user`, { headers: { Authorization: `Bearer ${missingExp}` } })).status).toBe(401);
   });
 
   it("requires exact Origin and CSRF bound to the active cookie session for tenant mutations", async () => {
