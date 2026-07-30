@@ -222,6 +222,15 @@ describe("auth session store PostgreSQL integration", () => {
       })).rejects.toThrow("injected revocation failure");
       expect((await pool.query("SELECT password FROM users WHERE id = 'user-b'")).rows[0]?.password).toBe("hash");
       expect(await activeFamilyCount(rollbackSource.familyId)).toBe(1);
+
+      const adminRollbackSource = await store.createSession({ scope: adminScope, refreshToken: "password-admin-rollback-source", expiresAt: new Date("2030-01-01T03:00:00.000Z") });
+      await expect(passwordMutations.persistGlobalAdminPasswordHash({
+        passwordHash: "admin-password-should-rollback",
+        beforeRevocation: () => { throw new Error("injected global revocation failure"); },
+      })).rejects.toThrow("injected global revocation failure");
+      expect((await pool.query("SELECT value FROM system_settings WHERE key = 'auth.global_admin_password_hash'")).rows[0]?.value)
+        .toBe("admin-password-after");
+      expect(await activeFamilyCount(adminRollbackSource.familyId)).toBe(1);
     } finally {
       if (pool) await pool.end();
       if (databaseCreated) {
