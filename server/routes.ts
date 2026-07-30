@@ -117,6 +117,7 @@ import { clearSessionCookies } from "./security/auth-cookies";
 import { assertAccountScopedTarget, createAuthPasswordMutationService } from "./services/auth-password-mutations";
 import { createAuthenticationRateLimiter, createRuntimeAuthSessionService, getAuthAllowedOrigins, registerAuthSessionRoutes, sendAuthSessionResponse, toAuthSessionUser } from "./routes/auth-session-routes";
 import { registerPublicAuthRoutes } from "./routes/public-auth-routes";
+import { registerProfileRoute } from "./routes/profile-route";
 const require = createRequire(import.meta.url);
 
 // Sensitive integration fields that must never be returned in plaintext.
@@ -882,72 +883,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Update current user's profile
-  app.patch("/api/auth/profile", authenticateToken, async (req: AuthRequest, res) => {
-    try {
-      const profileUpdateSchema = z.object({
-        name: z.string().min(2, "Nome deve ter no mínimo 2 caracteres").optional(),
-        phone: z.string().optional(),
-        avatar: z.string().nullable().optional(),
-        landingBackground: z.string().optional(),
-        partyId: z.string().optional(),
-        politicalPosition: z.string().optional(),
-        electionNumber: z.string().optional(),
-        lastElectionVotes: z.number().int().nonnegative().optional(),
-        state: z.string().optional(),
-        city: z.string().optional(),
-        currentPassword: z.string().optional(),
-        newPassword: z.string().min(6, "Nova senha deve ter no mínimo 6 caracteres").optional(),
-      });
-
-      const validatedData = profileUpdateSchema.parse(req.body);
-      
-      // The tenant session identifies the target; bypass requires a separate active admin session.
-      if (validatedData.newPassword) {
-        res.set("Cache-Control", "no-store");
-        const adminBypass = !validatedData.currentPassword
-          && req.user?.role === "admin"
-          && await hasActiveGlobalAdminCookie(req);
-        if (!validatedData.currentPassword && !adminBypass) {
-          return res.status(400).json({ error: "Senha atual é obrigatória para alterar a senha" });
-        }
-
-        const user = await storage.getUser(req.userId!);
-        if (!user) {
-          return res.status(404).json({ error: "Usuário não encontrado" });
-        }
-
-        const isPasswordValid = adminBypass || await bcrypt.compare(validatedData.currentPassword!, user.password);
-        if (!isPasswordValid) {
-          return res.status(400).json({ error: "Senha atual incorreta" });
-        }
-
-        // Hash new password
-        const hashedPassword = await bcrypt.hash(validatedData.newPassword, 10);
-        const { currentPassword, newPassword, ...profileData } = validatedData;
-        const updated = await authPasswordMutations.changeUserPassword({
-          accountId: req.accountId!,
-          userId: req.userId!,
-          passwordHash: hashedPassword,
-          userData: profileData,
-        });
-        const { password, ...sanitizedUser } = updated;
-        clearSessionCookies(res, "user");
-        return res.json(sanitizedUser);
-      }
-
-      // Update without password change
-      const { currentPassword, newPassword, ...profileData } = validatedData;
-      const updated = await storage.updateUser(req.userId!, req.accountId!, profileData);
-      const { password, ...sanitizedUser } = updated;
-      res.json(sanitizedUser);
-    } catch {
-      if (req.body?.newPassword) {
-        res.set("Cache-Control", "no-store");
-        return res.status(400).json({ error: "Authentication failed" });
-      }
-      res.status(400).json({ error: "Erro ao atualizar perfil" });
-    }
+  registerProfileRoute(app, {
+    authenticateToken,
+    getUser: (userId) => storage.getUser(userId),
+    updateUser: (userId, accountId, data) => storage.updateUser(userId, accountId, data),
+    changePassword: (input) => authPasswordMutations.changeUserPassword(input),
+    hasActiveGlobalAdminCookie,
   });
 
   // Allowed image MIME types

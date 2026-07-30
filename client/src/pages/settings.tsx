@@ -23,6 +23,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useState, useRef } from "react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { sessionClient } from "@/lib/session";
 import { useToast } from "@/hooks/use-toast";
 import type { PoliticalParty, ApiKey } from "@shared/schema";
 import { POLITICAL_POSITIONS } from "@shared/schema";
@@ -773,15 +774,13 @@ export default function Settings() {
       };
 
       if (data.newPassword) {
-        if (data.currentPassword) {
-          payload.currentPassword = data.currentPassword;
-          payload.newPassword = data.newPassword;
-        }
+        if (data.currentPassword) payload.currentPassword = data.currentPassword;
+        payload.newPassword = data.newPassword;
       }
 
       return await apiRequest("PATCH", "/api/auth/profile", payload);
     },
-    onSuccess: () => {
+    onSuccess: async (_response, data) => {
       // Force immediate refetch to update profile everywhere
       queryClient.refetchQueries({ queryKey: ["/api/auth/me"] });
       queryClient.refetchQueries({ queryKey: ["/api/account/admin"] });
@@ -790,6 +789,11 @@ export default function Settings() {
         description: "Perfil atualizado com sucesso",
       });
       setShowEditDialog(false);
+      if (data.newPassword) {
+        const wasImpersonating = typeof localStorage !== "undefined" && localStorage.getItem("isImpersonating") === "true";
+        await sessionClient.logoutSession();
+        window.location.href = wasImpersonating ? "/contracts" : "/login";
+      }
     },
     onError: (error: any) => {
       toast({

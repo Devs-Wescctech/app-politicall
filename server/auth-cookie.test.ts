@@ -257,10 +257,11 @@ describe("cookie-first browser authentication", () => {
 
   it("removes X-Admin-Token authority from profile password changes and routes", async () => {
     const routes = await readFile(new URL("./routes.ts", import.meta.url), "utf8");
-    const serverSources = await Promise.all(["auth.ts", "routes.ts", "security/authentication.ts"].map((file) => readFile(new URL(`./${file}`, import.meta.url), "utf8")));
+    const profileRoute = await readFile(new URL("./routes/profile-route.ts", import.meta.url), "utf8");
+    const serverSources = await Promise.all(["auth.ts", "routes.ts", "security/authentication.ts", "routes/profile-route.ts"].map((file) => readFile(new URL(`./${file}`, import.meta.url), "utf8")));
     expect(routes).not.toContain("x-admin-token");
     expect(routes).not.toContain("jwt.verify(adminToken");
-    expect(routes).toContain("Senha atual é obrigatória para alterar a senha");
+    expect(profileRoute).toContain("Senha atual é obrigatória para alterar a senha");
     expect(serverSources.join("\n").toLowerCase()).not.toContain("x-admin-token");
     expect(routes).not.toContain("function authenticateAdminToken");
   });

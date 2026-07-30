@@ -105,7 +105,6 @@ export default function ContractsPage() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const adminSession = useAdminSession();
-  const isVerifying = adminSession.status === "loading";
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
   const [inboxDialogOpen, setInboxDialogOpen] = useState(false);
@@ -189,7 +188,7 @@ export default function ContractsPage() {
       
       return response.json();
     },
-    enabled: !isVerifying,
+    enabled: adminSession.status === "authenticated",
   });
 
   // Filter only admin users
@@ -203,7 +202,7 @@ export default function ContractsPage() {
       
       return response.json();
     },
-    enabled: !isVerifying,
+    enabled: adminSession.status === "authenticated",
   });
 
   const formatCurrency = (value: string) => {
@@ -544,13 +543,7 @@ export default function ContractsPage() {
     setLocation("/admin-login");
   };
 
-  if (isVerifying) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <p className="text-muted-foreground">Verificando autenticação...</p>
-      </div>
-    );
-  }
+  if (adminSession.status !== "authenticated") return null;
 
   return (
     <div className="min-h-screen bg-background flex flex-col">

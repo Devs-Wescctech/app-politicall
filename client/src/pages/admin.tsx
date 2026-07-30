@@ -91,7 +91,6 @@ type CampaignWithTemplate = SurveyCampaign & {
 export default function Admin() {
   const [, setLocation] = useLocation();
   const adminSession = useAdminSession();
-  const isVerifying = adminSession.status === "loading";
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [paidDialogOpen, setPaidDialogOpen] = useState(false);
   const [deleteCampaignDialogOpen, setDeleteCampaignDialogOpen] = useState(false);
@@ -153,7 +152,7 @@ export default function Admin() {
         template: templates.find(t => t.id === campaign.templateId)
       }));
     },
-    enabled: !isVerifying,
+    enabled: adminSession.status === "authenticated",
   });
 
   // Fetch budget ADS setting
@@ -163,7 +162,7 @@ export default function Admin() {
       const response = await adminRequest("GET", "/api/admin/settings/budget_ads");
       return response.json();
     },
-    enabled: !isVerifying,
+    enabled: adminSession.status === "authenticated",
   });
 
   // Update budget ADS mutation
@@ -200,7 +199,7 @@ export default function Admin() {
       
       return response.json();
     },
-    enabled: !isVerifying,
+    enabled: adminSession.status === "authenticated",
   });
 
   // Delete single lead mutation
@@ -575,7 +574,7 @@ export default function Admin() {
     }
   };
 
-  if (isVerifying) {
+  if (adminSession.status !== "authenticated") {
     return null;
   }
 

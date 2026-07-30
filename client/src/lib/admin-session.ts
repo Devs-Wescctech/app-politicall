@@ -22,6 +22,8 @@ export type AdminSessionDependencies = {
   resetRefreshCoordination?: () => void;
 };
 
+type GenerationFlight<T> = { generation: number; promise: Promise<T> };
+
 const ADMIN_CSRF_COOKIE = "politicall_admin_csrf";
 const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 const NON_REFRESHABLE_PATHS = new Set([
@@ -64,8 +66,9 @@ export function createAdminSessionClient(dependencies: AdminSessionDependencies)
   let snapshot: AdminSessionSnapshot = { status: "loading" };
   let generation = 0;
   let bootstrapComplete = false;
-  let bootstrapInFlight: Promise<AdminSessionSnapshot> | undefined;
-  let refreshInFlight: { generation: number; promise: Promise<boolean> } | undefined;
+  let bootstrapInFlight: GenerationFlight<AdminSessionSnapshot> | undefined;
+  let refreshInFlight: GenerationFlight<boolean> | undefined;
+  let cleanedGeneration: number | undefined;
   const listeners = new Set<(snapshot: AdminSessionSnapshot) => void>();
   const current = (candidate: number) => candidate === generation;
   const publish = (next: AdminSessionSnapshot) => {
@@ -75,8 +78,21 @@ export function createAdminSessionClient(dependencies: AdminSessionDependencies)
   const reset = () => {
     generation += 1;
     bootstrapComplete = false;
+    cleanedGeneration = undefined;
     dependencies.resetRefreshCoordination?.();
     return generation;
+  };
+  const invalidate = (activeGeneration: number) => {
+    if (!current(activeGeneration)) return;
+    if (cleanedGeneration !== activeGeneration) {
+      cleanedGeneration = activeGeneration;
+      dependencies.cleanup.clearQueryCache();
+      dependencies.cleanup.clearAdminCache();
+      dependencies.cleanup.clearImpersonationMarker();
+      dependencies.resetRefreshCoordination?.();
+    }
+    bootstrapComplete = true;
+    publish({ status: "unauthenticated" });
   };
   const ensureCsrf = async () => {
     const existing = dependencies.readCookie(ADMIN_CSRF_COOKIE);
@@ -109,13 +125,13 @@ export function createAdminSessionClient(dependencies: AdminSessionDependencies)
         const response = await rawRequest("POST", "/api/admin/auth/refresh", undefined, true);
         if (!current(activeGeneration)) return false;
         if (!response.ok) {
-          publish({ status: "unauthenticated" });
+          invalidate(activeGeneration);
           return false;
         }
         publish({ status: "authenticated" });
         return true;
       } catch {
-        if (current(activeGeneration)) publish({ status: "unauthenticated" });
+        invalidate(activeGeneration);
         return false;
       }
     };
@@ -128,36 +144,47 @@ export function createAdminSessionClient(dependencies: AdminSessionDependencies)
   };
   const bootstrap = (): Promise<AdminSessionSnapshot> => {
     const activeGeneration = generation;
-    if (bootstrapInFlight) return bootstrapInFlight;
+    if (bootstrapInFlight?.generation === activeGeneration) return bootstrapInFlight.promise;
     if (bootstrapComplete) return Promise.resolve(snapshot);
-    bootstrapInFlight = (async () => {
+    let flight!: GenerationFlight<AdminSessionSnapshot>;
+    const promise = (async () => {
       try {
         let response = await dependencies.fetch("/api/admin/verify", { credentials: "include" });
         if (response.status === 401 && current(activeGeneration) && await refresh() && current(activeGeneration)) {
           response = await dependencies.fetch("/api/admin/verify", { credentials: "include" });
         }
         if (!current(activeGeneration)) return snapshot;
-        publish(response.ok && (await response.json().catch(() => null) as { valid?: unknown } | null)?.valid === true
-          ? { status: "authenticated" }
-          : { status: "unauthenticated" });
+        if (response.ok && (await response.json().catch(() => null) as { valid?: unknown } | null)?.valid === true) {
+          publish({ status: "authenticated" });
+        } else invalidate(activeGeneration);
       } catch {
-        if (current(activeGeneration)) publish({ status: "unauthenticated" });
+        invalidate(activeGeneration);
       } finally {
         if (current(activeGeneration)) bootstrapComplete = true;
-        bootstrapInFlight = undefined;
+        if (bootstrapInFlight === flight) bootstrapInFlight = undefined;
       }
       return snapshot;
     })();
-    return bootstrapInFlight;
+    flight = { generation: activeGeneration, promise };
+    bootstrapInFlight = flight;
+    return promise;
   };
   const login = async (data: { password: string }) => {
     const activeGeneration = reset();
     const response = await rawRequest("POST", "/api/admin/login", data);
-    if (!current(activeGeneration) || !response.ok) throw new Error("Admin login failed");
+    if (!current(activeGeneration) || !response.ok) {
+      invalidate(activeGeneration);
+      throw new Error("Admin login failed");
+    }
     bootstrapComplete = true;
     publish({ status: "authenticated" });
   };
-  const adminRequest = async (method: string, url: string, data?: unknown): Promise<Response> => {
+  const adminRequest = async (
+    method: string,
+    url: string,
+    data?: unknown,
+    options: { returnErrorResponse?: boolean } = {},
+  ): Promise<Response> => {
     const activeGeneration = generation;
     const csrf = MUTATING_METHODS.has(method.toUpperCase());
     let response = await rawRequest(method, url, data, csrf);
@@ -165,7 +192,7 @@ export function createAdminSessionClient(dependencies: AdminSessionDependencies)
       && await refresh() && current(activeGeneration)) {
       response = await rawRequest(method, url, data, csrf);
     }
-    if (!response.ok) throw new Error("Admin request failed");
+    if (!response.ok && !options.returnErrorResponse) throw new Error("Admin request failed");
     return response;
   };
   const logout = async (): Promise<{ error: string | null }> => {
@@ -181,12 +208,7 @@ export function createAdminSessionClient(dependencies: AdminSessionDependencies)
       error = "Unable to end session";
     } finally {
       if (current(activeGeneration)) {
-        dependencies.cleanup.clearQueryCache();
-        dependencies.cleanup.clearAdminCache();
-        dependencies.cleanup.clearImpersonationMarker();
-        dependencies.resetRefreshCoordination?.();
-        bootstrapComplete = true;
-        publish({ status: "unauthenticated" });
+        invalidate(activeGeneration);
       }
     }
     return { error };

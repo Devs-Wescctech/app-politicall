@@ -149,6 +149,40 @@ describe("admin cookie session", () => {
     expect(client.getSnapshot()).toEqual({ status: "authenticated" });
   });
 
+  it("keeps bootstrap and refresh flights scoped to their generation", async () => {
+    const oldProbe = deferred<Response>();
+    const oldRefresh = deferred<Response>();
+    const newRefresh = deferred<Response>();
+    let refreshCount = 0;
+    const fetch = vi.fn<typeof fetch>().mockImplementation(async (url) => {
+      if (url === "/api/admin/verify") return oldProbe.promise;
+      if (url === "/api/admin/auth/refresh") return ++refreshCount === 1 ? oldRefresh.promise : newRefresh.promise;
+      if (url === "/api/admin/login") return response({ admin: true });
+      throw new Error(`Unexpected request: ${url}`);
+    });
+    const client = createAdminSessionClient({
+      fetch,
+      readCookie: () => "admin-csrf",
+      cleanup: { clearQueryCache: vi.fn(), clearAdminCache: vi.fn(), clearImpersonationMarker: vi.fn() },
+    });
+
+    const staleBootstrap = client.bootstrap();
+    const staleRefresh = client.refresh();
+    await client.login({ password: "new-password" });
+    const currentBootstrap = client.bootstrap();
+    const currentRefresh = client.refresh();
+    expect(client.bootstrap()).not.toBe(staleBootstrap);
+    expect(currentRefresh).toBe(client.refresh());
+    await expect(currentBootstrap).resolves.toEqual({ status: "authenticated" });
+
+    oldProbe.resolve(response({ valid: false }, 401));
+    oldRefresh.resolve(response({ admin: true }));
+    await expect(staleRefresh).resolves.toBe(false);
+    expect(currentRefresh).toBe(client.refresh());
+    newRefresh.resolve(response({ admin: true }));
+    await expect(currentRefresh).resolves.toBe(true);
+  });
+
   it("preserves FormData and exposes an explicit response mode while keeping default errors bounded", async () => {
     const form = new FormData();
     form.append("file", new Blob(["content"]), "file.txt");
