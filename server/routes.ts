@@ -18,7 +18,7 @@ import multer from "multer";
 import { google } from "googleapis";
 import crypto from "crypto";
 import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
-import { insertUserSchema, loginSchema, insertContactSchema, insertDemandSchema, insertDemandCommentSchema, insertEventSchema, insertAiConfigurationSchema, insertAiTrainingExampleSchema, insertAiResponseTemplateSchema, insertMarketingCampaignSchema, insertIntegrationSchema, insertSurveyCampaignSchema, insertSurveyLandingPageSchema, insertSurveyResponseSchema, insertLeadSchema, insertPetitionSchema, insertPetitionCampaignSchema, DEFAULT_PERMISSIONS, userPermissionsSchema } from "@shared/schema";
+import { insertContactSchema, insertDemandSchema, insertDemandCommentSchema, insertEventSchema, insertAiConfigurationSchema, insertAiTrainingExampleSchema, insertAiResponseTemplateSchema, insertMarketingCampaignSchema, insertIntegrationSchema, insertSurveyCampaignSchema, insertSurveyLandingPageSchema, insertSurveyResponseSchema, insertLeadSchema, insertPetitionSchema, insertPetitionCampaignSchema, DEFAULT_PERMISSIONS, userPermissionsSchema } from "@shared/schema";
 
 // Configure multer for file uploads with disk storage for better performance
 const uploadDir = path.join(process.cwd(), 'uploads', 'temp');
@@ -119,6 +119,7 @@ import { GLOBAL_ADMIN_PRINCIPAL_ID } from "./services/auth-session-service";
 import { revokeGlobalAdminSessions, revokeUserSessions } from "./services/auth-session-store";
 import { verifyPureLegacyGlobalAdminToken } from "./security/legacy-global-admin";
 import { createAuthenticationRateLimiter, createRuntimeAuthSessionService, getAuthAllowedOrigins, registerAuthSessionRoutes, sendAuthSessionResponse, toAuthSessionUser } from "./routes/auth-session-routes";
+import { registerPublicAuthRoutes } from "./routes/public-auth-routes";
 const require = createRequire(import.meta.url);
 
 // Sensitive integration fields that must never be returned in plaintext.
@@ -388,9 +389,6 @@ function authenticateAdminToken(req: AuthRequest, res: Response, next: NextFunct
 }
 
 const authAttemptLimiter = createAuthenticationRateLimiter();
-const USER_REGISTRATION_ATTEMPT_LIMIT = 3;
-const USER_LOGIN_ATTEMPT_LIMIT = 5;
-const ADMIN_LOGIN_ATTEMPT_LIMIT = 3;
 const ADMIN_PASSWORD_ATTEMPT_LIMIT = 3;
 
 function authAttemptIp(req: Request): string {
@@ -794,7 +792,6 @@ async function seedTestCampaign() {
 export async function registerRoutes(app: Express): Promise<Server> {
   const authSessionService = createRuntimeAuthSessionService();
   const authOrigins = getAuthAllowedOrigins();
-  const hasTrustedAuthOrigin = (req: Request) => typeof req.headers.origin === "string" && authOrigins.includes(req.headers.origin);
   registerAuthSessionRoutes(app);
   // Seed admin user on startup
   await seedAdminUser();
@@ -813,78 +810,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ==================== AUTHENTICATION ====================
   
-  // Register
-  app.post("/api/auth/register", async (req, res) => {
-    try {
-      res.set("Cache-Control", "no-store");
-      if (!hasTrustedAuthOrigin(req)) return res.status(403).json({ error: "Authentication failed" });
-      if (!enforceAuthAttemptLimit(req, res, authAttemptKey(req, "registration", typeof req.body?.email === "string" ? req.body.email : undefined), USER_REGISTRATION_ATTEMPT_LIMIT)) return;
-      const validatedData = insertUserSchema.parse(req.body);
-      
-      // Check if user already exists
-      const existingUser = await storage.getUserByEmail(validatedData.email);
-      if (existingUser) {
-        return res.status(401).json({ error: "Authentication failed" });
-      }
-
-      // Hash password
-      const hashedPassword = await bcrypt.hash(validatedData.password, 10);
-      
-      // CRIAR NOVA CONTA PRIMEIRO
-      const account = await storage.createAccount({
-        name: validatedData.name || validatedData.email,
-        salesperson: req.body.salesperson || null,
-        planValue: req.body.planValue || null,
-      });
-      
-      // Gerar slug base a partir do nome do admin
-      const baseSlug = generateSlugFromName(validatedData.name);
-      
-      // Encontrar um slug único disponível (carlosnedel, carlosnedel2, carlosnedel3, etc)
-      const uniqueSlug = await storage.findAvailableSlug(baseSlug);
-      
-      // Criar primeiro usuário (admin da conta) - SEM partido e SEM avatar
-      const { ...userData } = validatedData;
-      const user = await storage.createUser({
-        ...userData,  // Preserva campos opcionais (phone, whatsapp, planValue, etc)
-        password: hashedPassword,
-        accountId: account.id,
-        role: "admin",
-        permissions: validatedData.permissions || DEFAULT_PERMISSIONS.admin,
-        partyId: undefined,  // FORÇA: Nova conta SEM partido
-        avatar: undefined,   // FORÇA: Nova conta SEM avatar (usa logo padrão)
-        slug: uniqueSlug, // USA SLUG ÚNICO: garante que não há conflitos
-      } as any);
-
-      sendAuthSessionResponse(res, await authSessionService.issueUserSession(toAuthSessionUser(user), {
-        deviceMetadata: req.get("user-agent"),
-        ipMetadata: req.ip || req.socket.remoteAddress,
-      }));
-    } catch {
-      res.set("Cache-Control", "no-store");
-      res.status(400).json({ error: "Authentication failed" });
-    }
-  });
-
-  // Login
-  app.post("/api/auth/login", async (req, res) => {
-    try {
-      res.set("Cache-Control", "no-store");
-      if (!hasTrustedAuthOrigin(req)) return res.status(403).json({ error: "Authentication failed" });
-      const validatedData = loginSchema.parse(req.body);
-      const rateLimitKey = authAttemptKey(req, "user-login", validatedData.email);
-      if (!enforceAuthAttemptLimit(req, res, rateLimitKey, USER_LOGIN_ATTEMPT_LIMIT)) {
-        return;
-      }
-      
-      const issued = await authSessionService.loginUser({ ...validatedData, deviceMetadata: req.get("user-agent"), ipMetadata: req.ip || req.socket.remoteAddress });
-      if (!issued) return res.status(401).json({ error: "Email ou senha incorretos" });
-
-      sendAuthSessionResponse(res, issued);
-    } catch {
-      res.set("Cache-Control", "no-store");
-      res.status(400).json({ error: "Authentication failed" });
-    }
+  registerPublicAuthRoutes(app, {
+    allowedOrigins: authOrigins,
+    limiter: authAttemptLimiter,
+    storage,
+    authSessionService,
+    hashPassword: bcrypt.hash,
+    generateSlug: generateSlugFromName,
+    toAuthSessionUser,
   });
 
   // Get current authenticated user (with fresh role from database)
@@ -1381,7 +1314,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Validate account admin password (for export authorization)
-  app.post("/api/auth/validate-admin-password", authenticateToken, async (req: AuthRequest, res) => {
+  app.post("/api/auth/validate-admin-password", (req, res, next) => {
+    res.set("Cache-Control", "no-store");
+    next();
+  }, authenticateToken, async (req: AuthRequest, res) => {
     try {
       const validateSchema = z.object({
         password: z.string().min(1, "Senha é obrigatória"),
@@ -1397,50 +1333,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const adminUser = await storage.getAccountAdmin(req.accountId!);
       
       if (!adminUser) {
-        return res.status(404).json({ error: "Admin da conta não encontrado" });
+        return res.status(401).json({ error: "Authentication failed" });
       }
       
       // Validate password against admin's password
       const isValid = await bcrypt.compare(validatedData.password, adminUser.password);
       
       if (!isValid) {
-        return res.status(401).json({ error: "Senha incorreta" });
+        return res.status(401).json({ error: "Authentication failed" });
       }
 
       res.json({ valid: true });
-    } catch (error: any) {
-      res.status(400).json({ error: error.message || "Erro ao validar senha" });
-    }
-  });
-
-  // ==================== ADMIN AUTHENTICATION ====================
-  
-  // Admin login endpoint (PUBLIC)
-  app.post("/api/admin/login", async (req, res) => {
-    try {
-      res.set("Cache-Control", "no-store");
-      if (!hasTrustedAuthOrigin(req)) return res.status(403).json({ error: "Authentication failed" });
-      const adminLoginSchema = z.object({
-        password: z.string().min(1, "Senha é obrigatória"),
-      });
-      
-      const validatedData = adminLoginSchema.parse(req.body);
-      const rateLimitKey = authAttemptKey(req, "admin-login");
-      if (!enforceAuthAttemptLimit(req, res, rateLimitKey, ADMIN_LOGIN_ATTEMPT_LIMIT)) {
-        return;
-      }
-      
-      const issued = await authSessionService.loginAdmin({ ...validatedData, deviceMetadata: req.get("user-agent"), ipMetadata: req.ip || req.socket.remoteAddress });
-      if (!issued) {
-        return res.status(401).json({ error: "Senha incorreta" });
-      }
-
-      sendAuthSessionResponse(res, issued);
     } catch {
       res.set("Cache-Control", "no-store");
       res.status(400).json({ error: "Authentication failed" });
     }
   });
+
+  // ==================== ADMIN AUTHENTICATION ====================
 
   // Admin change password endpoint (PROTECTED)
   app.post("/api/admin/change-password", authenticateAdminToken, async (req: AuthRequest, res) => {

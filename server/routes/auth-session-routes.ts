@@ -33,24 +33,27 @@ export const createAuthenticationRateLimiter: AuthenticationRateLimiterFactory =
     const now = options.now ?? Date.now;
     const entries = new Map<string, { count: number; resetAt: number }>();
 
-    const evictOne = () => {
-      let oldestKey: string | undefined;
-      let oldestResetAt = Number.POSITIVE_INFINITY;
+    const purgeExpired = (timestamp: number) => {
       for (const [key, entry] of entries) {
-        if (entry.resetAt < oldestResetAt) {
-          oldestKey = key;
-          oldestResetAt = entry.resetAt;
-        }
+        if (entry.resetAt <= timestamp) entries.delete(key);
       }
-      if (oldestKey) entries.delete(oldestKey);
     };
 
     const limiter = ((scope: string, limit: number) => (request: Request, response: Response, next: NextFunction) => {
       const timestamp = now();
+      purgeExpired(timestamp);
       const key = `${scope}:${request.ip || request.socket.remoteAddress || "unknown"}`;
       let entry = entries.get(key);
-      if (!entry || entry.resetAt <= timestamp) {
-        if (!entry && entries.size >= maximumEntries) evictOne();
+      if (!entry) {
+        if (entries.size >= maximumEntries) {
+          response.setHeader("X-RateLimit-Limit", String(limit));
+          response.setHeader("X-RateLimit-Remaining", "0");
+          response.setHeader("X-RateLimit-Reset", String(Math.ceil((timestamp + AUTH_WINDOW_MS) / 1000)));
+          response.setHeader("Cache-Control", "no-store");
+          response.setHeader("Retry-After", String(Math.max(1, Math.ceil(AUTH_WINDOW_MS / 1000))));
+          response.status(429).json({ error: "Authentication failed" });
+          return;
+        }
         entry = { count: 0, resetAt: timestamp + AUTH_WINDOW_MS };
         entries.set(key, entry);
       }

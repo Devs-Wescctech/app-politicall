@@ -50,7 +50,7 @@ function csrfCookieName(kind: SessionCookieKind): string {
 
 function rejectCsrf(response: Response): void {
   response.setHeader("Cache-Control", "no-store");
-  response.status(403).json({ error: "Invalid CSRF token" });
+  response.status(403).json({ error: "Authentication failed" });
 }
 
 function isResolvedSessionContext(value: unknown, kind: SessionCookieKind): value is ResolvedSessionContext {

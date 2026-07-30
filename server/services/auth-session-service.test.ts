@@ -207,7 +207,7 @@ describe("auth session service", () => {
     const adminSession = await service.issueAdminSession();
 
     await expect(service.refresh({ kind: "admin", refreshToken: userSession.cookies.refreshToken }))
-      .resolves.toEqual({ status: "missing" });
+      .resolves.toEqual({ status: "missing", clearCookies: "admin" });
     await expect(service.refresh({ kind: "user", refreshToken: adminSession.cookies.refreshToken }))
       .resolves.toEqual({ status: "missing", clearCookies: "user" });
   });

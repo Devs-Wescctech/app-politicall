@@ -89,7 +89,7 @@ export function createAuthSessionService(dependencies: AuthSessionServiceDepende
     },
     async refresh(input: { kind: BrowserSessionKind; refreshToken: string }) {
       const source = await dependencies.sessionStore.resolveRefreshSession({ ...input, includeInactive: true });
-      if (!source || source.principalType !== expectedPrincipalType(input.kind)) return { status: "missing" as const };
+      if (!source || source.principalType !== expectedPrincipalType(input.kind)) return { status: "missing" as const, clearCookies: input.kind };
       const nextRefreshToken = dependencies.createRefreshToken();
       if (source.revokedAt) {
         await dependencies.sessionStore.rotateRefreshSession({ ...input, nextRefreshToken });
@@ -98,9 +98,9 @@ export function createAuthSessionService(dependencies: AuthSessionServiceDepende
       if (source.expiresAt <= now()) return { status: "expired" as const, clearCookies: input.kind };
       const rotated = await dependencies.sessionStore.rotateRefreshSession({ ...input, nextRefreshToken });
       if (rotated.status === "reuse_detected") return { status: "invalid" as const, clearCookies: input.kind };
-      if (rotated.status !== "rotated") return { status: rotated.status };
+      if (rotated.status !== "rotated") return { status: rotated.status, clearCookies: input.kind };
       const cookies = cookiesFor(rotated.session, input.kind, nextRefreshToken);
-      if (!cookies) return { status: "expired" as const };
+      if (!cookies) return { status: "expired" as const, clearCookies: input.kind };
       if (input.kind === "admin") return { status: "refreshed" as const, admin: true as const, cookies };
       const scope = userScope(rotated.session);
       const user = scope && await dependencies.users.findByIdAndAccount(scope.userId, scope.accountId);

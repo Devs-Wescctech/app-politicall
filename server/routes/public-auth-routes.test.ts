@@ -28,6 +28,7 @@ function dependencies(overrides: Record<string, unknown> = {}) {
     },
     hashPassword: vi.fn(async () => "hash"),
     generateSlug: (name: string) => name.toLowerCase(),
+    toAuthSessionUser: (stored: typeof user) => stored,
     ...overrides,
   };
 }

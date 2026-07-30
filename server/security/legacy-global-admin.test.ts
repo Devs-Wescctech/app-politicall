@@ -8,6 +8,8 @@ describe("legacy global-admin claims", () => {
     expect(isPureLegacyGlobalAdminClaims({ isAdmin: true, sid: "new-session" })).toBe(false);
     expect(isPureLegacyGlobalAdminClaims({ isAdmin: true, kind: "admin" })).toBe(false);
     expect(isPureLegacyGlobalAdminClaims({ isAdmin: true, principalId: "politicall:global-admin" })).toBe(false);
+    expect(isPureLegacyGlobalAdminClaims({ isAdmin: true, tenantId: "tenant-a" })).toBe(false);
+    expect(isPureLegacyGlobalAdminClaims({ isAdmin: true, sub: "global-admin" })).toBe(false);
     expect(isPureLegacyGlobalAdminClaims({ isAdmin: true })).toBe(true);
   });
 
