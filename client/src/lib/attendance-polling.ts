@@ -96,15 +96,20 @@ export function createAttendancePollingEnvironment(
   return {
     start() {
       if (active) return;
-      snapshot = {
+      const previousSnapshot = snapshot;
+      const nextSnapshot: AttendancePollingEnvironmentSnapshot = {
         online: dependencies.isOnline(),
         visibility: normalizeVisibility(dependencies.visibilityState()),
       };
+      const snapshotChanged = previousSnapshot.online !== nextSnapshot.online ||
+        previousSnapshot.visibility !== nextSnapshot.visibility;
+      snapshot = nextSnapshot;
       refreshNeeded = !snapshot.online || snapshot.visibility === "hidden";
       active = true;
       dependencies.networkTarget.addEventListener("online", onOnline);
       dependencies.networkTarget.addEventListener("offline", onOffline);
       dependencies.visibilityTarget.addEventListener("visibilitychange", onVisibilityChange);
+      if (snapshotChanged) notify();
     },
 
     stop() {
