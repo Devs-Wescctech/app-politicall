@@ -10,6 +10,9 @@
 - Review remediation base: `afd9c32fd4e44d76d392cac79688397b373a880e`
 - Review RED: `eed13f19ce0993a46a3afa8bb62c821e5910cd56`
 - Review GREEN: `cea213a7208fcb05c380d8fe28179d5c0d1b494c`
+- Second review remediation base: `ee649835212f50faf344f6f2a4313f45d3fa0ce0`
+- Second review RED: `71ddec10e437f1a3f913152e0662a61f9f9a1a56`
+- Second review GREEN: `78e1bec7f310726ae97f4dae4a13c52a2f7af576`
 
 ## Delivered behavior
 
@@ -57,6 +60,25 @@
   fixtures for aliases, concatenation, casing, object/bracket/dot headers, and
   `Headers.set`/`append`.
 
+## Second independent review remediation
+
+- `adminRequest` now treats 401 and only a 403 with exact
+  `Authentication failed` as terminal authentication rejection. It retries
+  once, then invalidates/clears before publishing unauthenticated if that
+  retry is also rejected; functional 403 responses remain authenticated.
+- Refresh owners only perform their refresh request and return a boolean. The
+  post-coordinator continuation publishes auth on success or invalidates on
+  failure, so a cross-tab owner posts `result:false` before either tab resets
+  local coordination. Remote false results also invalidate locally.
+- The source gate rejects every executable browser `Authorization` construction
+  regardless of token value, including shorthand objects, `Headers` tuples,
+  dynamic/helper values, bound mutators, bracket methods, and credential
+  storage aliases. Documentation remains non-executable text.
+- Contracts and system-sync now accept the bounded default `adminRequest`
+  error rather than retaining unreachable non-OK response-body branches.
+- The profile bypass re-reads the target and requires its authoritative role to
+  still be `admin`, closing a middleware-to-handler role change race.
+
 ## TDD evidence
 
 | Stage | Command | Result |
@@ -72,6 +94,10 @@
 | Review GREEN focused | `npm test -- client/src/lib/admin-session.test.ts tests/admin-browser-auth-source.test.ts server/routes/profile-route.test.ts server/auth-cookie.test.ts` | Passed: 4 files, 24 tests. |
 | Review full suite | `npm test` | Passed: 76 files / 583 tests, 2 existing environment-gated skips. |
 | Review gates | `npm run check`, `npm run build`, `npm run security:secrets`, `npm audit --omit=dev --audit-level=high`, `git diff --check 7f23bd2..HEAD` | All passed; audit reported 0 vulnerabilities. |
+| Second review RED | `npm test -- client/src/lib/admin-session.test.ts tests/admin-browser-auth-source.test.ts server/routes/profile-route.test.ts` | Failed as intended: terminal retry/remote failure did not invalidate, coordinator waited for lease, stale target role bypassed, and AST/callsite mutants were missed. |
+| Second review GREEN focused | `npm test -- client/src/lib/admin-session.test.ts tests/admin-browser-auth-source.test.ts server/routes/profile-route.test.ts` | Passed: 3 files, 18 tests. |
+| Second review full suite | `npm test` | Passed: 76 files / 588 tests, 2 existing environment-gated skips. |
+| Second review gates | `npm run check`, `npm run build`, `npm run security:secrets`, `npm audit --omit=dev --audit-level=high`, `git diff --check 7f23bd2..HEAD` | All passed; audit reported 0 vulnerabilities. |
 
 The first parallel full-suite run had one timeout in the standalone Docker
 compose configuration test while build/check were running concurrently. Its
@@ -84,7 +110,8 @@ There is no `test:coverage` script in this repository. Focused tests cover
 admin login/probe, neutral privileged rendering, admin CSRF, one retry,
 same-tab coordination, generation races, request-failure cleanup, logout
 fallback, bounded raw responses, server-side cookie/CSRF/role password bypass,
-tenant-cookie revocation with admin-cookie coexistence, and AST mutation
-fixtures. No browser E2E or live production/Portainer session was run. Browsers without
+tenant-cookie revocation with admin-cookie coexistence, terminal retry and
+remote coordinator failure cleanup, and AST mutation fixtures. No browser E2E
+or live production/Portainer session was run. Browsers without
 `BroadcastChannel` retain same-tab deduplication but not multi-tab refresh
 coordination.
