@@ -146,6 +146,7 @@ describe("auth session route responses", () => {
   it("caps every active auth limiter store and emits no-store with rate-limit headers", async () => {
     const limiter = createAuthenticationRateLimiter({ maximumEntries: 2, now: () => 1_000 });
     const app = express();
+    app.set("trust proxy", true);
     app.post("/register", limiter("registration", 1), (_request, response) => response.status(204).end());
     const server = await new Promise<any>((resolve) => { const instance = app.listen(0, "127.0.0.1", () => resolve(instance)); });
     activeServer = { baseUrl: `http://127.0.0.1:${server.address().port}`, close: () => new Promise((resolve, reject) => server.close((error: Error | undefined) => error ? reject(error) : resolve())) };
@@ -159,7 +160,7 @@ describe("auth session route responses", () => {
     expect(limited.status).toBe(429);
     expect(limited.headers.get("cache-control")).toBe("no-store");
     expect(limited.headers.get("retry-after")).not.toBeNull();
-    expect(limiter.size()).toBeLessThanOrEqual(2);
+    expect(limiter.size()).toBe(2);
   });
 
   it("rejects non-http public application URLs", () => {
