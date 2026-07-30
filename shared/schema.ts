@@ -10,7 +10,7 @@
  */
 
 import { sql } from "drizzle-orm";
-import { check, index, pgTable, text, varchar, timestamp, integer, boolean, jsonb, numeric, uuid, uniqueIndex } from "drizzle-orm/pg-core";
+import { check, foreignKey, index, pgTable, text, unique, varchar, timestamp, integer, boolean, jsonb, numeric, uuid, uniqueIndex } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -378,7 +378,9 @@ export const users = pgTable("users", {
   paymentStatus: text("payment_status"), // "pago", "atrasado", or null
   lastPaymentDate: text("last_payment_date"), // Last payment date (stored as DD/MM/YYYY)
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => [
+  unique("users_account_id_id_key").on(table.accountId, table.id),
+]);
 
 // Revocable refresh-token sessions. Tokens and request metadata are persisted only as SHA-256 hashes.
 export const authSessions = pgTable("auth_sessions", {
@@ -387,6 +389,7 @@ export const authSessions = pgTable("auth_sessions", {
   accountId: varchar("account_id").references(() => accounts.id, { onDelete: "cascade" }),
   userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }),
   globalAdminPrincipalId: varchar("global_admin_principal_id"),
+  principalId: varchar("principal_id").notNull(),
   principalType: text("principal_type").notNull(),
   refreshTokenHash: text("refresh_token_hash").notNull(),
   deviceHash: text("device_hash"),
@@ -394,6 +397,7 @@ export const authSessions = pgTable("auth_sessions", {
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
   revokedAt: timestamp("revoked_at", { withTimezone: true }),
   revocationReason: text("revocation_reason"),
+  lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
   rotatedFromSessionId: varchar("rotated_from_session_id").references((): any => authSessions.id, { onDelete: "set null" }),
   replacedBySessionId: varchar("replaced_by_session_id").references((): any => authSessions.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
@@ -404,12 +408,39 @@ export const authSessions = pgTable("auth_sessions", {
   index("auth_sessions_expiry_idx").on(table.expiresAt),
   index("auth_sessions_family_idx").on(table.familyId),
   check("auth_sessions_principal_scope_chk", sql`
-    (principal_type = 'user' AND account_id IS NOT NULL AND user_id IS NOT NULL AND global_admin_principal_id IS NULL)
-    OR (principal_type = 'global_admin' AND account_id IS NULL AND user_id IS NULL AND global_admin_principal_id IS NOT NULL)
+    (principal_type = 'user' AND account_id IS NOT NULL AND user_id IS NOT NULL AND global_admin_principal_id IS NULL AND principal_id = user_id)
+    OR (principal_type = 'global_admin' AND account_id IS NULL AND user_id IS NULL AND global_admin_principal_id IS NOT NULL AND principal_id = global_admin_principal_id)
   `),
-  check("auth_sessions_refresh_hash_chk", sql`char_length(refresh_token_hash) = 64`),
-  check("auth_sessions_device_hash_chk", sql`device_hash IS NULL OR char_length(device_hash) = 64`),
-  check("auth_sessions_ip_hash_chk", sql`ip_hash IS NULL OR char_length(ip_hash) = 64`),
+  check("auth_sessions_refresh_hash_chk", sql`refresh_token_hash ~ '^[0-9a-f]{64}$'`),
+  check("auth_sessions_device_hash_chk", sql`device_hash IS NULL OR device_hash ~ '^[0-9a-f]{64}$'`),
+  check("auth_sessions_ip_hash_chk", sql`ip_hash IS NULL OR ip_hash ~ '^[0-9a-f]{64}$'`),
+  unique("auth_sessions_rotation_identity_key").on(
+    table.id,
+    table.familyId,
+    table.principalType,
+    table.principalId,
+  ),
+  uniqueIndex("auth_sessions_rotated_from_uidx")
+    .on(table.rotatedFromSessionId)
+    .where(sql`${table.rotatedFromSessionId} is not null`),
+  uniqueIndex("auth_sessions_replaced_by_uidx")
+    .on(table.replacedBySessionId)
+    .where(sql`${table.replacedBySessionId} is not null`),
+  foreignKey({
+    columns: [table.accountId, table.userId],
+    foreignColumns: [users.accountId, users.id],
+    name: "auth_sessions_account_user_fk",
+  }),
+  foreignKey({
+    columns: [table.rotatedFromSessionId, table.familyId, table.principalType, table.principalId],
+    foreignColumns: [table.id, table.familyId, table.principalType, table.principalId],
+    name: "auth_sessions_rotated_from_scope_fk",
+  }),
+  foreignKey({
+    columns: [table.replacedBySessionId, table.familyId, table.principalType, table.principalId],
+    foreignColumns: [table.id, table.familyId, table.principalType, table.principalId],
+    name: "auth_sessions_replaced_by_scope_fk",
+  }),
 ]);
 
 // One-way markers prevent a legacy bearer token from being exchanged more than once.
@@ -419,7 +450,7 @@ export const legacyAuthExchanges = pgTable("legacy_auth_exchanges", {
   exchangedAt: timestamp("exchanged_at", { withTimezone: true }).defaultNow().notNull(),
 }, (table) => [
   index("legacy_auth_exchanges_expiry_idx").on(table.expiresAt),
-  check("legacy_auth_exchanges_token_hash_chk", sql`char_length(token_hash) = 64`),
+  check("legacy_auth_exchanges_token_hash_chk", sql`token_hash ~ '^[0-9a-f]{64}$'`),
 ]);
 
 // Contact interests/hobbies - Important for politicians to know

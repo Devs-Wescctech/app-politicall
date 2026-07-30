@@ -246,6 +246,7 @@ async function main() {
   await applyMigration("migrations/0008_att_messages_external_id_unique.sql");
   await applyMigration("migrations/0009_petitionsbr_module.sql");
   await applyMigration("migrations/0010_auth_sessions.sql");
+  await applyMigration("migrations/0011_auth_session_integrity.sql");
 
   // Step 3 — seed test data
   console.log("\n=== Seeding test data ===");

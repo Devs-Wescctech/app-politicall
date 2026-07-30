@@ -71,6 +71,8 @@ describe("auth session store PostgreSQL integration", () => {
         device_hash: hashRefreshToken("a".repeat(64)),
         ip_hash: hashRefreshToken("192.0.2.10"),
       });
+      expect((await pool.query("SELECT last_used_at FROM auth_sessions WHERE id = $1", [source.id])).rows[0]?.last_used_at)
+        .toBeNull();
 
       await expect(pool.query(`
         INSERT INTO auth_sessions (
@@ -83,6 +85,11 @@ describe("auth session store PostgreSQL integration", () => {
           id, family_id, account_id, user_id, principal_id, principal_type, refresh_token_hash, expires_at, rotated_from_session_id
         ) VALUES ('cross-family', 'other-family', 'account-a', 'user-a', 'user-a', 'user', repeat('b', 64), now() + interval '1 hour', $1)
       `, [source.id])).rejects.toThrow();
+      await expect(pool.query(`
+        INSERT INTO auth_sessions (
+          id, family_id, account_id, user_id, principal_id, principal_type, refresh_token_hash, expires_at, rotated_from_session_id
+        ) VALUES ('cross-principal', $1, 'account-b', 'user-b', 'user-b', 'user', repeat('c', 64), now() + interval '1 hour', $2)
+      `, [source.familyId, source.id])).rejects.toThrow();
 
       const unlinkedReplacement = await store.createSession({
         scope,
@@ -103,6 +110,8 @@ describe("auth session store PostgreSQL integration", () => {
       })).rejects.toThrow();
       await expect(store.findRefreshSession({ scope, refreshToken: "source-token", now: clock }))
         .resolves.toMatchObject({ id: source.id });
+      expect((await pool.query("SELECT last_used_at FROM auth_sessions WHERE id = $1", [source.id])).rows[0]?.last_used_at)
+        .toBeNull();
 
       const concurrentSource = await store.createSession({ scope, refreshToken: "concurrent-source", expiresAt: expiry });
       const concurrent = await Promise.all([
@@ -116,6 +125,8 @@ describe("auth session store PostgreSQL integration", () => {
       );
       expect(family.rows).toHaveLength(2);
       expect(family.rows.every((row) => row.revoked_at !== null)).toBe(true);
+      const used = await pool.query("SELECT last_used_at FROM auth_sessions WHERE id = $1", [concurrentSource.id]);
+      expect(used.rows[0]?.last_used_at).not.toBeNull();
     } finally {
       if (pool) await pool.end();
       if (databaseCreated) {

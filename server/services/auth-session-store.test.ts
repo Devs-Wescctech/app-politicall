@@ -7,6 +7,7 @@ type SessionRow = {
   accountId: string | null;
   userId: string | null;
   globalAdminPrincipalId: string | null;
+  principalId: string;
   principalType: "user" | "global_admin";
   refreshTokenHash: string;
   deviceHash: string | null;
@@ -17,6 +18,7 @@ type SessionRow = {
   rotatedFromSessionId: string | null;
   replacedBySessionId: string | null;
   createdAt: Date;
+  lastUsedAt: Date | null;
 };
 
 class InMemorySessionRepository {
@@ -42,9 +44,21 @@ class InMemorySessionRepository {
     );
   }
 
-  async linkRotation(scope: any, sourceSessionId: string, replacementSessionId: string): Promise<void> {
+  async linkRotation(scope: any, sourceSessionId: string, replacementSessionId: string, familyId: string): Promise<void> {
     const session = this.findByScope(scope, sourceSessionId);
-    if (session) session.replacedBySessionId = replacementSessionId;
+    const replacement = this.findByScope(scope, replacementSessionId);
+    if (!session || !replacement || session.familyId !== familyId || replacement.familyId !== familyId
+      || replacement.rotatedFromSessionId !== sourceSessionId || session.replacedBySessionId) {
+      throw new Error("Rotation replacement does not match source scope or family");
+    }
+    session.replacedBySessionId = replacementSessionId;
+  }
+
+  async markUsed(scope: any, sessionId: string, lastUsedAt: Date): Promise<number> {
+    const session = this.findByScope(scope, sessionId);
+    if (!session) throw new Error("Session not found");
+    session.lastUsedAt = lastUsedAt;
+    return 1;
   }
 
   async revokeById(scope: any, sessionId: string, reason: string, revokedAt: Date): Promise<number> {
@@ -92,11 +106,12 @@ class InMemorySessionRepository {
 
 const tenantScope = { kind: "user" as const, accountId: "account-a", userId: "user-a" };
 const otherTenantScope = { kind: "user" as const, accountId: "account-b", userId: "user-a" };
+const defaultNow = new Date("2029-12-31T00:00:00.000Z");
 const expiresAt = new Date("2030-01-01T00:00:00.000Z");
 
-function createStore() {
+function createStore(now = defaultNow) {
   const repository = new InMemorySessionRepository();
-  return { repository, store: createAuthSessionStore(repository) };
+  return { repository, store: createAuthSessionStore(repository, { now: () => now }) };
 }
 
 describe("auth session store", () => {
@@ -156,6 +171,11 @@ describe("auth session store", () => {
       expiresAt: new Date("2030-01-01T01:00:00.000Z"),
       deviceMetadata: "x".repeat(1025),
     })).rejects.toThrow("deviceMetadata");
+    await expect(store.createSession({
+      scope: tenantScope,
+      refreshToken: "t".repeat(4097),
+      expiresAt: new Date("2030-01-01T01:00:00.000Z"),
+    })).rejects.toThrow("refreshToken");
 
     await store.createSession({
       scope: tenantScope,
@@ -170,6 +190,19 @@ describe("auth session store", () => {
     })).rejects.toThrow("7 days");
     expect(repository.sessions).toHaveLength(1);
     expect(repository.sessions[0]?.revokedAt).toBeNull();
+
+    const globalScope = { kind: "global_admin" as const, globalAdminPrincipalId: "admin-2" };
+    await store.createSession({
+      scope: globalScope,
+      refreshToken: "global-rotation-source",
+      expiresAt: new Date("2030-01-01T01:00:00.000Z"),
+    });
+    await expect(store.rotateSession({
+      scope: globalScope,
+      refreshToken: "global-rotation-source",
+      nextRefreshToken: "global-rotation-next",
+      expiresAt: new Date("2030-01-01T04:00:00.001Z"),
+    })).rejects.toThrow("4 hours");
   });
 
   it("does not find a tenant session through another account scope", async () => {
@@ -200,6 +233,7 @@ describe("auth session store", () => {
   it("rotates a refresh session atomically and records the chain linkage", async () => {
     const { repository, store } = createStore();
     const original = await store.createSession({ scope: tenantScope, refreshToken: "refresh-token-3", expiresAt });
+    expect(original.lastUsedAt).toBeNull();
 
     const result = await store.rotateSession({
       scope: tenantScope,
@@ -212,6 +246,8 @@ describe("auth session store", () => {
     expect(result.session?.rotatedFromSessionId).toBe(original.id);
     expect(original.replacedBySessionId).toBe(result.session?.id);
     expect(original.revocationReason).toBe("rotated");
+    expect(original.lastUsedAt).toEqual(defaultNow);
+    expect(result.session?.lastUsedAt).toBeNull();
     expect(repository.transactionCalls).toBe(1);
   });
 
@@ -326,7 +362,7 @@ describe("auth session store", () => {
     const session = await store.createSession({
       scope: { kind: "global_admin", globalAdminPrincipalId: "admin-1" },
       refreshToken: "global-admin-refresh-token",
-      expiresAt,
+      expiresAt: new Date("2029-12-31T03:00:00.000Z"),
     });
 
     expect(session.accountId).toBeNull();
