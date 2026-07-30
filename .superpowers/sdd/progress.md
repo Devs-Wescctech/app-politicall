@@ -34,9 +34,10 @@ Completed authentication tasks:
 
 Completed attendance realtime tasks:
 - Attendance Task 1: complete (commits `269d505..5263331`; independent review approved with no Critical/Important/Minor findings; deterministic immutable reconciliation now converges repeated local/server events by ID or non-empty external ID while preserving metadata, canonical server identity, ordering and the existing React Query invalidations; 12 focused/relevant tests and typecheck passed).
+- Attendance Task 2: complete (commits `fdfed3f..3c01826`; third independent review approved with no Critical/Important/Minor findings after generation-scoping pre-open/late socket events and aligning the direct zero-based backoff handoff; 18 state-machine tests plus 7 reconciliation tests and typecheck passed, with 355 reachable states checked for incoherence).
 
 Current task:
-- Attendance Realtime Resilience Task 2 is next: implement the pure connection state machine and bounded reconnect policy.
+- Attendance Realtime Resilience Task 3 is next: integrate cookie-authenticated WebSocket transport, generation-safe heartbeat/reconnect behavior, and complete cleanup.
 
 Final-review minor triage:
 - Registration still persists account, user, and initial session separately. Make this workflow transactional or compensating before release so account/session failures cannot leave orphaned or unretryable partial registration state.
