@@ -43,6 +43,11 @@ export type SessionDependencies = {
   resetRefreshCoordination?: () => void;
 };
 
+type GenerationFlight<T> = {
+  generation: number;
+  promise: Promise<T>;
+};
+
 const USER_CACHE_KEY = "auth_user";
 const CSRF_COOKIE = "politicall_csrf";
 const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
@@ -157,24 +162,38 @@ function isRawBody(value: unknown): value is BodyInit {
     || typeof value === "string";
 }
 
+function supersededSessionOperation(): Error {
+  return new Error("Session operation superseded");
+}
+
 export function createSessionClient(dependencies: SessionDependencies) {
   let snapshot: SessionSnapshot = { status: "loading", user: null };
-  let bootstrapInFlight: Promise<SessionSnapshot> | undefined;
+  let sessionGeneration = 0;
+  let bootstrapInFlight: GenerationFlight<SessionSnapshot> | undefined;
   let bootstrapComplete = false;
-  let refreshInFlight: Promise<boolean> | undefined;
+  let refreshInFlight: GenerationFlight<boolean> | undefined;
   const listeners = new Set<(value: SessionSnapshot) => void>();
   const coordinateRefresh = dependencies.coordinateRefresh;
 
+  const isCurrentGeneration = (generation: number) => generation === sessionGeneration;
+  const advanceGeneration = () => {
+    sessionGeneration += 1;
+    bootstrapComplete = false;
+    dependencies.resetRefreshCoordination?.();
+    return sessionGeneration;
+  };
   const publish = (next: SessionSnapshot) => {
     snapshot = next;
     listeners.forEach((listener) => listener(snapshot));
   };
   const clearCachedUser = () => dependencies.storage.removeItem(USER_CACHE_KEY);
+  const persistUser = (user: DisplayUser): DisplayUser => {
+    dependencies.storage.setItem(USER_CACHE_KEY, JSON.stringify(user));
+    return user;
+  };
   const cacheUser = (user: unknown): DisplayUser | null => {
     const sanitized = sanitizeUser(user);
-    if (!sanitized) return null;
-    dependencies.storage.setItem(USER_CACHE_KEY, JSON.stringify(sanitized));
-    return sanitized;
+    return sanitized ? persistUser(sanitized) : null;
   };
   const getCachedUser = (): DisplayUser | null => {
     const raw = dependencies.storage.getItem(USER_CACHE_KEY);
@@ -210,36 +229,57 @@ export function createSessionClient(dependencies: SessionDependencies) {
     }
     return dependencies.fetch(url, { method, headers, body, credentials: "include" });
   };
-  const performRefresh = async (): Promise<boolean> => {
+  const performRefresh = async (generation: number): Promise<boolean> => {
     try {
       const response = await rawRequest("POST", "/api/auth/refresh", undefined, true);
+      if (!isCurrentGeneration(generation)) return false;
       if (!response.ok) {
         clearCachedUser();
         publish({ status: "unauthenticated", user: null });
         return false;
       }
       const result = await response.json().catch(() => null) as { user?: unknown } | null;
-      const user = cacheUser(result?.user);
-      if (user) publish({ status: "authenticated", user });
+      if (!isCurrentGeneration(generation)) return false;
+      const user = sanitizeUser(result?.user);
+      if (!user) {
+        clearCachedUser();
+        publish({ status: "unauthenticated", user: null });
+        return false;
+      }
+      persistUser(user);
+      publish({ status: "authenticated", user });
       return true;
     } catch {
+      if (!isCurrentGeneration(generation)) return false;
       clearCachedUser();
       publish({ status: "unauthenticated", user: null });
       return false;
     }
   };
   const refreshSession = (): Promise<boolean> => {
-    if (!refreshInFlight) {
-      refreshInFlight = (coordinateRefresh ? coordinateRefresh(performRefresh) : performRefresh()).finally(() => {
-        refreshInFlight = undefined;
+    const generation = sessionGeneration;
+    if (refreshInFlight?.generation === generation) return refreshInFlight.promise;
+
+    let flight!: GenerationFlight<boolean>;
+    const refresh = () => performRefresh(generation);
+    const promise = (coordinateRefresh ? coordinateRefresh(refresh) : refresh())
+      .then((success) => isCurrentGeneration(generation) && success)
+      .finally(() => {
+        if (refreshInFlight === flight) refreshInFlight = undefined;
       });
-    }
-    return refreshInFlight;
+    flight = { generation, promise };
+    refreshInFlight = flight;
+    return promise;
   };
   const request = async (method: string, url: string, data?: unknown): Promise<Response> => {
+    const generation = sessionGeneration;
     const mutation = MUTATING_METHODS.has(method.toUpperCase());
     let response = await rawRequest(method, url, data, mutation);
-    if (response.status === 401 && !NON_REFRESHABLE_AUTH_PATHS.has(url) && await refreshSession()) {
+    if (response.status === 401
+      && isCurrentGeneration(generation)
+      && !NON_REFRESHABLE_AUTH_PATHS.has(url)
+      && await refreshSession()
+      && isCurrentGeneration(generation)) {
       response = await rawRequest(method, url, data, mutation);
     }
     if (!response.ok) throw await errorFromResponse(response);
@@ -256,68 +296,87 @@ export function createSessionClient(dependencies: SessionDependencies) {
     return response;
   };
   const bootstrap = (): Promise<SessionSnapshot> => {
-    if (bootstrapInFlight) return bootstrapInFlight;
+    const generation = sessionGeneration;
+    if (bootstrapInFlight?.generation === generation) return bootstrapInFlight.promise;
     if (bootstrapComplete) return Promise.resolve(snapshot);
-    bootstrapInFlight = (async () => {
+
+    let flight!: GenerationFlight<SessionSnapshot>;
+    const promise = (async () => {
       try {
         let response = await dependencies.fetch("/api/auth/me", { credentials: "include" });
-        if (response.status === 401 && await refreshSession()) {
+        if (!isCurrentGeneration(generation)) return snapshot;
+        if (response.status === 401 && await refreshSession() && isCurrentGeneration(generation)) {
           response = await dependencies.fetch("/api/auth/me", { credentials: "include" });
         }
+        if (!isCurrentGeneration(generation)) return snapshot;
         if (!response.ok) {
           clearCachedUser();
           publish({ status: "unauthenticated", user: null });
           return snapshot;
         }
-        const user = cacheUser(await response.json());
+        const user = sanitizeUser(await response.json());
+        if (!isCurrentGeneration(generation)) return snapshot;
         if (!user) {
           clearCachedUser();
           publish({ status: "unauthenticated", user: null });
           return snapshot;
         }
+        persistUser(user);
         publish({ status: "authenticated", user });
         return snapshot;
       } catch {
+        if (!isCurrentGeneration(generation)) return snapshot;
         clearCachedUser();
         publish({ status: "unauthenticated", user: null });
         return snapshot;
       }
     })().finally(() => {
-      bootstrapComplete = true;
-      bootstrapInFlight = undefined;
+      if (bootstrapInFlight === flight) bootstrapInFlight = undefined;
+      if (isCurrentGeneration(generation)) bootstrapComplete = true;
     });
-    return bootstrapInFlight;
+    flight = { generation, promise };
+    bootstrapInFlight = flight;
+    return promise;
   };
   const startSession = async (path: "/api/auth/login" | "/api/auth/register", data: unknown): Promise<DisplayUser> => {
+    const generation = advanceGeneration();
     const response = await rawRequest("POST", path, data);
+    if (!isCurrentGeneration(generation)) throw supersededSessionOperation();
     if (!response.ok) throw await errorFromResponse(response);
     const result = await response.json() as { user?: unknown };
-    const user = cacheUser(result.user);
+    if (!isCurrentGeneration(generation)) throw supersededSessionOperation();
+    const user = sanitizeUser(result.user);
     if (!user) throw new Error("Authentication response did not include a display user");
+    persistUser(user);
     bootstrapComplete = true;
     publish({ status: "authenticated", user });
     return user;
   };
   const logoutSession = async (): Promise<{ error: string | null }> => {
+    const generation = advanceGeneration();
+    bootstrapComplete = true;
     let error: string | null = null;
     try {
       const response = await rawRequest("POST", "/api/auth/logout", undefined, true);
-      if (await isAuthenticationRejection(response)) {
+      if (!isCurrentGeneration(generation)) return { error };
+      if (await isAuthenticationRejection(response) && isCurrentGeneration(generation)) {
         const fallback = await rawRequest("DELETE", "/api/auth/refresh", undefined, true);
-        if (!fallback.ok) error = "Unable to end session";
+        if (isCurrentGeneration(generation) && !fallback.ok) error = "Unable to end session";
       } else if (!response.ok) {
         error = "Unable to end session";
       }
     } catch {
-      error = "Unable to end session";
+      if (isCurrentGeneration(generation)) error = "Unable to end session";
     } finally {
-      clearCachedUser();
-      dependencies.cleanup.clearQueryCache();
-      dependencies.cleanup.clearAttendanceCache();
-      dependencies.cleanup.clearImpersonationMarker();
-      dependencies.resetRefreshCoordination?.();
-      bootstrapComplete = true;
-      publish({ status: "unauthenticated", user: null });
+      if (isCurrentGeneration(generation)) {
+        clearCachedUser();
+        dependencies.cleanup.clearQueryCache();
+        dependencies.cleanup.clearAttendanceCache();
+        dependencies.cleanup.clearImpersonationMarker();
+        dependencies.resetRefreshCoordination?.();
+        bootstrapComplete = true;
+        publish({ status: "unauthenticated", user: null });
+      }
     }
     return { error };
   };

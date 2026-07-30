@@ -244,4 +244,26 @@ describe("cross-tab refresh coordinator", () => {
     expect(localAction).toHaveBeenCalledOnce();
     local.dispose();
   });
+
+  it("does not start an owner callback when reset wins the owner announcement race", async () => {
+    let coordinator!: ReturnType<typeof createRefreshCoordinator>;
+    const channel: RefreshCoordinationChannel = {
+      postMessage: (message) => {
+        if (message.type === "owner") coordinator.reset();
+      },
+      subscribe: () => () => undefined,
+    };
+    const localAction = vi.fn(async () => true);
+    coordinator = createRefreshCoordinator({
+      channel,
+      participantId: "local",
+      claimWindowMs: 1,
+      leaseMs: 20,
+    });
+
+    await expect(coordinator.run(localAction)).resolves.toBe(false);
+
+    expect(localAction).not.toHaveBeenCalled();
+    coordinator.dispose();
+  });
 });

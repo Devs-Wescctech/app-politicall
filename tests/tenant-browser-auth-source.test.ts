@@ -1,5 +1,6 @@
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
+import ts from "typescript";
 import { describe, expect, it } from "vitest";
 
 const clientRoot = path.resolve(process.cwd(), "client/src");
@@ -31,22 +32,184 @@ function isTaskSixAdminBoundary(relative: string): boolean {
     || relative.startsWith("components/admin/");
 }
 
-function withoutAllowedApiKeyExamples(source: string): string {
-  return source
-    .replaceAll(/Bearer\s+YOUR_API_KEY/g, "ALLOWED_API_KEY")
-    .replaceAll(/Bearer\s+pk_[A-Za-z0-9_.*-]+/g, "ALLOWED_API_KEY");
+type ConstInitializers = ReadonlyMap<string, ts.Expression | null>;
+
+function collectConstInitializers(sourceFile: ts.SourceFile): ConstInitializers {
+  const initializers = new Map<string, ts.Expression | null>();
+  const visit = (node: ts.Node) => {
+    if (ts.isVariableDeclaration(node)
+      && ts.isIdentifier(node.name)
+      && node.initializer
+      && ts.isVariableDeclarationList(node.parent)
+      && (node.parent.flags & ts.NodeFlags.Const) !== 0) {
+      const name = node.name.text;
+      initializers.set(name, initializers.has(name) ? null : node.initializer);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sourceFile);
+  return initializers;
+}
+
+function resolveConstExpression(
+  expression: ts.Expression,
+  initializers: ConstInitializers,
+  seen = new Set<string>(),
+): ts.Expression {
+  if (ts.isParenthesizedExpression(expression)
+    || ts.isAsExpression(expression)
+    || ts.isTypeAssertionExpression(expression)
+    || ts.isNonNullExpression(expression)) {
+    return resolveConstExpression(expression.expression, initializers, seen);
+  }
+  if (!ts.isIdentifier(expression) || seen.has(expression.text)) return expression;
+  const initializer = initializers.get(expression.text);
+  if (!initializer) return expression;
+  const nextSeen = new Set(seen);
+  nextSeen.add(expression.text);
+  return resolveConstExpression(initializer, initializers, nextSeen);
+}
+
+function staticString(expression: ts.Expression, initializers: ConstInitializers): string | undefined {
+  const resolved = resolveConstExpression(expression, initializers);
+  if (ts.isStringLiteralLike(resolved)) return resolved.text;
+  if (ts.isBinaryExpression(resolved) && resolved.operatorToken.kind === ts.SyntaxKind.PlusToken) {
+    const left = staticString(resolved.left, initializers);
+    const right = staticString(resolved.right, initializers);
+    return left === undefined || right === undefined ? undefined : left + right;
+  }
+  return undefined;
+}
+
+function staticPrefix(expression: ts.Expression, initializers: ConstInitializers): string | undefined {
+  const resolved = resolveConstExpression(expression, initializers);
+  if (ts.isStringLiteralLike(resolved)) return resolved.text;
+  if (ts.isTemplateExpression(resolved)) return resolved.head.text;
+  if (ts.isBinaryExpression(resolved) && resolved.operatorToken.kind === ts.SyntaxKind.PlusToken) {
+    const left = staticString(resolved.left, initializers);
+    if (left !== undefined) return left + (staticPrefix(resolved.right, initializers) ?? "");
+    return staticPrefix(resolved.left, initializers);
+  }
+  return undefined;
+}
+
+function isForbiddenBearer(expression: ts.Expression, initializers: ConstInitializers): boolean {
+  const resolved = resolveConstExpression(expression, initializers);
+  if (ts.isConditionalExpression(resolved)) {
+    return isForbiddenBearer(resolved.whenTrue, initializers)
+      || isForbiddenBearer(resolved.whenFalse, initializers);
+  }
+  const prefix = staticPrefix(resolved, initializers);
+  const match = prefix?.match(/^\s*Bearer\s+(\S*)/i);
+  if (!match) return false;
+  return match[1] !== "YOUR_API_KEY" && !match[1].startsWith("pk_");
+}
+
+function propertyName(
+  name: ts.PropertyName,
+  initializers: ConstInitializers,
+): string | undefined {
+  if (ts.isIdentifier(name) || ts.isStringLiteralLike(name)) return name.text;
+  if (ts.isComputedPropertyName(name)) return staticString(name.expression, initializers);
+  return undefined;
+}
+
+function isBrowserStorage(
+  expression: ts.Expression,
+  initializers: ConstInitializers,
+): boolean {
+  const resolved = resolveConstExpression(expression, initializers);
+  if (ts.isIdentifier(resolved)) {
+    return resolved.text === "localStorage" || resolved.text === "sessionStorage";
+  }
+  if (ts.isPropertyAccessExpression(resolved)) {
+    return ts.isIdentifier(resolved.expression)
+      && resolved.expression.text === "window"
+      && (resolved.name.text === "localStorage" || resolved.name.text === "sessionStorage");
+  }
+  if (ts.isElementAccessExpression(resolved) && ts.isIdentifier(resolved.expression) && resolved.expression.text === "window") {
+    const storageName = resolved.argumentExpression && staticString(resolved.argumentExpression, initializers);
+    return storageName === "localStorage" || storageName === "sessionStorage";
+  }
+  return false;
+}
+
+function assignedHeaderName(
+  expression: ts.Expression,
+  initializers: ConstInitializers,
+): string | undefined {
+  if (ts.isPropertyAccessExpression(expression)) return expression.name.text;
+  if (ts.isElementAccessExpression(expression) && expression.argumentExpression) {
+    return staticString(expression.argumentExpression, initializers);
+  }
+  return undefined;
 }
 
 function tenantCredentialViolations(source: string): string[] {
-  const candidate = withoutAllowedApiKeyExamples(source);
-  const patterns = [
-    /(?:window\.)?(?:localStorage|sessionStorage)\.(?:getItem|setItem|removeItem)\(\s*["']auth_token["']/,
-    /(?:\[\s*["']authorization["']\s*\]|["']?authorization["']?)\s*:\s*(?:`|["'])Bearer\s+/i,
-    /\.set\(\s*["']authorization["']\s*,\s*(?:`|["'])Bearer\s+/i,
-    /\[\s*["']authorization["']\s*\]\s*=\s*(?:`|["'])Bearer\s+/i,
-    /\.authorization\s*=\s*(?:`|["'])Bearer\s+/i,
-  ];
-  return patterns.filter((pattern) => pattern.test(candidate)).map((pattern) => pattern.source);
+  const sourceFile = ts.createSourceFile(
+    "tenant-source.tsx",
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TSX,
+  );
+  const initializers = collectConstInitializers(sourceFile);
+  const violations: string[] = [];
+  const report = (node: ts.Node, kind: string) => {
+    const { line } = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile));
+    violations.push(`${kind}:${line + 1}`);
+  };
+
+  const visit = (node: ts.Node) => {
+    if (ts.isCallExpression(node)
+      && ts.isPropertyAccessExpression(node.expression)
+      && isBrowserStorage(node.expression.expression, initializers)
+      && ["getItem", "setItem", "removeItem"].includes(node.expression.name.text)
+      && node.arguments[0]
+      && staticString(node.arguments[0], initializers) === "auth_token") {
+      report(node, "browser auth_token storage");
+    }
+
+    if (ts.isElementAccessExpression(node)
+      && isBrowserStorage(node.expression, initializers)
+      && node.argumentExpression
+      && staticString(node.argumentExpression, initializers) === "auth_token") {
+      report(node, "browser auth_token property");
+    }
+
+    if (ts.isPropertyAccessExpression(node)
+      && isBrowserStorage(node.expression, initializers)
+      && node.name.text === "auth_token") {
+      report(node, "browser auth_token property");
+    }
+
+    if (ts.isPropertyAssignment(node)
+      && propertyName(node.name, initializers)?.toLowerCase() === "authorization"
+      && isForbiddenBearer(node.initializer, initializers)) {
+      report(node, "tenant bearer object");
+    }
+
+    if (ts.isCallExpression(node)
+      && ts.isPropertyAccessExpression(node.expression)
+      && node.expression.name.text === "set"
+      && node.arguments[0]
+      && node.arguments[1]
+      && staticString(node.arguments[0], initializers)?.toLowerCase() === "authorization"
+      && isForbiddenBearer(node.arguments[1], initializers)) {
+      report(node, "tenant bearer Headers.set");
+    }
+
+    if (ts.isBinaryExpression(node)
+      && node.operatorToken.kind === ts.SyntaxKind.EqualsToken
+      && assignedHeaderName(node.left, initializers)?.toLowerCase() === "authorization"
+      && isForbiddenBearer(node.right, initializers)) {
+      report(node, "tenant bearer assignment");
+    }
+
+    ts.forEachChild(node, visit);
+  };
+  visit(sourceFile);
+  return violations;
 }
 
 describe("tenant browser auth source gate", () => {
