@@ -25,6 +25,8 @@ export type AuthenticationRateLimiterFactory = ((options?: { maximumEntries?: nu
   resetForTests(): void;
 };
 
+let runtimeLimiter: AuthenticationRateLimiter | undefined;
+
 export const createAuthenticationRateLimiter: AuthenticationRateLimiterFactory = Object.assign(
   (options: { maximumEntries?: number; now?: () => number } = {}): AuthenticationRateLimiter => {
     const maximumEntries = options.maximumEntries ?? AUTH_LIMIT_MAX_ENTRIES;
@@ -65,10 +67,10 @@ export const createAuthenticationRateLimiter: AuthenticationRateLimiterFactory =
     limiter.clear = () => entries.clear();
     return limiter;
   },
-  { resetForTests: () => undefined },
+  { resetForTests: () => runtimeLimiter?.clear() },
 );
 
-const runtimeLimiter = createAuthenticationRateLimiter();
+runtimeLimiter = createAuthenticationRateLimiter();
 
 export function getAuthAllowedOrigins(env: { PUBLIC_APP_URL?: string; NODE_ENV?: string } = process.env as { PUBLIC_APP_URL?: string; NODE_ENV?: string }): string[] {
   const configured = env.PUBLIC_APP_URL;
@@ -169,7 +171,7 @@ export function registerAuthSessionRoutes(app: Express, dependencies: AuthSessio
   const service = dependencies.service ?? createRuntimeAuthSessionService();
   const resolveRefresh = dependencies.resolveRefreshSession ?? resolveRefreshSession;
   const resolveAccess = dependencies.resolveAccessSession ?? resolveAccessSession;
-  const limiter = dependencies.limiter ?? runtimeLimiter;
+  const limiter = dependencies.limiter ?? runtimeLimiter!;
 
   for (const kind of ["user", "admin"] as const) {
     const base = kind === "user" ? "/api/auth" : "/api/admin/auth";
