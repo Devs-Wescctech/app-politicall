@@ -148,7 +148,7 @@ describe("cross-tab refresh coordinator", () => {
     const owner = createRefreshCoordinator({
       channel: bus.channel("a-owner"),
       participantId: "a-owner",
-      claimWindowMs: 1,
+      claimWindowMs: 100,
       leaseMs: 1_000,
     });
 
