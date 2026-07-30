@@ -6,6 +6,7 @@ import {
   encryptApiKey,
   getActiveDataEncryptionKeyId,
   isEncryptedDataValue,
+  isMalformedEncryptedDataValue,
 } from "./crypto";
 
 const originalEnvironment = { ...process.env };
@@ -78,8 +79,18 @@ describe("versioned data encryption", () => {
 
   it("recognizes only exact encrypted formats and preserves colon-containing plaintext", () => {
     configureKeys();
-    expect(isEncryptedDataValue("http://provider:8080/token")).toBe(false);
-    expect(decryptApiKey("http://provider:8080/token")).toBe("http://provider:8080/token");
+    const plaintexts = [
+      "http://provider:8080/token",
+      "0123456789abcdef0123456789abcdef:plain:credential",
+      "0123456789abcdef0123456789abcdef:api:key:with:colons",
+    ];
+
+    for (const plaintext of plaintexts) {
+      expect(isEncryptedDataValue(plaintext)).toBe(false);
+      expect(isMalformedEncryptedDataValue(plaintext)).toBe(false);
+      expect(decryptApiKey(plaintext)).toBe(plaintext);
+      expect(decryptApiKey(encryptApiKey(plaintext))).toBe(plaintext);
+    }
     expect(isEncryptedDataValue(encryptApiKey("secret"))).toBe(true);
   });
 
