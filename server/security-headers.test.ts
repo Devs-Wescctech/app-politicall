@@ -50,4 +50,14 @@ describe("securityHeaders", () => {
     ].join("; "));
     process.env.NODE_ENV = originalNodeEnv;
   });
+
+  it("allows only Vite's required development inline script and websocket additions", () => {
+    const originalNodeEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = "development";
+    const { headers, res } = createResponse();
+    securityHeaders({} as any, res as any, vi.fn());
+    expect(headers.get("Content-Security-Policy")).toContain("script-src 'self' 'unsafe-inline'");
+    expect(headers.get("Content-Security-Policy")).toContain("connect-src 'self' https: wss: ws:");
+    process.env.NODE_ENV = originalNodeEnv;
+  });
 });

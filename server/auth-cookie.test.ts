@@ -1,5 +1,6 @@
 import express from "express";
 import jwt from "jsonwebtoken";
+import { readFile } from "node:fs/promises";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { issueAccessToken } from "./security/auth-cookies";
 import { issueCsrfToken } from "./security/csrf";
@@ -147,6 +148,20 @@ describe("cookie-first browser authentication", () => {
     expect((await fetch(`${server.baseUrl}/user`, { method: "POST", headers: { Authorization: `Bearer ${legacy}` } })).status).toBe(204);
   });
 
+  it("rejects every new-session or global-principal claim on legacy tenant Bearer tokens", async () => {
+    server = await startApp({ bearer: true });
+    for (const claim of [
+      { sid: 0 }, { kind: false }, { isAdmin: true }, { principalId: "user-a" }, { principalType: "global_admin" },
+      { globalAdminPrincipalId: "admin" }, { globalAdminId: "admin" }, { tenantId: "account-a" }, { id: "user-a" },
+      { user: {} }, { account: {} }, { sub: "user-a" },
+    ]) {
+      const token = jwt.sign({ userId: "user-a", accountId: "account-a", role: "admin", ...claim }, SESSION_SECRET, { algorithm: "HS256", expiresIn: "1h" });
+      const response = await fetch(`${server.baseUrl}/user`, { headers: { Authorization: `Bearer ${token}` } });
+      expect(response.status).toBe(401);
+      expect(response.headers.get("cache-control")).toBe("no-store");
+    }
+  });
+
   it("requires exact Origin and CSRF bound to the active cookie session for tenant mutations", async () => {
     server = await startApp();
     const access = issueAccessToken({ sid: "user-session", kind: "user" });
@@ -174,5 +189,45 @@ describe("cookie-first browser authentication", () => {
     const crossKind = jwt.sign({ isAdmin: true, userId: "user-a", accountId: "account-a" }, SESSION_SECRET, { algorithm: "HS256", expiresIn: "1h" });
     expect((await fetch(`${server.baseUrl}/admin`, { headers: { Authorization: `Bearer ${pure}` } })).status).toBe(200);
     expect((await fetch(`${server.baseUrl}/admin`, { headers: { Authorization: `Bearer ${crossKind}` } })).status).toBe(401);
+  });
+
+  it("rejects the complete global-admin invalid cookie and CSRF matrix without Bearer downgrade", async () => {
+    const pure = jwt.sign({ isAdmin: true }, SESSION_SECRET, { algorithm: "HS256", expiresIn: "1h" });
+    const wrongKind = issueAccessToken({ sid: "user-session", kind: "user" });
+    for (const sessions of [
+      { "admin-session": activeAdminSession({ revokedAt: new Date() }) },
+      { "admin-session": activeAdminSession({ expiresAt: new Date(0) }) },
+      {},
+    ]) {
+      server = await startApp({ sessions, bearer: true });
+      const access = issueAccessToken({ sid: "admin-session", kind: "admin" });
+      const response = await fetch(`${server.baseUrl}/admin`, { headers: { Cookie: cookie({ politicall_admin_access: access }), Authorization: `Bearer ${pure}` } });
+      expect(response.status).toBe(401);
+      expect(response.headers.get("cache-control")).toBe("no-store");
+      await server.close();
+      server = undefined;
+    }
+    server = await startApp({ bearer: true });
+    expect((await fetch(`${server.baseUrl}/admin`, { headers: { Cookie: cookie({ politicall_admin_access: wrongKind }) } })).status).toBe(401);
+    expect((await fetch(`${server.baseUrl}/admin`, { headers: { Cookie: "politicall_admin_access=broken", Authorization: `Bearer ${pure}` } })).status).toBe(401);
+    await server.close();
+    server = await startApp();
+    expect((await fetch(`${server.baseUrl}/admin`, { headers: { Authorization: `Bearer ${pure}` } })).status).toBe(401);
+    const access = issueAccessToken({ sid: "admin-session", kind: "admin" });
+    const csrf = issueCsrfToken({ sid: "admin-session", kind: "admin" });
+    const cookies = cookie({ politicall_admin_access: access, politicall_admin_csrf: csrf });
+    expect((await fetch(`${server.baseUrl}/admin`, { method: "POST", headers: { Cookie: cookies, Origin: "https://app.example.test" } })).status).toBe(403);
+    expect((await fetch(`${server.baseUrl}/admin`, { method: "POST", headers: { Cookie: cookies, "x-csrf-token": csrf } })).status).toBe(403);
+    expect((await fetch(`${server.baseUrl}/admin`, { method: "POST", headers: { Cookie: cookies, Origin: "https://bad.example.test", "x-csrf-token": csrf } })).status).toBe(403);
+  });
+
+  it("removes X-Admin-Token authority from profile password changes and routes", async () => {
+    const routes = await readFile(new URL("./routes.ts", import.meta.url), "utf8");
+    const serverSources = await Promise.all(["auth.ts", "routes.ts", "security/authentication.ts"].map((file) => readFile(new URL(`./${file}`, import.meta.url), "utf8")));
+    expect(routes).not.toContain("x-admin-token");
+    expect(routes).not.toContain("jwt.verify(adminToken");
+    expect(routes).toContain("Senha atual é obrigatória para alterar a senha");
+    expect(serverSources.join("\n").toLowerCase()).not.toContain("x-admin-token");
+    expect(routes).not.toContain("function authenticateAdminToken");
   });
 });

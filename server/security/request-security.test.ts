@@ -5,9 +5,13 @@ import {
   createRequestSecurity,
   installApiResponseGuards,
   parseTrustProxyHops,
+  REQUEST_SECURITY_LIMITS,
 } from "./request-security";
 
 type ServerHandle = { baseUrl: string; close: () => Promise<void> };
+
+function jsonBodyAtMost(limit: number): string { return JSON.stringify({ data: "a".repeat(limit - Buffer.byteLength('{"data":"}') - 2) }); }
+function jsonBodyOver(limit: number): string { return JSON.stringify({ data: "a".repeat(limit - Buffer.byteLength('{"data":"}') + 2) }); }
 
 async function start(app: express.Express): Promise<ServerHandle> {
   const server = await new Promise<any>((resolve) => {
@@ -65,6 +69,26 @@ describe("request security", () => {
     expect((await fetch(`${server.baseUrl}/api/admin/system-sync`, { method: "POST", headers: { "x-forwarded-for": "198.51.100.10" } })).status).toBe(429);
   });
 
+  it("binds import and sync limits to the actual Express route patterns including equivalent paths", async () => {
+    const app = express();
+    createRequestSecurity(app, { env: { NODE_ENV: "production", TRUST_PROXY: "1" }, globalLimiter: createFixedWindowRateLimiter({ limit: 100, windowMs: 60_000, maximumEntries: 50 }), importLimiter: createFixedWindowRateLimiter({ limit: 1, windowMs: 60_000, maximumEntries: 50 }), systemSyncLimiter: createFixedWindowRateLimiter({ limit: 1, windowMs: 60_000, maximumEntries: 50 }) });
+    const imports = ["/api/attendance/contacts/import-platform", "/api/attendance/contacts/import-list", "/api/attendance/contacts/import-file", "/api/attendance/history/import", "/api/campaigns/import/analyze", "/api/campaigns/import/process", "/api/petitions/:id/signatures/import"];
+    for (const path of imports) app.post(path, (_req, res) => res.status(204).end());
+    app.post("/api/admin/system-sync", (_req, res) => res.status(204).end());
+    app.post("/api/admin/system-sync/pull", (_req, res) => res.status(204).end());
+    app.post("/api/admin/system-sync/unrelated", (_req, res) => res.status(204).end());
+    server = await start(app);
+    for (const [index, path] of imports.entries()) {
+      const actual = path.replace(":id", `petition-${index}`);
+      const headers = { "x-forwarded-for": `198.51.100.${index + 20}` };
+      expect((await fetch(`${server.baseUrl}${actual}`, { method: "POST", headers })).status).toBe(204);
+      expect((await fetch(`${server.baseUrl}${actual.toUpperCase()}/`, { method: "POST", headers })).status).toBe(429);
+    }
+    expect((await fetch(`${server.baseUrl}/api/admin/system-sync`, { method: "POST", headers: { "x-forwarded-for": "198.51.100.80" } })).status).toBe(204);
+    expect((await fetch(`${server.baseUrl}/api/admin/system-sync/`, { method: "POST", headers: { "x-forwarded-for": "198.51.100.80" } })).status).toBe(429);
+    expect((await fetch(`${server.baseUrl}/api/admin/system-sync/unrelated`, { method: "POST", headers: { "x-forwarded-for": "198.51.100.81" } })).status).toBe(204);
+  });
+
   it("fails closed for new keys at hard limiter capacity without dropping existing state", async () => {
     const limiter = createFixedWindowRateLimiter({ limit: 3, windowMs: 60_000, maximumEntries: 1 });
     const app = express();
@@ -89,6 +113,28 @@ describe("request security", () => {
     expect((await fetch(`${server.baseUrl}/api/health`)).status).toBe(204);
     expect((await fetch(`${server.baseUrl}/api/ready`)).status).toBe(204);
     expect((await fetch(`${server.baseUrl}/api/ready`)).status).toBe(204);
+    expect((await fetch(`${server.baseUrl}/api/health/`)).status).toBe(204);
+    expect((await fetch(`${server.baseUrl}/api/ready/`)).status).toBe(204);
+  });
+
+  it("exposes exact production request contracts and enforces byte-accurate JSON and URL-encoded bounds", async () => {
+    expect(REQUEST_SECURITY_LIMITS).toEqual({ global: { limit: 1200, windowMs: 60_000, maximumEntries: 50_000 }, imports: { limit: 20, windowMs: 900_000, maximumEntries: 50_000 }, systemSync: { limit: 3, windowMs: 3_600_000, maximumEntries: 50_000 } });
+    const app = express();
+    createRequestSecurity(app);
+    app.post("/api/default", (req: any, res) => res.json({ bytes: req.rawBody.length }));
+    app.post("/api/url", (req, res) => res.status(204).end());
+    app.patch("/api/users/:id", (req: any, res) => res.json({ bytes: req.rawBody.length }));
+    app.post("/api/attendance/conversations/:id/send-media", (req: any, res) => res.json({ bytes: req.rawBody.length }));
+    app.post("/api/attendance/contacts/import-list", (req: any, res) => res.json({ bytes: req.rawBody.length }));
+    installApiResponseGuards(app);
+    server = await start(app);
+    for (const [url, limit] of [["/api/default", 1_048_576], ["/api/users/user-a", 15 * 1_048_576], ["/api/attendance/conversations/c/send-media", 15 * 1_048_576], ["/api/attendance/contacts/import-list", 10 * 1_048_576]] as const) {
+      const method = url.includes("users") ? "PATCH" : "POST";
+      expect((await fetch(`${server.baseUrl}${url}`, { method, headers: { "content-type": "application/json" }, body: jsonBodyAtMost(limit) })).status).toBe(200);
+      expect((await fetch(`${server.baseUrl}${url}`, { method, headers: { "content-type": "application/json" }, body: jsonBodyOver(limit) })).status).toBe(413);
+    }
+    expect((await fetch(`${server.baseUrl}/api/url`, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: `data=${"a".repeat(262_144 - 5)}` })).status).toBe(204);
+    expect((await fetch(`${server.baseUrl}/api/url`, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: `data=${"a".repeat(262_144)}` })).status).toBe(413);
   });
 
   it("uses default and route-scoped body limits while preserving raw webhook bytes", async () => {
@@ -122,5 +168,23 @@ describe("request security", () => {
     const error = await fetch(`${server.baseUrl}/api/error`);
     expect(error.status).toBe(500);
     expect(await error.json()).toEqual({ error: "Internal Server Error" });
+  });
+
+  it("uses the production bootstrap order so rejection responses retain hardening headers", async () => {
+    const app = express();
+    createRequestSecurity(app, { globalLimiter: createFixedWindowRateLimiter({ limit: 1, windowMs: 60_000, maximumEntries: 10 }) });
+    app.get("/api/limited", (_req, res) => res.status(204).end());
+    app.post("/api/body", (_req, res) => res.status(204).end());
+    installApiResponseGuards(app);
+    server = await start(app);
+    await fetch(`${server.baseUrl}/api/limited`);
+    const limited = await fetch(`${server.baseUrl}/api/limited`);
+    const malformed = await fetch(`${server.baseUrl}/api/body`, { method: "POST", headers: { "content-type": "application/json", "x-forwarded-for": "198.51.100.2" }, body: "{" });
+    const oversized = await fetch(`${server.baseUrl}/api/body`, { method: "POST", headers: { "content-type": "application/json", "x-forwarded-for": "198.51.100.3" }, body: jsonBodyOver(1_048_576) });
+    for (const response of [limited, malformed, oversized]) {
+      expect(response.headers.get("x-content-type-options")).toBe("nosniff");
+      expect(response.headers.get("content-security-policy")).toContain("default-src 'self'");
+    }
+    expect([malformed.status, oversized.status]).toEqual([400, 413]);
   });
 });
