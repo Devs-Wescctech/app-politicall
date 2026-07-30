@@ -174,6 +174,22 @@ describe("auth cookie primitives", () => {
     }
   });
 
+  it("rejects correctly signed access JWTs without exact 15-minute temporal claims", () => {
+    const secret = process.env.SESSION_SECRET!;
+    const now = Math.floor(Date.now() / 1000);
+    const options = { algorithm: "HS256" as const, issuer: AUTH_JWT_ISSUER, audience: AUTH_JWT_AUDIENCE };
+    const invalidTokens = [
+      jwt.sign({ sid: "session-1", kind: "user" }, secret, options),
+      jwt.sign({ sid: "session-1", kind: "user", exp: now + 900 }, secret, { ...options, noTimestamp: true }),
+      jwt.sign({ sid: "session-1", kind: "user", iat: now, exp: now + 901 }, secret, options),
+      jwt.sign({ sid: "session-1", kind: "user", iat: now, exp: now + 899 }, secret, options),
+    ];
+
+    for (const token of invalidTokens) {
+      expect(readAccessToken({ headers: { cookie: `${USER_ACCESS_COOKIE}=${token}` } }, "user")).toBeUndefined();
+    }
+  });
+
   it("parses a valid cookie header with cookie.parseCookie semantics", () => {
     const token = issueAccessToken({ sid: "session-user-2", kind: "user" });
     const request = { headers: { cookie: `theme=dark; ${USER_ACCESS_COOKIE}=${token}; malformed` } };

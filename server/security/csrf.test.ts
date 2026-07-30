@@ -1,5 +1,6 @@
+import jwt from "jsonwebtoken";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { issueAccessToken, USER_ACCESS_COOKIE } from "./auth-cookies";
+import { AUTH_JWT_AUDIENCE, AUTH_JWT_ISSUER, issueAccessToken, USER_ACCESS_COOKIE } from "./auth-cookies";
 import { ADMIN_CSRF_COOKIE, CSRF_HEADER_NAME, USER_CSRF_COOKIE, issueCsrfToken, requireCsrf } from "./csrf";
 
 function createResponse() {
@@ -77,6 +78,104 @@ describe("CSRF primitives", () => {
     }) as never, response as never, next);
 
     expect(next).toHaveBeenCalledOnce();
+  });
+
+  it("allows refresh CSRF through a trusted asynchronous session resolver after access expiry", async () => {
+    const now = Math.floor(Date.now() / 1000);
+    const expiredAccessToken = jwt.sign({ sid: "session-refresh-1", kind: "user", iat: now - 901, exp: now - 1 }, process.env.SESSION_SECRET!, {
+      algorithm: "HS256",
+      issuer: AUTH_JWT_ISSUER,
+      audience: AUTH_JWT_AUDIENCE,
+    });
+    const csrfToken = issueCsrfToken({ sid: "session-refresh-1", kind: "user" });
+    const resolveSession = vi.fn().mockResolvedValue({ sid: "session-refresh-1", kind: "user" });
+    const middleware = requireCsrf({
+      kind: "user",
+      allowedOrigins: ["https://app.politicall.com"],
+      resolveSession,
+    });
+    const response = createResponse();
+    const next = vi.fn();
+
+    await middleware(request({
+      method: "POST",
+      origin: "https://app.politicall.com",
+      cookie: `${USER_ACCESS_COOKIE}=${expiredAccessToken}; ${USER_CSRF_COOKIE}=${csrfToken}`,
+      csrfHeader: csrfToken,
+    }) as never, response as never, next);
+
+    expect(resolveSession).toHaveBeenCalledOnce();
+    expect(next).toHaveBeenCalledOnce();
+    expect(response.status).not.toHaveBeenCalled();
+  });
+
+  it("rejects refresh CSRF when no trusted resolver is supplied for an expired access token", () => {
+    const now = Math.floor(Date.now() / 1000);
+    const expiredAccessToken = jwt.sign({ sid: "session-refresh-2", kind: "user", iat: now - 901, exp: now - 1 }, process.env.SESSION_SECRET!, {
+      algorithm: "HS256",
+      issuer: AUTH_JWT_ISSUER,
+      audience: AUTH_JWT_AUDIENCE,
+    });
+    const csrfToken = issueCsrfToken({ sid: "session-refresh-2", kind: "user" });
+    const middleware = requireCsrf({ kind: "user", allowedOrigins: ["https://app.politicall.com"] });
+    const response = createResponse();
+    const next = vi.fn();
+
+    middleware(request({
+      method: "POST",
+      origin: "https://app.politicall.com",
+      cookie: `${USER_ACCESS_COOKIE}=${expiredAccessToken}; ${USER_CSRF_COOKIE}=${csrfToken}`,
+      csrfHeader: csrfToken,
+    }) as never, response as never, next);
+
+    expect(next).not.toHaveBeenCalled();
+    expect(response.status).toHaveBeenCalledWith(403);
+  });
+
+  it.each([
+    [undefined, "undefined resolver result"],
+    [{ sid: "wrong-session", kind: "user" }, "wrong session result"],
+    [{ sid: "session-refresh-3", kind: "admin" }, "wrong kind result"],
+  ])("rejects refresh CSRF with a %s", async (result) => {
+    const csrfToken = issueCsrfToken({ sid: "session-refresh-3", kind: "user" });
+    const middleware = requireCsrf({
+      kind: "user",
+      allowedOrigins: ["https://app.politicall.com"],
+      resolveSession: () => result,
+    });
+    const response = createResponse();
+    const next = vi.fn();
+
+    await middleware(request({
+      method: "POST",
+      origin: "https://app.politicall.com",
+      cookie: `${USER_CSRF_COOKIE}=${csrfToken}`,
+      csrfHeader: csrfToken,
+    }) as never, response as never, next);
+
+    expect(next).not.toHaveBeenCalled();
+    expect(response.status).toHaveBeenCalledWith(403);
+  });
+
+  it("rejects refresh CSRF when the trusted resolver fails", async () => {
+    const csrfToken = issueCsrfToken({ sid: "session-refresh-4", kind: "user" });
+    const middleware = requireCsrf({
+      kind: "user",
+      allowedOrigins: ["https://app.politicall.com"],
+      resolveSession: async () => { throw new Error("session lookup failed"); },
+    });
+    const response = createResponse();
+    const next = vi.fn();
+
+    await middleware(request({
+      method: "POST",
+      origin: "https://app.politicall.com",
+      cookie: `${USER_CSRF_COOKIE}=${csrfToken}`,
+      csrfHeader: csrfToken,
+    }) as never, response as never, next);
+
+    expect(next).not.toHaveBeenCalled();
+    expect(response.status).toHaveBeenCalledWith(403);
   });
 
   it("rejects tampering, a cookie/header mismatch, session binding mismatch, and kind mismatch", () => {
