@@ -6,6 +6,8 @@ export type AuthSessionScope =
   | { kind: "user"; accountId: string; userId: string }
   | { kind: "global_admin"; globalAdminPrincipalId: string };
 
+export type AuthSessionKind = "user" | "global_admin";
+
 export type AuthSessionRecord = {
   id: string;
   familyId: string;
@@ -30,11 +32,14 @@ export interface AuthSessionRepository {
   transaction<T>(work: (repository: AuthSessionRepository) => Promise<T>): Promise<T>;
   insert(session: AuthSessionRecord): Promise<AuthSessionRecord>;
   findByRefreshHash(scope: AuthSessionScope, refreshTokenHash: string): Promise<AuthSessionRecord | undefined>;
+  findByRefreshHashAndKind?(kind: AuthSessionKind, refreshTokenHash: string): Promise<AuthSessionRecord | undefined>;
+  findByIdAndKind?(kind: AuthSessionKind, sessionId: string): Promise<AuthSessionRecord | undefined>;
   linkRotation(scope: AuthSessionScope, sourceSessionId: string, replacementSessionId: string, familyId: string): Promise<void>;
   markUsed(scope: AuthSessionScope, sessionId: string, lastUsedAt: Date): Promise<number>;
   revokeById(scope: AuthSessionScope, sessionId: string, reason: string, revokedAt: Date): Promise<number>;
   revokeByFamily(scope: AuthSessionScope, familyId: string, reason: string, revokedAt: Date): Promise<number>;
   revokeByUser(accountId: string, userId: string, reason: string, revokedAt: Date): Promise<number>;
+  revokeByGlobalAdmin(globalAdminPrincipalId: string, reason: string, revokedAt: Date): Promise<number>;
 }
 
 export type CreateSessionInput = {
@@ -61,6 +66,16 @@ function assertScope(scope: AuthSessionScope): void {
     return;
   }
   if (!scope.globalAdminPrincipalId) throw new Error("Global-admin sessions require an explicit principal");
+}
+
+function scopeFromRecord(session: AuthSessionRecord): AuthSessionScope | undefined {
+  if (session.principalType === "user" && session.accountId && session.userId) {
+    return { kind: "user", accountId: session.accountId, userId: session.userId };
+  }
+  if (session.principalType === "global_admin" && session.globalAdminPrincipalId) {
+    return { kind: "global_admin", globalAdminPrincipalId: session.globalAdminPrincipalId };
+  }
+  return undefined;
 }
 
 function assertBounded(value: string | undefined, maximumBytes: number, name: string): void {
@@ -161,6 +176,61 @@ export function createAuthSessionStore(
       });
     },
 
+    async resolveRefreshSession(input: { kind: "user" | "admin"; refreshToken: string; includeInactive?: boolean }) {
+      const kind: AuthSessionKind = input.kind === "user" ? "user" : "global_admin";
+      const session = await repository.findByRefreshHashAndKind?.(kind, hashRefreshToken(input.refreshToken));
+      if (!session) return undefined;
+      if (!input.includeInactive && (session.revokedAt || session.expiresAt <= now())) return undefined;
+      return session;
+    },
+
+    async rotateRefreshSession(input: { kind: "user" | "admin"; refreshToken: string; nextRefreshToken: string }) {
+      const kind: AuthSessionKind = input.kind === "user" ? "user" : "global_admin";
+      const rotationNow = now();
+      assertBounded(input.refreshToken, MAX_REFRESH_TOKEN_BYTES, "refreshToken");
+      assertBounded(input.nextRefreshToken, MAX_REFRESH_TOKEN_BYTES, "refreshToken");
+      return repository.transaction(async (transaction) => {
+        const source = await transaction.findByRefreshHashAndKind?.(kind, hashRefreshToken(input.refreshToken));
+        if (!source) return { status: "missing" as const };
+        const scope = scopeFromRecord(source);
+        if (!scope) return { status: "missing" as const };
+        if (source.revokedAt) {
+          await transaction.revokeByFamily(scope, source.familyId, "reuse_detected", rotationNow);
+          return { status: "reuse_detected" as const };
+        }
+        if (source.expiresAt <= rotationNow) {
+          await transaction.revokeById(scope, source.id, "expired", rotationNow);
+          return { status: "expired" as const };
+        }
+        const replacement = buildSession({
+          scope,
+          refreshToken: input.nextRefreshToken,
+          expiresAt: source.expiresAt,
+        }, { familyId: source.familyId, rotatedFromSessionId: source.id, now: rotationNow });
+        await transaction.markUsed(scope, source.id, rotationNow);
+        if (await transaction.revokeById(scope, source.id, "rotated", rotationNow) === 0) {
+          await transaction.revokeByFamily(scope, source.familyId, "reuse_detected", rotationNow);
+          return { status: "reuse_detected" as const };
+        }
+        const session = await transaction.insert(replacement);
+        await transaction.linkRotation(scope, source.id, session.id, source.familyId);
+        return { status: "rotated" as const, session };
+      });
+    },
+
+    async revokeSessionById(input: { kind: "user" | "admin"; sessionId: string; reason: string; now?: Date }) {
+      const kind: AuthSessionKind = input.kind === "user" ? "user" : "global_admin";
+      const session = await repository.findByIdAndKind?.(kind, input.sessionId);
+      const scope = session && scopeFromRecord(session);
+      return scope ? repository.revokeById(scope, input.sessionId, input.reason, input.now ?? now()) : 0;
+    },
+
+    async resolveAccessSession(input: { kind: "user" | "admin"; sessionId: string }) {
+      const kind: AuthSessionKind = input.kind === "user" ? "user" : "global_admin";
+      const session = await repository.findByIdAndKind?.(kind, input.sessionId);
+      return !session || session.revokedAt || session.expiresAt <= now() ? undefined : session;
+    },
+
     async revokeSession(input: { scope: AuthSessionScope; sessionId: string; reason: string; now?: Date }) {
       assertScope(input.scope);
       return repository.revokeById(input.scope, input.sessionId, input.reason, input.now ?? now());
@@ -174,6 +244,11 @@ export function createAuthSessionStore(
     async revokeUserSessions(input: { accountId: string; userId: string; reason: string; now?: Date }) {
       if (!input.accountId || !input.userId) throw new Error("Tenant session revocation requires accountId and userId");
       return repository.revokeByUser(input.accountId, input.userId, input.reason, input.now ?? now());
+    },
+
+    async revokeGlobalAdminSessions(input: { globalAdminPrincipalId: string; reason: string; now?: Date }) {
+      if (!input.globalAdminPrincipalId) throw new Error("Global-admin session revocation requires an explicit principal");
+      return repository.revokeByGlobalAdmin(input.globalAdminPrincipalId, input.reason, input.now ?? now());
     },
   };
 }
@@ -195,6 +270,12 @@ function scopeFilter(scope: AuthSessionScope) {
   );
 }
 
+function kindFilter(kind: AuthSessionKind) {
+  return kind === "user"
+    ? eq(authSessions.principalType, "user")
+    : eq(authSessions.principalType, "global_admin");
+}
+
 export function createDrizzleAuthSessionRepository(database: any): AuthSessionRepository {
   const repository: AuthSessionRepository = {
     async transaction<T>(work: (transaction: AuthSessionRepository) => Promise<T>): Promise<T> {
@@ -210,6 +291,22 @@ export function createDrizzleAuthSessionRepository(database: any): AuthSessionRe
       const [session] = await database.select().from(authSessions).where(and(
         scopeFilter(scope),
         eq(authSessions.refreshTokenHash, refreshTokenHash),
+      ));
+      return session;
+    },
+
+    async findByRefreshHashAndKind(kind, refreshTokenHash) {
+      const [session] = await database.select().from(authSessions).where(and(
+        kindFilter(kind),
+        eq(authSessions.refreshTokenHash, refreshTokenHash),
+      ));
+      return session;
+    },
+
+    async findByIdAndKind(kind, sessionId) {
+      const [session] = await database.select().from(authSessions).where(and(
+        kindFilter(kind),
+        eq(authSessions.id, sessionId),
       ));
       return session;
     },
@@ -275,6 +372,15 @@ export function createDrizzleAuthSessionRepository(database: any): AuthSessionRe
       )).returning({ id: authSessions.id });
       return rows.length;
     },
+
+    async revokeByGlobalAdmin(globalAdminPrincipalId, reason, revokedAt) {
+      const rows = await database.update(authSessions).set({ revokedAt, revocationReason: reason }).where(and(
+        eq(authSessions.principalType, "global_admin"),
+        eq(authSessions.globalAdminPrincipalId, globalAdminPrincipalId),
+        isNull(authSessions.revokedAt),
+      )).returning({ id: authSessions.id });
+      return rows.length;
+    },
   };
   return repository;
 }
@@ -301,6 +407,22 @@ export async function rotateSession(input: CreateSessionInput & { nextRefreshTok
   return (await getRuntimeStore()).rotateSession(input);
 }
 
+export async function resolveRefreshSession(input: { kind: "user" | "admin"; refreshToken: string; includeInactive?: boolean }) {
+  return (await getRuntimeStore()).resolveRefreshSession(input);
+}
+
+export async function rotateRefreshSession(input: { kind: "user" | "admin"; refreshToken: string; nextRefreshToken: string }) {
+  return (await getRuntimeStore()).rotateRefreshSession(input);
+}
+
+export async function revokeSessionById(input: { kind: "user" | "admin"; sessionId: string; reason: string; now?: Date }) {
+  return (await getRuntimeStore()).revokeSessionById(input);
+}
+
+export async function resolveAccessSession(input: { kind: "user" | "admin"; sessionId: string }) {
+  return (await getRuntimeStore()).resolveAccessSession(input);
+}
+
 export async function revokeSession(input: { scope: AuthSessionScope; sessionId: string; reason: string; now?: Date }) {
   return (await getRuntimeStore()).revokeSession(input);
 }
@@ -311,4 +433,8 @@ export async function revokeSessionFamily(input: { scope: AuthSessionScope; fami
 
 export async function revokeUserSessions(input: { accountId: string; userId: string; reason: string; now?: Date }) {
   return (await getRuntimeStore()).revokeUserSessions(input);
+}
+
+export async function revokeGlobalAdminSessions(input: { globalAdminPrincipalId: string; reason: string; now?: Date }) {
+  return (await getRuntimeStore()).revokeGlobalAdminSessions(input);
 }

@@ -115,7 +115,11 @@ import { CAMPAIGN_EXPORT_FORMATS } from "@shared/schema";
 import fs from "fs";
 import path from "path";
 import { createRequire } from "module";
-import { getAdminPasswordHash, updateAdminPasswordHash } from "./admin-credentials";
+import { getAdminPasswordHash, isReservedAdminSettingKey, updateAdminPasswordHash } from "./admin-credentials";
+import { clearSessionCookies } from "./security/auth-cookies";
+import { GLOBAL_ADMIN_PRINCIPAL_ID } from "./services/auth-session-service";
+import { revokeGlobalAdminSessions, revokeUserSessions } from "./services/auth-session-store";
+import { createRuntimeAuthSessionService, getAuthAllowedOrigins, registerAuthSessionRoutes, sendAuthSessionResponse } from "./routes/auth-session-routes";
 const require = createRequire(import.meta.url);
 
 // Sensitive integration fields that must never be returned in plaintext.
@@ -800,6 +804,10 @@ async function seedTestCampaign() {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  const authSessionService = createRuntimeAuthSessionService();
+  const authOrigins = getAuthAllowedOrigins();
+  const hasTrustedAuthOrigin = (req: Request) => typeof req.headers.origin === "string" && authOrigins.includes(req.headers.origin);
+  registerAuthSessionRoutes(app);
   // Seed admin user on startup
   await seedAdminUser();
   
@@ -820,6 +828,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Register
   app.post("/api/auth/register", async (req, res) => {
     try {
+      res.set("Cache-Control", "no-store");
+      if (!hasTrustedAuthOrigin(req)) return res.status(403).json({ error: "Authentication failed" });
       const validatedData = insertUserSchema.parse(req.body);
       
       // Check if user already exists
@@ -857,24 +867,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         slug: uniqueSlug, // USA SLUG ÚNICO: garante que não há conflitos
       } as any);
 
-      // Generate JWT token with accountId
-      const token = jwt.sign({ 
-        userId: user.id, 
-        accountId: user.accountId,
-        role: user.role,
-        isAdmin: user.role === "admin"
-      }, JWT_SECRET, { expiresIn: "30d" });
-
-      res.json({
-        token,
-        user: {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          role: user.role,
-          permissions: user.permissions,
-        },
-      });
+      sendAuthSessionResponse(res, await authSessionService.issueUserSession(user as any, {
+        deviceMetadata: req.get("user-agent"),
+        ipMetadata: req.ip || req.socket.remoteAddress,
+      }));
     } catch (error: any) {
       res.status(400).json({ error: error.message || "Erro ao criar conta" });
     }
@@ -883,41 +879,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Login
   app.post("/api/auth/login", async (req, res) => {
     try {
+      res.set("Cache-Control", "no-store");
+      if (!hasTrustedAuthOrigin(req)) return res.status(403).json({ error: "Authentication failed" });
       const validatedData = loginSchema.parse(req.body);
       const rateLimitKey = authAttemptKey(req, "user-login", validatedData.email);
       if (!enforceAuthAttemptLimit(req, res, rateLimitKey, USER_LOGIN_ATTEMPT_LIMIT)) {
         return;
       }
       
-      const user = await storage.getUserByEmail(validatedData.email);
-      if (!user) {
-        return res.status(401).json({ error: "Email ou senha incorretos" });
-      }
-
-      const validPassword = await bcrypt.compare(validatedData.password, user.password);
-      if (!validPassword) {
-        return res.status(401).json({ error: "Email ou senha incorretos" });
-      }
+      const issued = await authSessionService.loginUser({ ...validatedData, deviceMetadata: req.get("user-agent"), ipMetadata: req.ip || req.socket.remoteAddress });
+      if (!issued) return res.status(401).json({ error: "Email ou senha incorretos" });
 
       authAttemptRateLimitStore.delete(rateLimitKey);
 
-      const token = jwt.sign({ 
-        userId: user.id, 
-        accountId: user.accountId,
-        role: user.role,
-        isAdmin: user.role === "admin"
-      }, JWT_SECRET, { expiresIn: "30d" });
-
-      res.json({
-        token,
-        user: {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          role: user.role,
-          permissions: user.permissions,
-        },
-      });
+      sendAuthSessionResponse(res, issued);
     } catch (error: any) {
       res.status(400).json({ error: error.message || "Erro ao fazer login" });
     }
@@ -1075,6 +1050,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(404).json({ error: "Usuário não encontrado" });
         }
         const { password, ...sanitizedUser } = updated;
+        await revokeUserSessions({ accountId: updated.accountId, userId: updated.id, reason: "password_change" });
+        clearSessionCookies(res, "user");
         return res.json(sanitizedUser);
       }
 
@@ -1454,6 +1431,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Admin login endpoint (PUBLIC)
   app.post("/api/admin/login", async (req, res) => {
     try {
+      res.set("Cache-Control", "no-store");
+      if (!hasTrustedAuthOrigin(req)) return res.status(403).json({ error: "Authentication failed" });
       const adminLoginSchema = z.object({
         password: z.string().min(1, "Senha é obrigatória"),
       });
@@ -1464,20 +1443,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return;
       }
       
-      // Get stored password hash and verify
-      const passwordHash = await getAdminPasswordHash();
-      const isValid = await bcrypt.compare(validatedData.password, passwordHash);
-      
-      if (!isValid) {
+      const issued = await authSessionService.loginAdmin({ ...validatedData, deviceMetadata: req.get("user-agent"), ipMetadata: req.ip || req.socket.remoteAddress });
+      if (!issued) {
         return res.status(401).json({ error: "Senha incorreta" });
       }
 
       authAttemptRateLimitStore.delete(rateLimitKey);
 
-      // Generate JWT token with isAdmin flag
-      const token = jwt.sign({ isAdmin: true }, JWT_SECRET, { expiresIn: '30d' });
-
-      res.json({ token });
+      sendAuthSessionResponse(res, issued);
     } catch (error: any) {
       res.status(400).json({ error: error.message || "Erro ao fazer login admin" });
     }
@@ -1494,6 +1467,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Update admin password
       await updateAdminPasswordHash(validatedData.newPassword);
+      await revokeGlobalAdminSessions({ globalAdminPrincipalId: GLOBAL_ADMIN_PRINCIPAL_ID, reason: "password_change" });
+      clearSessionCookies(res, "admin");
       
       res.json({ success: true, message: "Senha alterada com sucesso" });
     } catch (error: any) {
@@ -1547,6 +1522,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/admin/settings/:key", authenticateAdminToken, async (req: AuthRequest, res) => {
     try {
       const { key } = req.params;
+      if (isReservedAdminSettingKey(key)) return res.status(404).json({ error: "Configuração não encontrada" });
       const [setting] = await db.select()
         .from(systemSettings)
         .where(eq(systemSettings.key, key));
@@ -1566,6 +1542,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/admin/settings/:key", authenticateAdminToken, async (req: AuthRequest, res) => {
     try {
       const { key } = req.params;
+      if (isReservedAdminSettingKey(key)) return res.status(404).json({ error: "Configuração não encontrada" });
       const { value, description } = req.body;
       
       if (value === undefined || value === null) {
@@ -2050,20 +2027,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Só é possível entrar em contas de administradores de gabinete" });
       }
       
-      // Generate JWT token for the target user
-      const token = jwt.sign({ 
-        userId: user.id, 
-        accountId: user.accountId,
-        role: user.role,
-        isAdmin: user.role === "admin"
-      }, JWT_SECRET, { expiresIn: "30d" });
-      
-      const { password, ...sanitizedUser } = user;
-      
-      res.json({
-        token,
-        user: sanitizedUser,
-      });
+      sendAuthSessionResponse(res, await authSessionService.issueUserSession(user as any, {
+        deviceMetadata: req.get("user-agent"),
+        ipMetadata: req.ip || req.socket.remoteAddress,
+      }));
     } catch (error: any) {
       res.status(400).json({ error: error.message });
     }
@@ -2465,6 +2432,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const updated = await storage.updateUser(req.params.id, req.accountId!, dataToUpdate);
+      if (validatedData.password) {
+        await revokeUserSessions({ accountId: currentUser.accountId, userId: currentUser.id, reason: "password_change" });
+        if (currentUser.id === req.userId) clearSessionCookies(res, "user");
+      }
       // CRITICAL: Never send password hash to client
       const { password, ...sanitizedUser } = updated;
       res.json(sanitizedUser);

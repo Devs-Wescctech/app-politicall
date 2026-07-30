@@ -118,12 +118,20 @@ export function readAccessToken(request: CookieRequest, kind: SessionCookieKind)
 
 export function setSessionCookies(
   response: CookieResponse,
-  input: { kind: SessionCookieKind; accessToken: string; refreshToken: string; csrfToken: string },
+  input: { kind: SessionCookieKind; accessToken: string; refreshToken: string; csrfToken: string; refreshMaxAgeMs?: number },
 ): void {
   const names = getCookieNames(input.kind);
+  const refreshMaxAge = input.refreshMaxAgeMs ?? names.refreshMaxAge;
+  if (refreshMaxAge <= 0 || refreshMaxAge > names.refreshMaxAge) throw new Error("Refresh cookie lifetime is invalid");
   response.cookie(names.access, input.accessToken, securityOptions("/", true, ACCESS_TOKEN_MAX_AGE_MS));
-  response.cookie(names.refresh, input.refreshToken, securityOptions(names.refreshPath, true, names.refreshMaxAge));
-  response.cookie(names.csrf, input.csrfToken, securityOptions("/", false, names.refreshMaxAge));
+  response.cookie(names.refresh, input.refreshToken, securityOptions(names.refreshPath, true, refreshMaxAge));
+  response.cookie(names.csrf, input.csrfToken, securityOptions("/", false, refreshMaxAge));
+}
+
+export function setCsrfCookie(response: Pick<Response, "cookie">, input: { kind: SessionCookieKind; csrfToken: string; refreshMaxAgeMs: number }): void {
+  const names = getCookieNames(input.kind);
+  if (input.refreshMaxAgeMs <= 0 || input.refreshMaxAgeMs > names.refreshMaxAge) throw new Error("CSRF cookie lifetime is invalid");
+  response.cookie(names.csrf, input.csrfToken, securityOptions("/", false, input.refreshMaxAgeMs));
 }
 
 export function clearSessionCookies(response: CookieResponse, kind: SessionCookieKind): void {
