@@ -32,8 +32,11 @@ Completed authentication tasks:
 - Authentication Task 6: complete (commits `7f23bd2..f63bd6c`; fifth independent review approved with no Critical/Important/Minor findings; admin browser auth is cookie-only and generation-safe, impersonation preserves the admin session while issuing an isolated tenant session, privileged pages use asynchronous guards without protected-content flashes, profile password changes require both authoritative admin and tenant sessions, and Locaweb credentials remain server-side; full suite passed with 591 tests and 2 environment-gated skips).
 - Authentication Task 7: complete (commits `f63bd6c..6a7ddf8`; third independent review approved with no Critical/Important/Minor findings after two remediation waves; strict v2 keyring encryption, bounded legacy reads, exact secret inventory, transactional dry-run/apply rotation with CAS protection, encrypted/masked webhook secrets, sanitized Google errors, and executable route coverage were validated; PostgreSQL 18 isolated smoke proved dry-run, apply, idempotency, rollback and CAS failure; full suite passed with 610 tests and 2 environment-gated skips).
 
+Completed attendance realtime tasks:
+- Attendance Task 1: complete (commits `269d505..5263331`; independent review approved with no Critical/Important/Minor findings; deterministic immutable reconciliation now converges repeated local/server events by ID or non-empty external ID while preserving metadata, canonical server identity, ordering and the existing React Query invalidations; 12 focused/relevant tests and typecheck passed).
+
 Current task:
-- Attendance Realtime Resilience Task 1 is next: centralize deterministic message reconciliation before changing transport behavior.
+- Attendance Realtime Resilience Task 2 is next: implement the pure connection state machine and bounded reconnect policy.
 
 Final-review minor triage:
 - Registration still persists account, user, and initial session separately. Make this workflow transactional or compensating before release so account/session failures cannot leave orphaned or unretryable partial registration state.
