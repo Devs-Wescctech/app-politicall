@@ -22,7 +22,6 @@ import { installGracefulShutdown, type GracefulShutdownHandle } from "./server-l
 import { closeAttendanceRealtime } from "./attendance-events";
 import { createApiRequestLogger } from "./http-logging";
 import { createListenOptions } from "./listen-options";
-import { securityHeaders } from "./security-headers";
 import { apiErrorHandler, createRequestSecurity, installApiNotFound } from "./security/request-security";
 import { escapeHtml } from "./html-escape";
 import { politicalParties, accounts } from "@shared/schema";
@@ -89,7 +88,6 @@ declare module 'http' {
     rawBody: unknown
   }
 }
-app.use(securityHeaders);
 
 // Serve uploaded assets
 app.use('/assets', express.static('attached_assets'));

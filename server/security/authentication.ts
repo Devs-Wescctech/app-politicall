@@ -64,9 +64,10 @@ function legacyUserClaims(token: string): { userId: string; accountId: string } 
     const claims = jwt.verify(token, secret, { algorithms: ["HS256"] });
     if (typeof claims !== "object" || claims === null || Array.isArray(claims)) return undefined;
     const payload = claims as JwtPayload;
-    if (typeof payload.exp !== "number" || typeof payload.sid === "string" || typeof payload.kind === "string") return undefined;
+    const forbiddenClaims = ["sid", "kind", "isAdmin", "principalId", "principalType", "globalAdminPrincipalId", "globalAdminId", "tenantId", "id", "user", "account", "sub"];
+    if (typeof payload.exp !== "number" || forbiddenClaims.some((claim) => Object.hasOwn(payload, claim))) return undefined;
     if (typeof payload.userId !== "string" || !payload.userId || typeof payload.accountId !== "string" || !payload.accountId) return undefined;
-    if (payload.globalAdminPrincipalId !== undefined || payload.globalAdminId !== undefined || payload.principalType === "global_admin") return undefined;
+    if (payload.role !== undefined && typeof payload.role !== "string") return undefined;
     return { userId: payload.userId, accountId: payload.accountId };
   } catch {
     return undefined;

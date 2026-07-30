@@ -7,7 +7,7 @@ export function securityHeaders(_req: Request, res: Response, next: NextFunction
   res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
   res.setHeader("Content-Security-Policy", [
     "default-src 'self'",
-    "script-src 'self'",
+    `script-src 'self'${process.env.NODE_ENV === "production" ? "" : " 'unsafe-inline'"}`,
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com data:",
     "img-src 'self' https: data: blob:",

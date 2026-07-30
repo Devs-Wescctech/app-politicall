@@ -172,7 +172,7 @@ describe("request security", () => {
 
   it("uses the production bootstrap order so rejection responses retain hardening headers", async () => {
     const app = express();
-    createRequestSecurity(app, { globalLimiter: createFixedWindowRateLimiter({ limit: 1, windowMs: 60_000, maximumEntries: 10 }) });
+    createRequestSecurity(app, { env: { NODE_ENV: "production", TRUST_PROXY: "1" }, globalLimiter: createFixedWindowRateLimiter({ limit: 1, windowMs: 60_000, maximumEntries: 10 }) });
     app.get("/api/limited", (_req, res) => res.status(204).end());
     app.post("/api/body", (_req, res) => res.status(204).end());
     installApiResponseGuards(app);

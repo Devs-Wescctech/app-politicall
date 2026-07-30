@@ -13,7 +13,6 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import bcrypt from "bcrypt";
-import jwt from "jsonwebtoken";
 import multer from "multer";
 import { google } from "googleapis";
 import crypto from "crypto";
@@ -325,11 +324,6 @@ async function syncWhatsappIntegrationConnection(accountId: string, integration:
     ...config,
   } as any);
 }
-
-if (!process.env.SESSION_SECRET) {
-  throw new Error("SESSION_SECRET must be set in environment variables");
-}
-const JWT_SECRET = process.env.SESSION_SECRET;
 
 // Cache para evitar processamento duplicado de mensagens (Facebook/Instagram)
 const processedMessagesCache = new Set<string>();
@@ -904,29 +898,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         city: z.string().optional(),
         currentPassword: z.string().optional(),
         newPassword: z.string().min(6, "Nova senha deve ter no mínimo 6 caracteres").optional(),
-        skipPasswordCheck: z.boolean().optional(),
       });
 
       const validatedData = profileUpdateSchema.parse(req.body);
       
-      // Check if admin master is impersonating (verify admin token in header)
-      let isAdminImpersonating = false;
-      const adminToken = req.headers['x-admin-token'] as string;
-      if (adminToken && validatedData.skipPasswordCheck) {
-        try {
-          const decoded = jwt.verify(adminToken, JWT_SECRET) as { isAdmin?: boolean };
-          if (decoded.isAdmin) {
-            isAdminImpersonating = true;
-          }
-        } catch (e) {
-          // Invalid admin token, ignore
-        }
-      }
-      
-      // If changing password, validate current password (unless admin master is impersonating)
+      // Password changes require the current password until Task 6 introduces bounded impersonation.
       if (validatedData.newPassword) {
         res.set("Cache-Control", "no-store");
-        if (!isAdminImpersonating && !validatedData.currentPassword) {
+        if (!validatedData.currentPassword) {
           return res.status(400).json({ error: "Senha atual é obrigatória para alterar a senha" });
         }
 
@@ -935,17 +914,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(404).json({ error: "Usuário não encontrado" });
         }
 
-        // Only validate current password if not admin impersonating
-        if (!isAdminImpersonating) {
-          const isPasswordValid = await bcrypt.compare(validatedData.currentPassword!, user.password);
-          if (!isPasswordValid) {
-            return res.status(400).json({ error: "Senha atual incorreta" });
-          }
+        const isPasswordValid = await bcrypt.compare(validatedData.currentPassword, user.password);
+        if (!isPasswordValid) {
+          return res.status(400).json({ error: "Senha atual incorreta" });
         }
 
         // Hash new password
         const hashedPassword = await bcrypt.hash(validatedData.newPassword, 10);
-        const { currentPassword, newPassword, skipPasswordCheck, ...profileData } = validatedData;
+        const { currentPassword, newPassword, ...profileData } = validatedData;
         const updated = await authPasswordMutations.changeUserPassword({
           accountId: req.accountId!,
           userId: req.userId!,
@@ -958,7 +934,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Update without password change
-      const { currentPassword, newPassword, skipPasswordCheck, ...profileData } = validatedData;
+      const { currentPassword, newPassword, ...profileData } = validatedData;
       const updated = await storage.updateUser(req.userId!, req.accountId!, profileData);
       const { password, ...sanitizedUser } = updated;
       res.json(sanitizedUser);

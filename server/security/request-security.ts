@@ -1,12 +1,11 @@
 import express, { type ErrorRequestHandler, type Express, type NextFunction, type Request, type RequestHandler, type Response } from "express";
+import { securityHeaders } from "../security-headers";
 
-const GLOBAL_WINDOW_MS = 60_000;
-const GLOBAL_LIMIT = 1_200;
-const GLOBAL_MAXIMUM_ENTRIES = 50_000;
-const IMPORT_WINDOW_MS = 15 * 60_000;
-const IMPORT_LIMIT = 20;
-const SYNC_WINDOW_MS = 60 * 60_000;
-const SYNC_LIMIT = 3;
+export const REQUEST_SECURITY_LIMITS = {
+  global: { limit: 1_200, windowMs: 60_000, maximumEntries: 50_000 },
+  imports: { limit: 20, windowMs: 15 * 60_000, maximumEntries: 50_000 },
+  systemSync: { limit: 3, windowMs: 60 * 60_000, maximumEntries: 50_000 },
+} as const;
 
 type Environment = { NODE_ENV?: string; TRUST_PROXY?: string };
 type RateLimitOptions = { limit: number; windowMs: number; maximumEntries: number; now?: () => number };
@@ -72,19 +71,9 @@ function rawBodyVerifier(request: Request, _response: Response, buffer: Buffer):
   request.rawBody = buffer;
 }
 
-function isImportRoute(request: Request): boolean {
-  const path = request.originalUrl.split("?", 1)[0];
-  return request.method === "POST" && [
-    "/api/attendance/contacts/import-list",
-    "/api/attendance/contacts/import-file",
-    "/api/attendance/history/import",
-    "/api/campaigns/import/analyze",
-    "/api/campaigns/import/process",
-  ].includes(path);
-}
-
 function isProbeRoute(request: Request): boolean {
-  return request.path === "/health" || request.path === "/ready";
+  const path = request.path.replace(/\/+$/, "").toLowerCase() || "/";
+  return path === "/health" || path === "/ready";
 }
 
 export function createRequestSecurity(app: Express, options: {
@@ -94,12 +83,21 @@ export function createRequestSecurity(app: Express, options: {
   systemSyncLimiter?: FixedWindowLimiter;
 } = {}): void {
   app.set("trust proxy", parseTrustProxyHops(options.env));
-  const globalLimiter = options.globalLimiter ?? createFixedWindowRateLimiter({ limit: GLOBAL_LIMIT, windowMs: GLOBAL_WINDOW_MS, maximumEntries: GLOBAL_MAXIMUM_ENTRIES });
-  const importLimiter = options.importLimiter ?? createFixedWindowRateLimiter({ limit: IMPORT_LIMIT, windowMs: IMPORT_WINDOW_MS, maximumEntries: GLOBAL_MAXIMUM_ENTRIES });
-  const systemSyncLimiter = options.systemSyncLimiter ?? createFixedWindowRateLimiter({ limit: SYNC_LIMIT, windowMs: SYNC_WINDOW_MS, maximumEntries: GLOBAL_MAXIMUM_ENTRIES });
+  app.use(securityHeaders);
+  const globalLimiter = options.globalLimiter ?? createFixedWindowRateLimiter(REQUEST_SECURITY_LIMITS.global);
+  const importLimiter = options.importLimiter ?? createFixedWindowRateLimiter(REQUEST_SECURITY_LIMITS.imports);
+  const systemSyncLimiter = options.systemSyncLimiter ?? createFixedWindowRateLimiter(REQUEST_SECURITY_LIMITS.systemSync);
   app.use("/api", (request, response, next) => isProbeRoute(request) ? next() : globalLimiter(request, response, next));
-  app.use("/api", (request, response, next) => isImportRoute(request) ? importLimiter(request, response, next) : next());
-  app.use("/api/admin/system-sync", (request, response, next) => ["POST", "PUT", "PATCH", "DELETE"].includes(request.method) ? systemSyncLimiter(request, response, next) : next());
+  for (const path of [
+    "/api/attendance/contacts/import-platform",
+    "/api/attendance/contacts/import-list",
+    "/api/attendance/contacts/import-file",
+    "/api/attendance/history/import",
+    "/api/campaigns/import/analyze",
+    "/api/campaigns/import/process",
+    "/api/petitions/:id/signatures/import",
+  ]) app.post(path, importLimiter);
+  for (const path of ["/api/admin/system-sync", "/api/admin/system-sync/pull"]) app.post(path, systemSyncLimiter);
 
   app.patch("/api/users/:id", express.json({ limit: "15mb", verify: rawBodyVerifier }));
   app.post("/api/attendance/conversations/:id/send-media", express.json({ limit: "15mb", verify: rawBodyVerifier }));
