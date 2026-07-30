@@ -3,28 +3,46 @@ import {
   attendanceConnectionReducer,
   initialAttendanceConnectionState,
   nextReconnectDelay,
+  type AttendanceConnectionState,
 } from "./attendance-connection-state";
 
+type SocketEventType = "socket.open" | "socket.close" | "socket.healthy" | "heartbeat.failed";
+
+function startSocketAttempt(state: AttendanceConnectionState): AttendanceConnectionState {
+  return attendanceConnectionReducer(state, {
+    type: "socket.connecting",
+    generation: state.connectionGeneration + 1,
+  });
+}
+
+function socketEvent(type: SocketEventType, generation: number) {
+  return { type, generation } as const;
+}
+
 describe("attendanceConnectionReducer", () => {
-  it("starts enabled and online in reconnecting mode while a socket is pending", () => {
+  it("starts enabled and online in reconnecting mode before the first socket attempt", () => {
     expect(initialAttendanceConnectionState).toEqual({
       mode: "reconnecting",
       online: true,
       visible: true,
       reconnectAttempt: 0,
       socketOpen: false,
+      socketPending: false,
+      connectionGeneration: 0,
       stabilityConfirmations: 0,
     });
   });
 
   it("keeps HTTP fallback active after a socket opens until it receives two healthy confirmations", () => {
-    const opened = attendanceConnectionReducer(initialAttendanceConnectionState, { type: "socket.open" });
-    const onceHealthy = attendanceConnectionReducer(opened, { type: "socket.healthy" });
-    const recovered = attendanceConnectionReducer(onceHealthy, { type: "socket.healthy" });
+    const connecting = startSocketAttempt(initialAttendanceConnectionState);
+    const opened = attendanceConnectionReducer(connecting, socketEvent("socket.open", connecting.connectionGeneration));
+    const onceHealthy = attendanceConnectionReducer(opened, socketEvent("socket.healthy", opened.connectionGeneration));
+    const recovered = attendanceConnectionReducer(onceHealthy, socketEvent("socket.healthy", onceHealthy.connectionGeneration));
 
     expect(opened).toMatchObject({
       mode: "fallback",
       socketOpen: true,
+      socketPending: false,
       reconnectAttempt: 0,
       stabilityConfirmations: 0,
     });
@@ -36,40 +54,71 @@ describe("attendanceConnectionReducer", () => {
     });
   });
 
-  it("falls back and increments only once when a live socket closes", () => {
-    const opened = attendanceConnectionReducer(initialAttendanceConnectionState, { type: "socket.open" });
-    const closed = attendanceConnectionReducer(opened, { type: "socket.close" });
-    const staleClose = attendanceConnectionReducer(closed, { type: "socket.close" });
+  it("activates fallback and backoff when the initial socket closes before open", () => {
+    const connecting = startSocketAttempt(initialAttendanceConnectionState);
+    const closed = attendanceConnectionReducer(connecting, socketEvent("socket.close", connecting.connectionGeneration));
 
     expect(closed).toMatchObject({
       mode: "fallback",
       reconnectAttempt: 1,
       socketOpen: false,
+      socketPending: false,
+      stabilityConfirmations: 0,
+    });
+    expect(nextReconnectDelay(closed.reconnectAttempt, 0.5)).toBe(2_000);
+  });
+
+  it("advances bounded backoff across repeated pre-open failures", () => {
+    const firstAttempt = startSocketAttempt(initialAttendanceConnectionState);
+    const firstFailure = attendanceConnectionReducer(firstAttempt, socketEvent("socket.close", firstAttempt.connectionGeneration));
+    const secondAttempt = startSocketAttempt(firstFailure);
+    const secondFailure = attendanceConnectionReducer(secondAttempt, socketEvent("socket.close", secondAttempt.connectionGeneration));
+
+    expect(secondFailure.reconnectAttempt).toBe(2);
+    expect(nextReconnectDelay(secondFailure.reconnectAttempt, 1)).toBe(4_800);
+    expect(nextReconnectDelay(100, 0.5)).toBe(30_000);
+  });
+
+  it("falls back and increments only once when a live socket closes", () => {
+    const connecting = startSocketAttempt(initialAttendanceConnectionState);
+    const opened = attendanceConnectionReducer(connecting, socketEvent("socket.open", connecting.connectionGeneration));
+    const closed = attendanceConnectionReducer(opened, socketEvent("socket.close", opened.connectionGeneration));
+    const staleClose = attendanceConnectionReducer(closed, socketEvent("socket.close", closed.connectionGeneration));
+
+    expect(closed).toMatchObject({
+      mode: "fallback",
+      reconnectAttempt: 1,
+      socketOpen: false,
+      socketPending: false,
       stabilityConfirmations: 0,
     });
     expect(staleClose).toEqual(closed);
   });
 
   it("treats a heartbeat failure as a failed live connection", () => {
-    const opened = attendanceConnectionReducer(initialAttendanceConnectionState, { type: "socket.open" });
-    const failed = attendanceConnectionReducer(opened, { type: "heartbeat.failed" });
+    const connecting = startSocketAttempt(initialAttendanceConnectionState);
+    const opened = attendanceConnectionReducer(connecting, socketEvent("socket.open", connecting.connectionGeneration));
+    const failed = attendanceConnectionReducer(opened, socketEvent("heartbeat.failed", opened.connectionGeneration));
 
     expect(failed).toMatchObject({
       mode: "fallback",
       reconnectAttempt: 1,
       socketOpen: false,
+      socketPending: false,
       stabilityConfirmations: 0,
     });
   });
 
   it("resets the stability rule when a socket fails between confirmations", () => {
-    const opened = attendanceConnectionReducer(initialAttendanceConnectionState, { type: "socket.open" });
-    const onceHealthy = attendanceConnectionReducer(opened, { type: "socket.healthy" });
-    const failed = attendanceConnectionReducer(onceHealthy, { type: "heartbeat.failed" });
-    const reopened = attendanceConnectionReducer(failed, { type: "socket.open" });
+    const connecting = startSocketAttempt(initialAttendanceConnectionState);
+    const opened = attendanceConnectionReducer(connecting, socketEvent("socket.open", connecting.connectionGeneration));
+    const onceHealthy = attendanceConnectionReducer(opened, socketEvent("socket.healthy", opened.connectionGeneration));
+    const failed = attendanceConnectionReducer(onceHealthy, socketEvent("heartbeat.failed", onceHealthy.connectionGeneration));
+    const reconnecting = startSocketAttempt(failed);
+    const reopened = attendanceConnectionReducer(reconnecting, socketEvent("socket.open", reconnecting.connectionGeneration));
     const recovered = attendanceConnectionReducer(
-      attendanceConnectionReducer(reopened, { type: "socket.healthy" }),
-      { type: "socket.healthy" },
+      attendanceConnectionReducer(reopened, socketEvent("socket.healthy", reopened.connectionGeneration)),
+      socketEvent("socket.healthy", reopened.connectionGeneration),
     );
 
     expect(failed.stabilityConfirmations).toBe(0);
@@ -77,10 +126,48 @@ describe("attendanceConnectionReducer", () => {
     expect(recovered.mode).toBe("connected");
   });
 
+  it("invalidates every callback from a replaced socket generation", () => {
+    const firstAttempt = startSocketAttempt(initialAttendanceConnectionState);
+    const replacement = startSocketAttempt(firstAttempt);
+
+    expect(replacement.connectionGeneration).toBeGreaterThan(firstAttempt.connectionGeneration);
+    expect(attendanceConnectionReducer(replacement, socketEvent("socket.open", firstAttempt.connectionGeneration))).toEqual(replacement);
+    expect(attendanceConnectionReducer(replacement, socketEvent("socket.healthy", firstAttempt.connectionGeneration))).toEqual(replacement);
+    expect(attendanceConnectionReducer(replacement, socketEvent("socket.close", firstAttempt.connectionGeneration))).toEqual(replacement);
+    expect(attendanceConnectionReducer(replacement, socketEvent("heartbeat.failed", firstAttempt.connectionGeneration))).toEqual(replacement);
+  });
+
+  it("does not count healthy callbacks from an old generation toward current recovery", () => {
+    const firstAttempt = startSocketAttempt(initialAttendanceConnectionState);
+    const replacement = startSocketAttempt(firstAttempt);
+    const opened = attendanceConnectionReducer(replacement, socketEvent("socket.open", replacement.connectionGeneration));
+    const onceHealthy = attendanceConnectionReducer(opened, socketEvent("socket.healthy", opened.connectionGeneration));
+    const afterOldHealthy = attendanceConnectionReducer(onceHealthy, socketEvent("socket.healthy", firstAttempt.connectionGeneration));
+    const recovered = attendanceConnectionReducer(afterOldHealthy, socketEvent("socket.healthy", opened.connectionGeneration));
+
+    expect(afterOldHealthy).toEqual(onceHealthy);
+    expect(recovered).toMatchObject({ mode: "connected", stabilityConfirmations: 2 });
+  });
+
+  it("does not let old close or heartbeat callbacks downgrade a connected replacement", () => {
+    const firstAttempt = startSocketAttempt(initialAttendanceConnectionState);
+    const replacement = startSocketAttempt(firstAttempt);
+    const opened = attendanceConnectionReducer(replacement, socketEvent("socket.open", replacement.connectionGeneration));
+    const connected = attendanceConnectionReducer(
+      attendanceConnectionReducer(opened, socketEvent("socket.healthy", opened.connectionGeneration)),
+      socketEvent("socket.healthy", opened.connectionGeneration),
+    );
+
+    expect(attendanceConnectionReducer(connected, socketEvent("socket.close", firstAttempt.connectionGeneration))).toEqual(connected);
+    expect(attendanceConnectionReducer(connected, socketEvent("heartbeat.failed", firstAttempt.connectionGeneration))).toEqual(connected);
+  });
+
   it("uses fallback while offline and returns online in reconnecting mode without claiming recovery", () => {
-    const connected = ["socket.open", "socket.healthy", "socket.healthy"].reduce(
-      (state, type) => attendanceConnectionReducer(state, { type } as const),
-      initialAttendanceConnectionState,
+    const connecting = startSocketAttempt(initialAttendanceConnectionState);
+    const opened = attendanceConnectionReducer(connecting, socketEvent("socket.open", connecting.connectionGeneration));
+    const connected = attendanceConnectionReducer(
+      attendanceConnectionReducer(opened, socketEvent("socket.healthy", opened.connectionGeneration)),
+      socketEvent("socket.healthy", opened.connectionGeneration),
     );
     const offline = attendanceConnectionReducer(connected, { type: "network.offline" });
     const online = attendanceConnectionReducer(offline, { type: "network.online" });
@@ -89,22 +176,43 @@ describe("attendanceConnectionReducer", () => {
       mode: "fallback",
       online: false,
       socketOpen: false,
+      socketPending: false,
       stabilityConfirmations: 0,
     });
     expect(online).toMatchObject({
       mode: "reconnecting",
       online: true,
       socketOpen: false,
+      socketPending: false,
       stabilityConfirmations: 0,
     });
   });
 
-  it("ignores stale socket events while offline", () => {
-    const offline = attendanceConnectionReducer(initialAttendanceConnectionState, { type: "network.offline" });
+  it("invalidates socket callbacks across offline and online transitions", () => {
+    const connecting = startSocketAttempt(initialAttendanceConnectionState);
+    const offline = attendanceConnectionReducer(connecting, { type: "network.offline" });
+    const online = attendanceConnectionReducer(offline, { type: "network.online" });
 
-    expect(attendanceConnectionReducer(offline, { type: "socket.open" })).toEqual(offline);
-    expect(attendanceConnectionReducer(offline, { type: "socket.healthy" })).toEqual(offline);
-    expect(attendanceConnectionReducer(offline, { type: "heartbeat.failed" })).toEqual(offline);
+    expect(offline.connectionGeneration).toBeGreaterThan(connecting.connectionGeneration);
+    expect(online.connectionGeneration).toBeGreaterThan(offline.connectionGeneration);
+    expect(attendanceConnectionReducer(online, socketEvent("socket.close", connecting.connectionGeneration))).toEqual(online);
+    expect(attendanceConnectionReducer(online, socketEvent("heartbeat.failed", connecting.connectionGeneration))).toEqual(online);
+  });
+
+  it("invalidates socket callbacks when manually reset", () => {
+    const connecting = startSocketAttempt(initialAttendanceConnectionState);
+    const reset = attendanceConnectionReducer(connecting, { type: "reconnect.reset" });
+
+    expect(reset).toMatchObject({
+      mode: "reconnecting",
+      online: true,
+      reconnectAttempt: 0,
+      socketOpen: false,
+      socketPending: false,
+      stabilityConfirmations: 0,
+    });
+    expect(reset.connectionGeneration).toBeGreaterThan(connecting.connectionGeneration);
+    expect(attendanceConnectionReducer(reset, socketEvent("socket.close", connecting.connectionGeneration))).toEqual(reset);
   });
 
   it("updates hidden and visible facts without inventing a connection transition", () => {
@@ -118,20 +226,10 @@ describe("attendanceConnectionReducer", () => {
     expect(visible).toEqual(initialAttendanceConnectionState);
   });
 
-  it("resets a manual reconnect to a coherent online reconnecting state", () => {
-    const unstable = attendanceConnectionReducer(
-      attendanceConnectionReducer(initialAttendanceConnectionState, { type: "socket.open" }),
-      { type: "socket.close" },
-    );
-    const reset = attendanceConnectionReducer(unstable, { type: "reconnect.reset" });
-
-    expect(reset).toEqual({ ...initialAttendanceConnectionState, visible: true });
-  });
-
   it("does not mutate the prior state", () => {
     const prior = { ...initialAttendanceConnectionState };
     const snapshot = structuredClone(prior);
-    const next = attendanceConnectionReducer(prior, { type: "socket.open" });
+    const next = startSocketAttempt(prior);
 
     expect(prior).toEqual(snapshot);
     expect(next).not.toBe(prior);
