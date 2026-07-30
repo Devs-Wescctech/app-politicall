@@ -118,6 +118,27 @@ describe("cookie session client", () => {
     expect((fetch.mock.calls[1][1]?.headers as Headers).get("x-csrf-token")).toBe("new-csrf-token");
   });
 
+  it("does not issue a mutation when CSRF acquisition fails", async () => {
+    const { dependencies, fetch } = createDependencies();
+    fetch.mockResolvedValue(response({ error: "Authentication failed" }, 403));
+    const session = createSessionClient(dependencies);
+
+    await expect(session.apiRequest("POST", "/api/contacts", { name: "Ana" })).rejects.toThrow("Authentication failed");
+    expect(fetch.mock.calls.map(([url]) => url)).toEqual(["/api/auth/csrf"]);
+  });
+
+  it("uses cookie credentials for public login without treating the response as a token payload", async () => {
+    const { dependencies, fetch } = createDependencies();
+    fetch.mockResolvedValue(response({ user: DISPLAY_USER, token: "ignored" }));
+    const session = createSessionClient(dependencies);
+
+    await expect(session.loginSession({ email: DISPLAY_USER.email, password: "secret" })).resolves.toEqual(DISPLAY_USER);
+    const request = fetch.mock.calls[0][1]!;
+    expect(request.credentials).toBe("include");
+    expect((request.headers as Headers).get("x-csrf-token")).toBeNull();
+    expect((request.headers as Headers).get("Authorization")).toBeNull();
+  });
+
   it("preserves FormData and download responses while using cookie credentials", async () => {
     const { dependencies, fetch, cookies } = createDependencies();
     cookies.set("politicall_csrf", "csrf-token");
@@ -170,6 +191,19 @@ describe("cookie session client", () => {
     fetch.mockResolvedValue(response({ error: "Authentication failed" }, 401));
     await expect(session.apiRequest("GET", "/api/contacts")).rejects.toThrow("Authentication failed");
     expect(fetch.mock.calls.map(([url]) => url)).toEqual(["/api/contacts", "/api/auth/refresh"]);
+  });
+
+  it("retries an unauthorized request only once", async () => {
+    const { dependencies, fetch, cookies } = createDependencies();
+    cookies.set("politicall_csrf", "csrf-token");
+    fetch
+      .mockResolvedValueOnce(response({ error: "Authentication failed" }, 401))
+      .mockResolvedValueOnce(response({ user: DISPLAY_USER }))
+      .mockResolvedValueOnce(response({ error: "Authentication failed" }, 401));
+    const session = createSessionClient(dependencies);
+
+    await expect(session.apiRequest("GET", "/api/contacts")).rejects.toThrow("Authentication failed");
+    expect(fetch.mock.calls.map(([url]) => url)).toEqual(["/api/contacts", "/api/auth/refresh", "/api/contacts"]);
   });
 
   it("waits for the cross-tab refresh owner instead of issuing another rotation", async () => {
