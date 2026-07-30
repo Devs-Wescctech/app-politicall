@@ -104,7 +104,7 @@ describe("request security", () => {
 
   it("exempts only safe requests to exact Express health and readiness paths", async () => {
     const app = express();
-    createRequestSecurity(app, { globalLimiter: createFixedWindowRateLimiter({ limit: 1, windowMs: 60_000, maximumEntries: 20 }) });
+    createRequestSecurity(app, { env: { NODE_ENV: "production", TRUST_PROXY: "1" }, globalLimiter: createFixedWindowRateLimiter({ limit: 1, windowMs: 60_000, maximumEntries: 20 }) });
     app.all("/api/health", (_req, res) => res.status(204).end());
     app.all("/api/ready", (_req, res) => res.status(204).end());
     app.get("/api/normal", (_req, res) => res.status(204).end());

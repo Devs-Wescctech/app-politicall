@@ -72,8 +72,9 @@ function rawBodyVerifier(request: Request, _response: Response, buffer: Buffer):
 }
 
 function isProbeRoute(request: Request): boolean {
-  const path = request.path.replace(/\/+$/, "").toLowerCase() || "/";
-  return path === "/health" || path === "/ready";
+  if (request.method !== "GET" && request.method !== "HEAD") return false;
+  const path = request.path.toLowerCase();
+  return path === "/health" || path === "/health/" || path === "/ready" || path === "/ready/";
 }
 
 export function createRequestSecurity(app: Express, options: {
@@ -114,8 +115,8 @@ export const apiErrorHandler: ErrorRequestHandler = (error: any, request, respon
   if (response.headersSent) return next(error);
   const status = error?.status === 413 || error?.type === "entity.too.large" ? 413 : Number.isInteger(error?.status) && error.status >= 400 && error.status < 500 ? error.status : 500;
   const message = operationalMessage(status) ?? (status === 413 ? "Request rejected" : "Internal Server Error");
-  const route = request.route?.path ?? request.path;
-  console.error(`API request failed method=${request.method} route=${String(route).slice(0, 160)} status=${status} category=${String(error?.type ?? error?.name ?? "unknown").slice(0, 80)}`);
+  const route = typeof request.route?.path === "string" ? request.route.path.slice(0, 160) : "unmatched";
+  console.error(`API request failed method=${request.method} route=${route} status=${status} category=${String(error?.type ?? error?.name ?? "unknown").slice(0, 80)}`);
   response.status(status).json({ error: message });
 };
 
