@@ -25,7 +25,7 @@ describe("attendanceConnectionReducer", () => {
       mode: "reconnecting",
       online: true,
       visible: true,
-      reconnectAttempt: 0,
+      reconnectAttempt: null,
       socketOpen: false,
       socketPending: false,
       connectionGeneration: 0,
@@ -43,7 +43,7 @@ describe("attendanceConnectionReducer", () => {
       mode: "fallback",
       socketOpen: true,
       socketPending: false,
-      reconnectAttempt: 0,
+      reconnectAttempt: null,
       stabilityConfirmations: 0,
     });
     expect(onceHealthy).toMatchObject({ mode: "fallback", stabilityConfirmations: 1 });
@@ -60,22 +60,29 @@ describe("attendanceConnectionReducer", () => {
 
     expect(closed).toMatchObject({
       mode: "fallback",
-      reconnectAttempt: 1,
+      reconnectAttempt: 0,
       socketOpen: false,
       socketPending: false,
       stabilityConfirmations: 0,
     });
-    expect(nextReconnectDelay(closed.reconnectAttempt, 0.5)).toBe(2_000);
+    expect(nextReconnectDelay(closed.reconnectAttempt ?? 0, 0.5)).toBe(1_000);
   });
 
-  it("advances bounded backoff across repeated pre-open failures", () => {
+  it("hands off zero-based backoff attempts directly across consecutive failures", () => {
     const firstAttempt = startSocketAttempt(initialAttendanceConnectionState);
     const firstFailure = attendanceConnectionReducer(firstAttempt, socketEvent("socket.close", firstAttempt.connectionGeneration));
     const secondAttempt = startSocketAttempt(firstFailure);
     const secondFailure = attendanceConnectionReducer(secondAttempt, socketEvent("socket.close", secondAttempt.connectionGeneration));
+    const thirdAttempt = startSocketAttempt(secondFailure);
+    const thirdFailure = attendanceConnectionReducer(thirdAttempt, socketEvent("socket.close", thirdAttempt.connectionGeneration));
 
-    expect(secondFailure.reconnectAttempt).toBe(2);
-    expect(nextReconnectDelay(secondFailure.reconnectAttempt, 1)).toBe(4_800);
+    expect(initialAttendanceConnectionState.reconnectAttempt).toBeNull();
+    expect(firstFailure.reconnectAttempt).toBe(0);
+    expect(nextReconnectDelay(firstFailure.reconnectAttempt ?? 0, 0.5)).toBe(1_000);
+    expect(secondFailure.reconnectAttempt).toBe(1);
+    expect(nextReconnectDelay(secondFailure.reconnectAttempt ?? 0, 0.5)).toBe(2_000);
+    expect(thirdFailure.reconnectAttempt).toBe(2);
+    expect(nextReconnectDelay(thirdFailure.reconnectAttempt ?? 0, 0.5)).toBe(4_000);
     expect(nextReconnectDelay(100, 0.5)).toBe(30_000);
   });
 
@@ -87,7 +94,7 @@ describe("attendanceConnectionReducer", () => {
 
     expect(closed).toMatchObject({
       mode: "fallback",
-      reconnectAttempt: 1,
+      reconnectAttempt: 0,
       socketOpen: false,
       socketPending: false,
       stabilityConfirmations: 0,
@@ -102,7 +109,7 @@ describe("attendanceConnectionReducer", () => {
 
     expect(failed).toMatchObject({
       mode: "fallback",
-      reconnectAttempt: 1,
+      reconnectAttempt: 0,
       socketOpen: false,
       socketPending: false,
       stabilityConfirmations: 0,
@@ -206,7 +213,7 @@ describe("attendanceConnectionReducer", () => {
     expect(reset).toMatchObject({
       mode: "reconnecting",
       online: true,
-      reconnectAttempt: 0,
+      reconnectAttempt: null,
       socketOpen: false,
       socketPending: false,
       stabilityConfirmations: 0,
