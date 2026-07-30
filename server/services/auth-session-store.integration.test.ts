@@ -101,11 +101,10 @@ describe("auth session store PostgreSQL integration", () => {
       expect(afterRejectedLink.rows[0]?.replaced_by_session_id).toBeNull();
 
       await store.createSession({ scope, refreshToken: "duplicate-next-token", expiresAt: expiry });
-      await expect(store.rotateSession({
-        scope,
+      await expect(store.rotateRefreshSession({
+        kind: "user",
         refreshToken: "source-token",
         nextRefreshToken: "duplicate-next-token",
-        expiresAt: expiry,
       })).rejects.toThrow();
       await expect(store.findRefreshSession({ scope, refreshToken: "source-token" }))
         .resolves.toMatchObject({ id: source.id });
@@ -114,8 +113,8 @@ describe("auth session store PostgreSQL integration", () => {
 
       const concurrentSource = await store.createSession({ scope, refreshToken: "concurrent-source", expiresAt: expiry });
       const concurrent = await Promise.all([
-        store.rotateSession({ scope, refreshToken: "concurrent-source", nextRefreshToken: "concurrent-next-a", expiresAt: expiry }),
-        store.rotateSession({ scope, refreshToken: "concurrent-source", nextRefreshToken: "concurrent-next-b", expiresAt: expiry }),
+        store.rotateRefreshSession({ kind: "user", refreshToken: "concurrent-source", nextRefreshToken: "concurrent-next-a" }),
+        store.rotateRefreshSession({ kind: "user", refreshToken: "concurrent-source", nextRefreshToken: "concurrent-next-b" }),
       ]);
       expect(concurrent.map((result) => result.status).sort()).toEqual(["reuse_detected", "rotated"]);
       const family = await pool.query(
@@ -128,11 +127,10 @@ describe("auth session store PostgreSQL integration", () => {
       expect(used.rows[0]?.last_used_at).not.toBeNull();
 
       const deleteSource = await store.createSession({ scope, refreshToken: "delete-source", expiresAt: expiry });
-      const deleteRotation = await store.rotateSession({
-        scope,
+      const deleteRotation = await store.rotateRefreshSession({
+        kind: "user",
         refreshToken: "delete-source",
         nextRefreshToken: "delete-source-next",
-        expiresAt: expiry,
       });
       await pool.query("DELETE FROM auth_sessions WHERE id = $1", [deleteSource.id]);
       const afterPredecessorDelete = await pool.query(
@@ -142,11 +140,10 @@ describe("auth session store PostgreSQL integration", () => {
       expect(afterPredecessorDelete.rows[0]?.rotated_from_session_id).toBeNull();
 
       const deleteReplacement = await store.createSession({ scope, refreshToken: "delete-replacement", expiresAt: expiry });
-      const replacementRotation = await store.rotateSession({
-        scope,
+      const replacementRotation = await store.rotateRefreshSession({
+        kind: "user",
         refreshToken: "delete-replacement",
         nextRefreshToken: "delete-replacement-next",
-        expiresAt: expiry,
       });
       await pool.query("DELETE FROM auth_sessions WHERE id = $1", [replacementRotation.session?.id]);
       const afterReplacementDelete = await pool.query(

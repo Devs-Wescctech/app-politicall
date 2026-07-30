@@ -181,7 +181,7 @@ describe("auth session store", () => {
     })).resolves.toMatchObject({ refreshTokenHash: hashRefreshToken("admin-valid") });
   });
 
-  it("rejects oversized raw metadata and applies the same lifetime limit to rotations", async () => {
+  it("rejects oversized raw metadata and keeps rotation expiry owned by the stored source", async () => {
     const clock = new Date("2030-01-01T00:00:00.000Z");
     const repository = new InMemorySessionRepository();
     const store = createAuthSessionStore(repository, { now: () => clock });
@@ -197,19 +197,16 @@ describe("auth session store", () => {
       expiresAt: new Date("2030-01-01T01:00:00.000Z"),
     })).rejects.toThrow("refreshToken");
 
-    await store.createSession({
+    const source = await store.createSession({
       scope: tenantScope,
       refreshToken: "rotation-limit-source",
       expiresAt: new Date("2030-01-01T01:00:00.000Z"),
     });
-    await expect(store.rotateSession({
-      scope: tenantScope,
+    await expect(store.rotateRefreshSession({
+      kind: "user",
       refreshToken: "rotation-limit-source",
       nextRefreshToken: "rotation-limit-next",
-      expiresAt: new Date("2030-01-08T00:00:00.001Z"),
-    })).rejects.toThrow("7 days");
-    expect(repository.sessions).toHaveLength(1);
-    expect(repository.sessions[0]?.revokedAt).toBeNull();
+    })).resolves.toEqual({ status: "rotated", session: expect.objectContaining({ expiresAt: source.expiresAt }) });
 
     const globalScope = { kind: "global_admin" as const, globalAdminPrincipalId: "admin-2" };
     await store.createSession({
@@ -217,12 +214,11 @@ describe("auth session store", () => {
       refreshToken: "global-rotation-source",
       expiresAt: new Date("2030-01-01T01:00:00.000Z"),
     });
-    await expect(store.rotateSession({
-      scope: globalScope,
+    await expect(store.rotateRefreshSession({
+      kind: "admin",
       refreshToken: "global-rotation-source",
       nextRefreshToken: "global-rotation-next",
-      expiresAt: new Date("2030-01-01T04:00:00.001Z"),
-    })).rejects.toThrow("4 hours");
+    })).resolves.toEqual({ status: "rotated", session: expect.objectContaining({ expiresAt: new Date("2030-01-01T01:00:00.000Z") }) });
   });
 
   it("does not find a tenant session through another account scope", async () => {
@@ -302,11 +298,10 @@ describe("auth session store", () => {
     const original = await store.createSession({ scope: tenantScope, refreshToken: "refresh-token-3", expiresAt });
     expect(original.lastUsedAt).toBeNull();
 
-    const result = await store.rotateSession({
-      scope: tenantScope,
+    const result = await store.rotateRefreshSession({
+      kind: "user",
       refreshToken: "refresh-token-3",
       nextRefreshToken: "refresh-token-4",
-      expiresAt,
     });
 
     expect(result.status).toBe("rotated");
@@ -321,18 +316,16 @@ describe("auth session store", () => {
   it("revokes the entire family in the same transaction when a rotated token is reused", async () => {
     const { repository, store } = createStore();
     await store.createSession({ scope: tenantScope, refreshToken: "refresh-token-5", expiresAt });
-    const rotation = await store.rotateSession({
-      scope: tenantScope,
+    const rotation = await store.rotateRefreshSession({
+      kind: "user",
       refreshToken: "refresh-token-5",
       nextRefreshToken: "refresh-token-6",
-      expiresAt,
     });
 
-    const reuse = await store.rotateSession({
-      scope: tenantScope,
+    const reuse = await store.rotateRefreshSession({
+      kind: "user",
       refreshToken: "refresh-token-5",
       nextRefreshToken: "refresh-token-7",
-      expiresAt,
     });
 
     expect(reuse).toEqual({ status: "reuse_detected" });
@@ -355,11 +348,10 @@ describe("auth session store", () => {
       return revokeById(scope, sessionId, reason, revokedAt);
     };
 
-    await expect(store.rotateSession({
-      scope: tenantScope,
+    await expect(store.rotateRefreshSession({
+      kind: "user",
       refreshToken: "refresh-token-race",
       nextRefreshToken: "refresh-token-race-successor",
-      expiresAt,
     })).resolves.toEqual({ status: "reuse_detected" });
 
     expect(repository.sessions).toHaveLength(1);

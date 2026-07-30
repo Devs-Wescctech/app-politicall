@@ -1,5 +1,6 @@
 import jwt from "jsonwebtoken";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { DEFAULT_PERMISSIONS, type UserPermissions } from "@shared/schema";
 import {
   GLOBAL_ADMIN_PRINCIPAL_ID,
   createAuthSessionService,
@@ -12,7 +13,7 @@ type User = {
   email: string;
   name: string;
   role: string;
-  permissions: string[];
+  permissions: UserPermissions;
   password: string;
 };
 
@@ -22,7 +23,7 @@ const user: User = {
   email: "user@example.test",
   name: "User A",
   role: "admin",
-  permissions: ["users"],
+  permissions: DEFAULT_PERMISSIONS.admin,
   password: "stored-password",
 };
 
@@ -285,7 +286,7 @@ describe("auth session service", () => {
     const service = createAuthSessionService(dependencies);
 
     await expect(service.logoutAccess({ kind: "user", sessionId: "unknown" })).resolves.toEqual({ clearCookies: "user" });
-    await expect(service.logoutRefresh({ kind: "admin", refreshToken: "unknown" })).resolves.toEqual({ clearCookies: "admin" });
+    await expect(service.logoutRefresh({ kind: "admin", refreshToken: "unknown" })).resolves.toEqual({ clearCookies: "admin", status: "logged_out" });
   });
 
   it("revokes an existing access session before clearing its cookies", async () => {

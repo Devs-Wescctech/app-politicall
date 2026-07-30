@@ -5,6 +5,7 @@ import { ADMIN_CSRF_COOKIE, CSRF_HEADER_NAME, USER_CSRF_COOKIE, issueCsrfToken, 
 
 function createResponse() {
   return {
+    setHeader: vi.fn(),
     status: vi.fn().mockReturnThis(),
     json: vi.fn().mockReturnThis(),
   };
