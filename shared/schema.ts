@@ -379,7 +379,7 @@ export const users = pgTable("users", {
   lastPaymentDate: text("last_payment_date"), // Last payment date (stored as DD/MM/YYYY)
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => [
-  unique("users_account_id_id_key").on(table.accountId, table.id),
+  uniqueIndex("users_account_id_id_uidx").on(table.accountId, table.id),
 ]);
 
 // Revocable refresh-token sessions. Tokens and request metadata are persisted only as SHA-256 hashes.
@@ -430,17 +430,17 @@ export const authSessions = pgTable("auth_sessions", {
     columns: [table.accountId, table.userId],
     foreignColumns: [users.accountId, users.id],
     name: "auth_sessions_account_user_fk",
-  }),
+  }).onDelete("cascade"),
   foreignKey({
     columns: [table.rotatedFromSessionId, table.familyId, table.principalType, table.principalId],
     foreignColumns: [table.id, table.familyId, table.principalType, table.principalId],
     name: "auth_sessions_rotated_from_scope_fk",
-  }),
+  }).onDelete("no action"),
   foreignKey({
     columns: [table.replacedBySessionId, table.familyId, table.principalType, table.principalId],
     foreignColumns: [table.id, table.familyId, table.principalType, table.principalId],
     name: "auth_sessions_replaced_by_scope_fk",
-  }),
+  }).onDelete("no action"),
 ]);
 
 // One-way markers prevent a legacy bearer token from being exchanged more than once.

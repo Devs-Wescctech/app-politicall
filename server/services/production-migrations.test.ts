@@ -15,7 +15,6 @@ const migrationNames = [
   "0008_att_messages_external_id_unique.sql",
   "0009_petitionsbr_module.sql",
   "0010_auth_sessions.sql",
-  "0011_auth_session_integrity.sql",
 ];
 
 type Query = { sql: string; parameters?: unknown[] };

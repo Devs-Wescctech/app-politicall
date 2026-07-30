@@ -118,10 +118,10 @@ export function createAuthSessionStore(
       return repository.insert(buildSession(input, { now: now() }));
     },
 
-    async findRefreshSession(input: { scope: AuthSessionScope; refreshToken: string; now?: Date }) {
+    async findRefreshSession(input: { scope: AuthSessionScope; refreshToken: string }) {
       assertScope(input.scope);
       const session = await repository.findByRefreshHash(input.scope, hashRefreshToken(input.refreshToken));
-      if (!session || session.revokedAt || session.expiresAt <= (input.now ?? now())) return undefined;
+      if (!session || session.revokedAt || session.expiresAt <= now()) return undefined;
       return session;
     },
 
@@ -293,7 +293,7 @@ export async function createSession(input: CreateSessionInput) {
   return (await getRuntimeStore()).createSession(input);
 }
 
-export async function findRefreshSession(input: { scope: AuthSessionScope; refreshToken: string; now?: Date }) {
+export async function findRefreshSession(input: { scope: AuthSessionScope; refreshToken: string }) {
   return (await getRuntimeStore()).findRefreshSession(input);
 }
 
