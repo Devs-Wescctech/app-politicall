@@ -263,6 +263,23 @@ describe("auth session service", () => {
       .resolves.toEqual({ status: "exchanged", admin: true, cookies: expect.objectContaining({ kind: "admin" }) });
   });
 
+  it("rejects non-pure principal and new-session claims during global-admin exchange", async () => {
+    process.env.ENABLE_BEARER_EXCHANGE = "true";
+    const { dependencies } = createDependencies();
+    const service = createAuthSessionService(dependencies);
+
+    for (const claims of [
+      { isAdmin: true, sub: "global-admin" },
+      { isAdmin: true, principalId: "politicall:global-admin" },
+      { isAdmin: true, principalType: "global_admin" },
+      { isAdmin: true, tenantId: "tenant-a" },
+      { isAdmin: true, sid: "session-a", kind: "admin" },
+    ]) {
+      const token = jwt.sign(claims, process.env.SESSION_SECRET!, { algorithm: "HS256", expiresIn: "1h" });
+      await expect(service.exchangeLegacyBearer({ kind: "admin", token })).resolves.toEqual({ status: "invalid" });
+    }
+  });
+
   it("rejects malformed or expired legacy JWTs and user account mismatches", async () => {
     process.env.ENABLE_BEARER_EXCHANGE = "true";
     const expired = jwt.sign({ userId: user.id, accountId: user.accountId }, process.env.SESSION_SECRET!, {

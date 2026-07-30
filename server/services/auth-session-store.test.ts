@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createAuthSessionStore, hashRefreshToken } from "./auth-session-store";
+import { createAuthSessionStore, hashRefreshToken, principalLockKey } from "./auth-session-store";
 
 type SessionRow = {
   id: string;
@@ -135,6 +135,10 @@ function createStore(now = defaultNow) {
 }
 
 describe("auth session store", () => {
+  it("derives deterministic principal lock keys without using credentials", () => {
+    expect(principalLockKey(tenantScope)).toBe(principalLockKey(tenantScope));
+    expect(principalLockKey(tenantScope)).not.toBe(principalLockKey({ kind: "global_admin", globalAdminPrincipalId: "user-a" }));
+  });
   it("hashes refresh tokens deterministically without persisting the raw token", async () => {
     const { repository, store } = createStore();
     const hexLookingRawDevice = "a".repeat(64);

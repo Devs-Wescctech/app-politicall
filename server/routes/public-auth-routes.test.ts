@@ -56,23 +56,27 @@ describe("public credential auth routes", () => {
 
   it("limits registration by IP before varying emails can cause more bcrypt or account writes", async () => {
     const started = await start(); active = started.server;
-    const responses = await Promise.all([1, 2, 3, 4].map((suffix) => fetch(`${active!.baseUrl}/api/auth/register`, { method: "POST", headers: { Origin: origin, "content-type": "application/json", "x-forwarded-for": "198.51.100.7" }, body: JSON.stringify(registration(`user${suffix}@example.test`)) })));
+    const responses = await Promise.all(Array.from({ length: 11 }, (_, index) => index + 1).map((suffix) => fetch(`${active!.baseUrl}/api/auth/register`, { method: "POST", headers: { Origin: origin, "content-type": "application/json", "x-forwarded-for": "198.51.100.7" }, body: JSON.stringify(registration(`user${suffix}@example.test`)) })));
 
-    expect(responses.map((response) => response.status)).toEqual([200, 200, 200, 429]);
-    expect(started.dependencies.hashPassword).toHaveBeenCalledTimes(3);
-    expect(started.dependencies.storage.createAccount).toHaveBeenCalledTimes(3);
-    expect(responses[3].headers.get("cache-control")).toBe("no-store");
+    expect(responses.map((response) => response.status)).toEqual([...Array(10).fill(200), 429]);
+    expect(started.dependencies.hashPassword).toHaveBeenCalledTimes(10);
+    expect(started.dependencies.storage.createAccount).toHaveBeenCalledTimes(10);
+    expect(responses[10].headers.get("cache-control")).toBe("no-store");
   });
 
   it("uses both IP-wide and normalized email limits for user login, and an IP-only limit for admin login", async () => {
     const started = await start(); active = started.server;
     const loginResponses = await Promise.all([1, 2, 3, 4, 5, 6].map((suffix) => fetch(`${active!.baseUrl}/api/auth/login`, { method: "POST", headers: { Origin: origin, "content-type": "application/json", "x-forwarded-for": "198.51.100.8" }, body: JSON.stringify(login(`person${suffix}@example.test`)) })));
-    const sameEmail = await Promise.all([1, 2, 3, 4].map(() => fetch(`${active!.baseUrl}/api/auth/login`, { method: "POST", headers: { Origin: origin, "content-type": "application/json", "x-forwarded-for": "198.51.100.9" }, body: JSON.stringify(login("USER@example.test")) })));
-    const adminResponses = await Promise.all([1, 2, 3, 4].map(() => fetch(`${active!.baseUrl}/api/admin/login`, { method: "POST", headers: { Origin: origin, "content-type": "application/json", "x-forwarded-for": "198.51.100.10" }, body: JSON.stringify({ password: "secret1" }) })));
+    const sameEmail = await Promise.all([1, 2, 3, 4, 5, 6].map(() => fetch(`${active!.baseUrl}/api/auth/login`, { method: "POST", headers: { Origin: origin, "content-type": "application/json", "x-forwarded-for": "198.51.100.9" }, body: JSON.stringify(login("USER@example.test")) })));
+    const adminResponses = await Promise.all(Array.from({ length: 11 }).map(() => fetch(`${active!.baseUrl}/api/admin/login`, {
+      method: "POST",
+      headers: { Origin: origin, "content-type": "application/json", "x-forwarded-for": "198.51.100.10" },
+      body: JSON.stringify({ password: "secret1" }),
+    })));
 
-    expect(loginResponses.map((response) => response.status)).toEqual([200, 200, 200, 200, 200, 429]);
-    expect(sameEmail.map((response) => response.status)).toEqual([200, 200, 200, 429]);
-    expect(adminResponses.map((response) => response.status)).toEqual([200, 200, 200, 429]);
+    expect(loginResponses.map((response) => response.status)).toEqual([200, 200, 200, 200, 200, 200]);
+    expect(sameEmail.map((response) => response.status)).toEqual([200, 200, 200, 200, 200, 429]);
+    expect(adminResponses.map((response) => response.status)).toEqual([...Array(10).fill(200), 429]);
   });
 
   it("uses exact Origin and generic no-store failures, while successful JSON does not expose credentials", async () => {
