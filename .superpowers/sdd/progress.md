@@ -37,9 +37,10 @@ Completed attendance realtime tasks:
 - Attendance Task 2: complete (commits `fdfed3f..3c01826`; third independent review approved with no Critical/Important/Minor findings after generation-scoping pre-open/late socket events and aligning the direct zero-based backoff handoff; 18 state-machine tests plus 7 reconciliation tests and typecheck passed, with 355 reachable states checked for incoherence).
 - Attendance Task 3: complete (commits `d463e1b..668c1c0`; third independent review approved with no Critical/Important/Minor findings after hardening cookie/session/Origin authentication, exact request targets, bounded async admission and payloads, generation-safe connect/heartbeat deadlines, complete attendance-event reconciliation, idempotent reconnect/cleanup, and a browser-faithful cookie/CSRF smoke; full suite passed with 689 tests and 2 environment-gated skips).
 - Attendance Task 4: complete (commits `4aa753c..7ffc6e3`; independent re-review approved with no Critical/Important/Minor findings after fixing the construction-to-start snapshot race; adaptive read-only polling uses 5s detail/10s list during fallback or reconnect, 60s safety polling when connected, and 30s in hidden tabs, with rising-edge recovery invalidation and exact listener cleanup; full suite passed with 702 tests and 2 environment-gated skips).
+- Attendance Task 5: complete (commits `b33d28e..daa1627`; independent re-review approved with no Critical/Important/Minor findings after preserving paginated/optimistic detail cache across 50-message refetches, wiring page retry busy state through real reconnecting mode, removing false isolated retry assertions, guarding unmount, and stabilizing the global source/runtime tests; full suite passed with 709 tests and 2 environment-gated skips).
 
 Current task:
-- Attendance Realtime Resilience Task 5 is next: add compact accessible connection feedback and retry behavior without disrupting chat state.
+- Attendance Realtime Resilience Task 6 is next: local production realtime/browser validation and operator deployment documentation.
 
 Final-review minor triage:
 - Registration still persists account, user, and initial session separately. Make this workflow transactional or compensating before release so account/session failures cannot leave orphaned or unretryable partial registration state.
