@@ -231,6 +231,20 @@ describe("auth session store PostgreSQL integration", () => {
       expect((await pool.query("SELECT value FROM system_settings WHERE key = 'auth.global_admin_password_hash'")).rows[0]?.value)
         .toBe("admin-password-after");
       expect(await activeFamilyCount(adminRollbackSource.familyId)).toBe(1);
+
+      const crossTenantSource = await store.createSession({
+        scope: { kind: "user", accountId: "account-b", userId: "user-b" },
+        refreshToken: "cross-tenant-password-source",
+        expiresAt: expiry,
+      });
+      await expect(passwordMutations.changeUserPassword({
+        accountId: "account-a",
+        userId: "user-b",
+        passwordHash: "cross-tenant-password",
+        userData: {},
+      })).rejects.toThrow("not found");
+      expect((await pool.query("SELECT password FROM users WHERE id = 'user-b'")).rows[0]?.password).toBe("hash");
+      expect(await activeFamilyCount(crossTenantSource.familyId)).toBe(1);
     } finally {
       if (pool) await pool.end();
       if (databaseCreated) {

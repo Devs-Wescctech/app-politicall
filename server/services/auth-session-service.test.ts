@@ -127,6 +127,25 @@ describe("auth session service", () => {
     });
   });
 
+  it("revokes a newly created user session when the verified password hash changes before the authoritative re-read", async () => {
+    let currentUser = { ...user };
+    const { dependencies, sessions } = createDependencies({
+      users: {
+        findByEmail: async () => currentUser,
+        findByIdAndAccount: async () => currentUser,
+      },
+    });
+    const createSession = dependencies.sessionStore.createSession;
+    dependencies.sessionStore.createSession = async (input) => {
+      const session = await createSession(input);
+      currentUser = { ...currentUser, password: "password-after-change" };
+      return session;
+    };
+
+    await expect(createAuthSessionService(dependencies).loginUser({ email: user.email, password: "correct-password" })).resolves.toBeUndefined();
+    expect([...sessions.values()]).toContainEqual(expect.objectContaining({ revokedAt: expect.any(Date) }));
+  });
+
   it("issues an isolated global-admin session with the stable explicit principal", async () => {
     const { dependencies } = createDependencies({
       verifyPassword: async (password, hash) => password === "admin-password" && hash === "admin-password",
@@ -135,6 +154,17 @@ describe("auth session service", () => {
 
     expect(result).toEqual({ admin: true, cookies: expect.objectContaining({ kind: "admin" }) });
     expect(result.cookies.principalId).toBe(GLOBAL_ADMIN_PRINCIPAL_ID);
+  });
+
+  it("revokes a newly created global-admin session when the verified hash changes before the authoritative re-read", async () => {
+    let reads = 0;
+    const { dependencies, sessions } = createDependencies({
+      getAdminPasswordHash: async () => ++reads === 1 ? "admin-password-before" : "admin-password-after",
+      verifyPassword: async (password, hash) => password === "admin-password" && hash === "admin-password-before",
+    });
+
+    await expect(createAuthSessionService(dependencies).loginAdmin({ password: "admin-password" })).resolves.toBeUndefined();
+    expect([...sessions.values()]).toContainEqual(expect.objectContaining({ revokedAt: expect.any(Date) }));
   });
 
   it("rotates only through a trusted refresh lookup and preserves the original family expiry", async () => {
