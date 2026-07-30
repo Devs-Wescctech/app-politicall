@@ -28,6 +28,52 @@ class SharedChannelBus {
   }
 }
 
+class DelayedDeliveryBus {
+  readonly messages: RefreshCoordinationMessage[] = [];
+  private readonly delayed: Array<{ senderId: string; message: RefreshCoordinationMessage }> = [];
+  private readonly listeners = new Map<string, Set<(message: RefreshCoordinationMessage) => void>>();
+  private delayedOwnerId: string | undefined;
+
+  delayOwnerMessagesFrom(participantId: string) {
+    this.delayedOwnerId = participantId;
+  }
+
+  channel(id: string): RefreshCoordinationChannel {
+    const ownListeners = new Set<(message: RefreshCoordinationMessage) => void>();
+    this.listeners.set(id, ownListeners);
+    return {
+      postMessage: (message) => {
+        this.messages.push(message);
+        if (message.type === "owner" && message.participantId === this.delayedOwnerId) {
+          this.delayed.push({ senderId: id, message });
+          return;
+        }
+        this.deliver(id, message);
+      },
+      subscribe: (listener) => {
+        ownListeners.add(listener);
+        return () => ownListeners.delete(listener);
+      },
+    };
+  }
+
+  releaseOwnerMessage(participantId: string): boolean {
+    const index = this.delayed.findIndex(({ message }) =>
+      message.type === "owner" && message.participantId === participantId);
+    if (index < 0) return false;
+    const [{ senderId, message }] = this.delayed.splice(index, 1);
+    this.deliver(senderId, message);
+    return true;
+  }
+
+  private deliver(senderId: string, message: RefreshCoordinationMessage) {
+    for (const [listenerId, listeners] of this.listeners) {
+      if (listenerId === senderId) continue;
+      for (const listener of listeners) listener(message);
+    }
+  }
+}
+
 function deferred<T>() {
   let resolve!: (value: T) => void;
   const promise = new Promise<T>((done) => { resolve = done; });
@@ -91,6 +137,48 @@ describe("cross-tab refresh coordinator", () => {
     expect(JSON.stringify(bus.messages)).not.toMatch(/csrf|access|refreshToken|cookie|authorization/i);
     owner.dispose();
     late.dispose();
+  });
+
+  it("uses a result delivered during the claim window instead of starting a second refresh", async () => {
+    const bus = new DelayedDeliveryBus();
+    const ownerRefresh = deferred<boolean>();
+    const ownerAction = vi.fn(() => ownerRefresh.promise);
+    const candidateAction = vi.fn(async () => true);
+    bus.delayOwnerMessagesFrom("owner");
+    const owner = createRefreshCoordinator({
+      channel: bus.channel("owner"),
+      participantId: "owner",
+      claimWindowMs: 1,
+      leaseMs: 1_000,
+    });
+
+    const ownerResult = owner.run(ownerAction);
+    await vi.waitFor(() => expect(ownerAction).toHaveBeenCalledOnce(), {
+      interval: 1,
+      timeout: 500,
+    });
+
+    const candidate = createRefreshCoordinator({
+      channel: bus.channel("candidate"),
+      participantId: "candidate",
+      claimWindowMs: 100,
+      leaseMs: 1_000,
+    });
+    const candidateResult = candidate.run(candidateAction);
+    await vi.waitFor(() => expect(bus.messages.some((message) =>
+      message.type === "claim" && message.participantId === "candidate")).toBe(true), {
+      interval: 1,
+      timeout: 500,
+    });
+
+    expect(bus.releaseOwnerMessage("owner")).toBe(true);
+    ownerRefresh.resolve(true);
+
+    await expect(Promise.all([ownerResult, candidateResult])).resolves.toEqual([true, true]);
+    expect(ownerAction).toHaveBeenCalledOnce();
+    expect(candidateAction).not.toHaveBeenCalled();
+    owner.dispose();
+    candidate.dispose();
   });
 
   it("recovers with a local refresh after an abandoned owner lease expires", async () => {

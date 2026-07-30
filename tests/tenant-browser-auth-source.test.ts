@@ -232,6 +232,50 @@ describe("tenant browser auth source gate", () => {
     expect(tenantCredentialViolations('const AUTH_HEADER = "Authorization"; headers.set(AUTH_HEADER, "Bearer pk_example")')).toEqual([]);
   });
 
+  it("resolves credential aliases by lexical binding and detects Headers.append", () => {
+    const prohibited = [
+      `function storeAuth(token: string) {
+        const TOKEN_KEY = "auth_token";
+        localStorage.setItem(TOKEN_KEY, token);
+      }
+      function storeTheme(value: string) {
+        const TOKEN_KEY = "theme";
+        localStorage.setItem(TOKEN_KEY, value);
+      }`,
+      `{
+        const TOKEN_KEY = "auth_token";
+        window.localStorage.setItem(TOKEN_KEY, token);
+      }
+      {
+        const TOKEN_KEY = "theme";
+        window.localStorage.setItem(TOKEN_KEY, value);
+      }`,
+      'const AUTH_HEADER = "Authorization"; const AUTH_VALUE = `Bearer ${token}`; headers.append(AUTH_HEADER, AUTH_VALUE)',
+      'const TOKEN_KEY = "auth_token"; const STORAGE = window.localStorage; STORAGE.setItem(TOKEN_KEY, token)',
+    ];
+    const allowed = [
+      `const TOKEN_KEY = "auth_token";
+      function storePreference(TOKEN_KEY: string, value: string) {
+        localStorage.setItem(TOKEN_KEY, value);
+      }`,
+      `const TOKEN_KEY = "auth_token";
+      function storeTheme(value: string) {
+        const TOKEN_KEY = "theme";
+        localStorage.setItem(TOKEN_KEY, value);
+      }`,
+      `const TOKEN_KEY = "auth_token";
+      {
+        const TOKEN_KEY = "theme";
+        localStorage.setItem(TOKEN_KEY, value);
+      }`,
+      'const AUTH_HEADER = "Authorization"; headers.append(AUTH_HEADER, "Bearer pk_example")',
+      'const docs = "Bearer YOUR_API_KEY"',
+    ];
+
+    for (const fixture of prohibited) expect(tenantCredentialViolations(fixture), fixture).not.toEqual([]);
+    for (const fixture of allowed) expect(tenantCredentialViolations(fixture), fixture).toEqual([]);
+  });
+
   it("does not persist tenant credentials or construct tenant Bearer headers outside Task 6 admin code", async () => {
     const files = (await sourceFiles(clientRoot)).filter((file) => !isTaskSixAdminBoundary(file.relative));
     const violations = files.flatMap((file) =>
