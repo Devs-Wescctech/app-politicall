@@ -52,4 +52,19 @@ describe("admin browser credential source gate", () => {
 
     expect(violations).toEqual([]);
   });
+
+  it("requires authenticated-only admin queries, neutral guards, async login probing, and non-authoritative impersonation payloads", () => {
+    const read = (relative: string) => fs.readFileSync(path.join(clientRoot, relative), "utf8");
+    for (const relative of ["pages/admin.tsx", "pages/contracts.tsx"]) {
+      const source = read(relative);
+      expect(source).toContain('enabled: adminSession.status === "authenticated"');
+      expect(source).toMatch(/adminSession\.status !== "authenticated"[\s\S]{0,160}return null/);
+    }
+    const login = read("pages/admin-login.tsx");
+    expect(login).toContain("useAdminSession");
+    expect(login).toContain('adminSession.status === "authenticated"');
+    const settings = read("pages/settings.tsx");
+    expect(settings).toMatch(/if \(data\.newPassword\)[\s\S]{0,180}payload\.newPassword = data\.newPassword/);
+    expect(settings).toContain("sessionClient.logoutSession()");
+  });
 });

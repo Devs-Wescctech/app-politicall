@@ -8,6 +8,12 @@ function response(body: unknown, status = 200): Response {
   });
 }
 
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((done) => { resolve = done; });
+  return { promise, resolve };
+}
+
 function dependencies(overrides: Partial<Parameters<typeof createAdminSessionClient>[0]> = {}) {
   const cookies = new Map<string, string>();
   const cleanup = {
@@ -98,5 +104,67 @@ describe("admin cookie session", () => {
     expect(cleanup.clearAdminCache).toHaveBeenCalledOnce();
     expect(cleanup.clearImpersonationMarker).toHaveBeenCalledOnce();
     expect(client.getSnapshot()).toEqual({ status: "unauthenticated" });
+  });
+
+  it("cleans privileged caches exactly once before publishing unauthenticated after a request and refresh rejection", async () => {
+    const cleanup = { clearQueryCache: vi.fn(), clearAdminCache: vi.fn(), clearImpersonationMarker: vi.fn() };
+    const fetch = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(response({ error: "Authentication failed" }, 401))
+      .mockResolvedValueOnce(response({ error: "Authentication failed" }, 401));
+    const client = createAdminSessionClient({ fetch, readCookie: () => "admin-csrf", cleanup });
+
+    await expect(client.adminRequest("GET", "/api/admin/users")).rejects.toThrow("Admin request failed");
+    expect(cleanup.clearQueryCache).toHaveBeenCalledOnce();
+    expect(cleanup.clearAdminCache).toHaveBeenCalledOnce();
+    expect(cleanup.clearImpersonationMarker).toHaveBeenCalledOnce();
+    expect(client.getSnapshot()).toEqual({ status: "unauthenticated" });
+  });
+
+  it("does not let old refresh, probe, or logout responses overwrite a newer login", async () => {
+    const refresh = deferred<Response>();
+    const probe = deferred<Response>();
+    const logout = deferred<Response>();
+    const fetch = vi.fn<typeof fetch>().mockImplementation(async (url) => {
+      if (url === "/api/admin/auth/refresh") return refresh.promise;
+      if (url === "/api/admin/verify") return probe.promise;
+      if (url === "/api/admin/auth/logout") return logout.promise;
+      if (url === "/api/admin/login") return response({ admin: true });
+      throw new Error(`Unexpected request: ${url}`);
+    });
+    const client = createAdminSessionClient({
+      fetch,
+      readCookie: () => "admin-csrf",
+      cleanup: { clearQueryCache: vi.fn(), clearAdminCache: vi.fn(), clearImpersonationMarker: vi.fn() },
+    });
+
+    const staleProbe = client.bootstrap();
+    const staleRefresh = client.refresh();
+    const staleLogout = client.logout();
+    await client.login({ password: "new-password" });
+    probe.resolve(response({ valid: false }, 401));
+    refresh.resolve(response({ error: "Authentication failed" }, 401));
+    logout.resolve(response(undefined, 204));
+    await Promise.all([staleProbe, staleRefresh, staleLogout]);
+
+    expect(client.getSnapshot()).toEqual({ status: "authenticated" });
+  });
+
+  it("preserves FormData and exposes an explicit response mode while keeping default errors bounded", async () => {
+    const form = new FormData();
+    form.append("file", new Blob(["content"]), "file.txt");
+    const fetch = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(response({ ok: true }))
+      .mockResolvedValueOnce(response({ detail: "secret server body" }, 418));
+    const client = createAdminSessionClient({
+      fetch,
+      readCookie: () => "admin-csrf",
+      cleanup: { clearQueryCache: vi.fn(), clearAdminCache: vi.fn(), clearImpersonationMarker: vi.fn() },
+    });
+
+    await client.adminRequest("POST", "/api/admin/import", form);
+    const raw = await client.adminRequest("GET", "/api/admin/errors", undefined, { returnErrorResponse: true });
+    expect(fetch.mock.calls[0][1]).toMatchObject({ body: form, credentials: "include" });
+    expect((fetch.mock.calls[0][1]?.headers as Headers).get("Content-Type")).toBeNull();
+    expect(raw.status).toBe(418);
   });
 });
