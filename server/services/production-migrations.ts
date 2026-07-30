@@ -16,6 +16,7 @@ const MIGRATIONS = [
   "0007_contact_neighborhood.sql",
   "0008_att_messages_external_id_unique.sql",
   "0009_petitionsbr_module.sql",
+  "0010_auth_sessions.sql",
 ] as const;
 
 export interface MigrationRunResult {

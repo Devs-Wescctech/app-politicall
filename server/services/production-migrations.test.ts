@@ -112,8 +112,8 @@ describe("runProductionMigrations", () => {
       sql: "SELECT pg_advisory_unlock($1)",
       parameters: [741202607],
     });
-    expect(queriesMatching(client, /^BEGIN$/)).toHaveLength(9);
-    expect(queriesMatching(client, /^COMMIT$/)).toHaveLength(9);
+    expect(queriesMatching(client, /^BEGIN$/)).toHaveLength(migrationNames.length + 1);
+    expect(queriesMatching(client, /^COMMIT$/)).toHaveLength(migrationNames.length + 1);
     expect(client.released).toBe(true);
   });
 
@@ -151,8 +151,8 @@ describe("runProductionMigrations", () => {
       expect(client.recorded.get(name)).toBe(await sha256(path.join("migrations", name)));
     }));
     expect(client.queries.some(({ sql }) => sql.includes("PostgreSQL database dump"))).toBe(false);
-    expect(queriesMatching(client, /^BEGIN$/)).toHaveLength(8);
-    expect(queriesMatching(client, /^COMMIT$/)).toHaveLength(8);
+    expect(queriesMatching(client, /^BEGIN$/)).toHaveLength(migrationNames.length);
+    expect(queriesMatching(client, /^COMMIT$/)).toHaveLength(migrationNames.length);
   });
 
   it("rejects a previously recorded migration when its hash diverges", async () => {

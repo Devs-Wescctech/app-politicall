@@ -82,7 +82,7 @@ describe("production migrations PostgreSQL integration", () => {
         const history = await isolatedPool.query(
           "SELECT name FROM politicall_schema_migrations ORDER BY name",
         );
-        expect(history.rows).toHaveLength(9);
+        expect(history.rows).toHaveLength(migrationNames.length + 1);
 
         await isolatedPool.query(
           "DELETE FROM politicall_schema_migrations WHERE name = $1",

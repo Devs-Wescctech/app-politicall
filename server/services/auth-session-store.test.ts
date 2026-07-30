@@ -110,7 +110,7 @@ describe("auth session store", () => {
       ipHash: hashRefreshToken("ip-1"),
     });
 
-    expect(hashRefreshToken("refresh-token-1")).toBe("3cccef8f9d821b781f86b1e5458f6f9d42971db2314234a86b351a1e6ad7da3b");
+    expect(hashRefreshToken("refresh-token-1")).toBe("154f43e8c9b56a01e25dcba6f7aef62d23a3e91264e818124f6adf721d6a8e33");
     expect(session.refreshTokenHash).toBe(hashRefreshToken("refresh-token-1"));
     expect(JSON.stringify(repository.sessions)).not.toContain("refresh-token-1");
     expect(session.deviceHash).toHaveLength(64);
@@ -181,6 +181,31 @@ describe("auth session store", () => {
     expect(rotation.session?.revokedAt).not.toBeNull();
     expect(rotation.session?.revocationReason).toBe("reuse_detected");
     expect(repository.transactionCalls).toBe(2);
+  });
+
+  it("treats a lost conditional rotation update as token reuse before creating a successor", async () => {
+    const { repository, store } = createStore();
+    const original = await store.createSession({ scope: tenantScope, refreshToken: "refresh-token-race", expiresAt });
+    const revokeById = repository.revokeById.bind(repository);
+    let simulateCompetingRotation = true;
+    repository.revokeById = async (scope, sessionId, reason, revokedAt) => {
+      if (simulateCompetingRotation && sessionId === original.id && reason === "rotated") {
+        simulateCompetingRotation = false;
+        await revokeById(scope, sessionId, reason, revokedAt);
+        return 0;
+      }
+      return revokeById(scope, sessionId, reason, revokedAt);
+    };
+
+    await expect(store.rotateSession({
+      scope: tenantScope,
+      refreshToken: "refresh-token-race",
+      nextRefreshToken: "refresh-token-race-successor",
+      expiresAt,
+    })).resolves.toEqual({ status: "reuse_detected" });
+
+    expect(repository.sessions).toHaveLength(1);
+    expect(original.revocationReason).toBe("rotated");
   });
 
   it("revokes one session on logout and all tenant sessions for a password change", async () => {
