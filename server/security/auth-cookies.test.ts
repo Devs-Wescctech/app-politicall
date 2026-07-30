@@ -127,6 +127,22 @@ describe("auth cookie primitives", () => {
     });
   });
 
+  it("limits rotated refresh and CSRF cookies to their positive remaining family lifetime", () => {
+    const response = createResponse();
+    setSessionCookies(response, {
+      kind: "user",
+      accessToken: "access",
+      refreshToken: "refresh",
+      csrfToken: "csrf",
+      refreshMaxAgeMs: 60 * 60 * 1000,
+    });
+
+    const calls = response.cookie.mock.calls as CookieCall[];
+    expect(cookieByName(calls, USER_ACCESS_COOKIE)[2]).toMatchObject({ maxAge: ACCESS_TOKEN_MAX_AGE_MS });
+    expect(cookieByName(calls, USER_REFRESH_COOKIE)[2]).toMatchObject({ maxAge: 60 * 60 * 1000 });
+    expect(cookieByName(calls, "politicall_csrf")[2]).toMatchObject({ maxAge: 60 * 60 * 1000 });
+  });
+
   it("clears every session cookie with the same security and path attributes without stale expiry attributes", () => {
     const response = createResponse();
     const originalNodeEnv = process.env.NODE_ENV;

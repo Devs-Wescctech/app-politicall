@@ -44,6 +44,14 @@ class InMemorySessionRepository {
     );
   }
 
+  async findByRefreshHashAndKind(kind: "user" | "global_admin", refreshTokenHash: string): Promise<SessionRow | undefined> {
+    return this.sessions.find((session) => session.refreshTokenHash === refreshTokenHash && session.principalType === kind);
+  }
+
+  async findByIdAndKind(kind: "user" | "global_admin", sessionId: string): Promise<SessionRow | undefined> {
+    return this.sessions.find((session) => session.id === sessionId && session.principalType === kind);
+  }
+
   async linkRotation(scope: any, sourceSessionId: string, replacementSessionId: string, familyId: string): Promise<void> {
     const session = this.findByScope(scope, sourceSessionId);
     const replacement = this.findByScope(scope, replacementSessionId);
@@ -85,6 +93,18 @@ class InMemorySessionRepository {
     let count = 0;
     for (const session of this.sessions) {
       if (session.accountId === accountId && session.userId === userId && !session.revokedAt) {
+        session.revokedAt = revokedAt;
+        session.revocationReason = reason;
+        count += 1;
+      }
+    }
+    return count;
+  }
+
+  async revokeByGlobalAdmin(globalAdminPrincipalId: string, reason: string, revokedAt: Date): Promise<number> {
+    let count = 0;
+    for (const session of this.sessions) {
+      if (session.globalAdminPrincipalId === globalAdminPrincipalId && !session.revokedAt) {
         session.revokedAt = revokedAt;
         session.revocationReason = reason;
         count += 1;
@@ -228,6 +248,26 @@ describe("auth session store", () => {
     await expect(store.findRefreshSession({ scope: tenantScope, refreshToken: "revoked-refresh-token" }))
       .resolves.toBeUndefined();
     expect(expired.revokedAt).toBeNull();
+  });
+
+  it("resolves inactive records only for trusted expiry and replay handling", async () => {
+    const { store } = createStore();
+    const expired = await store.createSession({ scope: tenantScope, refreshToken: "trusted-expired", expiresAt: new Date("2020-01-01T00:00:00.000Z") });
+    const revoked = await store.createSession({ scope: tenantScope, refreshToken: "trusted-revoked", expiresAt });
+    await store.revokeSession({ scope: tenantScope, sessionId: revoked.id, reason: "logout" });
+
+    await expect(store.resolveRefreshSession({ kind: "user", refreshToken: "trusted-expired" })).resolves.toBeUndefined();
+    await expect(store.resolveRefreshSession({ kind: "user", refreshToken: "trusted-expired", includeInactive: true })).resolves.toMatchObject({ id: expired.id });
+    await expect(store.resolveRefreshSession({ kind: "user", refreshToken: "trusted-revoked", includeInactive: true })).resolves.toMatchObject({ id: revoked.id });
+  });
+
+  it("rotates from trusted stored scope and never extends the original expiry", async () => {
+    const { store } = createStore();
+    const source = await store.createSession({ scope: tenantScope, refreshToken: "trusted-source", expiresAt: new Date("2030-01-01T01:00:00.000Z") });
+
+    const result = await store.rotateRefreshSession({ kind: "user", refreshToken: "trusted-source", nextRefreshToken: "trusted-next" });
+
+    expect(result).toEqual({ status: "rotated", session: expect.objectContaining({ expiresAt: source.expiresAt, familyId: source.familyId }) });
   });
 
   it("does not allow a lookup caller to override the store clock for an expired session", async () => {
@@ -384,5 +424,15 @@ describe("auth session store", () => {
     expect(session.accountId).toBeNull();
     expect(session.userId).toBeNull();
     expect(session.globalAdminPrincipalId).toBe("admin-1");
+  });
+
+  it("revokes all global-admin sessions after a global-admin password change", async () => {
+    const { repository, store } = createStore();
+    const adminExpiry = new Date("2029-12-31T03:00:00.000Z");
+    await store.createSession({ scope: { kind: "global_admin", globalAdminPrincipalId: "global-admin" }, refreshToken: "global-one", expiresAt: adminExpiry });
+    await store.createSession({ scope: { kind: "global_admin", globalAdminPrincipalId: "global-admin" }, refreshToken: "global-two", expiresAt: adminExpiry });
+
+    await expect(store.revokeGlobalAdminSessions({ globalAdminPrincipalId: "global-admin", reason: "password_change" })).resolves.toBe(2);
+    expect(repository.sessions.filter((session) => session.globalAdminPrincipalId === "global-admin").every((session) => session.revocationReason === "password_change")).toBe(true);
   });
 });
