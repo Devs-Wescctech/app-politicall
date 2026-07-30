@@ -30,13 +30,30 @@ function resolveConstExpression(expression: ts.Expression, checker: ts.TypeCheck
   return resolveConstExpression(declaration.initializer, checker, nextSeen);
 }
 
-function staticString(expression: ts.Expression, checker: ts.TypeChecker): string | undefined {
+function staticString(expression: ts.Expression, checker: ts.TypeChecker, seen = new Set<ts.Node>()): string | undefined {
   const resolved = resolveConstExpression(expression, checker);
+  if (seen.has(resolved)) return undefined;
+  const nextSeen = new Set(seen);
+  nextSeen.add(resolved);
   if (ts.isStringLiteralLike(resolved) || ts.isNoSubstitutionTemplateLiteral(resolved)) return resolved.text;
   if (ts.isBinaryExpression(resolved) && resolved.operatorToken.kind === ts.SyntaxKind.PlusToken) {
-    const left = staticString(resolved.left, checker);
-    const right = staticString(resolved.right, checker);
+    const left = staticString(resolved.left, checker, nextSeen);
+    const right = staticString(resolved.right, checker, nextSeen);
     return left === undefined || right === undefined ? undefined : left + right;
+  }
+  const key = ts.isPropertyAccessExpression(resolved)
+    ? resolved.name.text
+    : ts.isElementAccessExpression(resolved) && resolved.argumentExpression
+      ? staticString(resolved.argumentExpression, checker, nextSeen)
+      : undefined;
+  if (key !== undefined && (ts.isPropertyAccessExpression(resolved) || ts.isElementAccessExpression(resolved))) {
+    const object = resolveConstExpression(resolved.expression, checker);
+    if (!ts.isObjectLiteralExpression(object)) return undefined;
+    const property = object.properties.find((candidate) =>
+      ts.isPropertyAssignment(candidate) && propertyName(candidate.name, checker) === key);
+    return property && ts.isPropertyAssignment(property)
+      ? staticString(property.initializer, checker, nextSeen)
+      : undefined;
   }
   return undefined;
 }
