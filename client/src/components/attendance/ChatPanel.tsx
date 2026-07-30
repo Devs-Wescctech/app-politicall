@@ -52,6 +52,8 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import type { AttConversation, AttMessage, QuickReply } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { conversationPollingInterval, type AttendancePollingVisibility } from "@/lib/attendance-polling";
+import type { AttendanceConnectionMode } from "@/lib/attendance-connection-state";
 import { useToast } from "@/hooks/use-toast";
 import { getAuthUser } from "@/lib/auth";
 import { cn } from "@/lib/utils";
@@ -85,6 +87,8 @@ interface Props {
   conversation: AttConversation;
   onClose?: () => void;
   onOpenContact?: () => void;
+  mode: AttendanceConnectionMode;
+  visibility: AttendancePollingVisibility;
 }
 
 type AttendanceTemplate = {
@@ -191,7 +195,7 @@ function writeCachedConversation(conversation: AttConversation, data?: CachedCon
   }
 }
 
-export default function ChatPanel({ conversation, onClose, onOpenContact }: Props) {
+export default function ChatPanel({ conversation, onClose, onOpenContact, mode, visibility }: Props) {
   const [message, setMessage] = useState("");
   const [isWhisper, setIsWhisper] = useState(false);
   const [showQuickReplies, setShowQuickReplies] = useState(false);
@@ -215,8 +219,8 @@ export default function ChatPanel({ conversation, onClose, onOpenContact }: Prop
       return response.json();
     },
     refetchOnMount: "always",
-    refetchInterval: 3000,
-    refetchIntervalInBackground: false,
+    refetchInterval: conversationPollingInterval(mode, visibility),
+    refetchIntervalInBackground: true,
     initialData: () => readCachedConversation(conversation),
   });
 

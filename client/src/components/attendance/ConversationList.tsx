@@ -1,4 +1,4 @@
-import { type ElementType, useEffect, useMemo, useState } from "react";
+import { type ElementType, useMemo, useState } from "react";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import {
   Bot,
@@ -35,6 +35,8 @@ import { cn } from "@/lib/utils";
 import { labelColor, useAttendanceLabels } from "./TagSelector";
 import { isOfficialAttendanceChannel } from "@shared/attendance-meta-window";
 import { AttendanceViewSwitcher, type AttendanceView } from "./AttendanceViewSwitcher";
+import { listPollingInterval, type AttendancePollingVisibility } from "@/lib/attendance-polling";
+import type { AttendanceConnectionMode } from "@/lib/attendance-connection-state";
 
 const STATUS_LABELS: Record<string, { label: string; dot: string }> = {
   new: { label: "Novo", dot: "bg-sky-500" },
@@ -177,9 +179,11 @@ interface Props {
   onNewConversation: () => void;
   activeView: AttendanceView;
   onViewChange: (view: AttendanceView) => void;
+  mode: AttendanceConnectionMode;
+  visibility: AttendancePollingVisibility;
 }
 
-export default function ConversationList({ selected, onSelect, onNewConversation, activeView, onViewChange }: Props) {
+export default function ConversationList({ selected, onSelect, onNewConversation, activeView, onViewChange, mode, visibility }: Props) {
   const [isSyncing, setIsSyncing] = useState(false);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -214,7 +218,8 @@ export default function ConversationList({ selected, onSelect, onNewConversation
       return response.json();
     },
     getNextPageParam: lastPage => lastPage.hasNextPage ? lastPage.page + 1 : undefined,
-    refetchInterval: 10000,
+    refetchInterval: listPollingInterval(mode, visibility),
+    refetchIntervalInBackground: true,
   });
   const conversations = useMemo(
     () => conversationPages?.pages.flatMap(page => page.data) ?? [],
@@ -300,13 +305,6 @@ export default function ConversationList({ selected, onSelect, onNewConversation
       setIsSyncing(false);
     }
   };
-
-  useEffect(() => {
-    const timer = window.setInterval(() => {
-      handleSync(true);
-    }, 60000);
-    return () => window.clearInterval(timer);
-  }, []);
 
   return (
     <div className="flex h-full flex-col bg-card" data-testid="panel-conversation-list">

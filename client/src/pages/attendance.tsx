@@ -41,6 +41,7 @@ import ReportsTab from "@/components/attendance/ReportsTab";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAttendanceRealtime } from "@/hooks/use-attendance-realtime";
+import { useAttendancePollingEnvironment } from "@/lib/attendance-polling";
 import { TagSelector, labelColor, useAttendanceLabels } from "@/components/attendance/TagSelector";
 import { TemplateVariableEditor } from "@/components/attendance/TemplateVariableDialog";
 import { AttendanceViewSwitcher, type AttendanceView } from "@/components/attendance/AttendanceViewSwitcher";
@@ -325,7 +326,8 @@ export default function AttendancePage() {
   const [selectedConversation, setSelectedConversation] = useState<AttConversation | null>(null);
   const [showNewConv, setShowNewConv] = useState(false);
   const [showContactPanel, setShowContactPanel] = useState(false);
-  useAttendanceRealtime();
+  const { mode } = useAttendanceRealtime();
+  const { visibility } = useAttendancePollingEnvironment();
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden bg-muted/20 p-2" data-testid="page-attendance">
@@ -346,6 +348,8 @@ export default function AttendancePage() {
                 onNewConversation={() => setShowNewConv(true)}
                 activeView={activeTab}
                 onViewChange={setActiveTab}
+                mode={mode}
+                visibility={visibility}
               />
             </div>
 
@@ -356,6 +360,8 @@ export default function AttendancePage() {
                   conversation={selectedConversation}
                   onClose={() => setSelectedConversation(null)}
                   onOpenContact={() => setShowContactPanel(true)}
+                  mode={mode}
+                  visibility={visibility}
                 />
               ) : (
                 <div
