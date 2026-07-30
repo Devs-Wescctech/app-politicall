@@ -305,4 +305,15 @@ describe("cookie session client", () => {
     expect(fetch.mock.calls.map(([url]) => url)).toEqual(["/api/auth/logout"]);
     expect(cleanup.clearQueryCache).toHaveBeenCalledOnce();
   });
+
+  it("does not treat a functional 403 as an expired access session", async () => {
+    const { dependencies, fetch, cookies } = createDependencies();
+    cookies.set("politicall_csrf", "csrf-token");
+    fetch.mockResolvedValue(response({ error: "Forbidden" }, 403));
+    const session = createSessionClient(dependencies);
+
+    await expect(session.logoutSession()).resolves.toEqual({ error: "Unable to end session" });
+
+    expect(fetch.mock.calls.map(([url]) => url)).toEqual(["/api/auth/logout"]);
+  });
 });

@@ -54,8 +54,10 @@ describe("tenant browser auth source gate", () => {
       'window.localStorage.getItem("auth_token")',
       'localStorage.setItem("auth_token", token)',
       'const headers = { Authorization: `Bearer ${token}` }',
+      'const headers = new Headers({ authorization: `Bearer ${token}` })',
       'headers.set("Authorization", `Bearer ${token}`)',
       'headers["Authorization"] = `Bearer ${token}`',
+      'headers.authorization = `Bearer ${token}`',
     ];
     for (const fixture of prohibited) expect(tenantCredentialViolations(fixture), fixture).not.toEqual([]);
     expect(tenantCredentialViolations('const docs = "Bearer YOUR_API_KEY"')).toEqual([]);

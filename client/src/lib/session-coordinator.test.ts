@@ -67,4 +67,27 @@ describe("cross-tab refresh coordinator", () => {
     owner.dispose();
     late.dispose();
   });
+
+  it("recovers with a local refresh after an abandoned owner lease expires", async () => {
+    const bus = new SharedChannelBus();
+    const localAction = vi.fn(async () => true);
+    const local = createRefreshCoordinator({
+      channel: bus.channel("local"),
+      participantId: "local",
+      claimWindowMs: 1,
+      leaseMs: 20,
+    });
+    bus.channel("abandoned").postMessage({
+      protocol: "politicall-session-v2",
+      type: "owner",
+      participantId: "abandoned",
+      claimId: "abandoned:claim:1",
+      leaseUntil: Date.now() + 10,
+    });
+
+    await expect(local.run(localAction)).resolves.toBe(true);
+
+    expect(localAction).toHaveBeenCalledOnce();
+    local.dispose();
+  });
 });
