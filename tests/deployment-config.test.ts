@@ -7,7 +7,8 @@ import { describe, expect, it } from "vitest";
 const root = process.cwd();
 const execFileAsync = promisify(execFile);
 const readProjectFile = (name: string) => readFile(path.join(root, name), "utf8");
-const syntheticShaTagReference = "ghcr.io/example-org/politicall:sha-0123456789abcdef";
+const syntheticFullCommitSha = "0123456789abcdef0123456789abcdef01234567";
+const syntheticShaTagReference = `ghcr.io/example-org/politicall:sha-${syntheticFullCommitSha}`;
 const syntheticDigestReference = `ghcr.io/example-org/politicall@sha256:${"0".repeat(64)}`;
 const immutableImageReference = /^ghcr\.io\/[a-z0-9._-]+\/[a-z0-9._-]+(?::sha-[0-9a-f]{7,64}|@sha256:[0-9a-f]{64})$/;
 
@@ -595,6 +596,24 @@ describe("deployment configuration", () => {
     expect(migration).toContain("CREATE TABLE IF NOT EXISTS linkbio_pages");
     expect(migration).toContain("CREATE TABLE IF NOT EXISTS linktree_pages");
     expect(migration).toContain("CREATE INDEX IF NOT EXISTS petitions_account_status_idx");
+  });
+
+  it("publishes a full-commit SHA tag compatible with IMAGE_REFERENCE", async () => {
+    const [workflow, compose, portainer] = await Promise.all([
+      readProjectFile(".github/workflows/build.yml"),
+      readProjectFile("docker-compose.yml"),
+      readProjectFile("docs/deployment/portainer-production.md"),
+    ]);
+    const metadataStep = workflow.match(
+      /^\s+- name: Extract metadata for Docker\s*$[\s\S]*?(?=^\s+- name:)/m,
+    )?.[0] ?? "";
+
+    expect(metadataStep).toContain("type=sha,prefix=sha-,format=long");
+    expect(metadataStep).not.toContain("format=short");
+    expect(syntheticShaTagReference).toMatch(/:sha-[0-9a-f]{40}$/);
+    expect(syntheticShaTagReference).toMatch(immutableImageReference);
+    expect(compose).toContain('image: "${IMAGE_REFERENCE:?required}"');
+    expect(portainer).toContain("ghcr.io/<org>/<app>:sha-<commit>");
   });
 
   it("runs automated tests and blocks high severity dependency audit failures in CI", async () => {
