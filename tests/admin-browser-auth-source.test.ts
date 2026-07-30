@@ -158,6 +158,11 @@ describe("admin browser credential source gate", () => {
       'localStorage["setItem"]("admin_token", token)',
       'const setAuthorization = headers.set.bind(headers); setAuthorization("Authorization", token)',
       'const headers = { Authorization: tokenFromHelper() }',
+      'fetch("/api", { headers: [["Authorization", token]] })',
+      'new Request("/api", { headers: { Authorization: token } })',
+      'const headerEntries = [["Author" + "ization", token]]; fetch("/api", { headers: headerEntries })',
+      'fetch("/api", { headers: new Map([["Authorization", token]]) })',
+      'new Request("/api", { headers: Object.fromEntries([["Authorization", token]]) })',
     ];
     for (const fixture of prohibited) expect(adminCredentialViolations(fixture), fixture).not.toEqual([]);
     expect(adminCredentialViolations('const theme = "theme"; localStorage.setItem(theme, value)')).toEqual([]);
@@ -165,6 +170,8 @@ describe("admin browser credential source gate", () => {
     expect(adminCredentialViolations('const docs = "Bearer pk_example"')).toEqual([]);
     expect(adminCredentialViolations('const headers = new Headers([["X-Trace", buildTrace()]])')).toEqual([]);
     expect(adminCredentialViolations('localStorage["setItem"]("theme", value)')).toEqual([]);
+    expect(adminCredentialViolations('<p>Authorization</p>')).toEqual([]);
+    expect((adminCredentialViolations as any)('const config = { locawebAuthHeader: "Authorization" }', "components/admin/AdminIntegrationsDialog.tsx")).toEqual([]);
   });
 
   it("rejects browser credential storage, X-Admin-Token, and first-party Bearer construction globally", () => {

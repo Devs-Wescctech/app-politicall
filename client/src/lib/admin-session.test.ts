@@ -177,6 +177,39 @@ describe("admin cookie session", () => {
     expect(functionalCleanup.clearQueryCache).not.toHaveBeenCalled();
   });
 
+  it("makes failed refresh generations terminal so stale requests cannot refresh again", async () => {
+    const staleRequestResponse = deferred<Response>();
+    const cleanup = { clearQueryCache: vi.fn(), clearAdminCache: vi.fn(), clearImpersonationMarker: vi.fn() };
+    let coordinationAttempt = 0;
+    const coordinateRefresh = vi.fn(async (refresh: () => Promise<boolean>) => {
+      coordinationAttempt += 1;
+      return coordinationAttempt === 1 ? false : refresh();
+    });
+    const fetch = vi.fn<typeof fetch>().mockImplementation(async (url) => {
+      if (url === "/api/admin/users") return staleRequestResponse.promise;
+      if (url === "/api/admin/login") return response({ admin: true });
+      if (url === "/api/admin/auth/refresh") return response({ error: "Authentication failed" }, 401);
+      throw new Error(`Unexpected request: ${url}`);
+    });
+    const client = createAdminSessionClient({ fetch, readCookie: () => "admin-csrf", cleanup, coordinateRefresh });
+
+    const staleRequest = client.adminRequest("GET", "/api/admin/users");
+    await expect(client.refresh()).resolves.toBe(false);
+    staleRequestResponse.resolve(response({ error: "Authentication failed" }, 401));
+    await expect(staleRequest).rejects.toThrow("Admin request failed");
+    expect(coordinateRefresh).toHaveBeenCalledOnce();
+    expect(cleanup.clearQueryCache).toHaveBeenCalledOnce();
+    expect(client.getSnapshot()).toEqual({ status: "unauthenticated" });
+
+    await client.login({ password: "new-password" });
+    expect(client.getSnapshot()).toEqual({ status: "authenticated" });
+    const nextRequest = client.adminRequest("GET", "/api/admin/users");
+    staleRequestResponse.resolve(response({ error: "Authentication failed" }, 401));
+    await expect(nextRequest).rejects.toThrow("Admin request failed");
+    expect(cleanup.clearQueryCache).toHaveBeenCalledTimes(2);
+    expect(client.getSnapshot()).toEqual({ status: "unauthenticated" });
+  });
+
   it("shares a failed real cross-tab refresh before either client resets coordination", async () => {
     const bus = new SharedChannelBus();
     const firstCoordinator = createRefreshCoordinator({ channel: bus.channel("first"), participantId: "first", claimWindowMs: 1, leaseMs: 5_000 });
