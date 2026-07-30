@@ -17,6 +17,9 @@ type CsrfTokenInput = {
   kind: SessionCookieKind;
 };
 
+export type ResolvedSessionContext = CsrfTokenInput;
+export type ResolveSession = (request: Request) => ResolvedSessionContext | undefined | Promise<ResolvedSessionContext | undefined>;
+
 function getSessionSecret(): string {
   const secret = process.env.SESSION_SECRET;
   if (!secret) throw new Error("SESSION_SECRET must be set in environment variables");
@@ -49,17 +52,39 @@ function rejectCsrf(response: Response): void {
   response.status(403).json({ error: "Invalid CSRF token" });
 }
 
+function isResolvedSessionContext(value: unknown, kind: SessionCookieKind): value is ResolvedSessionContext {
+  return typeof value === "object"
+    && value !== null
+    && typeof (value as ResolvedSessionContext).sid === "string"
+    && (value as ResolvedSessionContext).sid.length > 0
+    && (value as ResolvedSessionContext).kind === kind;
+}
+
+function isPromiseLike(value: unknown): value is Promise<ResolvedSessionContext | undefined> {
+  return typeof value === "object"
+    && value !== null
+    && typeof (value as Promise<unknown>).then === "function";
+}
+
 export function issueCsrfToken(input: CsrfTokenInput): string {
   if (!input.sid) throw new Error("CSRF tokens require a session id");
   const nonce = randomBytes(32).toString("base64url");
   return `${nonce}.${signCsrfToken({ ...input, nonce })}`;
 }
 
-export function requireCsrf(input: { kind: SessionCookieKind; allowedOrigins: readonly string[] }) {
+export function requireCsrf(input: {
+  kind: SessionCookieKind;
+  allowedOrigins: readonly string[];
+  resolveSession?: ResolveSession;
+}) {
   const allowedOrigins = new Set(input.allowedOrigins);
   if (allowedOrigins.size === 0) throw new Error("CSRF protection requires an explicit Origin allowlist");
+  const resolveSession = input.resolveSession ?? ((request: Request) => {
+    const accessToken = readAccessToken(request, input.kind);
+    return accessToken ? { sid: accessToken.sid, kind: accessToken.kind } : undefined;
+  });
 
-  return (request: Request, response: Response, next: NextFunction): void => {
+  return (request: Request, response: Response, next: NextFunction): void | Promise<void> => {
     if (["GET", "HEAD", "OPTIONS"].includes(request.method.toUpperCase())) {
       next();
       return;
@@ -79,14 +104,28 @@ export function requireCsrf(input: { kind: SessionCookieKind; allowedOrigins: re
     }
 
     const cookieToken = parseCookie(cookieHeader)[csrfCookieName(input.kind)];
-    const accessToken = readAccessToken(request, input.kind);
-    if (!cookieToken || !accessToken
-      || !constantTimeEqual(headerToken, cookieToken)
-      || !isValidCsrfToken(headerToken, { sid: accessToken.sid, kind: input.kind })) {
+    if (!cookieToken || !constantTimeEqual(headerToken, cookieToken)) {
       rejectCsrf(response);
       return;
     }
 
-    next();
+    const validateResolvedSession = (session: ResolvedSessionContext | undefined): void => {
+      if (!isResolvedSessionContext(session, input.kind)
+        || !isValidCsrfToken(headerToken, session)) {
+        rejectCsrf(response);
+        return;
+      }
+      next();
+    };
+
+    try {
+      const session = resolveSession(request);
+      if (isPromiseLike(session)) {
+        return session.then(validateResolvedSession, () => rejectCsrf(response));
+      }
+      validateResolvedSession(session);
+    } catch {
+      rejectCsrf(response);
+    }
   };
 }

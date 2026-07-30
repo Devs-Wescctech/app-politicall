@@ -10,6 +10,7 @@ import {
 export type SessionCookieKind = "user" | "admin";
 
 export const ACCESS_TOKEN_MAX_AGE_MS = 15 * 60 * 1000;
+const ACCESS_TOKEN_MAX_AGE_SECONDS = ACCESS_TOKEN_MAX_AGE_MS / 1000;
 export const AUTH_JWT_ISSUER = "politicall";
 export const AUTH_JWT_AUDIENCE = "politicall-api";
 export const USER_ACCESS_COOKIE = "politicall_access";
@@ -75,7 +76,10 @@ function isAccessTokenClaims(payload: string | JwtPayload, kind: SessionCookieKi
     && payload !== null
     && typeof payload.sid === "string"
     && payload.sid.length > 0
-    && payload.kind === kind;
+    && payload.kind === kind
+    && typeof payload.iat === "number"
+    && typeof payload.exp === "number"
+    && payload.exp - payload.iat === ACCESS_TOKEN_MAX_AGE_SECONDS;
 }
 
 export function createRefreshToken(): string {
@@ -88,7 +92,7 @@ export function issueAccessToken(input: { sid: string; kind: SessionCookieKind }
     algorithm: "HS256",
     issuer: AUTH_JWT_ISSUER,
     audience: AUTH_JWT_AUDIENCE,
-    expiresIn: ACCESS_TOKEN_MAX_AGE_MS / 1000,
+    expiresIn: ACCESS_TOKEN_MAX_AGE_SECONDS,
   });
 }
 
@@ -104,6 +108,7 @@ export function readAccessToken(request: CookieRequest, kind: SessionCookieKind)
       algorithms: ["HS256"],
       issuer: AUTH_JWT_ISSUER,
       audience: AUTH_JWT_AUDIENCE,
+      maxAge: ACCESS_TOKEN_MAX_AGE_SECONDS,
     });
     return isAccessTokenClaims(payload, kind) ? payload : undefined;
   } catch {
