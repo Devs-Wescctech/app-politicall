@@ -332,7 +332,7 @@ export default function AttendancePage() {
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden bg-muted/20 p-2" data-testid="page-attendance">
-      <ConnectionStatus mode={mode} onRetry={reconnectNow} className="shrink-0 px-1" />
+      <ConnectionStatus mode={mode} retryInProgress={mode === "reconnecting"} onRetry={reconnectNow} className="shrink-0 px-1" />
       <Tabs
         value={activeTab}
         onValueChange={value => {

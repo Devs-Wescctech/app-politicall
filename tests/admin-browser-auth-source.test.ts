@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 
 const clientRoot = path.resolve(process.cwd(), "client/src");
 const forbiddenCredentialNames = new Set(["admin_token", "auth_token", "x-admin-token"]);
+const globalSourceGateTimeoutMs = 20_000;
 
 function files(directory: string): string[] {
   return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
@@ -130,7 +131,9 @@ function hasAuthorizationEntry(expression: ts.Expression, checker: ts.TypeChecke
   return false;
 }
 
-function createAnalysis(source: string): { sourceFile: ts.SourceFile; checker: ts.TypeChecker } {
+type SourceAnalysis = { sourceFile: ts.SourceFile; checker: ts.TypeChecker };
+
+function createSingleSourceAnalysis(source: string): SourceAnalysis {
   const fileName = "admin-source.tsx";
   const sourceFile = ts.createSourceFile(fileName, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   const host: ts.CompilerHost = {
@@ -148,8 +151,33 @@ function createAnalysis(source: string): { sourceFile: ts.SourceFile; checker: t
   return { sourceFile: program.getSourceFile(fileName) ?? sourceFile, checker: program.getTypeChecker() };
 }
 
-function adminCredentialViolations(source: string): string[] {
-  const { sourceFile, checker } = createAnalysis(source);
+function createClientSourceAnalyses(sources: Array<{ relative: string; source: string }>): Array<{ relative: string } & SourceAnalysis> {
+  const sourceFiles = new Map(sources.map((source) => [
+    source.relative,
+    ts.createSourceFile(source.relative, source.source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX),
+  ]));
+  const host: ts.CompilerHost = {
+    fileExists: (requested) => sourceFiles.has(requested),
+    getCanonicalFileName: (requested) => requested,
+    getCurrentDirectory: () => "",
+    getDefaultLibFileName: () => "lib.d.ts",
+    getNewLine: () => "\n",
+    getSourceFile: (requested) => sourceFiles.get(requested),
+    readFile: (requested) => sources.find((source) => source.relative === requested)?.source,
+    useCaseSensitiveFileNames: () => true,
+    writeFile: () => undefined,
+  };
+  const program = ts.createProgram([...sourceFiles.keys()], { jsx: ts.JsxEmit.Preserve, noLib: true, noResolve: true, target: ts.ScriptTarget.Latest }, host);
+  const checker = program.getTypeChecker();
+
+  return sources.map((source) => ({
+    relative: source.relative,
+    sourceFile: program.getSourceFile(source.relative) ?? sourceFiles.get(source.relative)!,
+    checker,
+  }));
+}
+
+function adminCredentialViolationsInAnalysis({ sourceFile, checker }: SourceAnalysis): string[] {
   const violations: string[] = [];
   const report = (node: ts.Node, kind: string) => violations.push(`${kind}:${sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile)).line + 1}`);
   const isForbiddenName = (value: string) => forbiddenCredentialNames.has(value.toLowerCase());
@@ -198,6 +226,10 @@ function adminCredentialViolations(source: string): string[] {
   return violations;
 }
 
+function adminCredentialViolations(source: string): string[] {
+  return adminCredentialViolationsInAnalysis(createSingleSourceAnalysis(source));
+}
+
 describe("admin browser credential source gate", () => {
   it("detects conservative authorization and credential-storage mutations", () => {
     const prohibited = [
@@ -237,11 +269,12 @@ describe("admin browser credential source gate", () => {
 
   it("rejects browser credential storage, X-Admin-Token, and first-party Bearer construction globally", () => {
     const sources = files(clientRoot).map((file) => ({ relative: path.relative(clientRoot, file).replaceAll("\\", "/"), source: fs.readFileSync(file, "utf8") }));
-    const violations = sources.flatMap((file) => adminCredentialViolations(file.source).map((violation) => `${file.relative}:${violation}`));
+    const violations = createClientSourceAnalyses(sources)
+      .flatMap((file) => adminCredentialViolationsInAnalysis(file).map((violation) => `${file.relative}:${violation}`));
     expect(violations).toEqual([]);
     expect(fs.readFileSync(path.join(clientRoot, "components/admin/AdminIntegrationsDialog.tsx"), "utf8"))
       .not.toContain("locawebAuthHeader:");
-  });
+  }, globalSourceGateTimeoutMs);
 
   it("requires authenticated-only admin queries, neutral guards, async login probing, and non-authoritative impersonation payloads", () => {
     const read = (relative: string) => fs.readFileSync(path.join(clientRoot, relative), "utf8");

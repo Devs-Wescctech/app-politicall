@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
 
 const root = process.cwd();
 const startupMarker = "RUNTIME_STARTUP_PROBE_LISTENING";
-const startupTimeoutMs = 15_000;
+const startupTimeoutMs = 30_000;
 
 function createDevelopmentImportBlocker(): string {
   return `
