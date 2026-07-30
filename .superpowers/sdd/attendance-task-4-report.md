@@ -1,5 +1,7 @@
 # Attendance Realtime Resilience Task 4 Report
 
+Status: APPROVED
+
 Base: `4aa753c`
 
 ## Delivered
@@ -63,4 +65,8 @@ Review contract: `.superpowers/sdd/attendance-task-4-review-1.md`
 
 ## Review Status
 
-Review 1 remediation is implemented and awaiting re-review. This report does not mark Task 4 approved.
+The independent re-review approved the task with no Critical, Important, or
+Minor findings. It reconfirmed the construction-to-start race fix, exactly one
+snapshot notification, listener ordering and cleanup, zero initial
+invalidation, repeated/Strict Mode lifecycles, every interval in the policy
+table, GET-only polling, and preservation of Tasks 1-3.
