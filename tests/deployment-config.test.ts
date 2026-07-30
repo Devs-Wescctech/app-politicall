@@ -644,12 +644,13 @@ describe("deployment configuration", () => {
     expect(workflow).toMatch(/^permissions:\n  contents: read$/m);
     expect(build).toContain("postgres:");
     expect(build).toContain("image: postgres:16");
+    expect(build).toContain("ports: [5432:5432]");
     expect(build).toContain("pg_isready");
     expect(build).toContain("POSTGRES_PASSWORD: ${{ github.run_id }}");
     expect(build).toContain("new URL('postgresql://127.0.0.1:5432/postgres')");
     expect(build).toContain("MIGRATION_TEST_DATABASE_URL");
     expect(build).toContain("npm test");
-    expect(build).not.toContain("DATABASE_URL");
+    expect(build).not.toMatch(/process\.env\.DATABASE_URL|^\s*DATABASE_URL=/m);
     expect(security).toContain("npm run security:secrets");
     expect(security).toContain("npm audit --omit=dev --audit-level=high");
     expect(security).not.toContain("continue-on-error: true");
@@ -690,7 +691,7 @@ describe("deployment configuration", () => {
     expect(docker).toContain("$GITHUB_STEP_SUMMARY");
     expect(workflowJob(workflow, "typecheck")).not.toContain("docker/login-action");
     expect(buildCandidate).not.toContain("latest");
-    expect(docker).not.toMatch(/(?:latest|type=ref|type=semver|type=sha)/);
+    expect(docker).not.toMatch(/:latest\b|type=ref|type=semver/);
     expect(syntheticShaTagReference).toMatch(/:sha-[0-9a-f]{40}$/);
     expect(syntheticShaTagReference).toMatch(immutableImageReference);
     expect(compose).toContain('image: "${IMAGE_REFERENCE:?required}"');
