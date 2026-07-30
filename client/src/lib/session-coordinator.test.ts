@@ -144,10 +144,10 @@ describe("cross-tab refresh coordinator", () => {
     const ownerRefresh = deferred<boolean>();
     const ownerAction = vi.fn(() => ownerRefresh.promise);
     const candidateAction = vi.fn(async () => true);
-    bus.delayOwnerMessagesFrom("owner");
+    bus.delayOwnerMessagesFrom("a-owner");
     const owner = createRefreshCoordinator({
-      channel: bus.channel("owner"),
-      participantId: "owner",
+      channel: bus.channel("a-owner"),
+      participantId: "a-owner",
       claimWindowMs: 1,
       leaseMs: 1_000,
     });
@@ -159,20 +159,25 @@ describe("cross-tab refresh coordinator", () => {
     });
 
     const candidate = createRefreshCoordinator({
-      channel: bus.channel("candidate"),
-      participantId: "candidate",
+      channel: bus.channel("z-candidate"),
+      participantId: "z-candidate",
       claimWindowMs: 100,
       leaseMs: 1_000,
     });
     const candidateResult = candidate.run(candidateAction);
     await vi.waitFor(() => expect(bus.messages.some((message) =>
-      message.type === "claim" && message.participantId === "candidate")).toBe(true), {
+      message.type === "claim" && message.participantId === "z-candidate")).toBe(true), {
       interval: 1,
       timeout: 500,
     });
 
-    expect(bus.releaseOwnerMessage("owner")).toBe(true);
+    expect(bus.releaseOwnerMessage("a-owner")).toBe(true);
     ownerRefresh.resolve(true);
+    await vi.waitFor(() => expect(bus.messages.some((message) =>
+      message.type === "result" && message.participantId === "a-owner")).toBe(true), {
+      interval: 1,
+      timeout: 500,
+    });
 
     await expect(Promise.all([ownerResult, candidateResult])).resolves.toEqual([true, true]);
     expect(ownerAction).toHaveBeenCalledOnce();
