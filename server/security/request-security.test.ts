@@ -42,11 +42,11 @@ describe("request security", () => {
   });
 
   it("enforces bounded global, import, and system-sync fixed-window limits with standard headers", async () => {
-    const globalLimiter = createFixedWindowRateLimiter({ limit: 2, windowMs: 60_000, maximumEntries: 2 });
+    const globalLimiter = createFixedWindowRateLimiter({ limit: 2, windowMs: 60_000, maximumEntries: 10 });
     const importLimiter = createFixedWindowRateLimiter({ limit: 1, windowMs: 60_000, maximumEntries: 2 });
     const syncLimiter = createFixedWindowRateLimiter({ limit: 1, windowMs: 60_000, maximumEntries: 2 });
     const app = express();
-    createRequestSecurity(app, { globalLimiter, importLimiter, systemSyncLimiter: syncLimiter });
+    createRequestSecurity(app, { env: { NODE_ENV: "production", TRUST_PROXY: "1" }, globalLimiter, importLimiter, systemSyncLimiter: syncLimiter });
     app.get("/api/normal", (_req, res) => res.status(204).end());
     app.post("/api/attendance/contacts/import-list", (_req, res) => res.status(204).end());
     app.post("/api/admin/system-sync", (_req, res) => res.status(204).end());
@@ -68,6 +68,7 @@ describe("request security", () => {
   it("fails closed for new keys at hard limiter capacity without dropping existing state", async () => {
     const limiter = createFixedWindowRateLimiter({ limit: 3, windowMs: 60_000, maximumEntries: 1 });
     const app = express();
+    app.set("trust proxy", 1);
     app.use("/api", limiter);
     app.get("/api/normal", (_req, res) => res.status(204).end());
     server = await start(app);
@@ -75,6 +76,19 @@ describe("request security", () => {
     expect((await fetch(`${server.baseUrl}/api/normal`, { headers: { "x-forwarded-for": "198.51.100.1" } })).status).toBe(204);
     expect((await fetch(`${server.baseUrl}/api/normal`, { headers: { "x-forwarded-for": "198.51.100.2" } })).status).toBe(429);
     expect((await fetch(`${server.baseUrl}/api/normal`, { headers: { "x-forwarded-for": "198.51.100.1" } })).status).toBe(204);
+  });
+
+  it("does not apply the API limiter to health or readiness probes", async () => {
+    const app = express();
+    createRequestSecurity(app, { globalLimiter: createFixedWindowRateLimiter({ limit: 1, windowMs: 60_000, maximumEntries: 2 }) });
+    app.get("/api/health", (_req, res) => res.status(204).end());
+    app.get("/api/ready", (_req, res) => res.status(204).end());
+    server = await start(app);
+
+    expect((await fetch(`${server.baseUrl}/api/health`)).status).toBe(204);
+    expect((await fetch(`${server.baseUrl}/api/health`)).status).toBe(204);
+    expect((await fetch(`${server.baseUrl}/api/ready`)).status).toBe(204);
+    expect((await fetch(`${server.baseUrl}/api/ready`)).status).toBe(204);
   });
 
   it("uses default and route-scoped body limits while preserving raw webhook bytes", async () => {
