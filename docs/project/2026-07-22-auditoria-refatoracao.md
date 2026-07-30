@@ -1,5 +1,22 @@
 # Auditoria e refatoracao - 2026-07-22
 
+## Atualizacao de release foundation - 2026-07-29
+
+Os fatos historicos deste relatorio permanecem abaixo. A fundacao operacional de release foi adicionada posteriormente e a evidencia consolidada esta em [production-release-foundation.tdd.md](../testing/production-release-foundation.tdd.md).
+
+Estado atual verificado:
+
+- O gate local pos-Task 7 passou: typecheck, 422 testes aprovados com 1 integracao PG16 skipped, build, scanner de secrets, audit de dependencias de runtime e `git diff --check`.
+- O smoke real em modo de producao passou contra um cluster PostgreSQL 18 temporario e isolado: migracao inicial, segunda migracao idempotente, health, readiness, login, HTML, asset e listener HTTP alternativo. O cluster e os dados descartaveis foram removidos ao final.
+- O contrato de deploy e os runbooks estao em [Portainer](../deployment/portainer-production.md), [backup/restaure](../deployment/backup-restore.md) e [Nginx WebSocket](../deployment/nginx-websocket.conf). O backup externo pre-alteracao continua existente; nenhum backup ou ambiente de producao foi modificado nesta validacao.
+
+Riscos e pendencias remanescentes:
+
+- Docker Engine, Trivy de imagem, GHCR, PostgreSQL 16 de integracao e Portainer ainda exigem execucao externa no CI/infraestrutura. O teste PG16 fica skipped localmente e deve executar no GitHub Actions.
+- A credencial historica removida deve ser revogada, e o blob historico deve ser expurgado antes de exposicao publica do repositorio.
+- GHCR/Portainer ainda precisam de permissao de pacote, referencia imutavel de imagem, rede externa, secrets e backup/restaure operacional configurados conforme os runbooks.
+- Esta fundacao nao declara o produto inteiro pronto: a migracao de autenticacao para cookies `HttpOnly` e o trabalho de resiliencia realtime continuam como frentes separadas.
+
 ## Backup
 
 - Backup do codigo e uploads: `backups/politicall-20260722-104228.zip`
