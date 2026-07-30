@@ -110,7 +110,6 @@ import {
 } from "recharts";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { getAuthToken } from "@/lib/auth";
 
 // ============================================================================
 // Helpers
@@ -132,25 +131,13 @@ function slugify(text: string): string {
 async function uploadImage(file: File): Promise<string> {
   const fd = new FormData();
   fd.append("image", file);
-  const res = await fetch("/api/petitions/upload", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${getAuthToken()}` },
-    body: fd,
-  });
-  if (!res.ok) {
-    throw new Error("Falha no upload da imagem");
-  }
+  const res = await apiRequest("POST", "/api/petitions/upload", fd);
   const data = await res.json();
   return data.url as string;
 }
 
 async function downloadAuthedFile(url: string, filename: string): Promise<void> {
-  const res = await fetch(url, {
-    headers: { Authorization: `Bearer ${getAuthToken()}` },
-  });
-  if (!res.ok) {
-    throw new Error("Falha ao baixar arquivo");
-  }
+  const res = await apiRequest("GET", url);
   const blob = await res.blob();
   const objUrl = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -875,10 +862,7 @@ function PetitionDetailsView({
       if (!open || !petition) return;
       setLoadingQr(true);
       try {
-        const res = await fetch(`/api/petitions/${petition.id}/qrcode`, {
-          headers: { Authorization: `Bearer ${getAuthToken()}` },
-        });
-        if (!res.ok) throw new Error();
+        const res = await apiRequest("GET", `/api/petitions/${petition.id}/qrcode`);
         const blob = await res.blob();
         const url = URL.createObjectURL(blob);
         revoked = url;

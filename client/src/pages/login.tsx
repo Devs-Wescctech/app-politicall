@@ -8,8 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
-import { setAuthToken, setAuthUser } from "@/lib/auth";
-import { apiRequest } from "@/lib/queryClient";
+import { sessionClient } from "@/lib/session";
 import logoUrl from "@assets/logo pol_1763308638963.png";
 import backgroundUrl from "@assets/d39a8f83-9488-4450-a920-1ca2b1507b3e_1763412325286.jpg";
 
@@ -29,10 +28,7 @@ export default function Login() {
   async function onSubmit(data: LoginUser) {
     setIsLoading(true);
     try {
-      const response = await apiRequest("POST", "/api/auth/login", data);
-      const result = await response.json();
-      setAuthToken(result.token);
-      setAuthUser(result.user);
+      await sessionClient.loginSession(data);
       window.location.href = "/dashboard";
     } catch (error: any) {
       toast({

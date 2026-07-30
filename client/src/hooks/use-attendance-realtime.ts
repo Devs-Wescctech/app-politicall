@@ -1,6 +1,5 @@
 import { useEffect } from "react";
 import { queryClient } from "@/lib/queryClient";
-import { getAuthToken } from "@/lib/auth";
 
 type AttendanceRealtimeEvent = {
   type: string;
@@ -10,10 +9,9 @@ type AttendanceRealtimeEvent = {
   payload?: Record<string, unknown>;
 };
 
-function realtimeUrl(token: string): string {
+function realtimeUrl(): string {
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-  const params = new URLSearchParams({ token });
-  return `${protocol}//${window.location.host}/api/attendance/realtime?${params.toString()}`;
+  return `${protocol}//${window.location.host}/api/attendance/realtime`;
 }
 
 function invalidateConversation(event: AttendanceRealtimeEvent) {
@@ -54,8 +52,7 @@ function invalidateConversation(event: AttendanceRealtimeEvent) {
 
 export function useAttendanceRealtime(enabled = true) {
   useEffect(() => {
-    const token = getAuthToken();
-    if (!enabled || !token) return;
+    if (!enabled) return;
 
     let socket: WebSocket | null = null;
     let retryTimer: number | undefined;
@@ -63,7 +60,9 @@ export function useAttendanceRealtime(enabled = true) {
     let closedByEffect = false;
 
     const connect = () => {
-      socket = new WebSocket(realtimeUrl(token));
+      // The auth milestone removes query credentials. The realtime milestone owns
+      // same-origin cookie validation and its adaptive HTTP fallback.
+      socket = new WebSocket(realtimeUrl());
 
       socket.onopen = () => {
         retryAttempt = 0;

@@ -11,7 +11,7 @@
  */
 
 import { lazy, Suspense, type CSSProperties, type ReactNode } from "react";
-import { Switch, Route, Redirect } from "wouter";
+import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -23,7 +23,6 @@ import { AdminRoute } from "@/components/admin-route";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { NotificationBell } from "@/components/notification-bell";
-import { isAuthenticated } from "@/lib/auth";
 import logoUrl from "@assets/logo pol_1763308638963.png";
 
 const NotFound = lazy(() => import("@/pages/not-found"));
@@ -94,10 +93,6 @@ function AuthenticatedLayout({ children }: { children: ReactNode }) {
 }
 
 function AuthenticatedPage({ children }: { children: ReactNode }) {
-  if (!isAuthenticated()) {
-    return <Redirect to="/login" />;
-  }
-
   return (
     <ProtectedRoute>
       <AuthenticatedLayout>{children}</AuthenticatedLayout>

@@ -39,7 +39,6 @@ import ContactPanel from "@/components/attendance/ContactPanel";
 import SettingsTab from "@/components/attendance/SettingsTab";
 import ReportsTab from "@/components/attendance/ReportsTab";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { getAuthToken } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { useAttendanceRealtime } from "@/hooks/use-attendance-realtime";
 import { TagSelector, labelColor, useAttendanceLabels } from "@/components/attendance/TagSelector";
@@ -827,24 +826,7 @@ function AttendanceContactsTab() {
       const formData = new FormData();
       formData.append("file", importFile);
       formData.append("mapping", JSON.stringify(mapping));
-      const token = getAuthToken();
-      const response = await fetch("/api/attendance/contacts/import-file", {
-        method: "POST",
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-        credentials: "include",
-        body: formData,
-      });
-      if (!response.ok) {
-        const text = await response.text();
-        let message = text || response.statusText;
-        try {
-          const parsed = JSON.parse(text);
-          message = parsed.message || parsed.error || message;
-        } catch {
-          // Keep the raw response text when it is not JSON.
-        }
-        throw new Error(message);
-      }
+      const response = await apiRequest("POST", "/api/attendance/contacts/import-file", formData);
       return response.json();
     },
     onSuccess: (job: any) => {

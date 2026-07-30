@@ -94,9 +94,11 @@ describe("cookie session client", () => {
       method: "PATCH",
       credentials: "include",
       body: JSON.stringify({ name: "Ana" }),
-      headers: expect.objectContaining({ "Content-Type": "application/json", "x-csrf-token": "csrf-token" }),
     }));
-    expect((fetch.mock.calls[0][1]?.headers as Headers).get("Authorization")).toBeNull();
+    const headers = fetch.mock.calls[0][1]?.headers as Headers;
+    expect(headers.get("Content-Type")).toBe("application/json");
+    expect(headers.get("x-csrf-token")).toBe("csrf-token");
+    expect(headers.get("Authorization")).toBeNull();
   });
 
   it("obtains a CSRF cookie before a mutation when it is absent", async () => {
@@ -113,7 +115,7 @@ describe("cookie session client", () => {
     await session.apiRequest("POST", "/api/contacts", { name: "Ana" });
 
     expect(fetch.mock.calls.map(([url]) => url)).toEqual(["/api/auth/csrf", "/api/contacts"]);
-    expect(fetch.mock.calls[1][1]?.headers).toEqual(expect.objectContaining({ "x-csrf-token": "new-csrf-token" }));
+    expect((fetch.mock.calls[1][1]?.headers as Headers).get("x-csrf-token")).toBe("new-csrf-token");
   });
 
   it("preserves FormData and download responses while using cookie credentials", async () => {
@@ -151,7 +153,7 @@ describe("cookie session client", () => {
     await session.apiRequest("DELETE", "/api/contacts/1", { reason: "duplicate" });
 
     expect(fetch.mock.calls.map(([url]) => url)).toEqual(["/api/contacts/1", "/api/auth/refresh", "/api/contacts/1"]);
-    expect(fetch.mock.calls[2][1]?.headers).toEqual(expect.objectContaining({ "x-csrf-token": "csrf-after-refresh" }));
+    expect((fetch.mock.calls[2][1]?.headers as Headers).get("x-csrf-token")).toBe("csrf-after-refresh");
   });
 
   it("deduplicates same-tab refreshes and does not retry after refresh failure", async () => {

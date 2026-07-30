@@ -848,19 +848,7 @@ export default function Contacts() {
           const formData = new FormData();
           formData.append('file', file);
           
-          // Get auth token from localStorage
-          const token = localStorage.getItem('auth_token');
-          const headers: HeadersInit = {};
-          if (token) {
-            headers['Authorization'] = `Bearer ${token}`;
-          }
-          
-          const response = await fetch('/api/contacts/parse-pdf', {
-            method: 'POST',
-            headers,
-            body: formData,
-            credentials: 'include',
-          });
+          const response = await apiRequest('POST', '/api/contacts/parse-pdf', formData);
           
           if (!response.ok) {
             const errorData = await response.json();

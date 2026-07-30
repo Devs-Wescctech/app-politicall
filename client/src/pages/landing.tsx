@@ -13,7 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useLocation } from "wouter";
-import { isAuthenticated } from "@/lib/auth";
+import { useSession } from "@/hooks/use-session";
 import { 
   Users, TrendingUp, ListTodo, Calendar, Bot, BarChart3, 
   CheckCircle2, Zap, Shield, Clock, Target, Award,
@@ -98,6 +98,7 @@ function AnimatedNumber({ value, suffix = "", className = "" }: { value: number;
 export default function LandingPage() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
+  const session = useSession();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [fullscreenImage, setFullscreenImage] = useState<{ src: string; alt: string } | null>(null);
@@ -130,7 +131,7 @@ export default function LandingPage() {
 
 
   useEffect(() => {
-    if (isAuthenticated()) {
+    if (session.status === "authenticated") {
       setLocation("/dashboard");
       return;
     }
@@ -152,7 +153,7 @@ export default function LandingPage() {
     
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+  }, [session.status, setLocation]);
 
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {

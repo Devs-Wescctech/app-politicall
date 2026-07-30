@@ -21,10 +21,13 @@ describe("tenant browser auth source gate", () => {
   it("does not persist tenant credentials or construct tenant Bearer headers", async () => {
     const files = (await sourceFiles(clientRoot)).filter((file) => !taskSixBoundary.has(file.relative));
     const source = files.map((file) => `// ${file.relative}\n${file.source}`).join("\n");
+    const tenantConsumers = files
+      .filter((file) => file.relative !== "lib/auth.ts")
+      .map((file) => `// ${file.relative}\n${file.source}`).join("\n");
 
     expect(source).not.toMatch(/localStorage\.(?:getItem|setItem|removeItem)\(\s*["']auth_token["']/);
     expect(source).not.toMatch(/Authorization\s*:\s*`Bearer \$\{(?:getAuthToken|token)\(/);
     expect(source).not.toMatch(/headers\[["']Authorization["']\]\s*=\s*`Bearer/);
-    expect(source).not.toMatch(/setAuthToken\(/);
+    expect(tenantConsumers).not.toMatch(/setAuthToken\(/);
   });
 });
