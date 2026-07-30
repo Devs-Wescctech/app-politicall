@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { encryptApiKey } from "../crypto";
 import {
@@ -59,9 +60,15 @@ describe("data encryption rotation", () => {
     process.env.DATA_ENCRYPTION_KEY = previousKey;
     const previous = encryptApiKey("previous");
     process.env.DATA_ENCRYPTION_KEY = activeKey;
+    const legacyKey = crypto.scryptSync(previousKey, "salt", 32);
+    const legacyIv = Buffer.alloc(16, 2);
+    const legacyCipher = crypto.createCipheriv("aes-256-gcm", legacyKey, legacyIv);
+    const legacyData = Buffer.concat([legacyCipher.update("legacy", "utf8"), legacyCipher.final()]);
+    const legacy = `${legacyIv.toString("hex")}:${legacyCipher.getAuthTag().toString("hex")}:${legacyData.toString("hex")}`;
     const fixture = createStore([
       { table: "integrations", id: "active", field: "sendgridApiKey", value: active },
       { table: "integrations", id: "previous", field: "sendgridApiKey", value: previous },
+      { table: "integrations", id: "legacy", field: "sendgridApiKey", value: legacy },
       { table: "integrations", id: "plain", field: "sendgridApiKey", value: "plain:credential" },
       { table: "integrations", id: "bad", field: "sendgridApiKey", value: "v2:bad:bad:bad:bad" },
     ]);
@@ -69,9 +76,9 @@ describe("data encryption rotation", () => {
 
     const report = await rotateDataEncryption(fixture.store, { apply: true, batchSize: 2, log: (entry) => output.push(JSON.stringify(entry)) });
 
-    expect(report).toMatchObject({ scanned: 4, unchanged: 1, rotatable: 2, rotated: 2, errors: 1 });
-    expect(fixture.writes).toHaveLength(2);
-    expect(fixture.transactionCount()).toBe(2);
+    expect(report).toMatchObject({ scanned: 5, unchanged: 1, rotatable: 3, rotated: 3, errors: 1 });
+    expect(fixture.writes).toHaveLength(3);
+    expect(fixture.transactionCount()).toBe(3);
     expect(output.join("\n")).not.toContain("plain:credential");
     expect(output.join("\n")).not.toContain("v2:bad");
   });

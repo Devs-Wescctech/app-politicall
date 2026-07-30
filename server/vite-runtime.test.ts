@@ -122,6 +122,7 @@ describe("Vite runtime boundary", () => {
           PROD_DATABASE_URL: ["postgres:", "//probe:probe@127.0.0.1:1/politicall"].join(""),
           RUNTIME_STARTUP_PROBE: "1",
           SESSION_SECRET: "runtime-startup-probe-secret",
+          DATA_ENCRYPTION_KEY: Buffer.alloc(32, 12).toString("base64"),
         },
         stdio: "pipe",
         windowsHide: true,

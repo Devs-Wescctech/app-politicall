@@ -878,7 +878,7 @@ export function registerAttendanceRoutes(app: Express) {
         after: maskChannelConnectionSecrets(conn),
         realtimeType: "attendance.settings.updated",
       });
-      res.json({ ...conn, token: maskToken(conn.token) });
+      res.json(maskChannelConnectionSecrets(conn));
     } catch (e: any) { res.status(400).json({ error: e.message }); }
   });
 
@@ -890,11 +890,11 @@ export function registerAttendanceRoutes(app: Express) {
       await recordAttendanceEvent(req, "connection.updated", {
         entityType: "connection",
         entityId: conn.id,
-        before: before ? { ...before, token: maskToken(before.token) } : null,
+        before: maskChannelConnectionSecrets(before),
         after: maskChannelConnectionSecrets(conn),
         realtimeType: "attendance.settings.updated",
       });
-      res.json({ ...conn, token: maskToken(conn.token) });
+      res.json(maskChannelConnectionSecrets(conn));
     } catch (e: any) { res.status(400).json({ error: e.message }); }
   });
 
@@ -905,7 +905,7 @@ export function registerAttendanceRoutes(app: Express) {
       await recordAttendanceEvent(req, "connection.deleted", {
         entityType: "connection",
         entityId: req.params.id,
-        before: before ? { ...before, token: maskToken(before.token) } : null,
+        before: before ? maskChannelConnectionSecrets(before) : null,
         realtimeType: "attendance.settings.updated",
       });
       res.json({ success: true });
