@@ -1,4 +1,5 @@
 import { createServer, type Server } from "node:http";
+import { connect as connectSocket, type Socket } from "node:net";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WebSocket, type RawData } from "ws";
 import { issueAccessToken } from "./security/auth-cookies";
@@ -18,6 +19,7 @@ const originalSessionSecret = process.env.SESSION_SECRET;
 const originalPublicAppUrl = process.env.PUBLIC_APP_URL;
 const servers: Server[] = [];
 const clients: WebSocket[] = [];
+const rawSockets: Socket[] = [];
 const receivedPackets = new WeakMap<WebSocket, Record<string, unknown>[]>();
 
 function activeSession(overrides: Record<string, unknown> = {}) {
@@ -115,6 +117,49 @@ function rejectedStatus(
   });
 }
 
+function pendingClient(url: string, sessionId = "session-1"): WebSocket {
+  const client = new WebSocket(url, {
+    origin: ORIGIN,
+    headers: { Cookie: accessCookie(sessionId) },
+  });
+  clients.push(client);
+  client.on("error", () => undefined);
+  return client;
+}
+
+function rawUpgradeStatus(port: number, target: string): Promise<number> {
+  const socket = connectSocket({ host: "127.0.0.1", port });
+  rawSockets.push(socket);
+  socket.setEncoding("utf8");
+  return new Promise((resolve, reject) => {
+    let response = "";
+    const timeout = setTimeout(() => reject(new Error(`Timed out rejecting target ${target}`)), 1_000);
+    timeout.unref();
+    socket.on("data", (chunk) => {
+      response += chunk;
+      const match = /^HTTP\/1\.1 (\d{3}) /m.exec(response);
+      if (!match) return;
+      clearTimeout(timeout);
+      socket.destroy();
+      resolve(Number(match[1]));
+    });
+    socket.once("error", reject);
+    socket.once("connect", () => {
+      socket.write(
+        `GET ${target} HTTP/1.1\r\n`
+        + `Host: 127.0.0.1:${port}\r\n`
+        + `Origin: ${ORIGIN}\r\n`
+        + `Cookie: ${accessCookie()}\r\n`
+        + "Connection: Upgrade\r\n"
+        + "Upgrade: websocket\r\n"
+        + "Sec-WebSocket-Version: 13\r\n"
+        + "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n"
+        + "\r\n",
+      );
+    });
+  });
+}
+
 function packetOfType(client: WebSocket, type: string): Promise<Record<string, unknown>> {
   const packets = receivedPackets.get(client) ?? [];
   const existingIndex = packets.findIndex((packet) => packet.type === type);
@@ -144,6 +189,9 @@ beforeEach(() => {
 });
 
 afterEach(async () => {
+  for (const socket of rawSockets.splice(0)) {
+    if (!socket.destroyed) socket.destroy();
+  }
   for (const client of clients.splice(0)) {
     if (client.readyState !== WebSocket.CLOSED) client.terminate();
   }
@@ -328,5 +376,177 @@ describe("attendance realtime cookie authentication", () => {
     });
     expect(heartbeat).not.toHaveProperty("sessionId");
     expect(heartbeat).not.toHaveProperty("userId");
+  });
+
+  it.each([
+    "/api/attendance/realtime?",
+    "/api/attendance/realtime?token=legacy",
+    "/api/attendance/realtime#fragment",
+    "/api/attendance/realtime/",
+    "http://app.example.test/api/attendance/realtime",
+  ])("rejects every non-literal raw request target: %s", async (target) => {
+    const server = createServer();
+    const resolveAccessSession = vi.fn(async () => activeSession());
+    setupAttendanceRealtime(server, {
+      resolveAccessSession,
+      getUser: async () => user(),
+    });
+    const port = await listen(server);
+
+    expect(await rawUpgradeStatus(port, target)).toBe(404);
+    expect(resolveAccessSession).not.toHaveBeenCalled();
+  });
+
+  it("enforces the global pending-auth limit and releases capacity after close", async () => {
+    const server = createServer();
+    const resolveAccessSession = vi.fn(() => new Promise<any>(() => undefined));
+    setupAttendanceRealtime(server, {
+      resolveAccessSession,
+      getUser: async () => user(),
+      authenticationTimeoutMs: 1_000,
+      maxPendingUpgrades: 1,
+      maxPendingUpgradesPerSession: 1,
+    });
+    const port = await listen(server);
+    const first = pendingClient(websocketUrl(port), "session-1");
+    await vi.waitFor(() => expect(resolveAccessSession).toHaveBeenCalledTimes(1));
+
+    expect(await rejectedStatus(websocketUrl(port), {
+      origin: ORIGIN,
+      cookie: accessCookie("session-2"),
+    })).toBe(503);
+    expect(resolveAccessSession).toHaveBeenCalledTimes(1);
+
+    first.terminate();
+    const replacement = pendingClient(websocketUrl(port), "session-2");
+    await vi.waitFor(() => expect(resolveAccessSession).toHaveBeenCalledTimes(2));
+    replacement.terminate();
+  });
+
+  it("enforces the per-session pending-auth limit without blocking another session", async () => {
+    const server = createServer();
+    const resolveAccessSession = vi.fn(() => new Promise<any>(() => undefined));
+    setupAttendanceRealtime(server, {
+      resolveAccessSession,
+      getUser: async () => user(),
+      authenticationTimeoutMs: 1_000,
+      maxPendingUpgrades: 2,
+      maxPendingUpgradesPerSession: 1,
+    });
+    const port = await listen(server);
+    const first = pendingClient(websocketUrl(port), "session-1");
+    await vi.waitFor(() => expect(resolveAccessSession).toHaveBeenCalledTimes(1));
+
+    expect(await rejectedStatus(websocketUrl(port), {
+      origin: ORIGIN,
+      cookie: accessCookie("session-1"),
+    })).toBe(429);
+
+    const otherSession = pendingClient(websocketUrl(port), "session-2");
+    await vi.waitFor(() => expect(resolveAccessSession).toHaveBeenCalledTimes(2));
+    const firstClosed = new Promise<void>((resolve) => first.once("close", () => resolve()));
+    first.terminate();
+    await firstClosed;
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    const sameSessionReplacement = pendingClient(websocketUrl(port), "session-1");
+    await vi.waitFor(() => expect(resolveAccessSession).toHaveBeenCalledTimes(3));
+    otherSession.terminate();
+    sameSessionReplacement.terminate();
+  });
+
+  it("releases admission after successful upgrades while connected clients remain open", async () => {
+    const server = createServer();
+    setupAttendanceRealtime(server, {
+      resolveAccessSession: async ({ sessionId }) => activeSession({ id: sessionId }),
+      getUser: async () => user(),
+      maxPendingUpgrades: 1,
+      maxPendingUpgradesPerSession: 1,
+    });
+    const port = await listen(server);
+
+    const first = await openClient(websocketUrl(port), { origin: ORIGIN, cookie: accessCookie("session-1") });
+    const second = await openClient(websocketUrl(port), { origin: ORIGIN, cookie: accessCookie("session-2") });
+
+    expect(first.readyState).toBe(WebSocket.OPEN);
+    expect(second.readyState).toBe(WebSocket.OPEN);
+  });
+
+  it("times out authentication, releases admission, and ignores a late result", async () => {
+    const server = createServer();
+    let resolveFirst!: (session: any) => void;
+    const firstSession = new Promise<any>((resolve) => {
+      resolveFirst = resolve;
+    });
+    const resolveAccessSession = vi.fn(async ({ sessionId }: { sessionId: string }) => {
+      if (sessionId === "session-1") return firstSession;
+      return activeSession({ id: sessionId });
+    });
+    setupAttendanceRealtime(server, {
+      resolveAccessSession,
+      getUser: async () => user(),
+      authenticationTimeoutMs: 20,
+      maxPendingUpgrades: 1,
+      maxPendingUpgradesPerSession: 1,
+    });
+    const port = await listen(server);
+
+    expect(await rejectedStatus(websocketUrl(port), {
+      origin: ORIGIN,
+      cookie: accessCookie("session-1"),
+    })).toBe(503);
+
+    const accepted = await openClient(websocketUrl(port), {
+      origin: ORIGIN,
+      cookie: accessCookie("session-2"),
+    });
+    resolveFirst(activeSession());
+    await new Promise<void>((resolve) => setImmediate(resolve));
+
+    expect(accepted.readyState).toBe(WebSocket.OPEN);
+    expect(resolveAccessSession).toHaveBeenCalledTimes(2);
+  });
+
+  it("releases pending admission on shutdown before a new instance starts", async () => {
+    const serverA = createServer();
+    const pendingLookup = vi.fn(() => new Promise<any>(() => undefined));
+    setupAttendanceRealtime(serverA, {
+      resolveAccessSession: pendingLookup,
+      getUser: async () => user(),
+      maxPendingUpgrades: 1,
+      maxPendingUpgradesPerSession: 1,
+    });
+    const portA = await listen(serverA);
+    pendingClient(websocketUrl(portA));
+    await vi.waitFor(() => expect(pendingLookup).toHaveBeenCalledTimes(1));
+
+    await closeAttendanceRealtime();
+
+    const serverB = createServer();
+    setupAttendanceRealtime(serverB, {
+      resolveAccessSession: async () => activeSession(),
+      getUser: async () => user(),
+      maxPendingUpgrades: 1,
+      maxPendingUpgradesPerSession: 1,
+    });
+    const portB = await listen(serverB);
+    const accepted = await openClient(websocketUrl(portB), { origin: ORIGIN, cookie: accessCookie() });
+
+    expect(accepted.readyState).toBe(WebSocket.OPEN);
+  });
+
+  it("closes oversized inbound payloads and negotiates no compression", async () => {
+    const server = createServer();
+    setupAttendanceRealtime(server, {
+      resolveAccessSession: async () => activeSession(),
+      getUser: async () => user(),
+    });
+    const port = await listen(server);
+    const client = await openClient(websocketUrl(port), { origin: ORIGIN, cookie: accessCookie() });
+    const closed = new Promise<number>((resolve) => client.once("close", resolve));
+
+    client.send(Buffer.alloc(4_097));
+
+    expect(await closed).toBe(1009);
+    expect(client.extensions).toBe("");
   });
 });

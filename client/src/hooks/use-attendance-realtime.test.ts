@@ -1,6 +1,7 @@
 import { QueryClient } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  ATTENDANCE_CONNECT_TIMEOUT_MS,
   ATTENDANCE_HEARTBEAT_TIMEOUT_MS,
   createAttendanceRealtimeController,
   type AttendanceRealtimeSocket,
@@ -260,6 +261,22 @@ describe("attendance realtime controller", () => {
     expect(vi.getTimerCount()).toBe(1);
   });
 
+  it("times out a socket that never opens and schedules one attempt-zero reconnect", () => {
+    const harness = createHarness();
+    harness.controller.start();
+    const socket = harness.sockets[0];
+
+    vi.advanceTimersByTime(ATTENDANCE_CONNECT_TIMEOUT_MS);
+
+    expect(socket.closeCalls).toBe(1);
+    expect(harness.controller.getSnapshot()).toEqual({ mode: "fallback", isConnected: false });
+    expect(vi.getTimerCount()).toBe(1);
+    vi.advanceTimersByTime(999);
+    expect(harness.sockets).toHaveLength(1);
+    vi.advanceTimersByTime(1);
+    expect(harness.sockets).toHaveLength(2);
+  });
+
   it("defers heartbeat failure while hidden and evaluates staleness on visibility return", () => {
     const harness = createHarness();
     harness.controller.start();
@@ -314,6 +331,19 @@ describe("attendance realtime controller", () => {
     expect(healthy.closeCalls).toBe(0);
   });
 
+  it("coalesces repeated manual reconnects while the replacement is pending", () => {
+    const harness = createHarness();
+    harness.controller.start();
+    const original = harness.sockets[0];
+
+    harness.controller.reconnectNow();
+    harness.controller.reconnectNow();
+
+    expect(original.closeCalls).toBe(1);
+    expect(harness.sockets).toHaveLength(2);
+    expect(harness.controller.getSnapshot().mode).toBe("reconnecting");
+  });
+
   it("ignores malformed, unknown, wrong-account, and stale-connection packets", () => {
     const harness = createHarness();
     const invalidate = vi.spyOn(harness.queryClient, "invalidateQueries");
@@ -342,6 +372,28 @@ describe("attendance realtime controller", () => {
       payload: { event: { after: { id: "conversation-1", status: "open" } } },
     });
     expect(invalidate).toHaveBeenCalled();
+  });
+
+  it("routes every authenticated bounded attendance business event through reconciliation", () => {
+    const harness = createHarness();
+    const invalidate = vi.spyOn(harness.queryClient, "invalidateQueries");
+    harness.controller.start();
+    const socket = harness.sockets[0];
+    socket.open();
+    socket.message(connectedPacket());
+
+    socket.message({
+      type: "attendance.conversation.created",
+      accountId: "account-1",
+      conversationId: "conversation-2",
+      payload: { event: { after: { id: "conversation-2" } } },
+    });
+
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ["/api/attendance/conversations"] });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ["/api/attendance/reports/summary"] });
+    expect(invalidate).toHaveBeenCalledWith({
+      queryKey: ["/api/attendance/conversations", "conversation-2", "history"],
+    });
   });
 
   it("preserves settings invalidations and does not clear host UI or query state during transitions", () => {
