@@ -1,3 +1,8 @@
+import {
+  createBrowserRefreshCoordinator,
+  type RefreshCoordinator,
+} from "./session-coordinator";
+
 export type DisplayUser = {
   id: string;
   name: string;
@@ -29,14 +34,13 @@ type SessionCleanup = {
   clearImpersonationMarker(): void;
 };
 
-export type RefreshCoordinator = (refresh: () => Promise<boolean>) => Promise<boolean>;
-
 export type SessionDependencies = {
   fetch: typeof fetch;
   storage: StorageLike;
   readCookie(name: string): string | null;
   cleanup: SessionCleanup;
   coordinateRefresh?: RefreshCoordinator;
+  resetRefreshCoordination?: () => void;
 };
 
 const USER_CACHE_KEY = "auth_user";
@@ -131,6 +135,17 @@ function errorFromResponse(response: Response): Promise<Error> {
   });
 }
 
+async function isAuthenticationRejection(response: Response): Promise<boolean> {
+  if (response.status === 401) return true;
+  if (response.status !== 403) return false;
+  try {
+    const body = await response.clone().json() as { error?: unknown };
+    return body.error === "Authentication failed";
+  } catch {
+    return false;
+  }
+}
+
 function isFormData(value: unknown): value is FormData {
   return typeof FormData !== "undefined" && value instanceof FormData;
 }
@@ -142,72 +157,13 @@ function isRawBody(value: unknown): value is BodyInit {
     || typeof value === "string";
 }
 
-function createBroadcastCoordinator(): RefreshCoordinator | undefined {
-  if (typeof window === "undefined" || typeof BroadcastChannel === "undefined") return undefined;
-
-  const channel = new BroadcastChannel("politicall-session-refresh");
-  const tabId = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
-  let active: { id: string; promise: Promise<boolean>; resolve: (success: boolean) => void; timer: number } | undefined;
-  let localClaim: string | undefined;
-  const currentActive = () => active;
-
-  channel.onmessage = (event: MessageEvent<{ type?: string; id?: string; success?: boolean }>) => {
-    const message = event.data;
-    if (!message || typeof message.id !== "string" || message.id === tabId) return;
-    if (message.type === "refresh:start") {
-      if (localClaim && message.id > localClaim) return;
-      if (!active) {
-        let resolve!: (success: boolean) => void;
-        const promise = new Promise<boolean>((done) => { resolve = done; });
-        const timer = window.setTimeout(() => {
-          const pending = currentActive();
-          if (pending && pending.id === message.id) {
-            pending.resolve(false);
-            active = undefined;
-          }
-        }, 10_000);
-        active = { id: message.id, promise, resolve, timer };
-      }
-      return;
-    }
-    if (message.type === "refresh:result" && active?.id === message.id) {
-      window.clearTimeout(active.timer);
-      active.resolve(message.success === true);
-      active = undefined;
-    }
-  };
-
-  return async (refresh) => {
-    const existing = currentActive();
-    if (existing) {
-      return existing.promise;
-    }
-
-    const claim = tabId;
-    localClaim = claim;
-    channel.postMessage({ type: "refresh:start", id: claim });
-    await new Promise<void>((resolve) => window.setTimeout(resolve, 25));
-    const remote = currentActive();
-    if (remote) {
-      localClaim = undefined;
-      return remote.promise;
-    }
-    try {
-      const success = await refresh();
-      channel.postMessage({ type: "refresh:result", id: claim, success });
-      return success;
-    } finally {
-      localClaim = undefined;
-    }
-  };
-}
-
 export function createSessionClient(dependencies: SessionDependencies) {
   let snapshot: SessionSnapshot = { status: "loading", user: null };
   let bootstrapInFlight: Promise<SessionSnapshot> | undefined;
+  let bootstrapComplete = false;
   let refreshInFlight: Promise<boolean> | undefined;
   const listeners = new Set<(value: SessionSnapshot) => void>();
-  const coordinateRefresh = dependencies.coordinateRefresh ?? createBroadcastCoordinator();
+  const coordinateRefresh = dependencies.coordinateRefresh;
 
   const publish = (next: SessionSnapshot) => {
     snapshot = next;
@@ -289,28 +245,47 @@ export function createSessionClient(dependencies: SessionDependencies) {
     if (!response.ok) throw await errorFromResponse(response);
     return response;
   };
+  const publicApiRequest = async (
+    method: string,
+    url: string,
+    data?: unknown,
+    options: { returnErrorResponse?: boolean } = {},
+  ): Promise<Response> => {
+    const response = await rawRequest(method, url, data);
+    if (!response.ok && !options.returnErrorResponse) throw await errorFromResponse(response);
+    return response;
+  };
   const bootstrap = (): Promise<SessionSnapshot> => {
     if (bootstrapInFlight) return bootstrapInFlight;
-    publish({ status: "loading", user: null });
+    if (bootstrapComplete) return Promise.resolve(snapshot);
     bootstrapInFlight = (async () => {
-      let response = await dependencies.fetch("/api/auth/me", { credentials: "include" });
-      if (response.status === 401 && await refreshSession()) {
-        response = await dependencies.fetch("/api/auth/me", { credentials: "include" });
-      }
-      if (!response.ok) {
+      try {
+        let response = await dependencies.fetch("/api/auth/me", { credentials: "include" });
+        if (response.status === 401 && await refreshSession()) {
+          response = await dependencies.fetch("/api/auth/me", { credentials: "include" });
+        }
+        if (!response.ok) {
+          clearCachedUser();
+          publish({ status: "unauthenticated", user: null });
+          return snapshot;
+        }
+        const user = cacheUser(await response.json());
+        if (!user) {
+          clearCachedUser();
+          publish({ status: "unauthenticated", user: null });
+          return snapshot;
+        }
+        publish({ status: "authenticated", user });
+        return snapshot;
+      } catch {
         clearCachedUser();
         publish({ status: "unauthenticated", user: null });
         return snapshot;
       }
-      const user = cacheUser(await response.json());
-      if (!user) {
-        clearCachedUser();
-        publish({ status: "unauthenticated", user: null });
-        return snapshot;
-      }
-      publish({ status: "authenticated", user });
-      return snapshot;
-    })().finally(() => { bootstrapInFlight = undefined; });
+    })().finally(() => {
+      bootstrapComplete = true;
+      bootstrapInFlight = undefined;
+    });
     return bootstrapInFlight;
   };
   const startSession = async (path: "/api/auth/login" | "/api/auth/register", data: unknown): Promise<DisplayUser> => {
@@ -319,6 +294,7 @@ export function createSessionClient(dependencies: SessionDependencies) {
     const result = await response.json() as { user?: unknown };
     const user = cacheUser(result.user);
     if (!user) throw new Error("Authentication response did not include a display user");
+    bootstrapComplete = true;
     publish({ status: "authenticated", user });
     return user;
   };
@@ -326,7 +302,7 @@ export function createSessionClient(dependencies: SessionDependencies) {
     let error: string | null = null;
     try {
       const response = await rawRequest("POST", "/api/auth/logout", undefined, true);
-      if (response.status === 401) {
+      if (await isAuthenticationRejection(response)) {
         const fallback = await rawRequest("DELETE", "/api/auth/refresh", undefined, true);
         if (!fallback.ok) error = "Unable to end session";
       } else if (!response.ok) {
@@ -339,6 +315,8 @@ export function createSessionClient(dependencies: SessionDependencies) {
       dependencies.cleanup.clearQueryCache();
       dependencies.cleanup.clearAttendanceCache();
       dependencies.cleanup.clearImpersonationMarker();
+      dependencies.resetRefreshCoordination?.();
+      bootstrapComplete = true;
       publish({ status: "unauthenticated", user: null });
     }
     return { error };
@@ -353,6 +331,7 @@ export function createSessionClient(dependencies: SessionDependencies) {
     getSnapshot: () => snapshot,
     loginSession: (data: unknown) => startSession("/api/auth/login", data),
     logoutSession,
+    publicApiRequest,
     refreshSession,
     registerSession: (data: unknown) => startSession("/api/auth/register", data),
     subscribe(listener: (value: SessionSnapshot) => void) {
@@ -363,11 +342,14 @@ export function createSessionClient(dependencies: SessionDependencies) {
 }
 
 let cleanup = noOpCleanup();
+const browserRefreshCoordinator = createBrowserRefreshCoordinator();
 const browserSession = createSessionClient({
   fetch: (...args) => fetch(...args),
   storage: browserStorage(),
   readCookie: readBrowserCookie,
   get cleanup() { return cleanup; },
+  coordinateRefresh: browserRefreshCoordinator?.run,
+  resetRefreshCoordination: browserRefreshCoordinator?.reset,
 });
 
 export function configureSessionCleanup(nextCleanup: SessionCleanup): void {

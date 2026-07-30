@@ -11,7 +11,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
 import { useLocation } from "wouter";
 import { useSession } from "@/hooks/use-session";
 import { 
@@ -135,6 +134,7 @@ export default function LandingPage() {
       setLocation("/dashboard");
       return;
     }
+    if (session.status !== "unauthenticated") return;
 
     document.title = "Politicall - Plataforma Completa de Gestão Política | CRM, IA e Pesquisas";
     
@@ -211,6 +211,14 @@ export default function LandingPage() {
       setMobileMenuOpen(false);
     }
   };
+
+  if (session.status !== "unauthenticated") {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background text-sm text-muted-foreground">
+        Carregando...
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">

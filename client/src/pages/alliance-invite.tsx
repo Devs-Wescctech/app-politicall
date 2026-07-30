@@ -12,7 +12,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Handshake, X, CheckCircle2, MapPin, Briefcase, Building2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
+import { publicApiRequest } from "@/lib/queryClient";
 import { POLITICAL_POSITIONS } from "@shared/schema";
 import { z } from "zod";
 import logoUrl from "@assets/logo pol_1763308638963_1763559095972.png";
@@ -143,7 +143,12 @@ export default function AllianceInvitePage() {
   const { data: inviteData, isLoading, isError, error } = useQuery<InviteData>({
     queryKey: ["/api/alliance-invites", params?.token, "public"],
     queryFn: async () => {
-      const res = await fetch(`/api/alliance-invites/${params?.token}/public`);
+      const res = await publicApiRequest(
+        "GET",
+        `/api/alliance-invites/${params?.token}/public`,
+        undefined,
+        { returnErrorResponse: true },
+      );
       if (!res.ok) {
         if (res.status === 404) {
           throw new Error("NOT_FOUND");
@@ -194,7 +199,7 @@ export default function AllianceInvitePage() {
 
   const acceptMutation = useMutation({
     mutationFn: (data: AcceptInviteForm) => {
-      return apiRequest("POST", `/api/alliance-invites/${params?.token}/accept`, data);
+      return publicApiRequest("POST", `/api/alliance-invites/${params?.token}/accept`, data);
     },
     onSuccess: () => {
       setIsAccepted(true);
@@ -214,7 +219,7 @@ export default function AllianceInvitePage() {
 
   const rejectMutation = useMutation({
     mutationFn: () => {
-      return apiRequest("POST", `/api/alliance-invites/${params?.token}/reject`, {});
+      return publicApiRequest("POST", `/api/alliance-invites/${params?.token}/reject`, {});
     },
     onSuccess: () => {
       setIsRejected(true);

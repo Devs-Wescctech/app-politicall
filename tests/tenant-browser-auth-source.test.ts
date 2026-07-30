@@ -41,9 +41,10 @@ function tenantCredentialViolations(source: string): string[] {
   const candidate = withoutAllowedApiKeyExamples(source);
   const patterns = [
     /(?:window\.)?(?:localStorage|sessionStorage)\.(?:getItem|setItem|removeItem)\(\s*["']auth_token["']/,
-    /(?:Authorization|["']Authorization["'])\s*:\s*(?:`|["'])Bearer\s+/,
-    /\.set\(\s*["']Authorization["']\s*,\s*(?:`|["'])Bearer\s+/,
-    /\[\s*["']Authorization["']\s*\]\s*=\s*(?:`|["'])Bearer\s+/,
+    /(?:\[\s*["']authorization["']\s*\]|["']?authorization["']?)\s*:\s*(?:`|["'])Bearer\s+/i,
+    /\.set\(\s*["']authorization["']\s*,\s*(?:`|["'])Bearer\s+/i,
+    /\[\s*["']authorization["']\s*\]\s*=\s*(?:`|["'])Bearer\s+/i,
+    /\.authorization\s*=\s*(?:`|["'])Bearer\s+/i,
   ];
   return patterns.filter((pattern) => pattern.test(candidate)).map((pattern) => pattern.source);
 }
@@ -87,9 +88,18 @@ describe("tenant browser auth source gate", () => {
 
   it("requires cookie credentials in both first-party request abstractions", async () => {
     const sessionSource = await readFile(path.join(clientRoot, "lib/session.ts"), "utf8");
+    const rawRequestSource = sessionSource.slice(
+      sessionSource.indexOf("const rawRequest"),
+      sessionSource.indexOf("const performRefresh"),
+    );
+    const publicRequestSource = sessionSource.slice(
+      sessionSource.indexOf("const publicApiRequest"),
+      sessionSource.indexOf("const bootstrap"),
+    );
 
-    expect(sessionSource).toMatch(/rawRequest[\s\S]+credentials:\s*["']include["']/);
-    expect(sessionSource).toMatch(/publicApiRequest[\s\S]+rawRequest/);
+    expect(rawRequestSource).toMatch(/dependencies\.fetch\(url,\s*\{[^}]*credentials:\s*["']include["'][^}]*\}\)/);
+    expect(publicRequestSource).toContain("rawRequest(method, url, data)");
+    expect(publicRequestSource).not.toMatch(/ensureCsrfToken|refreshSession/);
   });
 
   it("keeps the landing page neutral until session bootstrap resolves", async () => {

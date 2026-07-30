@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { publicApiRequest, queryClient } from "@/lib/queryClient";
 import { getPublicResourceState } from "@/lib/public-resource-state";
 import { calculateGoalProgress } from "@/lib/progress";
 import {
@@ -111,11 +111,12 @@ export default function PetitionPublic() {
   const { data: petition, isLoading, isError } = useQuery<PublicPetition>({
     queryKey: ["/api/public/petitions", slug],
     enabled: !!slug,
+    queryFn: async () => (await publicApiRequest("GET", `/api/public/petitions/${slug}`)).json(),
   });
 
   const signMutation = useMutation({
     mutationFn: async (data: Record<string, unknown>) => {
-      const res = await apiRequest("POST", `/api/public/petitions/${slug}/sign`, data);
+      const res = await publicApiRequest("POST", `/api/public/petitions/${slug}/sign`, data);
       return res.json();
     },
     onSuccess: () => {

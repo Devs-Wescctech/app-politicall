@@ -199,6 +199,17 @@ describe("cookie session client", () => {
     expect((formRequest.headers as Headers).get("Content-Type")).toBeNull();
   });
 
+  it("does not refresh or acquire authenticated CSRF after a public request rejection", async () => {
+    const { dependencies, fetch } = createDependencies();
+    fetch.mockResolvedValue(response({ error: "Authentication failed" }, 401));
+    const session = createSessionClient(dependencies);
+
+    await expect(session.publicApiRequest("POST", "/api/public/support/candidate", {}))
+      .rejects.toThrow("Authentication failed");
+
+    expect(fetch.mock.calls.map(([url]) => url)).toEqual(["/api/public/support/candidate"]);
+  });
+
   it("preserves FormData and download responses while using cookie credentials", async () => {
     const { dependencies, fetch, cookies } = createDependencies();
     cookies.set("politicall_csrf", "csrf-token");

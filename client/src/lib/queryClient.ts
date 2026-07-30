@@ -3,6 +3,7 @@ import { clearAttendanceCache } from "./auth";
 import { configureSessionCleanup, sessionClient } from "./session";
 
 export const apiRequest = sessionClient.apiRequest;
+export const publicApiRequest = sessionClient.publicApiRequest;
 
 type UnauthorizedBehavior = "returnNull" | "throw";
 export const getQueryFn: <T>(options: {
