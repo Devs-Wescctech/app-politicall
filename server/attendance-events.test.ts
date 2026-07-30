@@ -1,10 +1,10 @@
 import { createServer } from "node:http";
 import { connect as connectSocket, type Socket } from "node:net";
 import type { Duplex } from "node:stream";
-import jwt from "jsonwebtoken";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { WebSocket } from "ws";
 import { closeAttendanceRealtime, setupAttendanceRealtime } from "./attendance-events";
+import { issueAccessToken } from "./security/auth-cookies";
 import { storage } from "./storage";
 
 vi.mock("./storage", () => ({
@@ -16,6 +16,24 @@ const rawSockets: Socket[] = [];
 const serverUpgradeSockets: Duplex[] = [];
 const websocketClients: WebSocket[] = [];
 const originalSessionSecret = process.env.SESSION_SECRET;
+const ORIGIN = "https://app.example.test";
+
+function activeSession() {
+  return {
+    id: "session-1",
+    accountId: "account-1",
+    userId: "user-1",
+    globalAdminPrincipalId: null,
+    principalId: "user-1",
+    principalType: "user",
+    expiresAt: new Date(Date.now() + 60_000),
+    revokedAt: null,
+  };
+}
+
+function cookieHeader(): string {
+  return `politicall_access=${issueAccessToken({ sid: "session-1", kind: "user" })}`;
+}
 
 afterEach(async () => {
   for (const socket of rawSockets.splice(0)) {
@@ -64,14 +82,19 @@ describe("attendance realtime lifecycle", () => {
     const sessionSecret = "test-session-secret";
     process.env.SESSION_SECRET = sessionSecret;
     vi.mocked(storage.getUser).mockResolvedValue({ id: "user-1", accountId: "account-1" } as any);
-    setupAttendanceRealtime(server);
+    setupAttendanceRealtime(server, {
+      allowedOrigins: [ORIGIN],
+      resolveAccessSession: async () => activeSession() as any,
+    });
 
     await new Promise<void>((resolve) => server.listen(0, resolve));
     const address = server.address();
     if (!address || typeof address === "string") throw new Error("Missing test server address");
 
-    const token = jwt.sign({ userId: "user-1", accountId: "account-1" }, sessionSecret);
-    const client = new WebSocket(`ws://127.0.0.1:${address.port}/api/attendance/realtime?token=${token}`);
+    const client = new WebSocket(`ws://127.0.0.1:${address.port}/api/attendance/realtime`, {
+      origin: ORIGIN,
+      headers: { Cookie: cookieHeader() },
+    });
     websocketClients.push(client);
     await new Promise<void>((resolve, reject) => {
       client.once("open", resolve);
@@ -102,14 +125,19 @@ describe("attendance realtime lifecycle", () => {
       markLookupStarted();
       return pendingUser;
     });
-    setupAttendanceRealtime(server);
+    setupAttendanceRealtime(server, {
+      allowedOrigins: [ORIGIN],
+      resolveAccessSession: async () => activeSession() as any,
+    });
 
     await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
     const address = server.address();
     if (!address || typeof address === "string") throw new Error("Missing test server address");
 
-    const token = jwt.sign({ userId: "user-1", accountId: "account-1" }, sessionSecret);
-    const client = new WebSocket(`ws://127.0.0.1:${address.port}/api/attendance/realtime?token=${token}`);
+    const client = new WebSocket(`ws://127.0.0.1:${address.port}/api/attendance/realtime`, {
+      origin: ORIGIN,
+      headers: { Cookie: cookieHeader() },
+    });
     websocketClients.push(client);
     client.on("error", () => undefined);
     await lookupStarted;
