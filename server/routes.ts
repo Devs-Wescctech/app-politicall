@@ -116,7 +116,7 @@ import { createRequire } from "module";
 import { getAdminPasswordHash, isReservedAdminSettingKey } from "./admin-credentials";
 import { clearSessionCookies } from "./security/auth-cookies";
 import { verifyPureLegacyGlobalAdminToken } from "./security/legacy-global-admin";
-import { createAuthPasswordMutationService } from "./services/auth-password-mutations";
+import { assertAccountScopedTarget, createAuthPasswordMutationService } from "./services/auth-password-mutations";
 import { createAuthenticationRateLimiter, createRuntimeAuthSessionService, getAuthAllowedOrigins, registerAuthSessionRoutes, sendAuthSessionResponse, toAuthSessionUser } from "./routes/auth-session-routes";
 import { registerPublicAuthRoutes } from "./routes/public-auth-routes";
 const require = createRequire(import.meta.url);
@@ -946,6 +946,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // If changing password, validate current password (unless admin master is impersonating)
       if (validatedData.newPassword) {
+        res.set("Cache-Control", "no-store");
         if (!isAdminImpersonating && !validatedData.currentPassword) {
           return res.status(400).json({ error: "Senha atual é obrigatória para alterar a senha" });
         }
@@ -982,8 +983,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updated = await storage.updateUser(req.userId!, req.accountId!, profileData);
       const { password, ...sanitizedUser } = updated;
       res.json(sanitizedUser);
-    } catch (error: any) {
-      res.status(400).json({ error: error.message || "Erro ao atualizar perfil" });
+    } catch {
+      if (req.body?.newPassword) {
+        res.set("Cache-Control", "no-store");
+        return res.status(400).json({ error: "Authentication failed" });
+      }
+      res.status(400).json({ error: "Erro ao atualizar perfil" });
     }
   });
 
@@ -2290,6 +2295,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Update user role (admin only)
   app.patch("/api/users/:id", authenticateToken, requireRole("admin"), requirePermission("users"), async (req: AuthRequest, res) => {
     try {
+      const changingPassword = typeof req.body?.password === "string";
+      if (changingPassword) res.set("Cache-Control", "no-store");
       // Validate role and permissions if provided
       const updateSchema = z.object({
         role: z.enum(["admin", "coordenador", "assessor", "voluntario"]).optional(),
@@ -2305,6 +2312,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get current user to compare email
       const currentUser = await storage.getUser(req.params.id);
       if (!currentUser) {
+        return res.status(404).json({ error: "Usuário não encontrado" });
+      }
+      try {
+        assertAccountScopedTarget(req.accountId!, currentUser.accountId);
+      } catch {
+        if (changingPassword) res.set("Cache-Control", "no-store");
         return res.status(404).json({ error: "Usuário não encontrado" });
       }
       
@@ -2329,8 +2342,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const updated = validatedData.password
         ? await authPasswordMutations.changeUserPassword({
-          accountId: currentUser.accountId,
-          userId: currentUser.id,
+          accountId: req.accountId!,
+          userId: req.params.id,
           passwordHash: dataToUpdate.password,
           userData: Object.fromEntries(Object.entries(dataToUpdate).filter(([key]) => key !== "password")),
         })
@@ -2341,8 +2354,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // CRITICAL: Never send password hash to client
       const { password, ...sanitizedUser } = updated;
       res.json(sanitizedUser);
-    } catch (error: any) {
-      res.status(400).json({ error: error.message });
+    } catch {
+      if (typeof req.body?.password === "string") {
+        res.set("Cache-Control", "no-store");
+        return res.status(400).json({ error: "Authentication failed" });
+      }
+      res.status(400).json({ error: "Erro ao atualizar usuário" });
     }
   });
 

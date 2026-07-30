@@ -16,6 +16,10 @@ export type UserPasswordMutation = {
   beforeRevocation?: () => void | Promise<void>;
 };
 
+export function assertAccountScopedTarget(requestAccountId: string, targetAccountId: string): void {
+  if (!requestAccountId || requestAccountId !== targetAccountId) throw new Error("Target user account scope mismatch");
+}
+
 export function createAuthPasswordMutationService(database: Database, options: { now?: () => Date } = {}) {
   const now = options.now ?? (() => new Date());
 

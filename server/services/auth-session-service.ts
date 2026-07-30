@@ -83,10 +83,24 @@ export function createAuthSessionService(dependencies: AuthSessionServiceDepende
     issueAdminSession,
     async loginUser(input: { email: string; password: string; deviceMetadata?: string; ipMetadata?: string }) {
       const user = await dependencies.users.findByEmail(input.email);
-      return !user || !(await dependencies.verifyPassword(input.password, user.password)) ? undefined : issueUserSession(user, input);
+      if (!user || !(await dependencies.verifyPassword(input.password, user.password))) return undefined;
+      const issued = await issueUserSession(user, input);
+      const authoritative = await dependencies.users.findByIdAndAccount(user.id, user.accountId);
+      if (!authoritative || authoritative.password !== user.password) {
+        await dependencies.sessionStore.revokeSession({ kind: "user", sessionId: issued.cookies.sessionId, reason: "credential_changed" });
+        return undefined;
+      }
+      return issued;
     },
     async loginAdmin(input: { password: string; deviceMetadata?: string; ipMetadata?: string }) {
-      return !(await dependencies.verifyPassword(input.password, await dependencies.getAdminPasswordHash())) ? undefined : issueAdminSession(input);
+      const passwordHash = await dependencies.getAdminPasswordHash();
+      if (!(await dependencies.verifyPassword(input.password, passwordHash))) return undefined;
+      const issued = await issueAdminSession(input);
+      if (await dependencies.getAdminPasswordHash() !== passwordHash) {
+        await dependencies.sessionStore.revokeSession({ kind: "admin", sessionId: issued.cookies.sessionId, reason: "credential_changed" });
+        return undefined;
+      }
+      return issued;
     },
     async refresh(input: { kind: BrowserSessionKind; refreshToken: string }) {
       const source = await dependencies.sessionStore.resolveRefreshSession({ ...input, includeInactive: true });
