@@ -101,13 +101,6 @@ function isAuthorizationHeader(value: string | undefined): boolean {
   return value?.toLowerCase() === "authorization";
 }
 
-function isAllowedProviderAuthorizationMetadata(node: ts.Node, relative: string, checker: ts.TypeChecker): boolean {
-  return relative === "components/admin/AdminIntegrationsDialog.tsx"
-    && ts.isStringLiteralLike(node)
-    && ts.isPropertyAssignment(node.parent)
-    && propertyName(node.parent.name, checker) === "locawebAuthHeader";
-}
-
 function headersValue(expression: ts.Expression, checker: ts.TypeChecker): ts.Expression | undefined {
   const resolved = resolveConstExpression(expression, checker);
   if (!ts.isObjectLiteralExpression(resolved)) return undefined;
@@ -155,15 +148,14 @@ function createAnalysis(source: string): { sourceFile: ts.SourceFile; checker: t
   return { sourceFile: program.getSourceFile(fileName) ?? sourceFile, checker: program.getTypeChecker() };
 }
 
-function adminCredentialViolations(source: string, relative = "fixture.tsx"): string[] {
+function adminCredentialViolations(source: string): string[] {
   const { sourceFile, checker } = createAnalysis(source);
   const violations: string[] = [];
   const report = (node: ts.Node, kind: string) => violations.push(`${kind}:${sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile)).line + 1}`);
   const isForbiddenName = (value: string) => forbiddenCredentialNames.has(value.toLowerCase());
 
   const visit = (node: ts.Node) => {
-    if (ts.isExpression(node) && isAuthorizationHeader(staticString(node, checker))
-      && !isAllowedProviderAuthorizationMetadata(node, relative, checker)) report(node, "executable Authorization");
+    if (ts.isExpression(node) && isAuthorizationHeader(staticString(node, checker))) report(node, "executable Authorization");
     if (ts.isStringLiteralLike(node) && isForbiddenName(node.text)) report(node, "browser credential literal");
     if (ts.isCallExpression(node) && (ts.isPropertyAccessExpression(node.expression) || ts.isElementAccessExpression(node.expression))
       && isBrowserStorage(node.expression.expression, checker)
@@ -245,7 +237,7 @@ describe("admin browser credential source gate", () => {
 
   it("rejects browser credential storage, X-Admin-Token, and first-party Bearer construction globally", () => {
     const sources = files(clientRoot).map((file) => ({ relative: path.relative(clientRoot, file).replaceAll("\\", "/"), source: fs.readFileSync(file, "utf8") }));
-    const violations = sources.flatMap((file) => adminCredentialViolations(file.source, file.relative).map((violation) => `${file.relative}:${violation}`));
+    const violations = sources.flatMap((file) => adminCredentialViolations(file.source).map((violation) => `${file.relative}:${violation}`));
     expect(violations).toEqual([]);
     expect(fs.readFileSync(path.join(clientRoot, "components/admin/AdminIntegrationsDialog.tsx"), "utf8"))
       .not.toContain("locawebAuthHeader:");

@@ -115,6 +115,7 @@ import { createRequire } from "module";
 import { getAdminPasswordHash, isReservedAdminSettingKey } from "./admin-credentials";
 import { clearSessionCookies } from "./security/auth-cookies";
 import { assertAccountScopedTarget, createAuthPasswordMutationService } from "./services/auth-password-mutations";
+import { locawebConfigFromIntegration } from "./services/locaweb-config";
 import { createAuthenticationRateLimiter, createRuntimeAuthSessionService, getAuthAllowedOrigins, registerAuthSessionRoutes, sendAuthSessionResponse, toAuthSessionUser } from "./routes/auth-session-routes";
 import { registerPublicAuthRoutes } from "./routes/public-auth-routes";
 import { registerProfileRoute } from "./routes/profile-route";
@@ -292,16 +293,6 @@ async function requireValidMetaWebhookSignature(
     res.sendStatus(500);
     return false;
   }
-}
-
-function locawebConfigFromIntegration(integration: Record<string, any>) {
-  return {
-    baseUrl: integration.locawebBaseUrl || "https://emailmarketing.locaweb.com.br/api/v1",
-    accountId: integration.locawebAccountId,
-    apiKey: integration.locawebApiKey,
-    authHeader: integration.locawebAuthHeader || "Authorization",
-    authScheme: integration.locawebAuthScheme || "Bearer",
-  };
 }
 
 async function syncWhatsappIntegrationConnection(accountId: string, integration: Record<string, any>) {

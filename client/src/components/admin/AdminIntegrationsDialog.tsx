@@ -76,7 +76,6 @@ function emptyIntegration(service: IntegrationService): IntegrationRecord {
     locawebBaseUrl: "https://emailmarketing.locaweb.com.br/api/v1",
     locawebAccountId: "",
     locawebApiKey: "",
-    locawebAuthHeader: "Authorization",
     locawebAuthScheme: "Bearer",
   };
 }
