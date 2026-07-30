@@ -68,7 +68,6 @@ export function createAdminSessionClient(dependencies: AdminSessionDependencies)
   let bootstrapComplete = false;
   let bootstrapInFlight: GenerationFlight<AdminSessionSnapshot> | undefined;
   let refreshInFlight: GenerationFlight<boolean> | undefined;
-  let cleanedGeneration: number | undefined;
   const listeners = new Set<(snapshot: AdminSessionSnapshot) => void>();
   const current = (candidate: number) => candidate === generation;
   const publish = (next: AdminSessionSnapshot) => {
@@ -78,19 +77,16 @@ export function createAdminSessionClient(dependencies: AdminSessionDependencies)
   const reset = () => {
     generation += 1;
     bootstrapComplete = false;
-    cleanedGeneration = undefined;
     dependencies.resetRefreshCoordination?.();
     return generation;
   };
   const invalidate = (activeGeneration: number) => {
     if (!current(activeGeneration)) return;
-    if (cleanedGeneration !== activeGeneration) {
-      cleanedGeneration = activeGeneration;
-      dependencies.cleanup.clearQueryCache();
-      dependencies.cleanup.clearAdminCache();
-      dependencies.cleanup.clearImpersonationMarker();
-      dependencies.resetRefreshCoordination?.();
-    }
+    generation += 1;
+    dependencies.cleanup.clearQueryCache();
+    dependencies.cleanup.clearAdminCache();
+    dependencies.cleanup.clearImpersonationMarker();
+    dependencies.resetRefreshCoordination?.();
     bootstrapComplete = true;
     publish({ status: "unauthenticated" });
   };

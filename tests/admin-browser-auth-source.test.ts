@@ -84,6 +84,42 @@ function isAuthorizationHeader(value: string | undefined): boolean {
   return value?.toLowerCase() === "authorization";
 }
 
+function isAllowedProviderAuthorizationMetadata(node: ts.Node, relative: string, checker: ts.TypeChecker): boolean {
+  return relative === "components/admin/AdminIntegrationsDialog.tsx"
+    && ts.isStringLiteralLike(node)
+    && ts.isPropertyAssignment(node.parent)
+    && propertyName(node.parent.name, checker) === "locawebAuthHeader";
+}
+
+function headersValue(expression: ts.Expression, checker: ts.TypeChecker): ts.Expression | undefined {
+  const resolved = resolveConstExpression(expression, checker);
+  if (!ts.isObjectLiteralExpression(resolved)) return undefined;
+  const property = resolved.properties.find((candidate) =>
+    ts.isPropertyAssignment(candidate) && propertyName(candidate.name, checker)?.toLowerCase() === "headers");
+  return property && ts.isPropertyAssignment(property) ? property.initializer : undefined;
+}
+
+function hasAuthorizationEntry(expression: ts.Expression, checker: ts.TypeChecker, seen = new Set<ts.Node>()): boolean {
+  const resolved = resolveConstExpression(expression, checker);
+  if (seen.has(resolved)) return false;
+  const nextSeen = new Set(seen);
+  nextSeen.add(resolved);
+  if (isAuthorizationHeader(staticString(resolved, checker))) return true;
+  if (ts.isArrayLiteralExpression(resolved)) return resolved.elements.some((element) => ts.isExpression(element) && hasAuthorizationEntry(element, checker, nextSeen));
+  if (ts.isObjectLiteralExpression(resolved)) return resolved.properties.some((property) =>
+    (ts.isPropertyAssignment(property) && (isAuthorizationHeader(propertyName(property.name, checker)) || hasAuthorizationEntry(property.initializer, checker, nextSeen)))
+    || (ts.isShorthandPropertyAssignment(property) && isAuthorizationHeader(property.name.text)));
+  if (ts.isNewExpression(resolved) && ts.isIdentifier(resolved.expression) && ["Headers", "Map"].includes(resolved.expression.text)) {
+    return (resolved.arguments ?? []).some((argument) => hasAuthorizationEntry(argument, checker, nextSeen));
+  }
+  if (ts.isCallExpression(resolved) && ts.isPropertyAccessExpression(resolved.expression)
+    && ts.isIdentifier(resolved.expression.expression) && resolved.expression.expression.text === "Object"
+    && resolved.expression.name.text === "fromEntries") {
+    return resolved.arguments.some((argument) => hasAuthorizationEntry(argument, checker, nextSeen));
+  }
+  return false;
+}
+
 function createAnalysis(source: string): { sourceFile: ts.SourceFile; checker: ts.TypeChecker } {
   const fileName = "admin-source.tsx";
   const sourceFile = ts.createSourceFile(fileName, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
@@ -102,13 +138,15 @@ function createAnalysis(source: string): { sourceFile: ts.SourceFile; checker: t
   return { sourceFile: program.getSourceFile(fileName) ?? sourceFile, checker: program.getTypeChecker() };
 }
 
-function adminCredentialViolations(source: string): string[] {
+function adminCredentialViolations(source: string, relative = "fixture.tsx"): string[] {
   const { sourceFile, checker } = createAnalysis(source);
   const violations: string[] = [];
   const report = (node: ts.Node, kind: string) => violations.push(`${kind}:${sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile)).line + 1}`);
   const isForbiddenName = (value: string) => forbiddenCredentialNames.has(value.toLowerCase());
 
   const visit = (node: ts.Node) => {
+    if (ts.isExpression(node) && isAuthorizationHeader(staticString(node, checker))
+      && !isAllowedProviderAuthorizationMetadata(node, relative, checker)) report(node, "executable Authorization");
     if (ts.isStringLiteralLike(node) && isForbiddenName(node.text)) report(node, "browser credential literal");
     if (ts.isCallExpression(node) && (ts.isPropertyAccessExpression(node.expression) || ts.isElementAccessExpression(node.expression))
       && isBrowserStorage(node.expression.expression, checker)
@@ -125,6 +163,14 @@ function adminCredentialViolations(source: string): string[] {
       if (tuples && ts.isArrayLiteralExpression(tuples) && tuples.elements.some((tuple) =>
         ts.isArrayLiteralExpression(tuple) && tuple.elements[0] && ts.isExpression(tuple.elements[0])
           && isAuthorizationHeader(staticString(tuple.elements[0], checker)))) report(node, "Authorization Headers tuple");
+    }
+    if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === "fetch") {
+      const headers = node.arguments[1] && headersValue(node.arguments[1], checker);
+      if (headers && hasAuthorizationEntry(headers, checker)) report(node, "Authorization fetch HeadersInit");
+    }
+    if (ts.isNewExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === "Request") {
+      const headers = node.arguments?.[1] && headersValue(node.arguments[1], checker);
+      if (headers && hasAuthorizationEntry(headers, checker)) report(node, "Authorization Request HeadersInit");
     }
     if (ts.isCallExpression(node) && (ts.isPropertyAccessExpression(node.expression) || ts.isElementAccessExpression(node.expression))
       && ["set", "append"].includes(memberName(node.expression, checker) ?? "") && node.arguments[0]
@@ -175,8 +221,8 @@ describe("admin browser credential source gate", () => {
   });
 
   it("rejects browser credential storage, X-Admin-Token, and first-party Bearer construction globally", () => {
-    const sources = files(clientRoot).map((file) => ({ relative: path.relative(clientRoot, file), source: fs.readFileSync(file, "utf8") }));
-    const violations = sources.flatMap((file) => adminCredentialViolations(file.source).map((violation) => `${file.relative}:${violation}`));
+    const sources = files(clientRoot).map((file) => ({ relative: path.relative(clientRoot, file).replaceAll("\\", "/"), source: fs.readFileSync(file, "utf8") }));
+    const violations = sources.flatMap((file) => adminCredentialViolations(file.source, file.relative).map((violation) => `${file.relative}:${violation}`));
     expect(violations).toEqual([]);
   });
 
