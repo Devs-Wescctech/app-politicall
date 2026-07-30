@@ -76,6 +76,75 @@ describe("attendance polling policy", () => {
 });
 
 describe("attendance polling environment", () => {
+  it("publishes a changed construction-to-start snapshot once without an initial invalidation", () => {
+    const harness = createHarness();
+    const invalidate = vi.spyOn(harness.queryClient, "invalidateQueries");
+    const subscriber = vi.fn();
+    harness.environment.subscribe(subscriber);
+
+    harness.setOnline(false);
+    harness.setVisibility("hidden");
+    harness.environment.start();
+    harness.environment.start();
+
+    expect(harness.environment.getSnapshot()).toEqual({ online: false, visibility: "hidden" });
+    expect(subscriber).toHaveBeenCalledTimes(1);
+    expect(invalidate).not.toHaveBeenCalled();
+  });
+
+  it("does not duplicate listeners, notifications, or invalidations across repeated start and start-after-stop", () => {
+    const harness = createHarness();
+    const invalidate = vi.spyOn(harness.queryClient, "invalidateQueries");
+    const subscriber = vi.fn();
+    harness.environment.subscribe(subscriber);
+
+    harness.environment.start();
+    harness.environment.start();
+    harness.environment.stop();
+    harness.environment.start();
+    harness.environment.start();
+
+    expect(subscriber).not.toHaveBeenCalled();
+    expect(invalidate).not.toHaveBeenCalled();
+    expect(harness.networkTarget.listenerCount("online")).toBe(1);
+    expect(harness.networkTarget.listenerCount("offline")).toBe(1);
+    expect(harness.visibilityTarget.listenerCount("visibilitychange")).toBe(1);
+    expect(harness.networkTarget.additions.get("online")).toHaveLength(2);
+    expect(harness.networkTarget.additions.get("offline")).toHaveLength(2);
+    expect(harness.visibilityTarget.additions.get("visibilitychange")).toHaveLength(2);
+  });
+
+  it("keeps one active lifecycle and no initial refresh during a Strict Mode style remount", () => {
+    const networkTarget = new FakeEventTarget();
+    const visibilityTarget = new FakeEventTarget();
+    const queryClient = new QueryClient();
+    const invalidate = vi.spyOn(queryClient, "invalidateQueries");
+    const dependencies = {
+      networkTarget,
+      visibilityTarget,
+      isOnline: () => true,
+      visibilityState: () => "visible" as const,
+      queryClient,
+    };
+    const first = createAttendancePollingEnvironment(dependencies);
+    const firstSubscriber = vi.fn();
+    first.subscribe(firstSubscriber);
+    first.start();
+    first.stop();
+
+    const second = createAttendancePollingEnvironment(dependencies);
+    const secondSubscriber = vi.fn();
+    second.subscribe(secondSubscriber);
+    second.start();
+
+    expect(firstSubscriber).not.toHaveBeenCalled();
+    expect(secondSubscriber).not.toHaveBeenCalled();
+    expect(invalidate).not.toHaveBeenCalled();
+    expect(networkTarget.listenerCount("online")).toBe(1);
+    expect(networkTarget.listenerCount("offline")).toBe(1);
+    expect(visibilityTarget.listenerCount("visibilitychange")).toBe(1);
+  });
+
   it("captures initial hidden/offline state without invalidating and registers one listener per event", () => {
     const harness = createHarness({ online: false, visibility: "hidden" });
     const invalidate = vi.spyOn(harness.queryClient, "invalidateQueries");
