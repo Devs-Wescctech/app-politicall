@@ -1,6 +1,6 @@
 # Attendance Realtime Resilience Task 3 Report
 
-Status: AWAITING_RE_REVIEW
+Status: APPROVED
 
 ## Scope and source material
 
@@ -450,9 +450,16 @@ git diff --check d463e1b..HEAD
 
 PASS: no whitespace errors, including the report update.
 
+## Independent review
+
+The third independent review approved the complete task with no Critical,
+Important, or Minor findings. It reconfirmed authoritative cookie/session
+authentication, exact Origin/target checks, bounded admission and payloads,
+generation-safe deadlines/reconnects, heartbeat and cleanup behavior, complete
+business-event reconciliation, and browser-faithful URL-scoped smoke cookies.
+
 ## Current concerns
 
-- Independent re-review is still required; the task is not marked approved.
 - The destructive end-to-end smoke script was not run because no explicit
   `TEST_EMAIL`/`TEST_PASSWORD` or dedicated live smoke environment was
   provided. Its authentication transport is covered by eight executable helper
