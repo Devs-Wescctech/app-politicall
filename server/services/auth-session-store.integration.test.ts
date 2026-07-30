@@ -8,6 +8,7 @@ import {
   createDrizzleAuthSessionRepository,
   hashRefreshToken,
 } from "./auth-session-store";
+import { createAuthPasswordMutationService } from "./auth-password-mutations";
 import { runProductionMigrations } from "./production-migrations";
 
 const integrationDatabaseUrl = process.env.MIGRATION_TEST_DATABASE_URL;
@@ -151,6 +152,76 @@ describe("auth session store PostgreSQL integration", () => {
         [deleteReplacement.id],
       );
       expect(afterReplacementDelete.rows[0]?.replaced_by_session_id).toBeNull();
+
+      const activeFamilyCount = async (familyId: string) => Number((await pool.query(
+        "SELECT count(*) AS count FROM auth_sessions WHERE family_id = $1 AND revoked_at IS NULL",
+        [familyId],
+      )).rows[0]?.count);
+      const activePrincipalCount = async (principalId: string) => Number((await pool.query(
+        "SELECT count(*) AS count FROM auth_sessions WHERE principal_id = $1 AND revoked_at IS NULL",
+        [principalId],
+      )).rows[0]?.count);
+
+      const logoutSource = await store.createSession({ scope, refreshToken: "logout-race-source", expiresAt: expiry });
+      await Promise.all([
+        store.rotateRefreshSession({ kind: "user", refreshToken: "logout-race-source", nextRefreshToken: "logout-race-next" }),
+        store.revokeSession({ scope, sessionId: logoutSource.id, reason: "logout" }),
+      ]);
+      expect(await activeFamilyCount(logoutSource.familyId)).toBe(0);
+
+      const replaySource = await store.createSession({ scope, refreshToken: "replay-race-source", expiresAt: expiry });
+      const replayFirst = await store.rotateRefreshSession({ kind: "user", refreshToken: "replay-race-source", nextRefreshToken: "replay-race-current" });
+      await Promise.all([
+        store.rotateRefreshSession({ kind: "user", refreshToken: "replay-race-current", nextRefreshToken: "replay-race-next" }),
+        store.rotateRefreshSession({ kind: "user", refreshToken: "replay-race-source", nextRefreshToken: "replay-race-ancestor" }),
+      ]);
+      expect(replayFirst.status).toBe("rotated");
+      expect(await activeFamilyCount(replaySource.familyId)).toBe(0);
+
+      const userWideSource = await store.createSession({ scope, refreshToken: "user-wide-race-source", expiresAt: expiry });
+      await Promise.all([
+        store.rotateRefreshSession({ kind: "user", refreshToken: "user-wide-race-source", nextRefreshToken: "user-wide-race-next" }),
+        store.revokeUserSessions({ accountId: scope.accountId, userId: scope.userId, reason: "password_change" }),
+      ]);
+      expect(await activeFamilyCount(userWideSource.familyId)).toBe(0);
+      expect(await activePrincipalCount(scope.userId)).toBe(0);
+
+      const adminScope = { kind: "global_admin" as const, globalAdminPrincipalId: "politicall:global-admin" };
+      const adminSource = await store.createSession({ scope: adminScope, refreshToken: "admin-wide-race-source", expiresAt: new Date("2030-01-01T03:00:00.000Z") });
+      await Promise.all([
+        store.rotateRefreshSession({ kind: "admin", refreshToken: "admin-wide-race-source", nextRefreshToken: "admin-wide-race-next" }),
+        store.revokeGlobalAdminSessions({ globalAdminPrincipalId: adminScope.globalAdminPrincipalId, reason: "password_change" }),
+      ]);
+      expect(await activeFamilyCount(adminSource.familyId)).toBe(0);
+      expect(await activePrincipalCount(adminScope.globalAdminPrincipalId)).toBe(0);
+
+      const passwordMutations = createAuthPasswordMutationService(drizzle(pool, { schema }));
+      const userPasswordSource = await store.createSession({ scope, refreshToken: "password-user-source", expiresAt: expiry });
+      const userMutation = await passwordMutations.changeUserPassword({
+        accountId: scope.accountId,
+        userId: scope.userId,
+        passwordHash: "user-password-after",
+        userData: {},
+      });
+      expect(userMutation.password).toBe("user-password-after");
+      expect(await activeFamilyCount(userPasswordSource.familyId)).toBe(0);
+
+      const adminPasswordSource = await store.createSession({ scope: adminScope, refreshToken: "password-admin-source", expiresAt: new Date("2030-01-01T03:00:00.000Z") });
+      await passwordMutations.persistGlobalAdminPasswordHash({ passwordHash: "admin-password-after" });
+      expect((await pool.query("SELECT value FROM system_settings WHERE key = 'auth.global_admin_password_hash'")).rows[0]?.value)
+        .toBe("admin-password-after");
+      expect(await activeFamilyCount(adminPasswordSource.familyId)).toBe(0);
+
+      const rollbackSource = await store.createSession({ scope: { kind: "user", accountId: "account-b", userId: "user-b" }, refreshToken: "password-rollback-source", expiresAt: expiry });
+      await expect(passwordMutations.changeUserPassword({
+        accountId: "account-b",
+        userId: "user-b",
+        passwordHash: "user-password-should-rollback",
+        userData: {},
+        beforeRevocation: () => { throw new Error("injected revocation failure"); },
+      })).rejects.toThrow("injected revocation failure");
+      expect((await pool.query("SELECT password FROM users WHERE id = 'user-b'")).rows[0]?.password).toBe("hash");
+      expect(await activeFamilyCount(rollbackSource.familyId)).toBe(1);
     } finally {
       if (pool) await pool.end();
       if (databaseCreated) {

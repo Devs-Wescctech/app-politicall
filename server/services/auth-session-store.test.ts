@@ -30,6 +30,10 @@ class InMemorySessionRepository {
     return work(this);
   }
 
+  async lockPrincipal(): Promise<void> {
+    // The in-memory repository is single-threaded; PostgreSQL coverage proves advisory locking.
+  }
+
   async insert(session: SessionRow): Promise<SessionRow> {
     this.sessions.push(session);
     return session;
@@ -314,7 +318,7 @@ describe("auth session store", () => {
     expect(original.revocationReason).toBe("rotated");
     expect(original.lastUsedAt).toEqual(defaultNow);
     expect(result.session?.lastUsedAt).toBeNull();
-    expect(repository.transactionCalls).toBe(1);
+    expect(repository.transactionCalls).toBe(2);
   });
 
   it("revokes the entire family in the same transaction when a rotated token is reused", async () => {
@@ -335,7 +339,7 @@ describe("auth session store", () => {
     expect(reuse).toEqual({ status: "reuse_detected" });
     expect(rotation.session?.revokedAt).not.toBeNull();
     expect(rotation.session?.revocationReason).toBe("reuse_detected");
-    expect(repository.transactionCalls).toBe(2);
+    expect(repository.transactionCalls).toBe(3);
   });
 
   it("treats a lost conditional rotation update as token reuse before creating a successor", async () => {
