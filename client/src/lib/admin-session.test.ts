@@ -1,5 +1,26 @@
 import { describe, expect, it, vi } from "vitest";
 import { createAdminSessionClient } from "./admin-session";
+import { createRefreshCoordinator, type RefreshCoordinationChannel, type RefreshCoordinationMessage } from "./session-coordinator";
+
+class SharedChannelBus {
+  private readonly listeners = new Map<string, Set<(message: RefreshCoordinationMessage) => void>>();
+
+  channel(id: string): RefreshCoordinationChannel {
+    const ownListeners = new Set<(message: RefreshCoordinationMessage) => void>();
+    this.listeners.set(id, ownListeners);
+    return {
+      postMessage: (message) => {
+        for (const [listenerId, listeners] of this.listeners) {
+          if (listenerId !== id) for (const listener of listeners) listener(message);
+        }
+      },
+      subscribe: (listener) => {
+        ownListeners.add(listener);
+        return () => ownListeners.delete(listener);
+      },
+    };
+  }
+}
 
 function response(body: unknown, status = 200): Response {
   return new Response(body === undefined ? undefined : JSON.stringify(body), {
@@ -120,6 +141,66 @@ describe("admin cookie session", () => {
     expect(client.getSnapshot()).toEqual({ status: "unauthenticated" });
   });
 
+  it.each([401, 403])("invalidates after a successful refresh when the retried request is an auth rejection %s", async (status) => {
+    const cleanup = { clearQueryCache: vi.fn(), clearAdminCache: vi.fn(), clearImpersonationMarker: vi.fn() };
+    const fetch = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(response({ error: "Authentication failed" }, 401))
+      .mockResolvedValueOnce(response({ admin: true }))
+      .mockResolvedValueOnce(response({ error: "Authentication failed" }, status));
+    const client = createAdminSessionClient({ fetch, readCookie: () => "admin-csrf", cleanup });
+
+    await expect(client.adminRequest("GET", "/api/admin/users")).rejects.toThrow("Admin request failed");
+    expect(client.getSnapshot()).toEqual({ status: "unauthenticated" });
+    expect(cleanup.clearQueryCache).toHaveBeenCalledOnce();
+    expect(cleanup.clearAdminCache).toHaveBeenCalledOnce();
+    expect(cleanup.clearImpersonationMarker).toHaveBeenCalledOnce();
+  });
+
+  it("invalidates when the coordinator reports a remote refresh failure, but keeps a functional 403 authenticated", async () => {
+    const cleanup = { clearQueryCache: vi.fn(), clearAdminCache: vi.fn(), clearImpersonationMarker: vi.fn() };
+    const coordinateRefresh = vi.fn(async () => false);
+    const fetch = vi.fn<typeof fetch>().mockResolvedValueOnce(response({ error: "Authentication failed" }, 401));
+    const client = createAdminSessionClient({ fetch, readCookie: () => "admin-csrf", cleanup, coordinateRefresh });
+
+    await expect(client.adminRequest("GET", "/api/admin/users")).rejects.toThrow("Admin request failed");
+    expect(client.getSnapshot()).toEqual({ status: "unauthenticated" });
+    expect(cleanup.clearQueryCache).toHaveBeenCalledOnce();
+
+    const functionalCleanup = { clearQueryCache: vi.fn(), clearAdminCache: vi.fn(), clearImpersonationMarker: vi.fn() };
+    const functionalFetch = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(response({ admin: true }))
+      .mockResolvedValueOnce(response({ error: "Permission denied" }, 403));
+    const functionalClient = createAdminSessionClient({ fetch: functionalFetch, readCookie: () => "admin-csrf", cleanup: functionalCleanup });
+    await functionalClient.login({ password: "correct-password" });
+    await expect(functionalClient.adminRequest("GET", "/api/admin/users")).rejects.toThrow("Admin request failed");
+    expect(functionalClient.getSnapshot()).toEqual({ status: "authenticated" });
+    expect(functionalCleanup.clearQueryCache).not.toHaveBeenCalled();
+  });
+
+  it("shares a failed real cross-tab refresh before either client resets coordination", async () => {
+    const bus = new SharedChannelBus();
+    const firstCoordinator = createRefreshCoordinator({ channel: bus.channel("first"), participantId: "first", claimWindowMs: 1, leaseMs: 5_000 });
+    const secondCoordinator = createRefreshCoordinator({ channel: bus.channel("second"), participantId: "second", claimWindowMs: 1, leaseMs: 5_000 });
+    const firstCleanup = { clearQueryCache: vi.fn(), clearAdminCache: vi.fn(), clearImpersonationMarker: vi.fn() };
+    const secondCleanup = { clearQueryCache: vi.fn(), clearAdminCache: vi.fn(), clearImpersonationMarker: vi.fn() };
+    const firstFetch = vi.fn<typeof fetch>().mockResolvedValue(response({ error: "Authentication failed" }, 401));
+    const secondFetch = vi.fn<typeof fetch>().mockResolvedValue(response({ error: "Authentication failed" }, 401));
+    const first = createAdminSessionClient({ fetch: firstFetch, readCookie: () => "admin-csrf", cleanup: firstCleanup, coordinateRefresh: firstCoordinator.run, resetRefreshCoordination: firstCoordinator.reset });
+    const second = createAdminSessionClient({ fetch: secondFetch, readCookie: () => "admin-csrf", cleanup: secondCleanup, coordinateRefresh: secondCoordinator.run, resetRefreshCoordination: secondCoordinator.reset });
+
+    await expect(Promise.race([
+      Promise.all([first.refresh(), second.refresh()]),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error("waited for refresh lease")), 100)),
+    ])).resolves.toEqual([false, false]);
+    expect(firstFetch.mock.calls.length + secondFetch.mock.calls.length).toBe(1);
+    expect(first.getSnapshot()).toEqual({ status: "unauthenticated" });
+    expect(second.getSnapshot()).toEqual({ status: "unauthenticated" });
+    expect(firstCleanup.clearQueryCache).toHaveBeenCalledOnce();
+    expect(secondCleanup.clearQueryCache).toHaveBeenCalledOnce();
+    firstCoordinator.dispose();
+    secondCoordinator.dispose();
+  });
+
   it("does not let old refresh, probe, or logout responses overwrite a newer login", async () => {
     const refresh = deferred<Response>();
     const probe = deferred<Response>();
@@ -200,5 +281,15 @@ describe("admin cookie session", () => {
     expect(fetch.mock.calls[0][1]).toMatchObject({ body: form, credentials: "include" });
     expect((fetch.mock.calls[0][1]?.headers as Headers).get("Content-Type")).toBeNull();
     expect(raw.status).toBe(418);
+  });
+
+  it("keeps localized 400 details out of the default error", async () => {
+    const client = createAdminSessionClient({
+      fetch: vi.fn<typeof fetch>().mockResolvedValue(response({ error: "internal localized detail" }, 400)),
+      readCookie: () => "admin-csrf",
+      cleanup: { clearQueryCache: vi.fn(), clearAdminCache: vi.fn(), clearImpersonationMarker: vi.fn() },
+    });
+    await expect(client.adminRequest("POST", "/api/admin/settings/example", { enabled: true }))
+      .rejects.toThrow("Admin request failed");
   });
 });

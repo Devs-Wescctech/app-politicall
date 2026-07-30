@@ -20,10 +20,11 @@ describe("profile password impersonation route", () => {
   it("accepts coexisting valid cookies only for an admin tenant target, revokes tenant sessions, and preserves admin cookies", async () => {
     const sessions: Record<string, any> = { "user-session": userSession, "admin-session": adminSession };
     let tenantRole = "admin";
+    let storedRole = "admin";
     const middleware = createAuthenticationMiddleware({ allowedOrigins: ["https://app.example.test"], resolveAccessSession: async ({ sessionId }) => sessions[sessionId], getUser: async () => ({ id: "user-a", accountId: "account-a", email: "u@example.test", name: "User", role: tenantRole, permissions: {} }) });
     const changePassword = vi.fn(async () => ({ id: "user-a", accountId: "account-a", password: "new", name: "User" }));
     const app = express(); app.use(express.json());
-    registerProfileRoute(app, { authenticateToken: middleware.authenticateUser, getUser: async () => ({ id: "user-a", accountId: "account-a", password: "old" }), updateUser: vi.fn(), changePassword, hasActiveGlobalAdminCookie: async (request) => {
+    registerProfileRoute(app, { authenticateToken: middleware.authenticateUser, getUser: async () => ({ id: "user-a", accountId: "account-a", password: "old", role: storedRole }), updateUser: vi.fn(), changePassword, hasActiveGlobalAdminCookie: async (request) => {
       const access = readAccessToken(request, "admin");
       return isActiveGlobalAdminSession(access ? sessions[access.sid] : undefined);
     } });
@@ -46,5 +47,9 @@ describe("profile password impersonation route", () => {
     sessions["admin-session"] = adminSession;
     tenantRole = "assessor";
     expect((await request(issueAccessToken({ sid: "admin-session", kind: "admin" }))).status).toBe(400);
+    tenantRole = "admin";
+    storedRole = "assessor";
+    expect((await request(issueAccessToken({ sid: "admin-session", kind: "admin" }))).status).toBe(400);
+    expect(changePassword).toHaveBeenCalledOnce();
   });
 });

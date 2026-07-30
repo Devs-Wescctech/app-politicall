@@ -126,7 +126,7 @@ function adminCredentialViolations(source: string): string[] {
 }
 
 describe("admin browser credential source gate", () => {
-  it("detects alias, concat, casing, object, bracket, dot, and Headers mutations", () => {
+  it("detects conservative authorization and credential-storage mutations", () => {
     const prohibited = [
       'const KEY = "ADMIN" + "_TOKEN"; const store = window["localStorage"]; store.setItem(KEY, token)',
       'const key = "x-admin-token"; sessionStorage[key] = token',
@@ -135,11 +135,18 @@ describe("admin browser credential source gate", () => {
       'headers.append("authorization", "Bearer " + token)',
       'headers["Authorization"] = `Bearer ${token}`',
       'headers.authorization = `Bearer ${token}`',
+      'const authorization = token; const headers = { authorization }',
+      'const headers = new Headers([["Authorization", token]])',
+      'localStorage["setItem"]("admin_token", token)',
+      'const setAuthorization = headers.set.bind(headers); setAuthorization("Authorization", token)',
+      'const headers = { Authorization: tokenFromHelper() }',
     ];
     for (const fixture of prohibited) expect(adminCredentialViolations(fixture), fixture).not.toEqual([]);
     expect(adminCredentialViolations('const theme = "theme"; localStorage.setItem(theme, value)')).toEqual([]);
     expect(adminCredentialViolations('const docs = "Bearer YOUR_API_KEY"')).toEqual([]);
     expect(adminCredentialViolations('const docs = "Bearer pk_example"')).toEqual([]);
+    expect(adminCredentialViolations('const headers = new Headers([["X-Trace", buildTrace()]])')).toEqual([]);
+    expect(adminCredentialViolations('localStorage["setItem"]("theme", value)')).toEqual([]);
   });
 
   it("rejects browser credential storage, X-Admin-Token, and first-party Bearer construction globally", () => {
@@ -162,5 +169,10 @@ describe("admin browser credential source gate", () => {
     expect(settings).toMatch(/if \(data\.newPassword\)[\s\S]{0,180}payload\.newPassword = data\.newPassword/);
     expect(settings).toContain("sessionClient.logoutSession()");
     expect(settings).toContain('window.location.href = wasImpersonating ? "/contracts" : "/login"');
+
+    const contracts = read("pages/contracts.tsx");
+    const admin = read("pages/admin.tsx");
+    expect(contracts).not.toMatch(/adminRequest\([\s\S]{0,220}if \(!response\.ok\)/);
+    expect(admin).not.toMatch(/system-sync\/pull[\s\S]{0,220}if \(!response\.ok\)/);
   });
 });
