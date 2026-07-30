@@ -217,7 +217,14 @@ describe("admin browser credential source gate", () => {
     expect(adminCredentialViolations('const headers = new Headers([["X-Trace", buildTrace()]])')).toEqual([]);
     expect(adminCredentialViolations('localStorage["setItem"]("theme", value)')).toEqual([]);
     expect(adminCredentialViolations('<p>Authorization</p>')).toEqual([]);
-    expect((adminCredentialViolations as any)('const config = { locawebAuthHeader: "Authorization" }', "components/admin/AdminIntegrationsDialog.tsx")).toEqual([]);
+    const locawebSource = 'const config = { locawebAuthHeader: "Authorization" }';
+    const locawebPath = "components/admin/AdminIntegrationsDialog.tsx";
+    expect(adminCredentialViolations(locawebSource, locawebPath)).toEqual([]);
+    for (const fixture of [
+      `${locawebSource}; fetch('/api/admin/users', { headers: [[config.locawebAuthHeader, token]] })`,
+      `${locawebSource}; fetch('/api/admin/users', { headers: [[config["locawebAuthHeader"], token]] })`,
+      `${locawebSource}; const alias = config; fetch('/api/admin/users', { headers: [[alias.locawebAuthHeader, token]] })`,
+    ]) expect(adminCredentialViolations(fixture, locawebPath), fixture).not.toEqual([]);
   });
 
   it("rejects browser credential storage, X-Admin-Token, and first-party Bearer construction globally", () => {
