@@ -3,6 +3,7 @@ import { Inbox, FileText, Search, Megaphone, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
+import { adminRequest } from "@/lib/admin-session";
 
 interface AdminBottomNavProps {
   activePage: "dashboard" | "contracts";
@@ -54,14 +55,7 @@ export function AdminBottomNav({ activePage, onInboxClick, onSearchClick }: Admi
   const { data: unreadData } = useQuery<{ count: number }>({
     queryKey: ["/api/leads/unread-count"],
     queryFn: async () => {
-      const token = localStorage.getItem("admin_token");
-      const response = await fetch("/api/leads/unread-count", {
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-      if (!response.ok) throw new Error("Failed to fetch unread count");
+      const response = await adminRequest("GET", "/api/leads/unread-count");
       return response.json();
     },
     refetchInterval: 30000,
@@ -69,15 +63,7 @@ export function AdminBottomNav({ activePage, onInboxClick, onSearchClick }: Admi
 
   const markAsReadMutation = useMutation({
     mutationFn: async () => {
-      const token = localStorage.getItem("admin_token");
-      const response = await fetch("/api/leads/mark-read", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-      if (!response.ok) throw new Error("Failed to mark as read");
+      const response = await adminRequest("POST", "/api/leads/mark-read");
       return response.json();
     },
     onSuccess: () => {

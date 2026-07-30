@@ -15,10 +15,15 @@ import { promisify } from "util";
 import fs from "fs";
 import path from "path";
 import os from "os";
-import archiver from "archiver";
+import * as archiver from "archiver";
+import type archiverFactory from "archiver";
 import { collectSafeSyncEnvVars, shouldImportSystemSyncSecrets } from "./system-sync-security";
 
 const execAsync = promisify(exec);
+type ZipArchive = ReturnType<typeof archiverFactory>;
+const { ZipArchive } = archiver as unknown as {
+  ZipArchive: new (options?: Parameters<typeof archiverFactory>[1]) => ZipArchive;
+};
 
 interface SyncResult {
   success: boolean;
@@ -89,7 +94,7 @@ async function createAttachmentsArchive(tempDir: string): Promise<string | null>
   
   return new Promise((resolve, reject) => {
     const output = fs.createWriteStream(archivePath);
-    const archive = archiver("zip", { zlib: { level: 9 } });
+    const archive = new ZipArchive({ zlib: { level: 9 } });
     
     output.on("close", () => {
       if (archive.pointer() > 0) {
@@ -140,7 +145,7 @@ async function createCodeArchive(tempDir: string): Promise<string> {
   
   return new Promise((resolve, reject) => {
     const output = fs.createWriteStream(archivePath);
-    const archive = archiver("zip", { zlib: { level: 9 } });
+    const archive = new ZipArchive({ zlib: { level: 9 } });
     
     output.on("close", () => resolve(archivePath));
     output.on("error", reject);
@@ -187,7 +192,7 @@ async function createSyncPackage(tempDir: string, config: SyncConfig): Promise<s
   return new Promise(async (resolve, reject) => {
     try {
       const output = fs.createWriteStream(packagePath);
-      const archive = archiver("zip", { zlib: { level: 9 } });
+      const archive = new ZipArchive({ zlib: { level: 9 } });
       
       output.on("close", () => resolve(packagePath));
       output.on("error", reject);

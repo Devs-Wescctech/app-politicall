@@ -10,6 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { adminRequest } from "@/lib/admin-session";
 
 export type AdminIntegrationAccount = {
   id: string;
@@ -39,23 +40,11 @@ type IntegrationRecord = {
 
 type IntegrationService = "whatsapp" | "sms" | "email";
 
-function adminToken() {
-  return localStorage.getItem("admin_token") ?? "";
-}
-
 async function adminJson<T>(url: string, options: RequestInit = {}): Promise<T> {
-  const response = await fetch(url, {
-    ...options,
-    headers: {
-      Authorization: `Bearer ${adminToken()}`,
-      ...(options.body ? { "Content-Type": "application/json" } : {}),
-      ...(options.headers ?? {}),
-    },
-  });
+  const body = typeof options.body === "string" ? JSON.parse(options.body) : options.body;
+  const response = await adminRequest(options.method ?? "GET", url, body);
   const text = await response.text();
-  const data = text ? JSON.parse(text) : null;
-  if (!response.ok) throw new Error(data?.message || data?.error || text || response.statusText);
-  return data as T;
+  return (text ? JSON.parse(text) : null) as T;
 }
 
 function emptyIntegration(service: IntegrationService): IntegrationRecord {
@@ -87,7 +76,6 @@ function emptyIntegration(service: IntegrationService): IntegrationRecord {
     locawebBaseUrl: "https://emailmarketing.locaweb.com.br/api/v1",
     locawebAccountId: "",
     locawebApiKey: "",
-    locawebAuthHeader: "Authorization",
     locawebAuthScheme: "Bearer",
   };
 }

@@ -15,7 +15,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Check, Heart, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
+import { publicApiRequest } from "@/lib/queryClient";
 import logoUrl from "@assets/logo pol_1763308638963_1763559095972.png";
 import politicallIconUrl from "@assets/icon politicall_1763309153389.png";
 import publicSupportBgUrl from "@assets/2151400563_1764253886925.jpg";
@@ -75,7 +75,12 @@ export default function PublicSupport() {
   const { data: candidateData, isLoading: isLoadingCandidate, isError, error, refetch } = useQuery<any>({
     queryKey: ["/api/public/candidate", params?.slug],
     queryFn: async () => {
-      const res = await fetch(`/api/public/candidate/${params?.slug}`);
+      const res = await publicApiRequest(
+        "GET",
+        `/api/public/candidate/${params?.slug}`,
+        undefined,
+        { returnErrorResponse: true },
+      );
       if (!res.ok) {
         if (res.status === 404) {
           throw new Error("NOT_FOUND");
@@ -91,7 +96,12 @@ export default function PublicSupport() {
   const { data: volunteerData } = useQuery<{ name: string; avatar: string | null }>({
     queryKey: ["/api/public/volunteer", volunteerCode],
     queryFn: async () => {
-      const res = await fetch(`/api/public/volunteer/${volunteerCode}`);
+      const res = await publicApiRequest(
+        "GET",
+        `/api/public/volunteer/${volunteerCode}`,
+        undefined,
+        { returnErrorResponse: true },
+      );
       if (!res.ok) {
         return null;
       }
@@ -204,7 +214,7 @@ export default function PublicSupport() {
       const endpoint = volunteerCode 
         ? `/api/public/support/${params.slug}/${volunteerCode}`
         : `/api/public/support/${params.slug}`;
-      return apiRequest("POST", endpoint, data);
+      return publicApiRequest("POST", endpoint, data);
     },
     onSuccess: () => {
       setIsSubmitted(true);

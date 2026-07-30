@@ -1,10 +1,10 @@
 # Build stage
-FROM node:20-slim AS builder
+FROM node:24.18.0-bookworm-slim AS builder
 
 WORKDIR /app
 
 # Install build dependencies for native modules
-RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ && rm -rf /var/lib/apt/lists/*
 
 # Install dependencies first (better caching)
 COPY package*.json ./
@@ -17,39 +17,33 @@ COPY . .
 RUN npm run build
 
 # Production stage
-FROM node:20-slim AS production
+FROM node:24.18.0-bookworm-slim AS production
 
 WORKDIR /app
 
-# Install runtime dependencies
-RUN apt-get update && apt-get install -y wget && rm -rf /var/lib/apt/lists/*
+# Install the health-check client and init process without recommended packages.
+RUN apt-get update && apt-get install -y --no-install-recommends wget tini && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user for security
-RUN groupadd -g 1001 nodejs && \
-    useradd -u 1001 -g nodejs -s /bin/bash nodejs
+RUN groupadd --gid 1001 nodejs && \
+    useradd --uid 1001 --gid nodejs --create-home --shell /usr/sbin/nologin nodejs
 
-# Copy package files and install all dependencies (vite is needed at runtime)
+# Install only dependencies required by the production bundle.
 COPY package*.json ./
-RUN npm ci && npm cache clean --force
+RUN npm ci --omit=dev && npm cache clean --force
 
-# Copy built application from builder stage
-COPY --from=builder /app/dist ./dist
+# Copy the built application, deterministic production migration inputs, and persistent bundled assets.
+COPY --from=builder --chown=1001:1001 /app/dist ./dist
+COPY --from=builder --chown=1001:1001 /app/migrations ./migrations
+COPY --from=builder --chown=1001:1001 /app/scripts/full_schema.sql ./scripts/full_schema.sql
+COPY --from=builder --chown=1001:1001 /app/attached_assets ./attached_assets
 
-# Copy vite config and client files needed at runtime
-COPY --from=builder /app/vite.config.ts ./vite.config.ts
-COPY --from=builder /app/client ./client
-COPY --from=builder /app/attached_assets ./attached_assets
-
-# Copy drizzle config and schema for database migrations
-COPY --from=builder /app/drizzle.config.ts ./drizzle.config.ts
-COPY --from=builder /app/shared ./shared
-COPY --from=builder /app/tsconfig.json ./tsconfig.json
-
-# Create runtime-writable and optional static directories
-RUN mkdir -p attached_assets uploads/avatars uploads/backgrounds uploads/temp && chown -R nodejs:nodejs /app
+# Create runtime-writable upload directories with explicit ownership.
+RUN mkdir -p uploads/avatars uploads/backgrounds uploads/petitions uploads/temp && \
+    chown -R 1001:1001 /app/attached_assets /app/uploads
 
 # Switch to non-root user
-USER nodejs
+USER 1001:1001
 
 # Expose port
 EXPOSE 5000
@@ -62,4 +56,5 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
 ENV NODE_ENV=production
 ENV PORT=5000
 
-CMD ["node", "dist/index.js"]
+ENTRYPOINT ["/usr/bin/tini", "--"]
+CMD ["sh", "-c", "node dist/migrate-production.js && exec node dist/index.js"]

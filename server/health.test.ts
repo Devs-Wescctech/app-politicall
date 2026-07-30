@@ -51,4 +51,26 @@ describe("health routes", () => {
     expect(response.status).toBe(503);
     expect(await response.json()).toEqual({ status: "unavailable" });
   });
+
+  it("returns unavailable immediately while the application is shutting down", async () => {
+    const checkDatabase = vi.fn(async () => undefined);
+    const app = express();
+    registerHealthRoutes(app, { checkDatabase, isShuttingDown: () => true });
+    const server = app.listen(0);
+    servers.push(server);
+
+    await new Promise<void>((resolve) => server.once("listening", resolve));
+    const address = server.address();
+    if (!address || typeof address === "string") throw new Error("Missing test server address");
+
+    const response = await fetch(`http://127.0.0.1:${address.port}/api/ready`);
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({ status: "unavailable" });
+    expect(checkDatabase).not.toHaveBeenCalled();
+
+    const liveness = await fetch(`http://127.0.0.1:${address.port}/api/health`);
+    expect(liveness.status).toBe(200);
+    expect(await liveness.json()).toEqual({ status: "ok" });
+  });
 });

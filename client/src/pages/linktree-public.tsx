@@ -82,11 +82,11 @@ export default function LinkTreePublic() {
                 href={link.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center justify-between gap-3 bg-white rounded-md px-5 py-4 hover-elevate active-elevate-2"
+                className="flex items-center justify-between gap-3 rounded-md border border-white/70 bg-white px-5 py-4 text-slate-950 shadow-lg shadow-black/10 transition hover:-translate-y-0.5 hover:bg-slate-50 hover:shadow-xl active:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
                 data-testid={`link-tree-${link.id}`}
               >
                 <span className="font-semibold flex-1 text-center">{link.title}</span>
-                <ExternalLink className="w-4 h-4 text-muted-foreground shrink-0" />
+                <ExternalLink className="w-4 h-4 text-slate-500 shrink-0" />
               </a>
             ))
           )}

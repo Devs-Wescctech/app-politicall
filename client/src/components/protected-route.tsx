@@ -1,6 +1,6 @@
-import { useEffect } from "react";
 import { useLocation } from "wouter";
-import { isAuthenticated } from "@/lib/auth";
+import { useEffect } from "react";
+import { useSession } from "@/hooks/use-session";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -8,16 +8,18 @@ interface ProtectedRouteProps {
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const [, setLocation] = useLocation();
+  const session = useSession();
 
   useEffect(() => {
-    if (!isAuthenticated()) {
+    if (session.status === "unauthenticated") {
       setLocation("/login");
     }
-  }, [setLocation]);
+  }, [session.status, setLocation]);
 
-  if (!isAuthenticated()) {
-    return null;
+  if (session.status === "loading") {
+    return <div className="flex min-h-screen items-center justify-center">Carregando...</div>;
   }
 
+  if (session.status === "unauthenticated") return null;
   return <>{children}</>;
 }

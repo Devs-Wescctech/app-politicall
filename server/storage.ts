@@ -1161,8 +1161,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   async upsertAiConfig(config: InsertAiConfiguration & { userId: string; accountId: string }): Promise<AiConfiguration> {
-    const existing = await this.getAiConfig(config.userId, config.accountId);
-    const encryptedConfig = encryptAiConfigProviderSecrets(config);
+    const [existing] = await db.select()
+      .from(aiConfigurations)
+      .where(and(
+        eq(aiConfigurations.userId, config.userId),
+        eq(aiConfigurations.accountId, config.accountId)
+      ));
+    const encryptedConfig = encryptAiConfigProviderSecrets(config, existing);
     
     if (existing) {
       const [updated] = await db.update(aiConfigurations)

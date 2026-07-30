@@ -1,12 +1,10 @@
-import type { Request, Response, NextFunction } from "express";
-import jwt from "jsonwebtoken";
+import type { NextFunction, Request, Response } from "express";
 import { storage } from "./storage";
 import type { UserPermissions } from "@shared/schema";
-
-if (!process.env.SESSION_SECRET) {
-  throw new Error("SESSION_SECRET must be set in environment variables");
-}
-const JWT_SECRET = process.env.SESSION_SECRET;
+import { getAuthAllowedOrigins } from "./routes/auth-session-routes";
+import { createAuthenticationMiddleware, isActiveGlobalAdminSession, type BrowserAuthRequest } from "./security/authentication";
+import { resolveAccessSession } from "./services/auth-session-store";
+import { readAccessToken } from "./security/auth-cookies";
 
 // Default permissions if user has none
 const DEFAULT_USER_PERMISSIONS: UserPermissions = {
@@ -33,55 +31,34 @@ const DEFAULT_USER_PERMISSIONS: UserPermissions = {
 };
 
 // Extended request interface with user data
-export interface AuthRequest extends Request {
-  userId?: string;
-  accountId?: string;
-  userRole?: string;
-  user?: {
-    id: string;
-    accountId: string;
-    email: string;
-    name: string;
-    role: string;
-    permissions: UserPermissions;
-  };
-}
+export interface AuthRequest extends BrowserAuthRequest {}
 
 // Middleware to verify JWT token
-export async function authenticateToken(req: AuthRequest, res: Response, next: NextFunction) {
-  const authHeader = req.headers.authorization;
-  const token = authHeader && authHeader.split(" ")[1];
-
-  if (!token) {
-    return res.status(401).json({ error: "Token não fornecido" });
-  }
-
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET) as { userId: string; accountId: string; role: string };
-    req.userId = decoded.userId;
-    req.accountId = decoded.accountId;
-    
-    // Fetch current user from database (authoritative source)
-    // This ensures role and permission changes take effect immediately without requiring new login
-    const user = await storage.getUser(decoded.userId);
-    if (!user) {
-      return res.status(403).json({ error: "Usuário não encontrado" });
-    }
-    
-    req.userRole = user.role;
-    req.user = {
+const browserAuthentication = createAuthenticationMiddleware({
+  allowedOrigins: getAuthAllowedOrigins,
+  resolveAccessSession,
+  getUser: async (userId) => {
+    const user = await storage.getUser(userId);
+    return user ? {
       id: user.id,
       accountId: user.accountId,
       email: user.email,
       name: user.name,
       role: user.role,
-      permissions: user.permissions || DEFAULT_USER_PERMISSIONS
-    };
-    
-    next();
-  } catch (error) {
-    return res.status(403).json({ error: "Token inválido" });
-  }
+      permissions: user.permissions || DEFAULT_USER_PERMISSIONS,
+    } : undefined;
+  },
+});
+
+export const authenticateToken = browserAuthentication.authenticateUser;
+export const authenticateAdminToken = browserAuthentication.authenticateGlobalAdmin;
+
+// Impersonation bypasses require an independent, active global-admin cookie.
+export async function hasActiveGlobalAdminCookie(request: Request): Promise<boolean> {
+  const access = readAccessToken(request, "admin");
+  if (!access) return false;
+  const session = await resolveAccessSession({ kind: "admin", sessionId: access.sid });
+  return isActiveGlobalAdminSession(session);
 }
 
 // Middleware to verify user has required permission

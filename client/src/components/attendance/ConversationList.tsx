@@ -35,6 +35,8 @@ import { cn } from "@/lib/utils";
 import { labelColor, useAttendanceLabels } from "./TagSelector";
 import { isOfficialAttendanceChannel } from "@shared/attendance-meta-window";
 import { AttendanceViewSwitcher, type AttendanceView } from "./AttendanceViewSwitcher";
+import { listPollingInterval, type AttendancePollingVisibility } from "@/lib/attendance-polling";
+import type { AttendanceConnectionMode } from "@/lib/attendance-connection-state";
 
 const STATUS_LABELS: Record<string, { label: string; dot: string }> = {
   new: { label: "Novo", dot: "bg-sky-500" },
@@ -165,6 +167,17 @@ const LANE_DEFS = [
 
 const CLOSED_STATUSES = new Set(["resolved", "finalized", "closed"]);
 
+export function nextAutoExpandedLane(
+  currentLane: string,
+  laneCounts: Record<string, number | undefined>,
+  touched: boolean,
+): string {
+  if (touched || (laneCounts[currentLane] ?? 0) > 0) return currentLane;
+
+  const laneWithItems = LANE_DEFS.find(lane => (laneCounts[lane.value] ?? 0) > 0);
+  return laneWithItems?.value ?? currentLane;
+}
+
 function isGroupConversation(conv: AttConversation) {
   const metadata = (conv.metadata as any) ?? {};
   const remote = metadata.remote ?? {};
@@ -177,9 +190,11 @@ interface Props {
   onNewConversation: () => void;
   activeView: AttendanceView;
   onViewChange: (view: AttendanceView) => void;
+  mode: AttendanceConnectionMode;
+  visibility: AttendancePollingVisibility;
 }
 
-export default function ConversationList({ selected, onSelect, onNewConversation, activeView, onViewChange }: Props) {
+export default function ConversationList({ selected, onSelect, onNewConversation, activeView, onViewChange, mode, visibility }: Props) {
   const [isSyncing, setIsSyncing] = useState(false);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -194,6 +209,7 @@ export default function ConversationList({ selected, onSelect, onNewConversation
   const [lastFrom, setLastFrom] = useState("");
   const [lastTo, setLastTo] = useState("");
   const [expandedLane, setExpandedLane] = useState<string>("waiting");
+  const [expandedLaneTouched, setExpandedLaneTouched] = useState(false);
   const { toast } = useToast();
   const currentUser = getAuthUser();
 
@@ -214,7 +230,8 @@ export default function ConversationList({ selected, onSelect, onNewConversation
       return response.json();
     },
     getNextPageParam: lastPage => lastPage.hasNextPage ? lastPage.page + 1 : undefined,
-    refetchInterval: 10000,
+    refetchInterval: listPollingInterval(mode, visibility),
+    refetchIntervalInBackground: true,
   });
   const conversations = useMemo(
     () => conversationPages?.pages.flatMap(page => page.data) ?? [],
@@ -271,6 +288,15 @@ export default function ConversationList({ selected, onSelect, onNewConversation
     return Object.fromEntries(entries) as Record<string, { count: number; items: AttConversation[] }>;
   }, [filteredConversations, currentUser?.id]);
 
+  useEffect(() => {
+    const nextLane = nextAutoExpandedLane(
+      expandedLane,
+      Object.fromEntries(LANE_DEFS.map(lane => [lane.value, laneData[lane.value]?.count])),
+      expandedLaneTouched,
+    );
+    if (nextLane !== expandedLane) setExpandedLane(nextLane);
+  }, [expandedLane, expandedLaneTouched, laneData]);
+
   const resetFilters = () => {
     setStatusFilter("all");
     setChannelFilter("all");
@@ -285,6 +311,7 @@ export default function ConversationList({ selected, onSelect, onNewConversation
   };
 
   const toggleLane = (lane: string) => {
+    setExpandedLaneTouched(true);
     setExpandedLane(current => current === lane ? "" : lane);
   };
 
@@ -300,13 +327,6 @@ export default function ConversationList({ selected, onSelect, onNewConversation
       setIsSyncing(false);
     }
   };
-
-  useEffect(() => {
-    const timer = window.setInterval(() => {
-      handleSync(true);
-    }, 60000);
-    return () => window.clearInterval(timer);
-  }, []);
 
   return (
     <div className="flex h-full flex-col bg-card" data-testid="panel-conversation-list">

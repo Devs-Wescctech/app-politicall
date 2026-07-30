@@ -19,6 +19,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { adminRequest, adminSessionClient } from "@/lib/admin-session";
+import { useAdminSession } from "@/hooks/use-admin-session";
 import logoUrl from "@assets/logo pol_1763308638963.png";
 import type { Lead } from "@shared/schema";
 
@@ -88,7 +90,7 @@ type CampaignWithTemplate = SurveyCampaign & {
 
 export default function Admin() {
   const [, setLocation] = useLocation();
-  const [isVerifying, setIsVerifying] = useState(true);
+  const adminSession = useAdminSession();
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [paidDialogOpen, setPaidDialogOpen] = useState(false);
   const [deleteCampaignDialogOpen, setDeleteCampaignDialogOpen] = useState(false);
@@ -129,54 +131,14 @@ export default function Admin() {
   };
 
   useEffect(() => {
-    async function verifyAdminToken() {
-      const token = localStorage.getItem("admin_token");
-      
-      if (!token) {
-        setLocation("/admin-login");
-        return;
-      }
-
-      try {
-        const response = await fetch("/api/admin/verify", {
-          headers: {
-            "Authorization": `Bearer ${token}`,
-          },
-        });
-
-        const result = await response.json();
-        
-        if (!result.valid) {
-          localStorage.removeItem("admin_token");
-          setLocation("/admin-login");
-        } else {
-          setIsVerifying(false);
-        }
-      } catch (error) {
-        localStorage.removeItem("admin_token");
-        setLocation("/admin-login");
-      }
-    }
-
-    verifyAdminToken();
-  }, [setLocation]);
+    if (adminSession.status === "unauthenticated") setLocation("/admin-login");
+  }, [adminSession.status, setLocation]);
 
   // Fetch campaigns
   const { data: campaigns, isLoading, error } = useQuery<CampaignWithTemplate[]>({
     queryKey: ["/api/admin/survey-campaigns"],
     queryFn: async () => {
-      const token = localStorage.getItem("admin_token");
-      
-      const campaignsResponse = await fetch("/api/admin/survey-campaigns", {
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-      
-      if (!campaignsResponse.ok) {
-        throw new Error("Erro ao carregar campanhas");
-      }
+      const campaignsResponse = await adminRequest("GET", "/api/admin/survey-campaigns");
       
       const campaignsData: SurveyCampaign[] = await campaignsResponse.json();
       
@@ -190,45 +152,26 @@ export default function Admin() {
         template: templates.find(t => t.id === campaign.templateId)
       }));
     },
-    enabled: !isVerifying,
+    enabled: adminSession.status === "authenticated",
   });
 
   // Fetch budget ADS setting
   const { data: budgetSetting } = useQuery<{ key: string; value: string | null }>({
     queryKey: ["/api/admin/settings/budget_ads"],
     queryFn: async () => {
-      const token = localStorage.getItem("admin_token");
-      const response = await fetch("/api/admin/settings/budget_ads", {
-        headers: {
-          "Authorization": `Bearer ${token}`,
-        },
-      });
-      if (!response.ok) {
-        throw new Error("Erro ao buscar configuração");
-      }
+      const response = await adminRequest("GET", "/api/admin/settings/budget_ads");
       return response.json();
     },
-    enabled: !isVerifying,
+    enabled: adminSession.status === "authenticated",
   });
 
   // Update budget ADS mutation
   const updateBudgetMutation = useMutation({
     mutationFn: async (value: string) => {
-      const token = localStorage.getItem("admin_token");
-      const response = await fetch("/api/admin/settings/budget_ads", {
-        method: "PUT",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ 
+      const response = await adminRequest("PUT", "/api/admin/settings/budget_ads", {
           value, 
           description: "Valor cobrado por pesquisa com ADS" 
-        }),
-      });
-      if (!response.ok) {
-        throw new Error("Erro ao salvar configuração");
-      }
+        });
       return response.json();
     },
     onSuccess: () => {
@@ -252,37 +195,17 @@ export default function Admin() {
   const { data: leads = [], isLoading: leadsLoading, error: leadsError } = useQuery<Lead[]>({
     queryKey: ["/api/leads"],
     queryFn: async () => {
-      const token = localStorage.getItem("admin_token");
-      const response = await fetch("/api/leads", {
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-      
-      if (!response.ok) {
-        throw new Error("Erro ao carregar leads");
-      }
+      const response = await adminRequest("GET", "/api/leads");
       
       return response.json();
     },
-    enabled: !isVerifying,
+    enabled: adminSession.status === "authenticated",
   });
 
   // Delete single lead mutation
   const deleteLeadMutation = useMutation({
     mutationFn: async (leadId: string) => {
-      const token = localStorage.getItem("admin_token");
-      const response = await fetch(`/api/leads/${leadId}`, {
-        method: "DELETE",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-        },
-      });
-      
-      if (!response.ok) {
-        throw new Error("Erro ao excluir cadastro");
-      }
+      const response = await adminRequest("DELETE", `/api/leads/${leadId}`);
       
       return response.json();
     },
@@ -307,19 +230,7 @@ export default function Admin() {
   // Delete multiple leads mutation
   const deleteMultipleLeadsMutation = useMutation({
     mutationFn: async (leadIds: string[]) => {
-      const token = localStorage.getItem("admin_token");
-      const response = await fetch("/api/leads/delete-multiple", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ ids: leadIds }),
-      });
-      
-      if (!response.ok) {
-        throw new Error("Erro ao excluir cadastros");
-      }
+      const response = await adminRequest("POST", "/api/leads/delete-multiple", { ids: leadIds });
       
       return response.json();
     },
@@ -373,18 +284,7 @@ export default function Admin() {
   // Approve mutation
   const approveMutation = useMutation({
     mutationFn: async (campaignId: string) => {
-      const token = localStorage.getItem("admin_token");
-      const response = await fetch(`/api/admin/survey-campaigns/${campaignId}/approve`, {
-        method: "PATCH",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-      
-      if (!response.ok) {
-        throw new Error("Erro ao aprovar campanha");
-      }
+      const response = await adminRequest("PATCH", `/api/admin/survey-campaigns/${campaignId}/approve`);
       
       return response.json();
     },
@@ -431,19 +331,7 @@ export default function Admin() {
   // Reject mutation
   const rejectMutation = useMutation({
     mutationFn: async ({ campaignId, adminNotes }: { campaignId: string; adminNotes: string }) => {
-      const token = localStorage.getItem("admin_token");
-      const response = await fetch(`/api/admin/survey-campaigns/${campaignId}/reject`, {
-        method: "PATCH",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ adminNotes }),
-      });
-      
-      if (!response.ok) {
-        throw new Error("Erro ao rejeitar campanha");
-      }
+      const response = await adminRequest("PATCH", `/api/admin/survey-campaigns/${campaignId}/reject`, { adminNotes });
       
       return response.json();
     },
@@ -493,19 +381,7 @@ export default function Admin() {
   // Update stage mutation
   const updateStageMutation = useMutation({
     mutationFn: async ({ campaignId, campaignStage }: { campaignId: string; campaignStage: string }) => {
-      const token = localStorage.getItem("admin_token");
-      const response = await fetch(`/api/admin/survey-campaigns/${campaignId}/stage`, {
-        method: "PATCH",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ campaignStage }),
-      });
-      
-      if (!response.ok) {
-        throw new Error("Erro ao atualizar estágio da campanha");
-      }
+      const response = await adminRequest("PATCH", `/api/admin/survey-campaigns/${campaignId}/stage`, { campaignStage });
       
       return response.json();
     },
@@ -553,17 +429,7 @@ export default function Admin() {
   // Delete paid campaign mutation
   const deletePaidMutation = useMutation({
     mutationFn: async (campaignId: string) => {
-      const token = localStorage.getItem("admin_token");
-      const response = await fetch(`/api/admin/survey-campaigns/${campaignId}`, {
-        method: "DELETE",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-        },
-      });
-      
-      if (!response.ok) {
-        throw new Error("Erro ao remover campanha");
-      }
+      const response = await adminRequest("DELETE", `/api/admin/survey-campaigns/${campaignId}`);
       
       return response.json();
     },
@@ -588,17 +454,7 @@ export default function Admin() {
 
   const deleteCampaignMutation = useMutation({
     mutationFn: async (campaignId: string) => {
-      const token = localStorage.getItem("admin_token");
-      const response = await fetch(`/api/admin/survey-campaigns/${campaignId}`, {
-        method: "DELETE",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-        },
-      });
-      
-      if (!response.ok) {
-        throw new Error("Erro ao excluir campanha");
-      }
+      const response = await adminRequest("DELETE", `/api/admin/survey-campaigns/${campaignId}`);
       
       return response.json();
     },
@@ -624,22 +480,9 @@ export default function Admin() {
   // System sync mutation - PULL data from source server (Replit)
   const systemSyncMutation = useMutation({
     mutationFn: async ({ sourceUrl, apiKey }: { sourceUrl: string; apiKey: string }) => {
-      const token = localStorage.getItem("admin_token");
-      const response = await fetch("/api/admin/system-sync/pull", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ sourceUrl, apiKey }),
-      });
+      const response = await adminRequest("POST", "/api/admin/system-sync/pull", { sourceUrl, apiKey });
       
       const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.error || "Erro ao sincronizar sistema");
-      }
-      
       return data;
     },
     onSuccess: (data) => {
@@ -658,9 +501,9 @@ export default function Admin() {
     },
   });
 
-  const handleLogout = () => {
-    localStorage.removeItem("admin_token");
-    setLocation("/login");
+  const handleLogout = async () => {
+    await adminSessionClient.logout();
+    setLocation("/admin-login");
   };
 
   const handleCopyLink = async (campaign: CampaignWithTemplate) => {
@@ -726,7 +569,7 @@ export default function Admin() {
     }
   };
 
-  if (isVerifying) {
+  if (adminSession.status !== "authenticated") {
     return null;
   }
 

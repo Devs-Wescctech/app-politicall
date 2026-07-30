@@ -6,4 +6,16 @@ vite.config.ts.*
 *.tar.gz
 .env
 .env.*
+!.env.example
 .admin-config.json
+.admin-config.json.tmp
+/.runtime/
+/backups/
+*.log
+*.pid
+*.zip
+/Obsidian Vault/
+/graphify-out/
+/uploads/*
+!/uploads/.gitkeep
+/.superpowers/

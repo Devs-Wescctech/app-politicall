@@ -1,32 +1,55 @@
 services:
   app:
-    image: ghcr.io/devs-wescctech/app-politicall:latest
+    image: "${IMAGE_REFERENCE:?required}"
     container_name: app-politicall
     restart: unless-stopped
+    stop_grace_period: 30s
     ports:
-      - "5000:5000"
+      - "127.0.0.1:${APP_PORT:-5000}:5000"
     environment:
       NODE_ENV: production
       PORT: 5000
+      PUBLIC_APP_URL: "${PUBLIC_APP_URL:?required}"
+      ENABLE_BEARER_EXCHANGE: "${ENABLE_BEARER_EXCHANGE:-false}"
+      ENABLE_BEARER_AUTH: "${ENABLE_BEARER_AUTH:-false}"
       PROD_DATABASE_URL: "${PROD_DATABASE_URL:?required}"
       SESSION_SECRET: "${SESSION_SECRET:?required}"
+      DATA_ENCRYPTION_KEY: "${DATA_ENCRYPTION_KEY:?required}"
+      LEGACY_DATA_ENCRYPTION_KEY: "${LEGACY_DATA_ENCRYPTION_KEY:-}"
       ADMIN_MASTER_PASSWORD_HASH: "${ADMIN_MASTER_PASSWORD_HASH:?required}"
+      TRUST_PROXY: "${TRUST_PROXY:-1}"
+      OKTOR_SMS_ENDPOINT: "${OKTOR_SMS_ENDPOINT:-}"
+      OKTOR_SMS_ACCOUNT: "${OKTOR_SMS_ACCOUNT:-}"
+      OKTOR_SMS_CODE: "${OKTOR_SMS_CODE:-}"
+      OKTOR_SMS_CLIENT: "${OKTOR_SMS_CLIENT:-}"
+      OKTOR_SMS_TIPO_ENVIO: "${OKTOR_SMS_TIPO_ENVIO:-7}"
     volumes:
-      - ./uploads:/app/uploads
+      - "${UPLOADS_HOST_PATH:?required}:/app/uploads"
+    networks:
+      - production
     mem_limit: 1g
     memswap_limit: 2g
-    shm_size: '256mb'
+    pids_limit: 256
+    shm_size: "256mb"
     ulimits:
       nofile:
         soft: 65536
         hard: 65536
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:5000/api/health"]
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:5000/api/ready"]
       interval: 30s
       timeout: 10s
-      retries: 3
-      start_period: 15s
+      retries: 5
+      start_period: 90s
 
 networks:
-  default:
-    driver: bridge
+  production:
+    external: true
+    name: "${APP_NETWORK_NAME:?required}"

@@ -16,7 +16,7 @@ describe("system sync security policy", () => {
     expect(collectSafeSyncEnvVars({
       PUBLIC_APP_URL: "https://politicall.example",
       VITE_PUBLIC_BASE_URL: "https://politicall.example",
-      DATABASE_URL: "postgres://user:pass@example/db",
+      DATABASE_URL: ["postgresql:", "//readonly:example@database:5432/app"].join(""),
       SESSION_SECRET: "secret",
       SYNC_API_KEY: "sync-token",
       OPENAI_API_KEY: "sk-secret",

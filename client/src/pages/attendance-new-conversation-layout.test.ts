@@ -20,4 +20,11 @@ describe("New conversation dialog viewport layout", () => {
     expect(scrollBody).toContain("overflow-y-auto");
     expect(source).toContain('data-testid="new-conversation-dialog-footer"');
   });
+
+  it("keeps the page retry button busy while realtime is reconnecting", () => {
+    const status = sourceAround("<ConnectionStatus mode={mode}", 180);
+
+    expect(status).toContain('retryInProgress={mode === "reconnecting"}');
+    expect(status).toContain("onRetry={reconnectNow}");
+  });
 });

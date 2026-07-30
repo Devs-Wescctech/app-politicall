@@ -10,8 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
-import { setAuthToken, setAuthUser } from "@/lib/auth";
-import { apiRequest } from "@/lib/queryClient";
+import { sessionClient } from "@/lib/session";
 import logoUrl from "@assets/logo pol_1763308638963.png";
 
 function formatCurrency(value: string): string {
@@ -59,10 +58,7 @@ export default function Register() {
   async function onSubmit(data: InsertUser) {
     setIsLoading(true);
     try {
-      const response = await apiRequest("POST", "/api/auth/register", data);
-      const result = await response.json();
-      setAuthToken(result.token);
-      setAuthUser(result.user);
+      await sessionClient.registerSession(data);
       window.location.href = "/dashboard";
     } catch (error: any) {
       toast({

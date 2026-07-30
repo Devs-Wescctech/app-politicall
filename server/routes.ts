@@ -13,12 +13,11 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import bcrypt from "bcrypt";
-import jwt from "jsonwebtoken";
 import multer from "multer";
 import { google } from "googleapis";
 import crypto from "crypto";
 import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
-import { insertUserSchema, loginSchema, insertContactSchema, insertPoliticalAllianceSchema, insertAllianceInviteSchema, insertDemandSchema, insertDemandCommentSchema, insertEventSchema, insertAiConfigurationSchema, insertAiTrainingExampleSchema, insertAiResponseTemplateSchema, insertMarketingCampaignSchema, insertNotificationSchema, insertIntegrationSchema, insertSurveyCampaignSchema, insertSurveyLandingPageSchema, insertSurveyResponseSchema, insertLeadSchema, insertPetitionSchema, insertPetitionSignatureSchema, insertPetitionCampaignSchema, insertPetitionCampaignLogSchema, insertPetitionMessageTemplateSchema, insertLinkBioPageSchema, insertLinkTreePageSchema, DEFAULT_PERMISSIONS, userPermissionsSchema } from "@shared/schema";
+import { insertContactSchema, insertDemandSchema, insertDemandCommentSchema, insertEventSchema, insertAiConfigurationSchema, insertAiTrainingExampleSchema, insertAiResponseTemplateSchema, insertMarketingCampaignSchema, insertIntegrationSchema, insertSurveyCampaignSchema, insertSurveyLandingPageSchema, insertSurveyResponseSchema, insertLeadSchema, insertPetitionSchema, insertPetitionCampaignSchema, DEFAULT_PERMISSIONS, userPermissionsSchema } from "@shared/schema";
 
 // Configure multer for file uploads with disk storage for better performance
 const uploadDir = path.join(process.cwd(), 'uploads', 'temp');
@@ -75,10 +74,12 @@ import {
 import { sql, eq, desc, and } from "drizzle-orm";
 import { generateAiResponse, testOpenAiApiKey } from "./openai";
 import { requireRole } from "./authorization";
-import { authenticateToken, requirePermission, requireAnyPermission, type AuthRequest } from "./auth";
-import { authenticateApiKey, apiRateLimit, type AuthenticatedApiRequest } from "./auth-api";
+import { authenticateAdminToken, authenticateToken, hasActiveGlobalAdminCookie, requirePermission, requireAnyPermission, type AuthRequest } from "./auth";
 import { encryptApiKey, decryptApiKey } from "./crypto";
 import { sanitizeAiConfiguration } from "./services/ai-config-security";
+import { redactGoogleOauthFailure, toSafeGoogleOauthResponse } from "./services/google-oauth-security";
+import { prepareWhatsappOmniConnection } from "./services/data-secret-fields";
+import { normalizeIntegrationSecretForWrite } from "./services/integration-secret-fields";
 import { decryptAiConfigProviderSecrets } from "./services/ai-config-secrets";
 import {
   extractMetaWebhookTargetIds,
@@ -94,24 +95,36 @@ import { sendOktorSms, queryOktorSms } from "./services/oktor-sms";
 import { locawebEmail } from "./services/locaweb-email-marketing";
 import { resolveChannels, channelToService, channelLabel, computeFinalStatus, canCancel, canSend, normalizeCampaignStatus, canPause, canResume, canEditCritical, normalizeSendConfig, isWithinSendWindow, classifyFailure, canRetry, shouldRetryDispatch, retryBackoffMs, computeRateBudget, buildRecipientCounts, computeRecipientMetrics, estimateSmsCost, friendlyErrorMessage, groupErrorsByReason, summarizeChannels, computeSendTiming, parseWhatsAppStatusEvents, type RecipientLite } from "./services/campaigns";
 import {
-  allowFixedWindowAttempt,
-  filterPublishedPetitions,
-  type FixedWindowEntry,
-  isPublicPetitionOpenForSignature,
-  isPublicPetitionVisible,
   normalizePetitionCampaignLogStatus,
   normalizePetitionCollectionConfig,
   sanitizePetitionCampaign,
-  sanitizePublicPetition,
-  validatePublicSignatureRequirements,
 } from "./services/petitions";
+import { registerPublicPetitionRoutes } from "./routes/public-petition-routes";
+import { registerNotificationRoutes } from "./routes/notification-routes";
+import { registerLinkPageRoutes } from "./routes/link-page-routes";
+import { registerPetitionMessageTemplateRoutes } from "./routes/petition-message-template-routes";
+import { registerPetitionCampaignLogRoutes } from "./routes/petition-campaign-log-routes";
+import { registerLegalRoutes } from "./routes/legal-routes";
+import { registerApiKeyRoutes } from "./routes/api-key-routes";
+import { registerDashboardRoutes } from "./routes/dashboard-routes";
+import { registerAllianceRoutes } from "./routes/alliance-routes";
+import { makeUniqueSlug } from "./services/slugs";
 import { isSystemSyncEnabled } from "./services/system-sync-security";
 import { IMAGE_MIME_TYPES, hasPdfMagic, validateImageBuffer } from "./services/upload-security";
 import { CAMPAIGN_EXPORT_FORMATS } from "@shared/schema";
 import fs from "fs";
 import path from "path";
 import { createRequire } from "module";
-import { getAdminPasswordHash, updateAdminPasswordHash } from "./admin-credentials";
+import { getAdminPasswordHash, isReservedAdminSettingKey } from "./admin-credentials";
+import { clearSessionCookies, createRefreshToken, issueAccessToken } from "./security/auth-cookies";
+import { issueCsrfToken } from "./security/csrf";
+import { assertAccountScopedTarget, createAuthPasswordMutationService } from "./services/auth-password-mutations";
+import { locawebConfigFromIntegration } from "./services/locaweb-config";
+import { createAuthenticationRateLimiter, createRuntimeAuthSessionService, getAuthAllowedOrigins, registerAuthSessionRoutes, sendAuthSessionResponse, toAuthSessionUser } from "./routes/auth-session-routes";
+import { registerPublicAuthRoutes } from "./routes/public-auth-routes";
+import { registerProfileRoute } from "./routes/profile-route";
+import { createAuthSessionService } from "./services/auth-session-service";
+import { createAuthSessionStore, createDrizzleAuthSessionRepository } from "./services/auth-session-store";
 const require = createRequire(import.meta.url);
 
 // Sensitive integration fields that must never be returned in plaintext.
@@ -142,19 +155,7 @@ function maskIntegration<T extends Record<string, any>>(integration: T): T {
 
 function decryptSecretIfNeeded(value: unknown): unknown {
   if (typeof value !== "string" || !value) return value;
-  if (!value.includes(":")) return value;
-  try {
-    return decryptApiKey(value);
-  } catch {
-    return value;
-  }
-}
-
-function encryptSecretIfNeeded(value: unknown): unknown {
-  if (typeof value !== "string") return value;
-  const trimmed = value.trim();
-  if (!trimmed || trimmed === "***" || trimmed.includes(":")) return value;
-  return encryptApiKey(trimmed);
+  return decryptApiKey(value);
 }
 
 function decryptIntegrationForUse<T extends Record<string, any> | null | undefined>(integration: T): T {
@@ -288,16 +289,6 @@ async function requireValidMetaWebhookSignature(
   }
 }
 
-function locawebConfigFromIntegration(integration: Record<string, any>) {
-  return {
-    baseUrl: integration.locawebBaseUrl || "https://emailmarketing.locaweb.com.br/api/v1",
-    accountId: integration.locawebAccountId,
-    apiKey: integration.locawebApiKey,
-    authHeader: integration.locawebAuthHeader || "Authorization",
-    authScheme: integration.locawebAuthScheme || "Bearer",
-  };
-}
-
 async function syncWhatsappIntegrationConnection(accountId: string, integration: Record<string, any>) {
   if (integration.service !== "whatsapp") return;
 
@@ -306,24 +297,15 @@ async function syncWhatsappIntegrationConnection(accountId: string, integration:
     c => c.channel === "whatsapp" && (c.metadata as any)?.source === "settings-omni"
   );
   const config = buildWhatsappConnectionConfig(integration);
+  const connection = prepareWhatsappOmniConnection({ accountId, ...config }, existing as any);
 
   if (existing) {
-    await storage.updateChannelConnection(existing.id, accountId, {
-      ...config,
-    } as any);
+    await storage.updateChannelConnection(existing.id, accountId, connection as any);
     return;
   }
 
-  await storage.createChannelConnection({
-    accountId,
-    ...config,
-  } as any);
+  await storage.createChannelConnection(connection as any);
 }
-
-if (!process.env.SESSION_SECRET) {
-  throw new Error("SESSION_SECRET must be set in environment variables");
-}
-const JWT_SECRET = process.env.SESSION_SECRET;
 
 // Cache para evitar processamento duplicado de mensagens (Facebook/Instagram)
 const processedMessagesCache = new Set<string>();
@@ -360,32 +342,8 @@ function generateSlugFromName(name: string): string {
     .trim();
 }
 
-// Admin authentication middleware
-function authenticateAdminToken(req: AuthRequest, res: Response, next: NextFunction) {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return res.status(401).json({ error: "Token não fornecido" });
-  }
-  const token = authHeader.substring(7);
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET) as { isAdmin?: boolean; userId?: string; accountId?: string };
-    if (decoded.isAdmin !== true) {
-      return res.status(403).json({ error: "Acesso negado" });
-    }
-    // Set userId and accountId in request for admin routes
-    req.userId = decoded.userId;
-    req.accountId = decoded.accountId;
-    next();
-  } catch (error) {
-    return res.status(401).json({ error: "Token inválido" });
-  }
-}
-
-const authAttemptRateLimitStore = new Map<string, FixedWindowEntry>();
-const AUTH_ATTEMPT_WINDOW_MS = 15 * 60 * 1000;
-const USER_LOGIN_ATTEMPT_LIMIT = 10;
-const ADMIN_LOGIN_ATTEMPT_LIMIT = 5;
-const ADMIN_PASSWORD_ATTEMPT_LIMIT = 5;
+const authAttemptLimiter = createAuthenticationRateLimiter();
+const ADMIN_PASSWORD_ATTEMPT_LIMIT = 3;
 
 function authAttemptIp(req: Request): string {
   return req.ip || req.socket.remoteAddress || "unknown";
@@ -401,20 +359,10 @@ function enforceAuthAttemptLimit(
   res: Response,
   key: string,
   limit: number,
-  windowMs = AUTH_ATTEMPT_WINDOW_MS,
 ): boolean {
-  const result = allowFixedWindowAttempt(authAttemptRateLimitStore, key, limit, windowMs);
-
-  res.setHeader("X-RateLimit-Limit", String(limit));
-  res.setHeader("X-RateLimit-Remaining", String(result.remaining));
-  res.setHeader("X-RateLimit-Reset", String(Math.ceil(result.resetAt / 1000)));
-
-  if (result.allowed) return true;
-
-  res.status(429).json({
-    error: "Muitas tentativas. Aguarde alguns minutos antes de tentar novamente.",
-  });
-  return false;
+  let allowed = false;
+  authAttemptLimiter(`credential:${key}`, limit)(req, res, () => { allowed = true; });
+  return allowed;
 }
 
 // Seed political parties data - All 29 Brazilian political parties from 2025
@@ -796,6 +744,10 @@ async function seedTestCampaign() {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  const authSessionService = createRuntimeAuthSessionService();
+  const authPasswordMutations = createAuthPasswordMutationService(db);
+  const authOrigins = getAuthAllowedOrigins();
+  registerAuthSessionRoutes(app);
   // Seed admin user on startup
   await seedAdminUser();
   
@@ -813,110 +765,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ==================== AUTHENTICATION ====================
   
-  // Register
-  app.post("/api/auth/register", async (req, res) => {
-    try {
-      const validatedData = insertUserSchema.parse(req.body);
-      
-      // Check if user already exists
-      const existingUser = await storage.getUserByEmail(validatedData.email);
-      if (existingUser) {
-        return res.status(400).json({ error: "Email já cadastrado" });
-      }
-
-      // Hash password
-      const hashedPassword = await bcrypt.hash(validatedData.password, 10);
-      
-      // CRIAR NOVA CONTA PRIMEIRO
-      const account = await storage.createAccount({
-        name: validatedData.name || validatedData.email,
-        salesperson: req.body.salesperson || null,
-        planValue: req.body.planValue || null,
-      });
-      
-      // Gerar slug base a partir do nome do admin
-      const baseSlug = generateSlugFromName(validatedData.name);
-      
-      // Encontrar um slug único disponível (carlosnedel, carlosnedel2, carlosnedel3, etc)
-      const uniqueSlug = await storage.findAvailableSlug(baseSlug);
-      
-      // Criar primeiro usuário (admin da conta) - SEM partido e SEM avatar
-      const { ...userData } = validatedData;
-      const user = await storage.createUser({
-        ...userData,  // Preserva campos opcionais (phone, whatsapp, planValue, etc)
-        password: hashedPassword,
-        accountId: account.id,
-        role: "admin",
-        permissions: validatedData.permissions || DEFAULT_PERMISSIONS.admin,
-        partyId: undefined,  // FORÇA: Nova conta SEM partido
-        avatar: undefined,   // FORÇA: Nova conta SEM avatar (usa logo padrão)
-        slug: uniqueSlug, // USA SLUG ÚNICO: garante que não há conflitos
-      } as any);
-
-      // Generate JWT token with accountId
-      const token = jwt.sign({ 
-        userId: user.id, 
-        accountId: user.accountId,
-        role: user.role,
-        isAdmin: user.role === "admin"
-      }, JWT_SECRET, { expiresIn: "30d" });
-
-      res.json({
-        token,
-        user: {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          role: user.role,
-          permissions: user.permissions,
+  registerPublicAuthRoutes(app, {
+    allowedOrigins: authOrigins,
+    limiter: authAttemptLimiter,
+    storage,
+    registerUserSession: (input) => db.transaction(async (tx: any) => {
+      const [account] = await tx.insert(accounts).values(input.account).returning();
+      const [user] = await tx.insert(users).values([{ ...input.user, accountId: account.id }]).returning();
+      const transactionalAuthSessionStore = createAuthSessionStore(createDrizzleAuthSessionRepository(tx));
+      const transactionalAuthSessionService = createAuthSessionService({
+        users: {
+          findByEmail: async (email) => {
+            const [stored] = await tx.select().from(users).where(eq(users.email, email));
+            return stored ? toAuthSessionUser(stored) : undefined;
+          },
+          findByIdAndAccount: async (userId, accountId) => {
+            const [stored] = await tx.select().from(users).where(and(eq(users.id, userId), eq(users.accountId, accountId)));
+            return stored ? toAuthSessionUser(stored) : undefined;
+          },
         },
-      });
-    } catch (error: any) {
-      res.status(400).json({ error: error.message || "Erro ao criar conta" });
-    }
-  });
-
-  // Login
-  app.post("/api/auth/login", async (req, res) => {
-    try {
-      const validatedData = loginSchema.parse(req.body);
-      const rateLimitKey = authAttemptKey(req, "user-login", validatedData.email);
-      if (!enforceAuthAttemptLimit(req, res, rateLimitKey, USER_LOGIN_ATTEMPT_LIMIT)) {
-        return;
-      }
-      
-      const user = await storage.getUserByEmail(validatedData.email);
-      if (!user) {
-        return res.status(401).json({ error: "Email ou senha incorretos" });
-      }
-
-      const validPassword = await bcrypt.compare(validatedData.password, user.password);
-      if (!validPassword) {
-        return res.status(401).json({ error: "Email ou senha incorretos" });
-      }
-
-      authAttemptRateLimitStore.delete(rateLimitKey);
-
-      const token = jwt.sign({ 
-        userId: user.id, 
-        accountId: user.accountId,
-        role: user.role,
-        isAdmin: user.role === "admin"
-      }, JWT_SECRET, { expiresIn: "30d" });
-
-      res.json({
-        token,
-        user: {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          role: user.role,
-          permissions: user.permissions,
+        verifyPassword: bcrypt.compare,
+        getAdminPasswordHash,
+        sessionStore: {
+          createSession: transactionalAuthSessionStore.createSession,
+          resolveRefreshSession: transactionalAuthSessionStore.resolveRefreshSession,
+          rotateRefreshSession: transactionalAuthSessionStore.rotateRefreshSession,
+          revokeSession: transactionalAuthSessionStore.revokeSessionById,
+          revokeSessionFamily: transactionalAuthSessionStore.revokeSessionFamily,
+          revokeUserSessions: transactionalAuthSessionStore.revokeUserSessions,
         },
+        legacyExchangeStore: {
+          async claim() {
+            throw new Error("Legacy exchange is not part of registration");
+          },
+        },
+        createRefreshToken,
+        issueAccessToken,
+        issueCsrfToken,
       });
-    } catch (error: any) {
-      res.status(400).json({ error: error.message || "Erro ao fazer login" });
-    }
+      return transactionalAuthSessionService.issueUserSession(toAuthSessionUser(user), input.session);
+    }),
+    authSessionService,
+    hashPassword: bcrypt.hash,
+    generateSlug: generateSlugFromName,
   });
 
   // Get current authenticated user (with fresh role from database)
@@ -1008,80 +899,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Update current user's profile
-  app.patch("/api/auth/profile", authenticateToken, async (req: AuthRequest, res) => {
-    try {
-      const profileUpdateSchema = z.object({
-        name: z.string().min(2, "Nome deve ter no mínimo 2 caracteres").optional(),
-        phone: z.string().optional(),
-        avatar: z.string().nullable().optional(),
-        landingBackground: z.string().optional(),
-        partyId: z.string().optional(),
-        politicalPosition: z.string().optional(),
-        electionNumber: z.string().optional(),
-        lastElectionVotes: z.number().int().nonnegative().optional(),
-        state: z.string().optional(),
-        city: z.string().optional(),
-        currentPassword: z.string().optional(),
-        newPassword: z.string().min(6, "Nova senha deve ter no mínimo 6 caracteres").optional(),
-        skipPasswordCheck: z.boolean().optional(),
-      });
-
-      const validatedData = profileUpdateSchema.parse(req.body);
-      
-      // Check if admin master is impersonating (verify admin token in header)
-      let isAdminImpersonating = false;
-      const adminToken = req.headers['x-admin-token'] as string;
-      if (adminToken && validatedData.skipPasswordCheck) {
-        try {
-          const decoded = jwt.verify(adminToken, JWT_SECRET) as { isAdmin?: boolean };
-          if (decoded.isAdmin) {
-            isAdminImpersonating = true;
-          }
-        } catch (e) {
-          // Invalid admin token, ignore
-        }
-      }
-      
-      // If changing password, validate current password (unless admin master is impersonating)
-      if (validatedData.newPassword) {
-        if (!isAdminImpersonating && !validatedData.currentPassword) {
-          return res.status(400).json({ error: "Senha atual é obrigatória para alterar a senha" });
-        }
-
-        const user = await storage.getUser(req.userId!);
-        if (!user) {
-          return res.status(404).json({ error: "Usuário não encontrado" });
-        }
-
-        // Only validate current password if not admin impersonating
-        if (!isAdminImpersonating) {
-          const isPasswordValid = await bcrypt.compare(validatedData.currentPassword!, user.password);
-          if (!isPasswordValid) {
-            return res.status(400).json({ error: "Senha atual incorreta" });
-          }
-        }
-
-        // Hash new password
-        const hashedPassword = await bcrypt.hash(validatedData.newPassword, 10);
-        const { currentPassword, newPassword, skipPasswordCheck, ...profileData } = validatedData;
-        await db.update(users).set({ ...profileData, password: hashedPassword }).where(eq(users.id, req.userId!));
-        const updated = await storage.getUser(req.userId!);
-        if (!updated) {
-          return res.status(404).json({ error: "Usuário não encontrado" });
-        }
-        const { password, ...sanitizedUser } = updated;
-        return res.json(sanitizedUser);
-      }
-
-      // Update without password change
-      const { currentPassword, newPassword, skipPasswordCheck, ...profileData } = validatedData;
-      const updated = await storage.updateUser(req.userId!, req.accountId!, profileData);
-      const { password, ...sanitizedUser } = updated;
-      res.json(sanitizedUser);
-    } catch (error: any) {
-      res.status(400).json({ error: error.message || "Erro ao atualizar perfil" });
-    }
+  registerProfileRoute(app, {
+    authenticateToken,
+    getUser: (userId) => storage.getUser(userId),
+    updateUser: (userId, accountId, data) => storage.updateUser(userId, accountId, data),
+    changePassword: (input) => authPasswordMutations.changeUserPassword(input),
+    hasActiveGlobalAdminCookie,
   });
 
   // Allowed image MIME types
@@ -1411,7 +1234,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Validate account admin password (for export authorization)
-  app.post("/api/auth/validate-admin-password", authenticateToken, async (req: AuthRequest, res) => {
+  app.post("/api/auth/validate-admin-password", (req, res, next) => {
+    res.set("Cache-Control", "no-store");
+    next();
+  }, authenticateToken, async (req: AuthRequest, res) => {
     try {
       const validateSchema = z.object({
         password: z.string().min(1, "Senha é obrigatória"),
@@ -1427,61 +1253,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const adminUser = await storage.getAccountAdmin(req.accountId!);
       
       if (!adminUser) {
-        return res.status(404).json({ error: "Admin da conta não encontrado" });
+        return res.status(401).json({ error: "Authentication failed" });
       }
       
       // Validate password against admin's password
       const isValid = await bcrypt.compare(validatedData.password, adminUser.password);
       
       if (!isValid) {
-        return res.status(401).json({ error: "Senha incorreta" });
+        return res.status(401).json({ error: "Authentication failed" });
       }
 
-      authAttemptRateLimitStore.delete(rateLimitKey);
-      
       res.json({ valid: true });
-    } catch (error: any) {
-      res.status(400).json({ error: error.message || "Erro ao validar senha" });
+    } catch {
+      res.set("Cache-Control", "no-store");
+      res.status(400).json({ error: "Authentication failed" });
     }
   });
 
   // ==================== ADMIN AUTHENTICATION ====================
-  
-  // Admin login endpoint (PUBLIC)
-  app.post("/api/admin/login", async (req, res) => {
-    try {
-      const adminLoginSchema = z.object({
-        password: z.string().min(1, "Senha é obrigatória"),
-      });
-      
-      const validatedData = adminLoginSchema.parse(req.body);
-      const rateLimitKey = authAttemptKey(req, "admin-login");
-      if (!enforceAuthAttemptLimit(req, res, rateLimitKey, ADMIN_LOGIN_ATTEMPT_LIMIT)) {
-        return;
-      }
-      
-      // Get stored password hash and verify
-      const passwordHash = await getAdminPasswordHash();
-      const isValid = await bcrypt.compare(validatedData.password, passwordHash);
-      
-      if (!isValid) {
-        return res.status(401).json({ error: "Senha incorreta" });
-      }
-
-      authAttemptRateLimitStore.delete(rateLimitKey);
-
-      // Generate JWT token with isAdmin flag
-      const token = jwt.sign({ isAdmin: true }, JWT_SECRET, { expiresIn: '30d' });
-
-      res.json({ token });
-    } catch (error: any) {
-      res.status(400).json({ error: error.message || "Erro ao fazer login admin" });
-    }
-  });
 
   // Admin change password endpoint (PROTECTED)
   app.post("/api/admin/change-password", authenticateAdminToken, async (req: AuthRequest, res) => {
     try {
+      res.set("Cache-Control", "no-store");
       const changePasswordSchema = z.object({
         newPassword: z.string().min(6, "Senha deve ter pelo menos 6 caracteres"),
       });
@@ -1489,39 +1283,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validatedData = changePasswordSchema.parse(req.body);
       
       // Update admin password
-      await updateAdminPasswordHash(validatedData.newPassword);
+      await authPasswordMutations.changeGlobalAdminPassword(validatedData.newPassword);
+      clearSessionCookies(res, "admin");
       
       res.json({ success: true, message: "Senha alterada com sucesso" });
-    } catch (error: any) {
-      res.status(400).json({ error: error.message || "Erro ao alterar senha" });
+    } catch {
+      res.set("Cache-Control", "no-store");
+      res.status(400).json({ error: "Authentication failed" });
     }
   });
 
-  // Admin token verification endpoint (PUBLIC)
-  app.get("/api/admin/verify", async (req, res) => {
-    try {
-      const authHeader = req.headers.authorization;
-      
-      if (!authHeader || !authHeader.startsWith("Bearer ")) {
-        return res.status(401).json({ valid: false });
-      }
-
-      const token = authHeader.substring(7);
-      
-      try {
-        const decoded = jwt.verify(token, JWT_SECRET) as { isAdmin?: boolean };
-        
-        if (decoded.isAdmin === true) {
-          return res.json({ valid: true });
-        } else {
-          return res.status(401).json({ valid: false });
-        }
-      } catch (jwtError) {
-        return res.status(401).json({ valid: false });
-      }
-    } catch (error: any) {
-      res.status(401).json({ valid: false });
-    }
+  app.get("/api/admin/verify", authenticateAdminToken, (_req, res) => {
+    res.set("Cache-Control", "no-store");
+    res.json({ valid: true });
   });
 
   // ==================== SYSTEM SETTINGS (Admin Master) ====================
@@ -1543,6 +1317,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/admin/settings/:key", authenticateAdminToken, async (req: AuthRequest, res) => {
     try {
       const { key } = req.params;
+      if (isReservedAdminSettingKey(key)) return res.status(404).json({ error: "Configuração não encontrada" });
       const [setting] = await db.select()
         .from(systemSettings)
         .where(eq(systemSettings.key, key));
@@ -1562,6 +1337,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/admin/settings/:key", authenticateAdminToken, async (req: AuthRequest, res) => {
     try {
       const { key } = req.params;
+      if (isReservedAdminSettingKey(key)) return res.status(404).json({ error: "Configuração não encontrada" });
       const { value, description } = req.body;
       
       if (value === undefined || value === null) {
@@ -2046,20 +1822,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Só é possível entrar em contas de administradores de gabinete" });
       }
       
-      // Generate JWT token for the target user
-      const token = jwt.sign({ 
-        userId: user.id, 
-        accountId: user.accountId,
-        role: user.role,
-        isAdmin: user.role === "admin"
-      }, JWT_SECRET, { expiresIn: "30d" });
-      
-      const { password, ...sanitizedUser } = user;
-      
-      res.json({
-        token,
-        user: sanitizedUser,
-      });
+      sendAuthSessionResponse(res, await authSessionService.issueUserSession(toAuthSessionUser(user), {
+        deviceMetadata: req.get("user-agent"),
+        ipMetadata: req.ip || req.socket.remoteAddress,
+      }));
     } catch (error: any) {
       res.status(400).json({ error: error.message });
     }
@@ -2423,6 +2189,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Update user role (admin only)
   app.patch("/api/users/:id", authenticateToken, requireRole("admin"), requirePermission("users"), async (req: AuthRequest, res) => {
     try {
+      const changingPassword = typeof req.body?.password === "string";
+      if (changingPassword) res.set("Cache-Control", "no-store");
       // Validate role and permissions if provided
       const updateSchema = z.object({
         role: z.enum(["admin", "coordenador", "assessor", "voluntario"]).optional(),
@@ -2438,6 +2206,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get current user to compare email
       const currentUser = await storage.getUser(req.params.id);
       if (!currentUser) {
+        return res.status(404).json({ error: "Usuário não encontrado" });
+      }
+      try {
+        assertAccountScopedTarget(req.accountId!, currentUser.accountId);
+      } catch {
+        if (changingPassword) res.set("Cache-Control", "no-store");
         return res.status(404).json({ error: "Usuário não encontrado" });
       }
       
@@ -2460,12 +2234,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         dataToUpdate.volunteerCode = await storage.generateUniqueVolunteerCode();
       }
       
-      const updated = await storage.updateUser(req.params.id, req.accountId!, dataToUpdate);
+      const updated = validatedData.password
+        ? await authPasswordMutations.changeUserPassword({
+          accountId: req.accountId!,
+          userId: req.params.id,
+          passwordHash: dataToUpdate.password,
+          userData: Object.fromEntries(Object.entries(dataToUpdate).filter(([key]) => key !== "password")),
+        })
+        : await storage.updateUser(req.params.id, req.accountId!, dataToUpdate);
+      if (validatedData.password) {
+        if (currentUser.id === req.userId) clearSessionCookies(res, "user");
+      }
       // CRITICAL: Never send password hash to client
       const { password, ...sanitizedUser } = updated;
       res.json(sanitizedUser);
-    } catch (error: any) {
-      res.status(400).json({ error: error.message });
+    } catch {
+      if (typeof req.body?.password === "string") {
+        res.set("Cache-Control", "no-store");
+        return res.status(400).json({ error: "Authentication failed" });
+      }
+      res.status(400).json({ error: "Erro ao atualizar usuário" });
     }
   });
 
@@ -2734,218 +2522,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // ==================== POLITICAL PARTIES & ALLIANCES ====================
-  
-  app.get("/api/parties", authenticateToken, requirePermission("alliances"), async (req: AuthRequest, res) => {
-    try {
-      const parties = await storage.getAllParties();
-      res.json(parties);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  app.get("/api/alliances", authenticateToken, requirePermission("alliances"), async (req: AuthRequest, res) => {
-    try {
-      const alliances = await storage.getAlliances(req.accountId!);
-      
-      // Join with party data
-      const parties = await storage.getAllParties();
-      const partiesMap = new Map(parties.map(p => [p.id, p]));
-      
-      const alliancesWithParty = alliances.map(alliance => ({
-        ...alliance,
-        party: partiesMap.get(alliance.partyId),
-      }));
-      
-      res.json(alliancesWithParty);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  app.post("/api/alliances", authenticateToken, requirePermission("alliances"), async (req: AuthRequest, res) => {
-    try {
-      const validatedData = insertPoliticalAllianceSchema.parse(req.body);
-      const alliance = await storage.createAlliance({
-        ...validatedData,
-        userId: req.userId!,
-        accountId: req.accountId!,
-      });
-      res.json(alliance);
-    } catch (error: any) {
-      res.status(400).json({ error: error.message });
-    }
-  });
-
-  app.patch("/api/alliances/:id", authenticateToken, requirePermission("alliances"), async (req: AuthRequest, res) => {
-    try {
-      const validatedData = insertPoliticalAllianceSchema.partial().parse(req.body);
-      const alliance = await storage.updateAlliance(req.params.id, req.accountId!, validatedData);
-      res.json(alliance);
-    } catch (error: any) {
-      res.status(400).json({ error: error.message });
-    }
-  });
-
-  app.delete("/api/alliances/:id", authenticateToken, requirePermission("alliances"), async (req: AuthRequest, res) => {
-    try {
-      await storage.deleteAlliance(req.params.id, req.accountId!);
-      res.json({ success: true });
-    } catch (error: any) {
-      res.status(400).json({ error: error.message });
-    }
-  });
-
-  // ==================== ALLIANCE INVITES ====================
-
-  app.get("/api/alliance-invites", authenticateToken, requirePermission("alliances"), async (req: AuthRequest, res) => {
-    try {
-      const invites = await storage.getAllianceInvites(req.accountId!);
-      res.json(invites);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  app.post("/api/alliance-invites", authenticateToken, requirePermission("alliances"), async (req: AuthRequest, res) => {
-    try {
-      const validatedData = insertAllianceInviteSchema.parse(req.body);
-      const token = Math.random().toString(36).substring(2, 8).toUpperCase();
-      
-      const invite = await storage.createAllianceInvite({
-        ...validatedData,
-        userId: req.userId!,
-        accountId: req.accountId!,
-        token,
-      });
-      
-      res.json(invite);
-    } catch (error: any) {
-      res.status(400).json({ error: error.message });
-    }
-  });
-
-  app.get("/api/alliance-invites/:token/public", async (req: Request, res: Response) => {
-    try {
-      const { token } = req.params;
-      const invite = await storage.getAllianceInviteByToken(token);
-      
-      if (!invite) {
-        return res.status(404).json({ error: "Convite não encontrado" });
-      }
-      
-      if (invite.status === 'expired') {
-        return res.status(410).json({ error: "Convite expirado" });
-      }
-      
-      if (invite.status === 'accepted') {
-        return res.status(410).json({ error: "Convite já foi aceito" });
-      }
-
-      const inviter = await storage.getUser(invite.userId);
-      const party = await db.select().from(politicalParties).where(eq(politicalParties.id, invite.partyId));
-      
-      // Get account and admin info for personalization
-      const [account] = await db.select().from(accounts).where(eq(accounts.id, invite.accountId));
-      const admin = await storage.getAccountAdmin(invite.accountId);
-      
-      res.json({
-        invite: {
-          id: invite.id,
-          status: invite.status,
-          inviteeEmail: invite.inviteeEmail,
-          inviteePhone: invite.inviteePhone,
-          createdAt: invite.createdAt,
-        },
-        inviter: inviter ? {
-          name: inviter.name,
-          avatar: inviter.avatar,
-          politicalPosition: inviter.politicalPosition,
-          city: inviter.city,
-          state: inviter.state,
-        } : null,
-        party: party.length > 0 ? {
-          id: party[0].id,
-          name: party[0].name,
-          acronym: party[0].acronym,
-          ideology: party[0].ideology,
-        } : null,
-        account: account ? {
-          name: account.name,
-        } : null,
-        admin: admin ? {
-          name: admin.name,
-          avatar: admin.avatar,
-          politicalPosition: admin.politicalPosition,
-          city: admin.city,
-          state: admin.state,
-        } : null,
-      });
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  app.post("/api/alliance-invites/:token/accept", async (req: Request, res: Response) => {
-    try {
-      const { token } = req.params;
-      const { inviteeName, inviteeEmail, inviteePhone, inviteePosition, inviteeState, inviteeCity, inviteeNotes } = req.body;
-      
-      if (!inviteeName || inviteeName.trim().length < 2) {
-        return res.status(400).json({ error: "Nome é obrigatório" });
-      }
-      
-      const updatedInvite = await storage.acceptAllianceInvite(token, {
-        inviteeName: inviteeName.trim(),
-        inviteeEmail: inviteeEmail?.trim() || undefined,
-        inviteePhone: inviteePhone?.trim() || undefined,
-        inviteePosition: inviteePosition?.trim() || undefined,
-        inviteeState: inviteeState?.trim() || undefined,
-        inviteeCity: inviteeCity?.trim() || undefined,
-        inviteeNotes: inviteeNotes?.trim() || undefined,
-      });
-      
-      res.json({ success: true, invite: updatedInvite });
-    } catch (error: any) {
-      if (error.message === 'Convite não encontrado') {
-        return res.status(404).json({ error: error.message });
-      }
-      if (error.message === 'Convite já foi aceito' || error.message === 'Convite expirado') {
-        return res.status(410).json({ error: error.message });
-      }
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  app.post("/api/alliance-invites/:token/reject", async (req: Request, res: Response) => {
-    try {
-      const { token } = req.params;
-      const updatedInvite = await storage.rejectAllianceInvite(token);
-      res.json({ success: true, invite: updatedInvite });
-    } catch (error: any) {
-      if (error.message === 'Convite não encontrado') {
-        return res.status(404).json({ error: error.message });
-      }
-      if (error.message === 'Convite já foi aceito' || error.message === 'Convite já foi rejeitado') {
-        return res.status(410).json({ error: error.message });
-      }
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  app.delete("/api/alliance-invites/:id", authenticateToken, requirePermission("alliances"), async (req: AuthRequest, res) => {
-    try {
-      const { id } = req.params;
-      await storage.deleteAllianceInvite(id, req.accountId!);
-      res.json({ success: true });
-    } catch (error: any) {
-      if (error.message === 'Convite não encontrado ou acesso negado') {
-        return res.status(404).json({ error: error.message });
-      }
-      res.status(500).json({ error: error.message });
-    }
-  });
+  registerAllianceRoutes(app);
 
   // ==================== DEMANDS ====================
   
@@ -5491,7 +5068,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       for (const key of INTEGRATION_SENSITIVE_FIELDS) {
         if ((validatedData as any)[key] !== undefined) {
-          (validatedData as any)[key] = encryptSecretIfNeeded((validatedData as any)[key]);
+          (validatedData as any)[key] = normalizeIntegrationSecretForWrite((validatedData as any)[key], (existing as any)?.[key]);
         }
       }
 
@@ -5535,7 +5112,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       for (const key of INTEGRATION_SENSITIVE_FIELDS) {
         if ((validatedData as any)[key] !== undefined) {
-          (validatedData as any)[key] = encryptSecretIfNeeded((validatedData as any)[key]);
+          (validatedData as any)[key] = normalizeIntegrationSecretForWrite((validatedData as any)[key], (existing as any)?.[key]);
         }
       }
       const owner = req.userId || existing?.userId || (await storage.getAccountAdmin(accountId))?.id;
@@ -5661,7 +5238,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       for (const key of INTEGRATION_SENSITIVE_FIELDS) {
         if ((validatedData as any)[key] !== undefined) {
-          (validatedData as any)[key] = encryptSecretIfNeeded((validatedData as any)[key]);
+          (validatedData as any)[key] = normalizeIntegrationSecretForWrite((validatedData as any)[key], (existing as any)?.[key]);
         }
       }
 
@@ -6126,37 +5703,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return `${proto}://${host}`;
   };
 
-  const publicPetitionSignAttempts = new Map<string, { count: number; resetAt: number }>();
-  const PUBLIC_PETITION_SIGN_LIMIT = 20;
-  const PUBLIC_PETITION_SIGN_WINDOW_MS = 15 * 60 * 1000;
-
-  const publicPetitionSignRateLimit = (req: Request, res: Response, next: NextFunction) => {
-    const now = Date.now();
-    for (const [key, entry] of publicPetitionSignAttempts) {
-      if (entry.resetAt <= now) publicPetitionSignAttempts.delete(key);
-    }
-
-    const ipAddress = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
-      req.ip || req.socket.remoteAddress || 'unknown';
-    const key = `${ipAddress}:${req.params.slug || ""}`;
-    const result = allowFixedWindowAttempt(
-      publicPetitionSignAttempts,
-      key,
-      PUBLIC_PETITION_SIGN_LIMIT,
-      PUBLIC_PETITION_SIGN_WINDOW_MS,
-      now,
-    );
-
-    res.setHeader("X-RateLimit-Limit", String(PUBLIC_PETITION_SIGN_LIMIT));
-    res.setHeader("X-RateLimit-Remaining", String(result.remaining));
-    res.setHeader("X-RateLimit-Reset", String(Math.ceil(result.resetAt / 1000)));
-
-    if (!result.allowed) {
-      return res.status(429).json({ error: "Muitas tentativas de assinatura. Tente novamente em alguns minutos." });
-    }
-    next();
-  };
-
   // ---------- Petitions CRUD ----------
   app.get("/api/petitions", authenticateToken, requirePermission("petitions"), async (req: AuthRequest, res) => {
     try {
@@ -6182,25 +5728,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: error.message });
     }
   });
-
-  // Generate a globally-unique slug by appending -2, -3, ... on collision.
-  // Slugs are global because public pages resolve by slug alone (no account in URL),
-  // so collisions across accounts must auto-dedupe instead of blocking creation.
-  async function makeUniqueSlug(
-    base: string,
-    lookup: (slug: string) => Promise<{ id: string } | undefined>,
-    currentId?: string,
-  ): Promise<string> {
-    const clean = (base || "").trim() || "item";
-    let candidate = clean;
-    let n = 1;
-    while (true) {
-      const found = await lookup(candidate);
-      if (!found || found.id === currentId) return candidate;
-      n += 1;
-      candidate = `${clean}-${n}`;
-    }
-  }
 
   app.post("/api/petitions", authenticateToken, requirePermission("petitions"), async (req: AuthRequest, res) => {
     try {
@@ -6619,423 +6146,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // ---------- Petition Campaign Logs ----------
-  app.get("/api/petition-campaigns/:id/logs", authenticateToken, requirePermission("petitions"), async (req: AuthRequest, res) => {
-    try {
-      const logs = await storage.getPetitionCampaignLogs(req.params.id, req.accountId!);
-      res.json(logs);
-    } catch (error: any) {
-      res.status(400).json({ error: error.message });
-    }
-  });
-
-  app.post("/api/petition-campaigns/:id/logs", authenticateToken, requirePermission("petitions"), async (req: AuthRequest, res) => {
-    try {
-      // Ensure the campaign belongs to this account
-      const campaign = await storage.getPetitionCampaign(req.params.id, req.accountId!);
-      if (!campaign) return res.status(404).json({ error: "Campanha não encontrada" });
-      const validated = insertPetitionCampaignLogSchema.parse({ ...req.body, campaignId: req.params.id });
-      const log = await storage.createPetitionCampaignLog({ ...validated, accountId: req.accountId! });
-      res.status(201).json(log);
-    } catch (error: any) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: "Dados inválidos", details: error.errors });
-      }
-      res.status(400).json({ error: error.message });
-    }
-  });
-
-  // ---------- Petition Message Templates ----------
-  app.get("/api/petition-message-templates", authenticateToken, requirePermission("petitions"), async (req: AuthRequest, res) => {
-    try {
-      res.json(await storage.getPetitionMessageTemplates(req.accountId!));
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  app.post("/api/petition-message-templates", authenticateToken, requirePermission("petitions"), async (req: AuthRequest, res) => {
-    try {
-      const validated = insertPetitionMessageTemplateSchema.parse(req.body);
-      const template = await storage.createPetitionMessageTemplate({
-        ...validated,
-        userId: req.userId!,
-        accountId: req.accountId!,
-      });
-      res.status(201).json(template);
-    } catch (error: any) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: "Dados inválidos", details: error.errors });
-      }
-      res.status(400).json({ error: error.message });
-    }
-  });
-
-  app.patch("/api/petition-message-templates/:id", authenticateToken, requirePermission("petitions"), async (req: AuthRequest, res) => {
-    try {
-      const validated = insertPetitionMessageTemplateSchema.partial().parse(req.body);
-      const template = await storage.updatePetitionMessageTemplate(req.params.id, req.accountId!, validated);
-      res.json(template);
-    } catch (error: any) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: "Dados inválidos", details: error.errors });
-      }
-      res.status(400).json({ error: error.message });
-    }
-  });
-
-  app.delete("/api/petition-message-templates/:id", authenticateToken, requirePermission("petitions"), async (req: AuthRequest, res) => {
-    try {
-      await storage.deletePetitionMessageTemplate(req.params.id, req.accountId!);
-      res.json({ success: true });
-    } catch (error: any) {
-      res.status(400).json({ error: error.message });
-    }
-  });
-
-  // ---------- Link Bio Pages ----------
-  app.get("/api/linkbio-pages", authenticateToken, requirePermission("petitions"), async (req: AuthRequest, res) => {
-    try {
-      res.json(await storage.getLinkBioPages(req.accountId!));
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  app.get("/api/linkbio-pages/:id", authenticateToken, requirePermission("petitions"), async (req: AuthRequest, res) => {
-    try {
-      const page = await storage.getLinkBioPage(req.params.id, req.accountId!);
-      if (!page) return res.status(404).json({ error: "Página não encontrada" });
-      res.json(page);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  app.post("/api/linkbio-pages", authenticateToken, requirePermission("petitions"), async (req: AuthRequest, res) => {
-    try {
-      const validated = insertLinkBioPageSchema.parse(req.body);
-      const slug = await makeUniqueSlug(validated.slug, (s) => storage.getLinkBioPageBySlug(s));
-      const page = await storage.createLinkBioPage({
-        ...validated,
-        slug,
-        userId: req.userId!,
-        accountId: req.accountId!,
-      });
-      res.status(201).json(page);
-    } catch (error: any) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: "Dados inválidos", details: error.errors });
-      }
-      res.status(400).json({ error: error.message });
-    }
-  });
-
-  app.patch("/api/linkbio-pages/:id", authenticateToken, requirePermission("petitions"), async (req: AuthRequest, res) => {
-    try {
-      const validated = insertLinkBioPageSchema.partial().parse(req.body);
-      if (validated.slug) {
-        validated.slug = await makeUniqueSlug(validated.slug, (s) => storage.getLinkBioPageBySlug(s), req.params.id);
-      }
-      const page = await storage.updateLinkBioPage(req.params.id, req.accountId!, validated);
-      res.json(page);
-    } catch (error: any) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: "Dados inválidos", details: error.errors });
-      }
-      res.status(400).json({ error: error.message });
-    }
-  });
-
-  app.delete("/api/linkbio-pages/:id", authenticateToken, requirePermission("petitions"), async (req: AuthRequest, res) => {
-    try {
-      await storage.deleteLinkBioPage(req.params.id, req.accountId!);
-      res.json({ success: true });
-    } catch (error: any) {
-      res.status(400).json({ error: error.message });
-    }
-  });
-
-  // ---------- Link Tree Pages ----------
-  app.get("/api/linktree-pages", authenticateToken, requirePermission("petitions"), async (req: AuthRequest, res) => {
-    try {
-      res.json(await storage.getLinkTreePages(req.accountId!));
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  app.get("/api/linktree-pages/:id", authenticateToken, requirePermission("petitions"), async (req: AuthRequest, res) => {
-    try {
-      const page = await storage.getLinkTreePage(req.params.id, req.accountId!);
-      if (!page) return res.status(404).json({ error: "Página não encontrada" });
-      res.json(page);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  app.post("/api/linktree-pages", authenticateToken, requirePermission("petitions"), async (req: AuthRequest, res) => {
-    try {
-      const validated = insertLinkTreePageSchema.parse(req.body);
-      const slug = await makeUniqueSlug(validated.slug, (s) => storage.getLinkTreePageBySlug(s));
-      const page = await storage.createLinkTreePage({
-        ...validated,
-        slug,
-        userId: req.userId!,
-        accountId: req.accountId!,
-      });
-      res.status(201).json(page);
-    } catch (error: any) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: "Dados inválidos", details: error.errors });
-      }
-      res.status(400).json({ error: error.message });
-    }
-  });
-
-  app.patch("/api/linktree-pages/:id", authenticateToken, requirePermission("petitions"), async (req: AuthRequest, res) => {
-    try {
-      const validated = insertLinkTreePageSchema.partial().parse(req.body);
-      if (validated.slug) {
-        validated.slug = await makeUniqueSlug(validated.slug, (s) => storage.getLinkTreePageBySlug(s), req.params.id);
-      }
-      const page = await storage.updateLinkTreePage(req.params.id, req.accountId!, validated);
-      res.json(page);
-    } catch (error: any) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: "Dados inválidos", details: error.errors });
-      }
-      res.status(400).json({ error: error.message });
-    }
-  });
-
-  app.delete("/api/linktree-pages/:id", authenticateToken, requirePermission("petitions"), async (req: AuthRequest, res) => {
-    try {
-      await storage.deleteLinkTreePage(req.params.id, req.accountId!);
-      res.json({ success: true });
-    } catch (error: any) {
-      res.status(400).json({ error: error.message });
-    }
-  });
-
-  // ==========================================================================
-  // PETITIONS MODULE - PUBLIC ENDPOINTS (no auth)
-  // ==========================================================================
-
-  // Public petition by slug
-  app.get("/api/public/petitions/:slug", async (req, res) => {
-    try {
-      const petition = await storage.getPetitionBySlug(req.params.slug);
-      if (!isPublicPetitionVisible(petition)) {
-        return res.status(404).json({ error: "Petição não encontrada" });
-      }
-      await storage.incrementPetitionViews(petition.id);
-      const signaturesCount = await storage.getPetitionSignatureCount(petition.id);
-      res.json(sanitizePublicPetition({ ...petition, signaturesCount }));
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  // Public signature count
-  app.get("/api/public/petitions/:slug/count", async (req, res) => {
-    try {
-      const petition = await storage.getPetitionBySlug(req.params.slug);
-      if (!isPublicPetitionVisible(petition)) return res.status(404).json({ error: "Petição não encontrada" });
-      const signaturesCount = await storage.getPetitionSignatureCount(petition.id);
-      res.json({ signaturesCount, goal: petition.goal });
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  // Public sign petition
-  app.post("/api/public/petitions/:slug/sign", publicPetitionSignRateLimit, async (req, res) => {
-    try {
-      const petition = await storage.getPetitionBySlug(req.params.slug);
-      if (!isPublicPetitionVisible(petition)) {
-        return res.status(404).json({ error: "Petição não encontrada" });
-      }
-      if (!isPublicPetitionOpenForSignature(petition)) {
-        return res.status(400).json({ error: "Esta petição não está mais recebendo assinaturas." });
-      }
-
-      const requirementIssues = validatePublicSignatureRequirements(petition, req.body ?? {});
-      if (requirementIssues.length > 0) {
-        return res.status(400).json({
-          error: "Campos obrigatórios não preenchidos",
-          details: requirementIssues,
-        });
-      }
-
-      const validated = insertPetitionSignatureSchema.omit({ petitionId: true }).parse(req.body);
-      const email = validated.email && validated.email.trim() !== "" ? validated.email.trim().toLowerCase() : null;
-      const cpf = validated.cpf && validated.cpf.replace(/\D/g, "") !== "" ? validated.cpf.replace(/\D/g, "") : null;
-
-      // Dedupe by email (when provided)
-      if (email) {
-        const existing = await storage.getPetitionSignatureByEmail(petition.id, email);
-        if (existing) {
-          return res.status(400).json({ error: "Este e-mail já assinou esta petição." });
-        }
-      }
-
-      // Dedupe by CPF (when provided)
-      if (cpf) {
-        const existingCpf = await storage.getPetitionSignatureByCpf(petition.id, cpf);
-        if (existingCpf) {
-          return res.status(400).json({ error: "Este CPF já assinou esta petição." });
-        }
-      }
-
-      const ipAddress = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
-        req.ip || req.socket.remoteAddress || 'unknown';
-
-      await storage.createPetitionSignature({
-        ...validated,
-        email,
-        cpf,
-        petitionId: petition.id,
-        ipAddress,
-      });
-      const signaturesCount = await storage.getPetitionSignatureCount(petition.id);
-      res.status(201).json({ success: true, signaturesCount });
-    } catch (error: any) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: "Dados inválidos", details: error.errors });
-      }
-      res.status(400).json({ error: error.message });
-    }
-  });
-
-  // Public link bio page by slug
-  app.get("/api/public/linkbio/:slug", async (req, res) => {
-    try {
-      const page = await storage.getLinkBioPageBySlug(req.params.slug);
-      if (!page || page.status !== "publicada") {
-        return res.status(404).json({ error: "Página não encontrada" });
-      }
-      await storage.incrementLinkBioViews(page.id);
-      const ids = page.petitionIds || [];
-      const petitionsData = await Promise.all(ids.map(async (pid) => {
-        const p = await storage.getPetition(pid, page.accountId);
-        if (!p) return null;
-        const signaturesCount = await storage.getPetitionSignatureCount(p.id);
-        return { ...p, signaturesCount };
-      }));
-      const publicPetitions = filterPublishedPetitions(petitionsData.filter(Boolean) as Record<string, any>[])
-        .map(sanitizePublicPetition);
-      const {
-        accountId: _accountId,
-        userId: _userId,
-        petitionIds: _petitionIds,
-        viewsCount: _viewsCount,
-        createdAt: _createdAt,
-        updatedAt: _updatedAt,
-        ...publicPage
-      } = page as any;
-      res.json({ ...publicPage, petitions: publicPetitions });
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  // Public link tree page by slug
-  app.get("/api/public/linktree/:slug", async (req, res) => {
-    try {
-      const page = await storage.getLinkTreePageBySlug(req.params.slug);
-      if (!page || page.status !== "publicada") {
-        return res.status(404).json({ error: "Página não encontrada" });
-      }
-      await storage.incrementLinkTreeViews(page.id);
-      const {
-        accountId: _accountId,
-        userId: _userId,
-        viewsCount: _viewsCount,
-        createdAt: _createdAt,
-        updatedAt: _updatedAt,
-        ...publicPage
-      } = page as any;
-      res.json(publicPage);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  // ==================== NOTIFICATIONS ====================
-  
-  // Get user notifications
-  app.get("/api/notifications", authenticateToken, async (req: AuthRequest, res) => {
-    try {
-      const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
-      const notifications = await storage.getNotifications(req.userId!, req.accountId!, limit);
-      res.json(notifications);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  // Get unread notifications count
-  app.get("/api/notifications/unread-count", authenticateToken, async (req: AuthRequest, res) => {
-    try {
-      const count = await storage.getUnreadCount(req.userId!, req.accountId!);
-      res.json({ count });
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  // Create notification (internal use and for testing)
-  app.post("/api/notifications", authenticateToken, async (req: AuthRequest, res) => {
-    try {
-      const validatedData = insertNotificationSchema.parse(req.body);
-      const notification = await storage.createNotification({
-        ...validatedData,
-        userId: req.userId!,
-        accountId: req.accountId!,
-      });
-      res.json(notification);
-    } catch (error: any) {
-      res.status(400).json({ error: error.message });
-    }
-  });
-
-  // Mark notification as read
-  app.patch("/api/notifications/:id/read", authenticateToken, async (req: AuthRequest, res) => {
-    try {
-      const notification = await storage.markAsRead(req.params.id, req.userId!, req.accountId!);
-      if (!notification) {
-        return res.status(404).json({ error: "Notificação não encontrada ou não pertence a você" });
-      }
-      res.json(notification);
-    } catch (error: any) {
-      res.status(400).json({ error: error.message });
-    }
-  });
-
-  // Mark all notifications as read
-  app.patch("/api/notifications/mark-all-read", authenticateToken, async (req: AuthRequest, res) => {
-    try {
-      await storage.markAllAsRead(req.userId!, req.accountId!);
-      res.json({ success: true });
-    } catch (error: any) {
-      res.status(400).json({ error: error.message });
-    }
-  });
-
-  // Delete notification
-  app.delete("/api/notifications/:id", authenticateToken, async (req: AuthRequest, res) => {
-    try {
-      const deleted = await storage.deleteNotification(req.params.id, req.userId!, req.accountId!);
-      if (!deleted) {
-        return res.status(404).json({ error: "Notificação não encontrada ou não pertence a você" });
-      }
-      res.json({ success: true });
-    } catch (error: any) {
-      res.status(400).json({ error: error.message });
-    }
-  });
+  registerPetitionCampaignLogRoutes(app);
+  registerPetitionMessageTemplateRoutes(app);
+  registerLinkPageRoutes(app);
+  registerPublicPetitionRoutes(app);
+  registerNotificationRoutes(app);
 
   // ==================== WEBHOOKS (Meta, WhatsApp, Twitter) ====================
   
@@ -8299,62 +7414,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // ==================== DASHBOARD STATS ====================
-  
-  app.get("/api/dashboard/stats", authenticateToken, async (req: AuthRequest, res) => {
-    try {
-      const contacts = await storage.getContacts(req.accountId!);
-      const alliances = await storage.getAlliances(req.accountId!);
-      const demands = await storage.getDemands(req.accountId!);
-      const events = await storage.getEvents(req.accountId!);
-      const parties = await storage.getAllParties();
-
-      // Calculate ideology distribution
-      const partiesMap = new Map(parties.map(p => [p.id, p]));
-      const ideologyDistribution: Record<string, number> = {};
-      
-      alliances.forEach(alliance => {
-        const party = partiesMap.get(alliance.partyId);
-        if (party) {
-          ideologyDistribution[party.ideology] = (ideologyDistribution[party.ideology] || 0) + 1;
-        }
-      });
-
-      const ideologyDistributionArray = Object.entries(ideologyDistribution).map(([ideology, count]) => ({
-        ideology,
-        count,
-      }));
-
-      // Calculate gender distribution
-      const genderDistribution = calculateGenderDistribution(contacts);
-
-      // Calculate average age
-      const contactsWithAge = contacts.filter(c => c.age != null && c.age > 0 && c.age < 120);
-      const averageAge = contactsWithAge.length >= 3
-        ? Number((contactsWithAge.reduce((sum, c) => sum + (c.age || 0), 0) / contactsWithAge.length).toFixed(1))
-        : undefined;
-      const ageSampleSize = contactsWithAge.length;
-
-      const now = new Date();
-      const pendingDemands = demands.filter(d => d.status === "pending").length;
-      const upcomingEvents = events.filter(e => new Date(e.startDate) > now).length;
-
-      res.json({
-        totalContacts: contacts.length,
-        totalAlliances: alliances.length,
-        totalDemands: demands.length,
-        pendingDemands,
-        totalEvents: events.length,
-        upcomingEvents,
-        ideologyDistribution: ideologyDistributionArray,
-        genderDistribution,
-        averageAge,
-        ageSampleSize,
-      });
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
+  registerDashboardRoutes(app);
 
   // ==================== GOOGLE CALENDAR INTEGRATION ====================
   
@@ -8513,17 +7573,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { code, state: accountId, error: oauthError } = req.query;
       
-      console.log('[Google Calendar] OAuth callback received:', { 
-        hasCode: !!code, 
-        accountId,
-        oauthError,
-        fullQuery: req.query
-      });
+      console.log('[Google Calendar] OAuth callback received:', { hasCode: !!code, accountId: Boolean(accountId), hasError: !!oauthError });
       
       // Handle OAuth errors from Google
       if (oauthError) {
-        console.error('[Google Calendar] OAuth error from Google:', oauthError);
-        return res.redirect('/settings?tab=google-calendar&error=' + encodeURIComponent('Erro do Google: ' + oauthError));
+        console.error('[Google Calendar] OAuth failure:', { code: "oauth_error" });
+        return res.redirect('/settings?tab=google-calendar&error=oauth_error');
       }
       
       if (!code || !accountId) {
@@ -8571,9 +7626,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           expiryDate: tokens.expiry_date
         });
       } catch (tokenError: any) {
-        console.error('[Google Calendar] Token exchange failed:', tokenError.message);
-        console.error('[Google Calendar] Token error details:', tokenError.response?.data || tokenError);
-        return res.redirect('/settings?tab=google-calendar&error=' + encodeURIComponent('Erro ao trocar código por token: ' + tokenError.message));
+        console.error('[Google Calendar] Token exchange failed:', redactGoogleOauthFailure(tokenError));
+        return res.redirect('/settings?tab=google-calendar&error=oauth_error');
       }
       
       oauth2Client.setCredentials(tokens);
@@ -8587,7 +7641,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         email = userInfo.data.email;
         console.log('[Google Calendar] User email:', email);
       } catch (emailError: any) {
-        console.error('[Google Calendar] Failed to get user email:', emailError.message);
+        console.error('[Google Calendar] Profile lookup failed:', redactGoogleOauthFailure(emailError));
         // Continue without email - not critical
       }
       
@@ -8611,17 +7665,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
         console.log('[Google Calendar] Tokens saved successfully!');
       } catch (dbError: any) {
-        console.error('[Google Calendar] Database save failed:', dbError.message);
-        return res.redirect('/settings?tab=google-calendar&error=' + encodeURIComponent('Erro ao salvar tokens: ' + dbError.message));
+        console.error('[Google Calendar] Database save failed:', redactGoogleOauthFailure(dbError));
+        return res.redirect('/settings?tab=google-calendar&error=oauth_error');
       }
       
       // Redirect to settings page with success message
       console.log('[Google Calendar] OAuth flow completed successfully');
       res.redirect('/settings?tab=google-calendar&status=connected');
     } catch (error: any) {
-      console.error('[Google Calendar] OAuth callback unexpected error:', error);
-      console.error('[Google Calendar] Error stack:', error.stack);
-      res.redirect('/settings?tab=google-calendar&error=' + encodeURIComponent('Erro inesperado: ' + error.message));
+      console.error('[Google Calendar] OAuth callback failed:', redactGoogleOauthFailure(error));
+      res.redirect('/settings?tab=google-calendar&error=oauth_error');
     }
   });
   
@@ -8631,7 +7684,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.deleteGoogleCalendarIntegration(req.accountId!);
       res.json({ success: true, message: "Integração com Google Calendar removida" });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json(toSafeGoogleOauthResponse(error));
     }
   });
   
@@ -8680,7 +7733,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           oauth2Client.setCredentials(credentials);
         } catch (refreshError) {
-          console.error('Token refresh error:', refreshError);
+          console.error('[Google Calendar] Token refresh failed:', redactGoogleOauthFailure(refreshError));
           return res.status(401).json({ error: "Token expirado. Por favor, reconecte sua conta Google." });
         }
       }
@@ -8882,7 +7935,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             importedEvents++;
             console.log('[Google Calendar Sync] Event created successfully');
           } catch (createError: any) {
-            console.error('[Google Calendar Sync] Error creating event:', createError.message);
+            console.error('[Google Calendar Sync] Event creation failed:', redactGoogleOauthFailure(createError));
           }
         }
         
@@ -8947,7 +8000,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 'Meet link:', googleEvent.data.hangoutLink || 'none');
             }
           } catch (insertError) {
-            console.error('Error syncing event to Google:', insertError);
+            console.error('[Google Calendar Sync] Event export failed:', redactGoogleOauthFailure(insertError));
           }
         }
       }
@@ -8975,617 +8028,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         lastSyncAt: new Date()
       });
     } catch (error: any) {
-      console.error('Google Calendar sync error:', error);
-      res.status(500).json({ error: error.message });
+      console.error('[Google Calendar Sync] Failed:', redactGoogleOauthFailure(error));
+      res.status(500).json(toSafeGoogleOauthResponse(error));
     }
   });
 
-  // API Key Management Routes (for users to manage their keys)
-  app.get("/api/keys", authenticateToken, requirePermission("settings"), async (req: AuthRequest, res) => {
-    try {
-      const keys = await storage.getApiKeys(req.accountId!);
-      // Don't expose the hashed key
-      const safeKeys = keys.map(({ hashedKey, ...key }) => key);
-      res.json(safeKeys);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  app.post("/api/keys", authenticateToken, requirePermission("settings"), async (req: AuthRequest, res) => {
-    try {
-      const { name, description, expiresAt } = req.body;
-      
-      if (!name || name.length < 3) {
-        return res.status(400).json({ error: "Nome deve ter pelo menos 3 caracteres" });
-      }
-      
-      const { apiKey, plainKey } = await storage.createApiKey({
-        accountId: req.accountId!,
-        name,
-        description,
-        expiresAt,
-        isActive: true
-      });
-      
-      // Only return the plain key once
-      res.json({
-        ...apiKey,
-        key: plainKey,
-        message: "Guarde esta chave com segurança. Ela não será mostrada novamente."
-      });
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  app.delete("/api/keys/:id", authenticateToken, requirePermission("settings"), async (req: AuthRequest, res) => {
-    try {
-      await storage.deleteApiKey(req.params.id, req.accountId!);
-      res.json({ success: true });
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  // External API Integration Routes
-  // These routes are accessible via API key authentication
-  
-  // GET /api/v1/contacts - List contacts
-  app.get("/api/v1/contacts", authenticateApiKey, apiRateLimit(100, 60000), async (req: AuthenticatedApiRequest, res) => {
-    try {
-      const contacts = await storage.getContacts(req.apiKey!.accountId);
-      res.json(contacts);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  // POST /api/v1/contacts - Create contact
-  app.post("/api/v1/contacts", authenticateApiKey, apiRateLimit(50, 60000), async (req: AuthenticatedApiRequest, res) => {
-    try {
-      const validation = insertContactSchema.safeParse(req.body);
-      if (!validation.success) {
-        return res.status(400).json({ error: validation.error.errors });
-      }
-      
-      // Get the account owner's userId for API-created contacts
-      const accountUsers = await db.select()
-        .from(users)
-        .where(and(
-          eq(users.accountId, req.apiKey!.accountId),
-          eq(users.role, 'admin')
-        ));
-      
-      const adminUser = accountUsers[0];
-      
-      if (!adminUser) {
-        return res.status(500).json({ error: "No admin user found for this account" });
-      }
-      
-      const contact = await storage.createContact({
-        ...validation.data,
-        accountId: req.apiKey!.accountId,
-        userId: adminUser.id  // Use the account admin's userId
-      });
-      
-      res.status(201).json(contact);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  // GET /api/v1/contacts/:id - Get specific contact
-  app.get("/api/v1/contacts/:id", authenticateApiKey, apiRateLimit(100, 60000), async (req: AuthenticatedApiRequest, res) => {
-    try {
-      const contact = await storage.getContact(req.params.id, req.apiKey!.accountId);
-      if (!contact) {
-        return res.status(404).json({ error: "Contato não encontrado" });
-      }
-      res.json(contact);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  // GET /api/v1/alliances - List political alliances
-  app.get("/api/v1/alliances", authenticateApiKey, apiRateLimit(100, 60000), async (req: AuthenticatedApiRequest, res) => {
-    try {
-      const alliances = await storage.getAlliances(req.apiKey!.accountId);
-      res.json(alliances);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  // POST /api/v1/alliances - Create alliance
-  app.post("/api/v1/alliances", authenticateApiKey, apiRateLimit(50, 60000), async (req: AuthenticatedApiRequest, res) => {
-    try {
-      const validation = insertPoliticalAllianceSchema.safeParse(req.body);
-      if (!validation.success) {
-        return res.status(400).json({ error: validation.error.errors });
-      }
-      
-      const alliance = await storage.createAlliance({
-        ...validation.data,
-        accountId: req.apiKey!.accountId,
-        userId: 'system-api-user'  // System user for API calls
-      });
-      
-      res.status(201).json(alliance);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  // GET /api/v1/demands - List demands
-  app.get("/api/v1/demands", authenticateApiKey, apiRateLimit(100, 60000), async (req: AuthenticatedApiRequest, res) => {
-    try {
-      const demands = await storage.getDemands(req.apiKey!.accountId);
-      res.json(demands);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  // GET /api/v1/events - List events
-  app.get("/api/v1/events", authenticateApiKey, apiRateLimit(100, 60000), async (req: AuthenticatedApiRequest, res) => {
-    try {
-      const events = await storage.getEvents(req.apiKey!.accountId);
-      res.json(events);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  // GET /api/v1/parties - List all political parties (global resource)
-  app.get("/api/v1/parties", authenticateApiKey, apiRateLimit(100, 60000), async (req: AuthenticatedApiRequest, res) => {
-    try {
-      const parties = await storage.getAllParties();
-      res.json(parties);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  // Generic Privacy Policy Page
-  app.get("/privacy", (req, res) => {
-    const html = `<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Política de Privacidade - Politicall</title>
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 20px; color: #333; background: #f9f9f9; }
-    .container { background: white; padding: 40px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-    h1 { color: #40E0D0; border-bottom: 2px solid #40E0D0; padding-bottom: 10px; }
-    h2 { color: #333; margin-top: 30px; }
-    .section { margin: 20px 0; }
-    ul { padding-left: 20px; }
-    li { margin: 8px 0; }
-    .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; font-size: 14px; color: #666; }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <h1>Política de Privacidade</h1>
-    <p><strong>Plataforma:</strong> Politicall</p>
-    <p><strong>Última Atualização:</strong> ${new Date().toLocaleDateString('pt-BR')}</p>
-
-    <div class="section">
-      <h2>1. Introdução</h2>
-      <p>A Politicall ("nós", "nosso" ou "plataforma") está comprometida em proteger a privacidade dos usuários. Esta Política de Privacidade descreve como coletamos, usamos, armazenamos e protegemos suas informações pessoais.</p>
-    </div>
-
-    <div class="section">
-      <h2>2. Dados Coletados</h2>
-      <p>Podemos coletar os seguintes tipos de dados:</p>
-      <ul>
-        <li><strong>Dados de Cadastro:</strong> Nome, e-mail, telefone, cargo</li>
-        <li><strong>Dados de Redes Sociais:</strong> Mensagens, comentários e interações via Facebook, Instagram e Twitter/X</li>
-        <li><strong>Dados de Uso:</strong> Informações sobre como você utiliza a plataforma</li>
-        <li><strong>Dados de Contatos:</strong> Informações de eleitores e apoiadores cadastrados</li>
-      </ul>
-    </div>
-
-    <div class="section">
-      <h2>3. Uso dos Dados</h2>
-      <p>Utilizamos seus dados para:</p>
-      <ul>
-        <li>Fornecer e melhorar nossos serviços</li>
-        <li>Processar atendimento automatizado via IA</li>
-        <li>Gerenciar relacionamento com eleitores</li>
-        <li>Enviar comunicações relevantes</li>
-        <li>Cumprir obrigações legais</li>
-      </ul>
-    </div>
-
-    <div class="section">
-      <h2>4. Compartilhamento de Dados</h2>
-      <p>Seus dados podem ser compartilhados com:</p>
-      <ul>
-        <li>Plataformas de redes sociais (Meta, Twitter) para integrações</li>
-        <li>Provedores de serviços de IA (OpenAI) para processamento de mensagens</li>
-        <li>Autoridades legais quando exigido por lei</li>
-      </ul>
-      <p>Não vendemos seus dados pessoais a terceiros.</p>
-    </div>
-
-    <div class="section">
-      <h2>5. Segurança</h2>
-      <p>Implementamos medidas de segurança técnicas e organizacionais para proteger seus dados, incluindo:</p>
-      <ul>
-        <li>Criptografia de dados em trânsito e em repouso</li>
-        <li>Controle de acesso baseado em funções</li>
-        <li>Monitoramento contínuo de segurança</li>
-        <li>Backups regulares</li>
-      </ul>
-    </div>
-
-    <div class="section">
-      <h2>6. Seus Direitos</h2>
-      <p>Você tem direito a:</p>
-      <ul>
-        <li>Acessar seus dados pessoais</li>
-        <li>Corrigir dados incorretos</li>
-        <li>Solicitar exclusão de dados</li>
-        <li>Revogar consentimento</li>
-        <li>Portabilidade de dados</li>
-      </ul>
-    </div>
-
-    <div class="section">
-      <h2>7. Retenção de Dados</h2>
-      <p>Mantemos seus dados pelo tempo necessário para fornecer nossos serviços ou conforme exigido por lei. Dados de mensagens são retidos por até 2 anos.</p>
-    </div>
-
-    <div class="section">
-      <h2>8. Contato</h2>
-      <p>Para questões sobre privacidade, entre em contato:</p>
-      <p>E-mail: <a href="mailto:privacidade@politicall.com.br">privacidade@politicall.com.br</a></p>
-    </div>
-
-    <div class="footer">
-      <p>&copy; ${new Date().getFullYear()} Politicall. Todos os direitos reservados.</p>
-    </div>
-  </div>
-</body>
-</html>`;
-    res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.send(html);
-  });
-
-  // Generic Terms of Service Page
-  app.get("/terms", (req, res) => {
-    const html = `<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Termos de Serviço - Politicall</title>
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 20px; color: #333; background: #f9f9f9; }
-    .container { background: white; padding: 40px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-    h1 { color: #40E0D0; border-bottom: 2px solid #40E0D0; padding-bottom: 10px; }
-    h2 { color: #333; margin-top: 30px; }
-    .section { margin: 20px 0; }
-    ul { padding-left: 20px; }
-    li { margin: 8px 0; }
-    .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; font-size: 14px; color: #666; }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <h1>Termos de Serviço</h1>
-    <p><strong>Plataforma:</strong> Politicall</p>
-    <p><strong>Última Atualização:</strong> ${new Date().toLocaleDateString('pt-BR')}</p>
-
-    <div class="section">
-      <h2>1. Aceitação dos Termos</h2>
-      <p>Ao acessar e usar a plataforma Politicall, você concorda com estes Termos de Serviço. Se não concordar, não utilize nossos serviços.</p>
-    </div>
-
-    <div class="section">
-      <h2>2. Descrição do Serviço</h2>
-      <p>A Politicall é uma plataforma de gestão política que oferece:</p>
-      <ul>
-        <li>Gerenciamento de contatos e eleitores (CRM)</li>
-        <li>Atendimento automatizado via IA em redes sociais</li>
-        <li>Gestão de demandas e eventos</li>
-        <li>Campanhas de pesquisa</li>
-        <li>Alianças políticas</li>
-      </ul>
-    </div>
-
-    <div class="section">
-      <h2>3. Elegibilidade</h2>
-      <p>Para usar a Politicall, você deve:</p>
-      <ul>
-        <li>Ter pelo menos 18 anos de idade</li>
-        <li>Ter capacidade legal para celebrar contratos</li>
-        <li>Fornecer informações verdadeiras e atualizadas</li>
-      </ul>
-    </div>
-
-    <div class="section">
-      <h2>4. Uso Aceitável</h2>
-      <p>Você concorda em não:</p>
-      <ul>
-        <li>Violar leis ou regulamentos aplicáveis</li>
-        <li>Disseminar conteúdo ilegal, ofensivo ou difamatório</li>
-        <li>Interferir no funcionamento da plataforma</li>
-        <li>Tentar acessar dados de outros usuários sem autorização</li>
-        <li>Usar a plataforma para spam ou assédio</li>
-      </ul>
-    </div>
-
-    <div class="section">
-      <h2>5. Propriedade Intelectual</h2>
-      <p>Todo o conteúdo da plataforma, incluindo código, design, textos e marcas, é propriedade da Politicall ou de seus licenciadores. É proibida a reprodução sem autorização.</p>
-    </div>
-
-    <div class="section">
-      <h2>6. Limitação de Responsabilidade</h2>
-      <p>A Politicall não se responsabiliza por:</p>
-      <ul>
-        <li>Danos indiretos ou consequenciais</li>
-        <li>Interrupções de serviço fora de nosso controle</li>
-        <li>Conteúdo gerado por IA que possa ser impreciso</li>
-        <li>Ações de terceiros nas redes sociais</li>
-      </ul>
-    </div>
-
-    <div class="section">
-      <h2>7. Rescisão</h2>
-      <p>Podemos suspender ou encerrar sua conta a qualquer momento por violação destes termos. Você pode encerrar sua conta a qualquer momento entrando em contato conosco.</p>
-    </div>
-
-    <div class="section">
-      <h2>8. Alterações</h2>
-      <p>Reservamo-nos o direito de modificar estes termos a qualquer momento. Alterações significativas serão comunicadas por e-mail ou através da plataforma.</p>
-    </div>
-
-    <div class="section">
-      <h2>9. Lei Aplicável</h2>
-      <p>Estes termos são regidos pelas leis da República Federativa do Brasil. Qualquer disputa será resolvida nos tribunais de São Paulo, SP.</p>
-    </div>
-
-    <div class="section">
-      <h2>10. Contato</h2>
-      <p>Para questões sobre estes termos:</p>
-      <p>E-mail: <a href="mailto:contato@politicall.com.br">contato@politicall.com.br</a></p>
-    </div>
-
-    <div class="footer">
-      <p>&copy; ${new Date().getFullYear()} Politicall. Todos os direitos reservados.</p>
-    </div>
-  </div>
-</body>
-</html>`;
-    res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.send(html);
-  });
-
-  // Privacy Policy Routes for Social Media Integrations
-  app.get("/privacy/facebook/:accountSlug", (req, res) => {
-    const { accountSlug } = req.params;
-    const html = `<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Política de Privacidade - Facebook</title>
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 20px; color: #333; }
-    h1 { color: #1877F2; }
-    h2 { color: #1877F2; margin-top: 30px; }
-    .section { margin: 20px 0; }
-    code { background: #f5f5f5; padding: 2px 6px; border-radius: 3px; }
-  </style>
-</head>
-<body>
-  <h1>Política de Privacidade - Integração Facebook</h1>
-  <p><strong>Conta:</strong> ${accountSlug}</p>
-  <p><strong>Data de Atualização:</strong> ${new Date().toLocaleDateString('pt-BR')}</p>
-
-  <div class="section">
-    <h2>1. Visão Geral</h2>
-    <p>Esta Política de Privacidade descreve como o Politicall coleta, usa, compartilha e protege dados pessoais ao integrar com a plataforma Facebook/Meta para fins de atendimento automatizado e análise de mensagens.</p>
-  </div>
-
-  <div class="section">
-    <h2>2. Dados Coletados</h2>
-    <p>Através da integração com o Facebook, o Politicall pode coletar:</p>
-    <ul>
-      <li>Mensagens enviadas através do Messenger</li>
-      <li>Identificação do usuário (ID de conta Facebook)</li>
-      <li>Nome e foto de perfil (se disponível publicamente)</li>
-      <li>Histórico de conversas e interações</li>
-      <li>Informações de metadados (timestamps, tipo de interação)</li>
-    </ul>
-  </div>
-
-  <div class="section">
-    <h2>3. Uso de Dados</h2>
-    <p>Os dados coletados serão utilizados para:</p>
-    <ul>
-      <li>Fornecer respostas automatizadas através de IA</li>
-      <li>Melhorar a qualidade do atendimento</li>
-      <li>Análise estatística e relatórios</li>
-      <li>Conformidade com requisitos legais</li>
-    </ul>
-  </div>
-
-  <div class="section">
-    <h2>4. Armazenamento e Segurança</h2>
-    <p>Os dados são armazenados de forma segura com criptografia e são mantidos apenas pelo tempo necessário para fornecer o serviço.</p>
-  </div>
-
-  <div class="section">
-    <h2>5. Direitos dos Usuários</h2>
-    <p>Os usuários possuem direitos sobre seus dados pessoais, incluindo acesso, correção, exclusão e portabilidade, conforme garantido pelas leis aplicáveis (LGPD, GDPR, etc).</p>
-  </div>
-
-  <div class="section">
-    <h2>6. Conformidade com Meta</h2>
-    <p>Esta integração cumpre com as políticas, padrões e diretrizes da Meta/Facebook, incluindo suas políticas de privacidade e plataforma.</p>
-  </div>
-
-  <div class="section">
-    <h2>7. Contato</h2>
-    <p>Para dúvidas sobre esta política, entre em contato através da plataforma Politicall.</p>
-  </div>
-</body>
-</html>`;
-    res.type('text/html').send(html);
-  });
-
-  app.get("/privacy/instagram/:accountSlug", (req, res) => {
-    const { accountSlug } = req.params;
-    const html = `<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Política de Privacidade - Instagram</title>
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 20px; color: #333; }
-    h1 { color: #E4405F; }
-    h2 { color: #E4405F; margin-top: 30px; }
-    .section { margin: 20px 0; }
-    code { background: #f5f5f5; padding: 2px 6px; border-radius: 3px; }
-  </style>
-</head>
-<body>
-  <h1>Política de Privacidade - Integração Instagram</h1>
-  <p><strong>Conta:</strong> ${accountSlug}</p>
-  <p><strong>Data de Atualização:</strong> ${new Date().toLocaleDateString('pt-BR')}</p>
-
-  <div class="section">
-    <h2>1. Visão Geral</h2>
-    <p>Esta Política de Privacidade descreve como o Politicall coleta, usa, compartilha e protege dados pessoais ao integrar com a plataforma Instagram para fins de atendimento automatizado e gestão de mensagens diretas.</p>
-  </div>
-
-  <div class="section">
-    <h2>2. Dados Coletados</h2>
-    <p>Através da integração com o Instagram, o Politicall pode coletar:</p>
-    <ul>
-      <li>Mensagens diretas (DMs) recebidas</li>
-      <li>Informações do perfil de usuário</li>
-      <li>Nome de usuário e identificação</li>
-      <li>Histórico de conversas</li>
-      <li>Informações de interação (curtidas, comentários)</li>
-    </ul>
-  </div>
-
-  <div class="section">
-    <h2>3. Uso de Dados</h2>
-    <p>Os dados coletados serão utilizados para:</p>
-    <ul>
-      <li>Automatizar respostas a mensagens diretas</li>
-      <li>Fornecer suporte e atendimento ao cliente</li>
-      <li>Análise de engajamento</li>
-      <li>Conformidade regulatória</li>
-    </ul>
-  </div>
-
-  <div class="section">
-    <h2>4. Armazenamento e Segurança</h2>
-    <p>Todos os dados são armazenados com proteção criptográfica de alta segurança e não são compartilhados com terceiros sem consentimento.</p>
-  </div>
-
-  <div class="section">
-    <h2>5. Direitos dos Usuários</h2>
-    <p>Os usuários podem solicitar acesso, correção, exclusão ou portabilidade de seus dados pessoais conforme previsto em lei.</p>
-  </div>
-
-  <div class="section">
-    <h2>6. Conformidade Meta</h2>
-    <p>Esta integração segue rigorosamente as políticas de privacidade, termos de serviço e requisitos de conformidade da Meta/Instagram.</p>
-  </div>
-
-  <div class="section">
-    <h2>7. Contato</h2>
-    <p>Para questões sobre privacidade, entre em contato através da plataforma Politicall.</p>
-  </div>
-</body>
-</html>`;
-    res.type('text/html').send(html);
-  });
-
-  app.get("/privacy/twitter/:accountSlug", (req, res) => {
-    const { accountSlug } = req.params;
-    const html = `<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Política de Privacidade - X (Twitter)</title>
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 20px; color: #333; }
-    h1 { color: #000; }
-    h2 { color: #000; margin-top: 30px; }
-    .section { margin: 20px 0; }
-    code { background: #f5f5f5; padding: 2px 6px; border-radius: 3px; }
-  </style>
-</head>
-<body>
-  <h1>Política de Privacidade - Integração X (Twitter)</h1>
-  <p><strong>Conta:</strong> ${accountSlug}</p>
-  <p><strong>Data de Atualização:</strong> ${new Date().toLocaleDateString('pt-BR')}</p>
-
-  <div class="section">
-    <h2>1. Visão Geral</h2>
-    <p>Esta Política de Privacidade descreve como o Politicall coleta, usa, compartilha e protege dados pessoais ao integrar com a plataforma X (Twitter) para fins de atendimento automatizado e análise de interações.</p>
-  </div>
-
-  <div class="section">
-    <h2>2. Dados Coletados</h2>
-    <p>Através da integração com X (Twitter), o Politicall pode coletar:</p>
-    <ul>
-      <li>Mensagens diretas (DMs)</li>
-      <li>Menções e respostas públicas</li>
-      <li>Identificação e dados de perfil do usuário</li>
-      <li>Histórico de conversas</li>
-      <li>Informações de engajamento e interações</li>
-    </ul>
-  </div>
-
-  <div class="section">
-    <h2>3. Uso de Dados</h2>
-    <p>Os dados coletados serão utilizados para:</p>
-    <ul>
-      <li>Fornecer respostas automatizadas através de IA</li>
-      <li>Monitoramento e análise de menções</li>
-      <li>Engajamento com audiência</li>
-      <li>Conformidade com requisitos legais</li>
-    </ul>
-  </div>
-
-  <div class="section">
-    <h2>4. Armazenamento e Segurança</h2>
-    <p>Os dados são armazenados com padrões de segurança de nível empresarial, incluindo criptografia de ponta a ponta quando aplicável.</p>
-  </div>
-
-  <div class="section">
-    <h2>5. Direitos dos Usuários</h2>
-    <p>Conforme legislações aplicáveis (LGPD, GDPR), os usuários possuem direitos relativos aos seus dados pessoais incluindo acesso e exclusão.</p>
-  </div>
-
-  <div class="section">
-    <h2>6. Conformidade X/Twitter</h2>
-    <p>Esta integração está em total conformidade com as políticas de privacidade e termos de serviço da plataforma X (antigo Twitter).</p>
-  </div>
-
-  <div class="section">
-    <h2>7. Contato</h2>
-    <p>Para dúvidas sobre privacidade, entre em contato através da plataforma Politicall.</p>
-  </div>
-</body>
-</html>`;
-    res.type('text/html').send(html);
-  });
+  registerApiKeyRoutes(app);
+  registerLegalRoutes(app);
 
   // Attendance omnichannel routes
   const { registerAttendanceRoutes } = await import("./attendance-routes");

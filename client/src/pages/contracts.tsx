@@ -33,11 +33,13 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { adminRequest, adminSessionClient } from "@/lib/admin-session";
+import { useAdminSession } from "@/hooks/use-admin-session";
 import { UserPlus, ArrowLeft, Mail, Lock, User as UserIcon, MoreVertical, Phone, Pencil, Trash2, Inbox, LogIn, Search, Key, Eye, EyeOff, Sun, Moon, CheckCircle2, AlertCircle, PlugZap } from "lucide-react";
 import { AdminBottomNav } from "@/components/admin-bottom-nav";
 import AdminSales from "@/pages/admin-sales";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { setAuthToken, setAuthUser } from "@/lib/auth";
+import { setAuthUser } from "@/lib/auth";
 import { Checkbox } from "@/components/ui/checkbox";
 import { FaWhatsapp } from "react-icons/fa";
 import logoUrl from "@assets/logo pol_1763308638963.png";
@@ -102,7 +104,7 @@ function calculatePaymentStatus(user: User): "pago" | "atrasado" | null {
 export default function ContractsPage() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const [isVerifying, setIsVerifying] = useState(true);
+  const adminSession = useAdminSession();
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
   const [inboxDialogOpen, setInboxDialogOpen] = useState(false);
@@ -174,59 +176,19 @@ export default function ContractsPage() {
     setVisibleCount(12);
   }, [statusFilter, searchQuery]);
 
-  // Verify admin token on mount
   useEffect(() => {
-    async function verifyAdminToken() {
-      const token = localStorage.getItem("admin_token");
-      
-      if (!token) {
-        setLocation("/admin-login");
-        return;
-      }
-
-      try {
-        const response = await fetch("/api/admin/verify", {
-          headers: {
-            "Authorization": `Bearer ${token}`,
-          },
-        });
-
-        const result = await response.json();
-        
-        if (!result.valid) {
-          localStorage.removeItem("admin_token");
-          setLocation("/admin-login");
-        } else {
-          setIsVerifying(false);
-        }
-      } catch (error) {
-        localStorage.removeItem("admin_token");
-        setLocation("/admin-login");
-      }
-    }
-
-    verifyAdminToken();
-  }, [setLocation]);
+    if (adminSession.status === "unauthenticated") setLocation("/admin-login");
+  }, [adminSession.status, setLocation]);
 
   // Fetch all users with admin token
   const { data: users = [], isLoading, error } = useQuery<User[]>({
     queryKey: ["/api/admin/users"],
     queryFn: async () => {
-      const token = localStorage.getItem("admin_token");
-      const response = await fetch("/api/admin/users", {
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-      
-      if (!response.ok) {
-        throw new Error("Erro ao carregar usuários");
-      }
+      const response = await adminRequest("GET", "/api/admin/users");
       
       return response.json();
     },
-    enabled: !isVerifying,
+    enabled: adminSession.status === "authenticated",
   });
 
   // Filter only admin users
@@ -236,21 +198,11 @@ export default function ContractsPage() {
   const { data: leads = [], isLoading: leadsLoading, error: leadsError } = useQuery<Lead[]>({
     queryKey: ["/api/leads"],
     queryFn: async () => {
-      const token = localStorage.getItem("admin_token");
-      const response = await fetch("/api/leads", {
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-      
-      if (!response.ok) {
-        throw new Error("Erro ao carregar leads");
-      }
+      const response = await adminRequest("GET", "/api/leads");
       
       return response.json();
     },
-    enabled: !isVerifying,
+    enabled: adminSession.status === "authenticated",
   });
 
   const formatCurrency = (value: string) => {
@@ -378,29 +330,16 @@ export default function ContractsPage() {
       expiryDate: string;
       permissions: UserPermissions;
     }) => {
-      const token = localStorage.getItem('admin_token');
-      const response = await fetch(`/api/admin/users/${data.userId}/contract`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
+      const response = await adminRequest("PATCH", `/api/admin/users/${data.userId}/contract`, {
           whatsapp: data.whatsapp,
           planValue: data.planValue,
           expiryDate: data.expiryDate,
           permissions: data.permissions,
-        }),
       });
-      
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Erro ao salvar');
-      }
       
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
       setIsEditingUser(false);
       toast({
@@ -432,18 +371,7 @@ export default function ContractsPage() {
   // Payment mutation
   const paymentMutation = useMutation({
     mutationFn: async (userId: string) => {
-      const token = localStorage.getItem('admin_token');
-      const response = await fetch(`/api/admin/users/${userId}/payment`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-      
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Erro ao confirmar pagamento');
-      }
+      const response = await adminRequest("POST", `/api/admin/users/${userId}/payment`);
       
       return response.json();
     },
@@ -483,22 +411,11 @@ export default function ContractsPage() {
   // Delete user mutation
   const deleteUserMutation = useMutation({
     mutationFn: async (userId: string) => {
-      const token = localStorage.getItem('admin_token');
-      const response = await fetch(`/api/admin/users/${userId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-      
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Erro ao excluir conta');
-      }
+      const response = await adminRequest("DELETE", `/api/admin/users/${userId}`);
       
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
       toast({
         title: "Conta excluída!",
@@ -527,24 +444,11 @@ export default function ContractsPage() {
   // Change admin master password mutation
   const changeAdminPasswordMutation = useMutation({
     mutationFn: async (data: { newPassword: string }) => {
-      const token = localStorage.getItem('admin_token');
-      const response = await fetch('/api/admin/change-password', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      });
-      
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Erro ao alterar senha');
-      }
+      const response = await adminRequest("POST", "/api/admin/change-password", data);
       
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       toast({
         title: "Senha alterada!",
         description: "A senha do admin master foi alterada com sucesso.",
@@ -554,6 +458,8 @@ export default function ContractsPage() {
       setConfirmAdminPassword("");
       setShowNewPassword(false);
       setShowConfirmPassword(false);
+      await adminSessionClient.logout();
+      setLocation("/admin-login");
     },
     onError: (error: any) => {
       toast({
@@ -588,26 +494,13 @@ export default function ContractsPage() {
 
   const handleImpersonate = async (userId: string) => {
     try {
-      const adminToken = localStorage.getItem("admin_token");
-      const response = await fetch(`/api/admin/users/${userId}/impersonate`, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${adminToken}`,
-          "Content-Type": "application/json",
-        },
-      });
-      
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Erro ao entrar na conta");
-      }
+      const response = await adminRequest("POST", `/api/admin/users/${userId}/impersonate`);
       
       const result = await response.json();
       
       // Save impersonate flag so settings page knows admin master is logged in
       localStorage.setItem("isImpersonating", "true");
       
-      setAuthToken(result.token);
       setAuthUser(result.user);
       
       window.location.href = "/dashboard";
@@ -620,18 +513,12 @@ export default function ContractsPage() {
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem("admin_token");
+  const handleLogout = async () => {
+    await adminSessionClient.logout();
     setLocation("/admin-login");
   };
 
-  if (isVerifying) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <p className="text-muted-foreground">Verificando autenticação...</p>
-      </div>
-    );
-  }
+  if (adminSession.status !== "authenticated") return null;
 
   return (
     <div className="min-h-screen bg-background flex flex-col">

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { encryptApiKey } from "../crypto";
+import { decryptApiKey, encryptApiKey, getActiveDataEncryptionKeyId, getV2KeyId } from "../crypto";
 import {
   decryptAiConfigProviderSecrets,
   encryptAiConfigProviderSecrets,
@@ -9,6 +9,7 @@ import {
 describe("AI config provider secrets", () => {
   beforeEach(() => {
     process.env.SESSION_SECRET = "test-session-secret-for-ai-config-secrets";
+    process.env.DATA_ENCRYPTION_KEY = Buffer.alloc(32, 11).toString("base64");
   });
 
   it("encrypts and decrypts provider secrets", () => {
@@ -38,12 +39,34 @@ describe("AI config provider secrets", () => {
     });
   });
 
-  it("does not re-encrypt existing encrypted values", () => {
-    const alreadyEncrypted = encryptApiKey("stored-secret");
-    const result = encryptAiConfigProviderSecrets({
-      whatsappAppSecret: alreadyEncrypted,
-    });
+  it("preserves only the matching active server value and rewrites legacy or client ciphertext with the active key", () => {
+    const active = Buffer.alloc(32, 11).toString("base64");
+    const previous = Buffer.alloc(32, 12).toString("base64");
+    process.env.DATA_ENCRYPTION_KEY = previous;
+    const previousEnvelope = encryptApiKey("stored-secret");
+    process.env.DATA_ENCRYPTION_KEY = active;
+    process.env.LEGACY_DATA_ENCRYPTION_KEY = previous;
+    const storedActive = encryptApiKey("stored-secret");
+    const clientActive = encryptApiKey("client-secret");
 
-    expect(result.whatsappAppSecret).toBe(alreadyEncrypted);
+    const rewrittenPrevious = encryptAiConfigProviderSecrets(
+      { whatsappAppSecret: previousEnvelope },
+      { whatsappAppSecret: storedActive },
+    );
+    const preservedStored = encryptAiConfigProviderSecrets(
+      { whatsappAppSecret: storedActive },
+      { whatsappAppSecret: storedActive },
+    );
+    const rewrittenClient = encryptAiConfigProviderSecrets(
+      { whatsappAppSecret: clientActive },
+      { whatsappAppSecret: storedActive },
+    );
+
+    expect(rewrittenPrevious.whatsappAppSecret).not.toBe(previousEnvelope);
+    expect(getV2KeyId(rewrittenPrevious.whatsappAppSecret)).toBe(getActiveDataEncryptionKeyId());
+    expect(decryptApiKey(rewrittenPrevious.whatsappAppSecret)).toBe("stored-secret");
+    expect(preservedStored.whatsappAppSecret).toBe(storedActive);
+    expect(rewrittenClient.whatsappAppSecret).not.toBe(clientActive);
+    expect(decryptApiKey(rewrittenClient.whatsappAppSecret)).toBe("client-secret");
   });
 });

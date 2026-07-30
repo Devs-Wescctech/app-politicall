@@ -1,54 +1,10 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
-import { getAuthToken } from "./auth";
+import { clearAttendanceCache } from "./auth";
+import { configureSessionCleanup, sessionClient } from "./session";
+import { configureAdminSessionCleanup } from "./admin-session";
 
-async function throwIfResNotOk(res: Response) {
-  if (!res.ok) {
-    const text = (await res.text()) || res.statusText;
-    
-    // Try to parse JSON error response
-    try {
-      const errorData = JSON.parse(text);
-      // Use the 'message' field if available, otherwise use 'error'
-      const errorMessage = errorData.message || errorData.error || text;
-      throw new Error(errorMessage);
-    } catch {
-      // If parsing fails, throw the raw text
-      throw new Error(text);
-    }
-  }
-}
-
-function getAuthHeaders(): Record<string, string> {
-  const token = getAuthToken();
-  const headers: Record<string, string> = {};
-  
-  if (token) {
-    headers["Authorization"] = `Bearer ${token}`;
-  }
-  
-  return headers;
-}
-
-export async function apiRequest(
-  method: string,
-  url: string,
-  data?: unknown | undefined,
-): Promise<Response> {
-  const headers = {
-    ...getAuthHeaders(),
-    ...(data ? { "Content-Type": "application/json" } : {}),
-  };
-
-  const res = await fetch(url, {
-    method,
-    headers,
-    body: data ? JSON.stringify(data) : undefined,
-    credentials: "include",
-  });
-
-  await throwIfResNotOk(res);
-  return res;
-}
+export const apiRequest = sessionClient.apiRequest;
+export const publicApiRequest = sessionClient.publicApiRequest;
 
 type UnauthorizedBehavior = "returnNull" | "throw";
 export const getQueryFn: <T>(options: {
@@ -56,17 +12,13 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    const res = await fetch(queryKey.join("/") as string, {
-      headers: getAuthHeaders(),
-      credentials: "include",
-    });
-
-    if (unauthorizedBehavior === "returnNull" && res.status === 401) {
-      return null;
+    try {
+      const response = await sessionClient.apiRequest("GET", queryKey.join("/") as string);
+      return await response.json();
+    } catch (error) {
+      if (unauthorizedBehavior === "returnNull" && error instanceof Error && error.message === "Authentication failed") return null;
+      throw error;
     }
-
-    await throwIfResNotOk(res);
-    return await res.json();
   };
 
 export const queryClient = new QueryClient({
@@ -81,5 +33,21 @@ export const queryClient = new QueryClient({
     mutations: {
       retry: false,
     },
+  },
+});
+
+configureSessionCleanup({
+  clearQueryCache: () => queryClient.clear(),
+  clearAttendanceCache,
+  clearImpersonationMarker: () => {
+    if (typeof localStorage !== "undefined") localStorage.removeItem("isImpersonating");
+  },
+});
+
+configureAdminSessionCleanup({
+  clearQueryCache: () => queryClient.clear(),
+  clearAdminCache: () => queryClient.removeQueries({ predicate: (query) => String(query.queryKey[0] ?? "").startsWith("/api/admin") }),
+  clearImpersonationMarker: () => {
+    if (typeof localStorage !== "undefined") localStorage.removeItem("isImpersonating");
   },
 });

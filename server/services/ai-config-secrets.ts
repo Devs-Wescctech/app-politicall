@@ -1,4 +1,11 @@
-import { decryptApiKey, encryptApiKey } from "../crypto";
+import {
+  decryptApiKey,
+  encryptApiKey,
+  getActiveDataEncryptionKeyId,
+  getV2KeyId,
+  isEncryptedDataValue,
+  isMalformedEncryptedDataValue,
+} from "../crypto";
 
 export const AI_CONFIG_PROVIDER_SECRET_FIELDS = [
   "facebookAppSecret",
@@ -19,10 +26,8 @@ export const AI_CONFIG_PROVIDER_SECRET_FIELDS = [
 ] as const;
 
 const MASKED_SECRET_VALUES = new Set(["***", "configurado. deixe em branco para manter."]);
-const ENCRYPTED_SECRET_PATTERN = /^[0-9a-f]{32}:[0-9a-f]{32}:[0-9a-f]+$/i;
-
 export function isEncryptedSecret(value: string): boolean {
-  return ENCRYPTED_SECRET_PATTERN.test(value);
+  return isEncryptedDataValue(value);
 }
 
 function isBlankOrMaskedSecret(value: unknown): boolean {
@@ -30,7 +35,7 @@ function isBlankOrMaskedSecret(value: unknown): boolean {
   return typeof value === "string" && (!value.trim() || MASKED_SECRET_VALUES.has(value.trim().toLowerCase()));
 }
 
-export function encryptAiConfigProviderSecrets<T extends Record<string, any>>(config: T): T {
+export function encryptAiConfigProviderSecrets<T extends Record<string, any>>(config: T, existing?: Record<string, any> | null): T {
   const encrypted: Record<string, any> = { ...config };
 
   for (const field of AI_CONFIG_PROVIDER_SECRET_FIELDS) {
@@ -42,9 +47,18 @@ export function encryptAiConfigProviderSecrets<T extends Record<string, any>>(co
       continue;
     }
 
-    if (typeof value === "string" && !isEncryptedSecret(value)) {
-      encrypted[field] = encryptApiKey(value.trim());
+    if (isMalformedEncryptedDataValue(value)) {
+      throw new Error("Invalid encrypted provider secret");
     }
+    if (typeof value !== "string") continue;
+
+    const trimmed = value.trim();
+    const isTrustedActiveValue = trimmed === existing?.[field]
+      && getV2KeyId(trimmed) === getActiveDataEncryptionKeyId();
+    if (isTrustedActiveValue) continue;
+
+    const plaintext = isEncryptedSecret(trimmed) ? decryptApiKey(trimmed) : trimmed;
+    encrypted[field] = encryptApiKey(plaintext);
   }
 
   return encrypted as T;
@@ -56,13 +70,9 @@ export function decryptAiConfigProviderSecrets<T extends Record<string, any> | n
   const decrypted: Record<string, any> = { ...config };
   for (const field of AI_CONFIG_PROVIDER_SECRET_FIELDS) {
     const value = decrypted[field];
-    if (typeof value !== "string" || !isEncryptedSecret(value)) continue;
-
-    try {
-      decrypted[field] = decryptApiKey(value);
-    } catch {
-      decrypted[field] = value;
-    }
+    if (typeof value !== "string") continue;
+    if (isMalformedEncryptedDataValue(value)) throw new Error("Invalid encrypted provider secret");
+    if (isEncryptedSecret(value)) decrypted[field] = decryptApiKey(value);
   }
 
   return decrypted as T;

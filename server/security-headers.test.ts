@@ -33,6 +33,31 @@ describe("securityHeaders", () => {
     securityHeaders({} as any, res as any, vi.fn());
 
     expect(headers.get("Strict-Transport-Security")).toBe("max-age=15552000; includeSubDomains");
+    expect(headers.get("Content-Security-Policy")).toBe([
+      "default-src 'self'",
+      "script-src 'self'",
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+      "font-src 'self' https://fonts.gstatic.com data:",
+      "img-src 'self' https: data: blob:",
+      "media-src 'self' https: data: blob:",
+      "connect-src 'self' https: wss:",
+      "frame-src 'self' https://drive.google.com https://www.youtube.com https://player.vimeo.com",
+      "worker-src 'self' blob:",
+      "object-src 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+      "frame-ancestors 'self'",
+    ].join("; "));
+    process.env.NODE_ENV = originalNodeEnv;
+  });
+
+  it("allows only Vite's required development inline script and websocket additions", () => {
+    const originalNodeEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = "development";
+    const { headers, res } = createResponse();
+    securityHeaders({} as any, res as any, vi.fn());
+    expect(headers.get("Content-Security-Policy")).toContain("script-src 'self' 'unsafe-inline'");
+    expect(headers.get("Content-Security-Policy")).toContain("connect-src 'self' https: wss: ws:");
     process.env.NODE_ENV = originalNodeEnv;
   });
 });

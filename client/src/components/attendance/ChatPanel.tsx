@@ -52,12 +52,16 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import type { AttConversation, AttMessage, QuickReply } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { conversationPollingInterval, type AttendancePollingVisibility } from "@/lib/attendance-polling";
+import type { AttendanceConnectionMode } from "@/lib/attendance-connection-state";
 import { useToast } from "@/hooks/use-toast";
 import { getAuthUser } from "@/lib/auth";
 import { cn } from "@/lib/utils";
+import { createAttendanceDetailQueryFn } from "@/lib/attendance-detail-cache";
 import { TagSelector, labelColor, useAttendanceLabels } from "./TagSelector";
 import { buildComposerCommands, type ComposerCommand } from "@shared/attendance-composer";
 import TemplateVariableDialog, { type TemplateVariableConfirmation } from "./TemplateVariableDialog";
+import { ConnectionStatus } from "./ConnectionStatus";
 
 const STATUS_META: Record<string, { label: string; className: string }> = {
   new: { label: "Novo", className: "bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/30 dark:text-sky-300 dark:border-sky-900" },
@@ -85,6 +89,9 @@ interface Props {
   conversation: AttConversation;
   onClose?: () => void;
   onOpenContact?: () => void;
+  mode: AttendanceConnectionMode;
+  visibility: AttendancePollingVisibility;
+  reconnectNow: () => void;
 }
 
 type AttendanceTemplate = {
@@ -191,7 +198,14 @@ function writeCachedConversation(conversation: AttConversation, data?: CachedCon
   }
 }
 
-export default function ChatPanel({ conversation, onClose, onOpenContact }: Props) {
+export function retryChatDetailRefresh(reconnectNow: () => void, refetch: () => Promise<unknown>) {
+  return async () => {
+    reconnectNow();
+    await refetch();
+  };
+}
+
+export default function ChatPanel({ conversation, onClose, onOpenContact, mode, visibility, reconnectNow }: Props) {
   const [message, setMessage] = useState("");
   const [isWhisper, setIsWhisper] = useState(false);
   const [showQuickReplies, setShowQuickReplies] = useState(false);
@@ -207,16 +221,20 @@ export default function ChatPanel({ conversation, onClose, onOpenContact }: Prop
   const { toast } = useToast();
   const currentUser = getAuthUser();
   const { data: labels = [] } = useAttendanceLabels();
+  const conversationDetailQueryKey = useMemo(
+    () => ["/api/attendance/conversations", conversation.id] as const,
+    [conversation.id],
+  );
 
-  const { data: convData, isLoading, isFetching } = useQuery<(AttConversation & { messages: AttMessage[]; notes?: any[]; hasOlderMessages?: boolean; messageCursor?: string | null }) | CachedConversationData>({
-    queryKey: ["/api/attendance/conversations", conversation.id],
-    queryFn: async () => {
+  const { data: convData, isLoading, isFetching, isError, refetch } = useQuery<(AttConversation & { messages: AttMessage[]; notes?: any[]; hasOlderMessages?: boolean; messageCursor?: string | null }) | CachedConversationData>({
+    queryKey: conversationDetailQueryKey,
+    queryFn: createAttendanceDetailQueryFn(queryClient, conversationDetailQueryKey, async () => {
       const response = await apiRequest("GET", "/api/attendance/conversations/" + conversation.id + "?messagePageSize=50");
       return response.json();
-    },
+    }),
     refetchOnMount: "always",
-    refetchInterval: 3000,
-    refetchIntervalInBackground: false,
+    refetchInterval: conversationPollingInterval(mode, visibility),
+    refetchIntervalInBackground: true,
     initialData: () => readCachedConversation(conversation),
   });
 
@@ -285,7 +303,7 @@ export default function ChatPanel({ conversation, onClose, onOpenContact }: Prop
     try {
       const response = await apiRequest("GET", "/api/attendance/conversations/" + conversation.id + "/messages?before=" + encodeURIComponent(cursor) + "&limit=50");
       const page = await response.json() as { data: AttMessage[]; hasMore: boolean; nextCursor: string | null };
-      queryClient.setQueryData<any>(["/api/attendance/conversations", conversation.id], (old: any) => {
+      queryClient.setQueryData<any>(conversationDetailQueryKey, (old: any) => {
         if (!old) return old;
         const existing = Array.isArray(old.messages) ? old.messages : [];
         const ids = new Set(existing.map((item: AttMessage) => item.id));
@@ -334,7 +352,7 @@ export default function ChatPanel({ conversation, onClose, onOpenContact }: Prop
         createdAt: new Date(),
       } as any;
 
-      queryClient.setQueryData<any>(["/api/attendance/conversations", conversation.id], (old: any) => {
+      queryClient.setQueryData<any>(conversationDetailQueryKey, (old: any) => {
         const base = old ?? { ...liveConversation, messages: [] };
         const existing = Array.isArray(base.messages) ? base.messages : [];
         if (existing.some((item: AttMessage) => item.id === tempMessage.id)) return base;
@@ -344,7 +362,7 @@ export default function ChatPanel({ conversation, onClose, onOpenContact }: Prop
       return { tempId: body.tempId };
     },
     onSuccess: (saved, _body, context) => {
-      queryClient.setQueryData<any>(["/api/attendance/conversations", conversation.id], (old: any) => {
+      queryClient.setQueryData<any>(conversationDetailQueryKey, (old: any) => {
         if (!old?.messages) return old;
         const byId = new Map<string, AttMessage>();
         for (const item of old.messages.map((item: AttMessage) => item.id === context?.tempId ? saved : item)) {
@@ -358,7 +376,7 @@ export default function ChatPanel({ conversation, onClose, onOpenContact }: Prop
       invalidateConversation();
     },
     onError: (e: any, _body, context) => {
-      queryClient.setQueryData<any>(["/api/attendance/conversations", conversation.id], (old: any) => {
+      queryClient.setQueryData<any>(conversationDetailQueryKey, (old: any) => {
         if (!old?.messages) return old;
         return {
           ...old,
@@ -393,7 +411,7 @@ export default function ChatPanel({ conversation, onClose, onOpenContact }: Prop
       return response.json() as Promise<AttConversation>;
     },
     onSuccess: (updated) => {
-      queryClient.setQueryData<any>(["/api/attendance/conversations", conversation.id], (old: any) => ({ ...(old ?? {}), ...updated }));
+      queryClient.setQueryData<any>(conversationDetailQueryKey, (old: any) => ({ ...(old ?? {}), ...updated }));
       queryClient.setQueriesData<AttConversation[]>({ queryKey: ["/api/attendance/conversations"] }, (old) =>
         Array.isArray(old) ? old.map(item => item.id === updated.id ? { ...item, ...updated } : item) : old
       );
@@ -623,7 +641,14 @@ export default function ChatPanel({ conversation, onClose, onOpenContact }: Prop
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button size="icon" variant="ghost" className="h-9 w-9" data-testid="button-conversation-menu">
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-9 w-9"
+                aria-label="Abrir ações da conversa"
+                title="Abrir ações da conversa"
+                data-testid="button-conversation-menu"
+              >
                 <MoreVertical className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
@@ -662,6 +687,16 @@ export default function ChatPanel({ conversation, onClose, onOpenContact }: Prop
           </DropdownMenu>
         </div>
       </div>
+
+      {isError ? (
+        <ConnectionStatus
+          mode={mode}
+          httpRefreshFailed
+          retryInProgress={isFetching}
+          onRetry={retryChatDetailRefresh(reconnectNow, refetch)}
+          className="shrink-0 bg-card px-3 sm:px-4"
+        />
+      ) : null}
 
       <div
         ref={messagesAreaRef}

@@ -28,7 +28,7 @@ import {
   SidebarFooter,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
-import { removeAuthToken } from "@/lib/auth";
+import { sessionClient } from "@/lib/session";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { useQuery } from "@tanstack/react-query";
@@ -176,8 +176,16 @@ export function AppSidebar() {
     return false;
   });
 
-  const handleLogout = () => {
-    removeAuthToken();
+  const handleLogout = async () => {
+    const wasImpersonating = typeof localStorage !== "undefined" && localStorage.getItem("isImpersonating") === "true";
+    const result = await sessionClient.logoutSession();
+    if (result.error) {
+      toast({ title: "Sessão encerrada", description: "Não foi possível confirmar o encerramento no servidor.", variant: "destructive" });
+    }
+    if (wasImpersonating) {
+      setLocation("/contracts");
+      return;
+    }
     window.location.href = "/login";
   };
 
@@ -258,6 +266,8 @@ export function AppSidebar() {
           size="icon"
           className="opacity-50" 
           onClick={() => setLocation("/manual")}
+          aria-label="Abrir manual"
+          title="Abrir manual"
           data-testid="button-info"
         >
           <Info className="w-4 h-4" />

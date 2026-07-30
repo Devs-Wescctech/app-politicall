@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Loader2, Users, ArrowRight } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getPublicResourceState } from "@/lib/public-resource-state";
+import { calculateGoalProgress } from "@/lib/progress";
 
 interface BioPetition {
   id: string;
@@ -76,7 +77,7 @@ export default function LinkBioPublic() {
             <p className="text-center text-white/80" data-testid="text-bio-empty">Nenhuma petição disponível no momento.</p>
           ) : (
             page.petitions.map((p) => {
-              const progress = p.goal > 0 ? Math.min((p.signaturesCount / p.goal) * 100, 100) : 0;
+              const progress = calculateGoalProgress(p.signaturesCount, p.goal);
               return (
                 <Link key={p.id} href={`/p/${p.slug}`} data-testid={`link-petition-${p.id}`}>
                   <a className="block rounded-md border border-white/70 bg-white p-4 shadow-lg shadow-black/10 transition hover:-translate-y-0.5 hover:shadow-xl active:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent">

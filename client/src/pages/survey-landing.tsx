@@ -16,7 +16,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
+import { publicApiRequest } from "@/lib/queryClient";
 import { CheckCircle2, AlertCircle } from "lucide-react";
 import logoUrl from "@assets/logo pol_1763308638963.png";
 import surveyBackground from "@assets/d39a8f83-9488-4450-a920-1ca2b1507b3e_1763589660859.jpg";
@@ -67,6 +67,7 @@ export default function SurveyLanding() {
   const { data: surveyData, isLoading, error } = useQuery<SurveyData>({
     queryKey: ["/api/pesquisa", slug],
     enabled: !!slug,
+    queryFn: async () => (await publicApiRequest("GET", `/api/pesquisa/${slug}`)).json(),
   });
 
   // Get the effective question data (custom overrides template)
@@ -193,7 +194,7 @@ export default function SurveyLanding() {
         payload.customDemographicData = customDemographicValues;
       }
 
-      const res = await apiRequest("POST", `/api/pesquisa/${slug}/submit`, payload);
+      const res = await publicApiRequest("POST", `/api/pesquisa/${slug}/submit`, payload);
       return res.json();
     },
     onSuccess: () => {

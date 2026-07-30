@@ -35,13 +35,14 @@ import { isOfficialAttendanceChannel } from "@shared/attendance-meta-window";
 import { templatesForNewConversation } from "@shared/attendance-composer";
 import ConversationList from "@/components/attendance/ConversationList";
 import ChatPanel from "@/components/attendance/ChatPanel";
+import { ConnectionStatus } from "@/components/attendance/ConnectionStatus";
 import ContactPanel from "@/components/attendance/ContactPanel";
 import SettingsTab from "@/components/attendance/SettingsTab";
 import ReportsTab from "@/components/attendance/ReportsTab";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { getAuthToken } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { useAttendanceRealtime } from "@/hooks/use-attendance-realtime";
+import { useAttendancePollingEnvironment } from "@/lib/attendance-polling";
 import { TagSelector, labelColor, useAttendanceLabels } from "@/components/attendance/TagSelector";
 import { TemplateVariableEditor } from "@/components/attendance/TemplateVariableDialog";
 import { AttendanceViewSwitcher, type AttendanceView } from "@/components/attendance/AttendanceViewSwitcher";
@@ -326,10 +327,12 @@ export default function AttendancePage() {
   const [selectedConversation, setSelectedConversation] = useState<AttConversation | null>(null);
   const [showNewConv, setShowNewConv] = useState(false);
   const [showContactPanel, setShowContactPanel] = useState(false);
-  useAttendanceRealtime();
+  const { mode, reconnectNow } = useAttendanceRealtime();
+  const { visibility } = useAttendancePollingEnvironment();
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden bg-muted/20 p-2" data-testid="page-attendance">
+      <ConnectionStatus mode={mode} retryInProgress={mode === "reconnecting"} onRetry={reconnectNow} className="shrink-0 px-1" />
       <Tabs
         value={activeTab}
         onValueChange={value => {
@@ -347,6 +350,8 @@ export default function AttendancePage() {
                 onNewConversation={() => setShowNewConv(true)}
                 activeView={activeTab}
                 onViewChange={setActiveTab}
+                mode={mode}
+                visibility={visibility}
               />
             </div>
 
@@ -357,6 +362,9 @@ export default function AttendancePage() {
                   conversation={selectedConversation}
                   onClose={() => setSelectedConversation(null)}
                   onOpenContact={() => setShowContactPanel(true)}
+                  mode={mode}
+                  visibility={visibility}
+                  reconnectNow={reconnectNow}
                 />
               ) : (
                 <div
@@ -827,24 +835,7 @@ function AttendanceContactsTab() {
       const formData = new FormData();
       formData.append("file", importFile);
       formData.append("mapping", JSON.stringify(mapping));
-      const token = getAuthToken();
-      const response = await fetch("/api/attendance/contacts/import-file", {
-        method: "POST",
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-        credentials: "include",
-        body: formData,
-      });
-      if (!response.ok) {
-        const text = await response.text();
-        let message = text || response.statusText;
-        try {
-          const parsed = JSON.parse(text);
-          message = parsed.message || parsed.error || message;
-        } catch {
-          // Keep the raw response text when it is not JSON.
-        }
-        throw new Error(message);
-      }
+      const response = await apiRequest("POST", "/api/attendance/contacts/import-file", formData);
       return response.json();
     },
     onSuccess: (job: any) => {

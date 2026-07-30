@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
+import { adminSessionClient } from "@/lib/admin-session";
+import { useAdminSession } from "@/hooks/use-admin-session";
 import logoUrl from "@assets/logo pol_1763308638963.png";
 
 interface AdminLoginForm {
@@ -16,6 +17,7 @@ interface AdminLoginForm {
 export default function AdminLogin() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const adminSession = useAdminSession();
   const [isLoading, setIsLoading] = useState(false);
 
   const form = useForm<AdminLoginForm>({
@@ -24,14 +26,15 @@ export default function AdminLogin() {
     },
   });
 
+  useEffect(() => {
+    if (adminSession.status === "authenticated") setLocation("/admin");
+  }, [adminSession.status, setLocation]);
+
   async function onSubmit(data: AdminLoginForm) {
     setIsLoading(true);
     
     try {
-      const response = await apiRequest("POST", "/api/admin/login", { password: data.password });
-      const result = await response.json();
-      
-      localStorage.setItem("admin_token", result.token);
+      await adminSessionClient.login({ password: data.password });
       setLocation("/admin");
     } catch (error: any) {
       toast({
@@ -42,6 +45,8 @@ export default function AdminLogin() {
       setIsLoading(false);
     }
   }
+
+  if (adminSession.status !== "unauthenticated") return null;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 to-background p-4">

@@ -11,7 +11,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Badge } from "@/components/ui/badge";
 import { apiRequest } from "@/lib/queryClient";
-import { getAuthToken } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { normalizeBrazilPhone, normalizePhoneList } from "@shared/phone";
 import { countRecipients, normalizeRecipientsText, parseRecipients } from "@shared/recipients";
@@ -47,15 +46,8 @@ const IMPORT_FIELD_OPTIONS: { value: string; label: string }[] = [
   { value: "interests", label: "Interesses/Etiquetas" },
 ];
 
-// upload helper (apiRequest forces JSON, so files need a raw fetch)
 async function uploadImport(url: string, form: FormData): Promise<any> {
-  const token = getAuthToken();
-  const res = await fetch(url, {
-    method: "POST",
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-    body: form,
-    credentials: "include",
-  });
+  const res = await apiRequest("POST", url, form);
   if (!res.ok) {
     const text = (await res.text()) || res.statusText;
     try { throw new Error(JSON.parse(text).error || text); } catch (e: any) { throw new Error(e.message || text); }

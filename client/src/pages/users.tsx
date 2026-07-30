@@ -16,6 +16,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { getAuthUser, setAuthUser } from "@/lib/auth";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { Shield, User as UserIcon, Users, Plus, Settings, Eye, EyeOff, Trash2, ChevronDown, ChevronUp, Trophy, Award, Sun, Calendar, CalendarDays, Infinity, Mail, Phone, MapPin, Heart, Filter, Camera, Loader2 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -246,23 +247,7 @@ export default function UsersManagement() {
     activityCount: number;
   }>>({
     queryKey: ["/api/users/activity-ranking", rankingPeriod],
-    queryFn: async () => {
-      const token = localStorage.getItem("auth_token");
-      const headers: Record<string, string> = {};
-      if (token) {
-        headers["Authorization"] = `Bearer ${token}`;
-      }
-      
-      const response = await fetch(`/api/users/activity-ranking?period=${rankingPeriod}`, {
-        headers,
-        credentials: "include",
-      });
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({ error: "Erro ao carregar ranking" }));
-        throw new Error(error.error || "Erro ao carregar ranking");
-      }
-      return response.json();
-    },
+    queryFn: async () => (await apiRequest("GET", `/api/users/activity-ranking?period=${rankingPeriod}`)).json(),
   });
 
   // Avatar upload mutation
@@ -307,10 +292,10 @@ export default function UsersManagement() {
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
       
-      // If the current user's role was changed, update localStorage and force refresh
-      const currentUser = JSON.parse(localStorage.getItem("auth_user") || "{}");
-      if (currentUser.id === data.id) {
-        localStorage.setItem("auth_user", JSON.stringify(data));
+      // The display cache is updated only with sanitized server user data.
+      const currentUser = getAuthUser();
+      if (currentUser?.id === data.id) {
+        setAuthUser(data);
         toast({
           title: "Sua permissão foi alterada",
           description: "Recarregando a página para aplicar as mudanças...",

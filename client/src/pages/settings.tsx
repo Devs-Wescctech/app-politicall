@@ -23,6 +23,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useState, useRef } from "react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { sessionClient } from "@/lib/session";
 import { useToast } from "@/hooks/use-toast";
 import type { PoliticalParty, ApiKey } from "@shared/schema";
 import { POLITICAL_POSITIONS } from "@shared/schema";
@@ -772,46 +773,14 @@ export default function Settings() {
         city: data.city || undefined,
       };
 
-      // Check if admin master is impersonating
-      const isImpersonatingNow = localStorage.getItem("isImpersonating") === "true";
-      const adminToken = localStorage.getItem("admin_token");
-      
       if (data.newPassword) {
-        if (isImpersonatingNow && adminToken) {
-          // Admin master can change password without current password
-          payload.newPassword = data.newPassword;
-          payload.skipPasswordCheck = true;
-        } else if (data.currentPassword) {
-          // Normal user needs current password
-          payload.currentPassword = data.currentPassword;
-          payload.newPassword = data.newPassword;
-        }
-      }
-
-      // If impersonating, use custom fetch with admin token header
-      if (isImpersonatingNow && adminToken && payload.skipPasswordCheck) {
-        const token = localStorage.getItem("auth_token");
-        const response = await fetch("/api/auth/profile", {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}`,
-            "X-Admin-Token": adminToken,
-          },
-          body: JSON.stringify(payload),
-        });
-        
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.error || "Erro ao atualizar perfil");
-        }
-        
-        return await response.json();
+        if (data.currentPassword) payload.currentPassword = data.currentPassword;
+        payload.newPassword = data.newPassword;
       }
 
       return await apiRequest("PATCH", "/api/auth/profile", payload);
     },
-    onSuccess: () => {
+    onSuccess: async (_response, data) => {
       // Force immediate refetch to update profile everywhere
       queryClient.refetchQueries({ queryKey: ["/api/auth/me"] });
       queryClient.refetchQueries({ queryKey: ["/api/account/admin"] });
@@ -820,6 +789,11 @@ export default function Settings() {
         description: "Perfil atualizado com sucesso",
       });
       setShowEditDialog(false);
+      if (data.newPassword) {
+        const wasImpersonating = typeof localStorage !== "undefined" && localStorage.getItem("isImpersonating") === "true";
+        await sessionClient.logoutSession();
+        window.location.href = wasImpersonating ? "/contracts" : "/login";
+      }
     },
     onError: (error: any) => {
       toast({
@@ -834,18 +808,7 @@ export default function Settings() {
     mutationFn: async (file: File) => {
       const formData = new FormData();
       formData.append('avatar', file);
-      const token = localStorage.getItem("auth_token");
-      const response = await fetch("/api/auth/upload-avatar", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-        },
-        body: formData,
-      });
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Erro ao enviar foto");
-      }
+      const response = await apiRequest("POST", "/api/auth/upload-avatar", formData);
       return await response.json();
     },
     onSuccess: (data) => {
@@ -875,18 +838,7 @@ export default function Settings() {
     mutationFn: async (file: File) => {
       const formData = new FormData();
       formData.append('background', file);
-      const token = localStorage.getItem("auth_token");
-      const response = await fetch("/api/auth/upload-background", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-        },
-        body: formData,
-      });
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Erro ao enviar imagem");
-      }
+      const response = await apiRequest("POST", "/api/auth/upload-background", formData);
       return await response.json();
     },
     onSuccess: () => {

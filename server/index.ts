@@ -12,15 +12,19 @@
 
 import express, { type Request, Response, NextFunction } from "express";
 import { execSync } from "child_process";
+import { createServer } from "node:http";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { storage } from "./storage";
 import { db, pool } from "./db";
 import { registerHealthRoutes } from "./health";
+import { installGracefulShutdown, type GracefulShutdownHandle } from "./server-lifecycle";
+import { closeAttendanceRealtime } from "./attendance-events";
 import { createApiRequestLogger } from "./http-logging";
 import { createListenOptions } from "./listen-options";
-import { securityHeaders } from "./security-headers";
+import { apiErrorHandler, createRequestSecurity, installApiNotFound } from "./security/request-security";
 import { escapeHtml } from "./html-escape";
+import { requireDataEncryptionKey } from "./crypto";
 import { politicalParties, accounts } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import * as fs from "fs";
@@ -72,8 +76,12 @@ async function ensureDevDatabaseReady(): Promise<void> {
 }
 
 const app = express();
+let lifecycle: GracefulShutdownHandle | undefined;
+
+if (process.env.NODE_ENV === "production") requireDataEncryptionKey();
 
 app.disable("x-powered-by");
+createRequestSecurity(app);
 
 // Disable ETag to prevent 304 responses causing stale avatar/profile data
 app.set('etag', false);
@@ -83,14 +91,6 @@ declare module 'http' {
     rawBody: unknown
   }
 }
-app.use(securityHeaders);
-app.use(express.json({
-  limit: '50mb',
-  verify: (req, _res, buf) => {
-    req.rawBody = buf;
-  }
-}));
-app.use(express.urlencoded({ limit: '50mb', extended: false }));
 
 // Serve uploaded assets
 app.use('/assets', express.static('attached_assets'));
@@ -102,6 +102,7 @@ registerHealthRoutes(app, {
   checkDatabase: async () => {
     await pool.query("SELECT 1");
   },
+  isShuttingDown: () => lifecycle?.isShuttingDown ?? false,
 });
 
 app.use(createApiRequestLogger(log));
@@ -405,15 +406,10 @@ app.get("/p/:slug", handlePetitionSSR);
 (async () => {
   await ensureDevDatabaseReady();
 
-  const server = await registerRoutes(app);
+  const isRuntimeStartupProbe = process.env.RUNTIME_STARTUP_PROBE === "1";
+  const server = isRuntimeStartupProbe ? createServer(app) : await registerRoutes(app);
 
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
-
-    res.status(status).json({ message });
-    throw err;
-  });
+  installApiNotFound(app);
 
   // importantly only setup vite in development and after
   // setting up all the other routes so the catch-all route
@@ -423,6 +419,7 @@ app.get("/p/:slug", handlePetitionSSR);
   } else {
     serveStatic(app);
   }
+  app.use(apiErrorHandler);
 
   // ALWAYS serve the app on the port specified in the environment variable PORT
   // Other ports are firewalled. Default to 5000 if not specified.
@@ -436,6 +433,15 @@ app.get("/p/:slug", handlePetitionSSR);
   server.timeout = 300000; // 5 minutes for large uploads
   
   server.listen(createListenOptions(port), () => {
+    lifecycle = installGracefulShutdown({
+      server,
+      closeRealtime: closeAttendanceRealtime,
+      closeDatabase: async () => {
+        await pool.end();
+      },
+      timeoutMs: 30_000,
+    });
     log(`serving on port ${port}`);
+    if (isRuntimeStartupProbe) console.log("RUNTIME_STARTUP_PROBE_LISTENING");
   });
 })();
