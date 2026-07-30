@@ -226,4 +226,19 @@ describe("runProductionMigrations", () => {
     expect(service).not.toContain("0000_yummy_microchip.sql");
     expect(service).not.toContain("0001_unusual_mentor.sql");
   });
+
+  it("keeps the final auth-session schema in 0010 for both production and development runners", async () => {
+    const [service, setup, authSessionMigration] = await Promise.all([
+      readFile(path.join(rootDir, "server/services/production-migrations.ts"), "utf8"),
+      readFile(path.join(rootDir, "scripts/setup-dev-db.ts"), "utf8"),
+      readFile(path.join(rootDir, "migrations/0010_auth_sessions.sql"), "utf8"),
+    ]);
+
+    expect(service).toContain("0010_auth_sessions.sql");
+    expect(setup).toContain("migrations/0010_auth_sessions.sql");
+    expect(service).not.toContain("0011_auth_session_integrity.sql");
+    expect(setup).not.toContain("migrations/0011_auth_session_integrity.sql");
+    expect(authSessionMigration).not.toMatch(/DO\s+\$\$/);
+    expect(authSessionMigration).not.toContain("CREATE EXTENSION pgcrypto");
+  });
 });

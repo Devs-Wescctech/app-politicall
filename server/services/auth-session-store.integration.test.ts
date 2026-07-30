@@ -1,5 +1,4 @@
 import { randomUUID } from "node:crypto";
-import { rm } from "node:fs/promises";
 import { Pool } from "pg";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { describe, expect, it } from "vitest";
@@ -108,7 +107,7 @@ describe("auth session store PostgreSQL integration", () => {
         nextRefreshToken: "duplicate-next-token",
         expiresAt: expiry,
       })).rejects.toThrow();
-      await expect(store.findRefreshSession({ scope, refreshToken: "source-token", now: clock }))
+      await expect(store.findRefreshSession({ scope, refreshToken: "source-token" }))
         .resolves.toMatchObject({ id: source.id });
       expect((await pool.query("SELECT last_used_at FROM auth_sessions WHERE id = $1", [source.id])).rows[0]?.last_used_at)
         .toBeNull();
@@ -127,6 +126,34 @@ describe("auth session store PostgreSQL integration", () => {
       expect(family.rows.every((row) => row.revoked_at !== null)).toBe(true);
       const used = await pool.query("SELECT last_used_at FROM auth_sessions WHERE id = $1", [concurrentSource.id]);
       expect(used.rows[0]?.last_used_at).not.toBeNull();
+
+      const deleteSource = await store.createSession({ scope, refreshToken: "delete-source", expiresAt: expiry });
+      const deleteRotation = await store.rotateSession({
+        scope,
+        refreshToken: "delete-source",
+        nextRefreshToken: "delete-source-next",
+        expiresAt: expiry,
+      });
+      await pool.query("DELETE FROM auth_sessions WHERE id = $1", [deleteSource.id]);
+      const afterPredecessorDelete = await pool.query(
+        "SELECT rotated_from_session_id FROM auth_sessions WHERE id = $1",
+        [deleteRotation.session?.id],
+      );
+      expect(afterPredecessorDelete.rows[0]?.rotated_from_session_id).toBeNull();
+
+      const deleteReplacement = await store.createSession({ scope, refreshToken: "delete-replacement", expiresAt: expiry });
+      const replacementRotation = await store.rotateSession({
+        scope,
+        refreshToken: "delete-replacement",
+        nextRefreshToken: "delete-replacement-next",
+        expiresAt: expiry,
+      });
+      await pool.query("DELETE FROM auth_sessions WHERE id = $1", [replacementRotation.session?.id]);
+      const afterReplacementDelete = await pool.query(
+        "SELECT replaced_by_session_id FROM auth_sessions WHERE id = $1",
+        [deleteReplacement.id],
+      );
+      expect(afterReplacementDelete.rows[0]?.replaced_by_session_id).toBeNull();
     } finally {
       if (pool) await pool.end();
       if (databaseCreated) {

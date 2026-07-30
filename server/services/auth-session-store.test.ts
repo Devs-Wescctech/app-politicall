@@ -230,6 +230,22 @@ describe("auth session store", () => {
     expect(expired.revokedAt).toBeNull();
   });
 
+  it("does not allow a lookup caller to override the store clock for an expired session", async () => {
+    const clock = new Date("2030-01-01T00:00:00.000Z");
+    const { store } = createStore(clock);
+    await store.createSession({
+      scope: tenantScope,
+      refreshToken: "caller-clock-override",
+      expiresAt: new Date("2029-12-31T23:59:59.999Z"),
+    });
+
+    await expect((store.findRefreshSession as any)({
+      scope: tenantScope,
+      refreshToken: "caller-clock-override",
+      now: new Date("2029-12-31T23:00:00.000Z"),
+    })).resolves.toBeUndefined();
+  });
+
   it("rotates a refresh session atomically and records the chain linkage", async () => {
     const { repository, store } = createStore();
     const original = await store.createSession({ scope: tenantScope, refreshToken: "refresh-token-3", expiresAt });
