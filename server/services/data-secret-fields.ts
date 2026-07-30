@@ -9,7 +9,8 @@ export function isBlankOrMaskedDataSecret(value: unknown): boolean {
 
 function encryptIfProvided(value: unknown, context: { recordId?: string; field: string }): unknown {
   if (typeof value !== "string" || isBlankOrMaskedDataSecret(value)) return undefined;
-  return isEncryptedDataValue(value) ? value : encryptApiKey(value.trim(), { table: "channel_connections", field: context.field, recordId: context.recordId });
+  const plaintext = isEncryptedDataValue(value) ? decryptApiKey(value) : value.trim();
+  return encryptApiKey(plaintext, { table: "channel_connections", field: context.field, recordId: context.recordId });
 }
 
 export function prepareChannelConnectionSecrets<T extends Record<string, any>>(input: T, existing?: T | null): T {
@@ -32,6 +33,10 @@ export function prepareChannelConnectionSecrets<T extends Record<string, any>>(i
   return result as T;
 }
 
+export function prepareWhatsappOmniConnection<T extends Record<string, any>>(config: T, existing?: T | null): T {
+  return prepareChannelConnectionSecrets({ ...config, id: existing?.id ?? crypto.randomUUID() } as T, existing);
+}
+
 export function maskChannelConnectionSecrets<T extends Record<string, any>>(connection: T): T {
   const result: Record<string, any> = { ...connection, metadata: { ...(connection.metadata ?? {}) } };
   result.token = connection.token ? "***" : null;
@@ -42,9 +47,11 @@ export function maskChannelConnectionSecrets<T extends Record<string, any>>(conn
 export function verifyWebhookSecret(stored: unknown, supplied: unknown, context: { recordId?: string } = {}): boolean {
   if (typeof stored !== "string" || typeof supplied !== "string") return false;
   try {
-    const expected = Buffer.from(decryptApiKey(stored, { table: "channel_connections", field: "metadata.webhookSecret", recordId: context.recordId }), "utf8");
-    const received = Buffer.from(supplied, "utf8");
-    return expected.length === received.length && crypto.timingSafeEqual(expected, received);
+    const expectedDigest = crypto.createHash("sha256")
+      .update(decryptApiKey(stored, { table: "channel_connections", field: "metadata.webhookSecret", recordId: context.recordId }), "utf8")
+      .digest();
+    const suppliedDigest = crypto.createHash("sha256").update(supplied, "utf8").digest();
+    return crypto.timingSafeEqual(expectedDigest, suppliedDigest);
   } catch {
     return false;
   }

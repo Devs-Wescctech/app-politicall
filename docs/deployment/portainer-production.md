@@ -37,6 +37,10 @@ Set these environment variables in Portainer, not in a committed `.env` file:
 | `SESSION_SECRET` | Required random session secret. |
 | `DATA_ENCRYPTION_KEY` | Required canonical base64 encoding of exactly 32 random bytes. The app fails before serving when it is missing or invalid. |
 | `LEGACY_DATA_ENCRYPTION_KEY` | Optional and temporary. Retain only through the data-key backup/rotation/rollback window, then remove it. |
+| `ADMIN_MASTER_PASSWORD_HASH` | Required bcrypt password hash. |
+| `TRUST_PROXY` | Number of trusted proxy hops for the deployed Nginx topology. |
+| `ENABLE_BEARER_AUTH` | Keep `false`; temporary browser Bearer fallback is disabled by default. |
+| `OKTOR_SMS_*` | Optional integration values; leave unset when SMS is not enabled. |
 
 ## Data Key Rotation
 
@@ -45,10 +49,6 @@ Set these environment variables in Portainer, not in a committed `.env` file:
 3. Investigate any malformed or undecryptable rows without changing their values. Do not use output as a source of credentials.
 4. During a controlled maintenance window run `node dist/rotate-data-encryption.js --apply`, verify a following dry run has no rotatable rows, then keep `LEGACY_DATA_ENCRYPTION_KEY` only for the approved rollback window.
 5. Remove `LEGACY_DATA_ENCRYPTION_KEY` only after the backup retention and rollback window have elapsed. Restore the paired backup and prior key together for operational rollback.
-| `ADMIN_MASTER_PASSWORD_HASH` | Required bcrypt password hash. |
-| `TRUST_PROXY` | Number of trusted proxy hops for the deployed Nginx topology. |
-| `ENABLE_BEARER_AUTH` | Keep `false`; temporary browser Bearer fallback is disabled by default. |
-| `OKTOR_SMS_*` | Optional integration values; leave unset when SMS is not enabled. |
 
 The uploads mount is persistent: `${UPLOADS_HOST_PATH}` is mounted at `/app/uploads`. Do not replace it with an anonymous volume or a repository-relative directory.
 

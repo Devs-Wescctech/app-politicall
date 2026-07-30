@@ -6,6 +6,7 @@ import {
   getV2KeyId,
   isEncryptedDataValue,
   isMalformedEncryptedDataValue,
+  requireDataEncryptionKey,
 } from "../crypto";
 import { AI_CONFIG_PROVIDER_SECRET_FIELDS } from "./ai-config-secrets";
 
@@ -37,6 +38,13 @@ export type DataKeyRotationReport = {
 type RotationCategory = "active_v2" | "previous_v2" | "legacy_v1" | "plaintext" | "malformed" | "undecryptable";
 type RotationLog = { table: string; id: string; field: string; category: RotationCategory };
 
+export class DataKeyRotationConflictError extends Error {
+  constructor() {
+    super("Data encryption rotation conflict");
+    this.name = "DataKeyRotationConflictError";
+  }
+}
+
 function classify(row: RotationRow): { category: RotationCategory; plaintext?: string } {
   if (isMalformedEncryptedDataValue(row.value)) return { category: "malformed" };
   try {
@@ -58,6 +66,7 @@ export async function rotateDataEncryption(
   store: DataKeyRotationStore,
   options: { apply?: boolean; batchSize?: number; log?: (entry: RotationLog) => void } = {},
 ): Promise<DataKeyRotationReport> {
+  requireDataEncryptionKey();
   const batchSize = Math.min(Math.max(options.batchSize ?? 100, 1), 500);
   const report: DataKeyRotationReport = { scanned: 0, unchanged: 0, rotatable: 0, rotated: 0, skipped: 0, errors: 0 };
   let cursor: string | null = null;
@@ -84,7 +93,10 @@ export async function rotateDataEncryption(
           : undefined;
         const encrypted = encryptApiKey(result.plaintext!, context);
         if (await store.compareAndSet(row, encrypted)) report.rotated += 1;
-        else report.skipped += 1;
+        else {
+          report.errors += 1;
+          throw new DataKeyRotationConflictError();
+        }
       }
     });
   } while (cursor !== null);

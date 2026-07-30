@@ -946,11 +946,11 @@ export function registerAttendanceRoutes(app: Express) {
       await recordAttendanceEvent(req, "connection.tested", {
         entityType: "connection",
         entityId: updated.id,
-        after: { ...updated, token: maskToken(updated.token) },
+        after: maskChannelConnectionSecrets(updated),
         metadata: { status, error },
         realtimeType: "attendance.settings.updated",
       });
-      res.json({ ...updated, token: maskToken(updated.token) });
+      res.json(maskChannelConnectionSecrets(updated));
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 

@@ -20,6 +20,7 @@ describe("channel connection secrets", () => {
 
     expect(verifyWebhookSecret((stored.metadata as any).webhookSecret, "webhook", { recordId: "connection-1" })).toBe(true);
     expect(verifyWebhookSecret((stored.metadata as any).webhookSecret, "wrong", { recordId: "connection-1" })).toBe(false);
+    expect(verifyWebhookSecret((stored.metadata as any).webhookSecret, "webhookx", { recordId: "connection-1" })).toBe(false);
   });
 
   it("re-encrypts an integration token for an Omni destination connection AAD", () => {

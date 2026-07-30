@@ -78,6 +78,7 @@ import { authenticateAdminToken, authenticateToken, hasActiveGlobalAdminCookie, 
 import { encryptApiKey, decryptApiKey, isEncryptedDataValue, isMalformedEncryptedDataValue } from "./crypto";
 import { sanitizeAiConfiguration } from "./services/ai-config-security";
 import { redactGoogleOauthFailure } from "./services/google-oauth-security";
+import { prepareWhatsappOmniConnection } from "./services/data-secret-fields";
 import { decryptAiConfigProviderSecrets } from "./services/ai-config-secrets";
 import {
   extractMetaWebhookTargetIds,
@@ -301,18 +302,14 @@ async function syncWhatsappIntegrationConnection(accountId: string, integration:
     c => c.channel === "whatsapp" && (c.metadata as any)?.source === "settings-omni"
   );
   const config = buildWhatsappConnectionConfig(integration);
+  const connection = prepareWhatsappOmniConnection({ accountId, ...config }, existing as any);
 
   if (existing) {
-    await storage.updateChannelConnection(existing.id, accountId, {
-      ...config,
-    } as any);
+    await storage.updateChannelConnection(existing.id, accountId, connection as any);
     return;
   }
 
-  await storage.createChannelConnection({
-    accountId,
-    ...config,
-  } as any);
+  await storage.createChannelConnection(connection as any);
 }
 
 // Cache para evitar processamento duplicado de mensagens (Facebook/Instagram)
@@ -7614,7 +7611,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         email = userInfo.data.email;
         console.log('[Google Calendar] User email:', email);
       } catch (emailError: any) {
-        console.error('[Google Calendar] Failed to get user email:', emailError.message);
+        console.error('[Google Calendar] Profile lookup failed:', redactGoogleOauthFailure(emailError));
         // Continue without email - not critical
       }
       
@@ -7908,7 +7905,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             importedEvents++;
             console.log('[Google Calendar Sync] Event created successfully');
           } catch (createError: any) {
-            console.error('[Google Calendar Sync] Error creating event:', createError.message);
+            console.error('[Google Calendar Sync] Event creation failed:', redactGoogleOauthFailure(createError));
           }
         }
         
@@ -7973,7 +7970,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 'Meet link:', googleEvent.data.hangoutLink || 'none');
             }
           } catch (insertError) {
-            console.error('Error syncing event to Google:', insertError);
+            console.error('[Google Calendar Sync] Event export failed:', redactGoogleOauthFailure(insertError));
           }
         }
       }
@@ -8001,7 +7998,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         lastSyncAt: new Date()
       });
     } catch (error: any) {
-      console.error('Google Calendar sync error:', error);
+      console.error('[Google Calendar Sync] Failed:', redactGoogleOauthFailure(error));
       res.status(500).json({ error: error.message });
     }
   });

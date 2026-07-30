@@ -5,8 +5,11 @@ const KEY_BYTES = 32;
 const IV_BYTES = 12;
 const TAG_BYTES = 16;
 const MAX_CIPHERTEXT_BYTES = 128 * 1024;
+const MAX_BASE64URL_DATA_LENGTH = Math.ceil(MAX_CIPHERTEXT_BYTES * 4 / 3) + 4;
+const MAX_V1_ENVELOPE_LENGTH = 65 + (MAX_CIPHERTEXT_BYTES * 2);
+const MAX_V2_ENVELOPE_LENGTH = 4 + 80 + 1 + 16 + 1 + 22 + 1 + MAX_BASE64URL_DATA_LENGTH;
 const V1_PATTERN = /^(?<iv>[0-9a-f]{32}):(?<tag>[0-9a-f]{32}):(?<data>[0-9a-f]+)$/i;
-const V2_PATTERN = /^v2:(?<keyId>[a-z0-9-]{8,80}):(?<iv>[A-Za-z0-9_-]{16}):(?<tag>[A-Za-z0-9_-]{22}):(?<data>[A-Za-z0-9_-]{2,174764})$/;
+const V2_PATTERN = new RegExp(`^v2:(?<keyId>[a-z0-9-]{8,80}):(?<iv>[A-Za-z0-9_-]{16}):(?<tag>[A-Za-z0-9_-]{22}):(?<data>[A-Za-z0-9_-]{0,${MAX_BASE64URL_DATA_LENGTH}})$`);
 
 export type DataEncryptionContext = { table?: string; field?: string; recordId?: string };
 
@@ -59,9 +62,9 @@ function aadFor(keyIdValue: string, context?: DataEncryptionContext): Buffer {
 }
 
 function decodeCanonicalBase64Url(value: string, expectedBytes?: number): Buffer | null {
-  if (!/^[A-Za-z0-9_-]+$/.test(value) || value.length > MAX_CIPHERTEXT_BYTES * 2) return null;
+  if (value.length > MAX_BASE64URL_DATA_LENGTH || (value && !/^[A-Za-z0-9_-]+$/.test(value))) return null;
   const decoded = Buffer.from(value, "base64url");
-  if (!decoded.length || decoded.toString("base64url") !== value) return null;
+  if (decoded.length > MAX_CIPHERTEXT_BYTES || decoded.toString("base64url") !== value) return null;
   if (expectedBytes !== undefined && decoded.length !== expectedBytes) return null;
   return decoded;
 }
@@ -69,6 +72,7 @@ function decodeCanonicalBase64Url(value: string, expectedBytes?: number): Buffer
 type ParsedV2 = { keyId: string; iv: Buffer; tag: Buffer; data: Buffer };
 
 function parseV2(value: string): ParsedV2 | null {
+  if (value.length > MAX_V2_ENVELOPE_LENGTH) return null;
   const match = V2_PATTERN.exec(value);
   if (!match?.groups) return null;
   const iv = decodeCanonicalBase64Url(match.groups.iv, IV_BYTES);
@@ -79,6 +83,7 @@ function parseV2(value: string): ParsedV2 | null {
 }
 
 function parseV1(value: string): { iv: Buffer; tag: Buffer; data: Buffer } | null {
+  if (value.length > MAX_V1_ENVELOPE_LENGTH) return null;
   const match = V1_PATTERN.exec(value);
   if (!match?.groups || match.groups.data.length % 2 !== 0) return null;
   const iv = Buffer.from(match.groups.iv, "hex");
@@ -100,7 +105,10 @@ export function isEncryptedDataValue(value: unknown): boolean {
 }
 
 export function isMalformedEncryptedDataValue(value: unknown): boolean {
-  return typeof value === "string" && value.startsWith("v2:") && parseV2(value) === null;
+  return typeof value === "string" && (
+    (value.startsWith("v2:") && parseV2(value) === null)
+    || (/^[0-9a-f]{32}:/i.test(value) && parseV1(value) === null)
+  );
 }
 
 export function getV2KeyId(value: string): string | null {
@@ -109,13 +117,16 @@ export function getV2KeyId(value: string): string | null {
 
 export function encryptApiKey(apiKey: string, context?: DataEncryptionContext): string {
   if (isMalformedEncryptedDataValue(apiKey)) throw new DataEncryptionError("malformed");
+  if (Buffer.byteLength(apiKey, "utf8") > MAX_CIPHERTEXT_BYTES) throw new DataEncryptionError("malformed");
   const keyring = getKeyring();
   const iv = crypto.randomBytes(IV_BYTES);
   const cipher = crypto.createCipheriv(ALGORITHM, keyring.active, iv, { authTagLength: TAG_BYTES });
   cipher.setAAD(aadFor(keyring.activeId, context));
   const data = Buffer.concat([cipher.update(apiKey, "utf8"), cipher.final()]);
   const tag = cipher.getAuthTag();
-  return `v2:${keyring.activeId}:${iv.toString("base64url")}:${tag.toString("base64url")}:${data.toString("base64url")}`;
+  const envelope = `v2:${keyring.activeId}:${iv.toString("base64url")}:${tag.toString("base64url")}:${data.toString("base64url")}`;
+  if (!parseV2(envelope)) throw new DataEncryptionError("malformed");
+  return envelope;
 }
 
 export function decryptApiKey(value: string, context?: DataEncryptionContext): string {
