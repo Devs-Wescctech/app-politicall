@@ -123,8 +123,13 @@ Commit: `feat: add secure auth cookie primitives`
 **Files:**
 - Create: `server/services/auth-session-service.ts`
 - Create: `server/services/auth-session-service.test.ts`
+- Modify: `server/services/auth-session-store.ts`
+- Modify: `server/services/auth-session-store.test.ts`
+- Modify: `server/security/auth-cookies.ts`
+- Modify: `server/security/auth-cookies.test.ts`
 - Modify: `server/routes.ts`
-- Modify: `server/auth-api.ts`
+- Modify: `.env.example`
+- Modify: `docker-compose.yml`
 
 **Interfaces:**
 - Consumes: Session store and cookie primitives.
@@ -132,9 +137,9 @@ Commit: `feat: add secure auth cookie primitives`
 
 - [ ] **Step 1: Write RED service tests**
 
-Cover user login, admin login, refresh rotation, expired refresh, token reuse, logout,
-user/admin isolation, one-time Bearer exchange, and exchange gating through
-`ENABLE_BEARER_EXCHANGE`.
+Cover user login, admin login, refresh rotation without sliding the original family
+expiry, expired refresh, token reuse, logout after access expiry, user/admin isolation,
+one-time Bearer exchange, and exchange gating through `ENABLE_BEARER_EXCHANGE`.
 
 - [ ] **Step 2: Verify RED**
 
@@ -144,13 +149,22 @@ Expected: FAIL.
 
 - [ ] **Step 3: Implement session issuance**
 
-Login JSON returns `{ user }` or `{ admin: true }`, never raw tokens. Refresh rotates the database row and all cookies. Logout is idempotent.
+Login JSON returns `{ user }` or `{ admin: true }`, never raw tokens. Resolve an
+opaque refresh cookie only through its SHA-256 hash and expected session kind, then
+derive tenant/principal scope from the stored row. Refresh rotates the database row
+and all cookies, inherits the source row's absolute expiry, and sets only the
+remaining cookie lifetime. Logout is idempotent and is also available as a
+CSRF-protected `DELETE` on each exact refresh path so an expired access cookie does
+not prevent server-side revocation.
 
 - [ ] **Step 4: Integrate routes and rate limits**
 
-Apply stricter limits to login, refresh, exchange and admin auth. Responses use
-`Cache-Control: no-store`. Revoke the affected user/session families in the existing
-profile-password, user-administration and admin-master password-change flows.
+Apply stricter limits to login, refresh, exchange and admin auth. Require an exact
+configured Origin; `PUBLIC_APP_URL` is fail-closed in production and defaults only
+for local development. Responses use `Cache-Control: no-store`. Revoke the affected
+user/session families in the existing profile-password, user-administration and
+admin-master password-change flows. Preserve the independent `Bearer pk_*` API-key
+contract in `server/auth-api.ts`; it is not browser authentication.
 
 - [ ] **Step 5: Verify GREEN and commit**
 
