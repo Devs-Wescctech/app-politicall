@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   createFixedWindowRateLimiter,
   createRequestSecurity,
+  installApiResponseGuards,
   parseTrustProxyHops,
 } from "./request-security";
 
@@ -82,6 +83,7 @@ describe("request security", () => {
     app.post("/api/default", (req: any, res) => res.json({ bytes: req.rawBody.length }));
     app.patch("/api/users/:id", (req: any, res) => res.json({ bytes: req.rawBody.length }));
     app.post("/api/webhook/facebook", (req: any, res) => res.json({ bytes: req.rawBody.length }));
+    installApiResponseGuards(app);
     server = await start(app);
     const oneMegabyte = "a".repeat(1_050_000);
     const fifteenMegabytes = "a".repeat(1_500_000);
@@ -98,6 +100,7 @@ describe("request security", () => {
     const app = express();
     createRequestSecurity(app);
     app.get("/api/error", () => { throw new Error("credential=must-not-leak"); });
+    installApiResponseGuards(app);
     server = await start(app);
     const unknown = await fetch(`${server.baseUrl}/api/not-a-route`);
     expect(unknown.status).toBe(404);
