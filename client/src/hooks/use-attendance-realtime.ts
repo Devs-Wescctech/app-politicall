@@ -1,53 +1,10 @@
 import { useEffect } from "react";
 import { queryClient } from "@/lib/queryClient";
-
-type AttendanceRealtimeEvent = {
-  type: string;
-  accountId?: string;
-  conversationId?: string | null;
-  messageId?: string | null;
-  payload?: Record<string, unknown>;
-};
+import { applyAttendanceRealtimeEvent, type AttendanceRealtimeEvent } from "@/lib/attendance-reconciliation";
 
 function realtimeUrl(): string {
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
   return `${protocol}//${window.location.host}/api/attendance/realtime`;
-}
-
-function invalidateConversation(event: AttendanceRealtimeEvent) {
-  if (event.type === "attendance.message.created" && event.conversationId) {
-    const message = (event.payload?.event as any)?.after;
-    if (message?.id) {
-      queryClient.setQueryData<any>(["/api/attendance/conversations", event.conversationId], (old: any) => {
-        if (!old) return old;
-        const messages = Array.isArray(old.messages) ? old.messages : [];
-        if (messages.some((item: any) => item.id === message.id || item.externalMessageId && item.externalMessageId === message.externalMessageId)) {
-          return old;
-        }
-        return { ...old, messages: [...messages, message] };
-      });
-    }
-  }
-
-  if (event.type === "attendance.conversation.updated" && event.conversationId) {
-    const updated = (event.payload?.event as any)?.after;
-    if (updated?.id) {
-      queryClient.setQueryData<any>(["/api/attendance/conversations", event.conversationId], (old: any) => ({ ...(old ?? {}), ...updated }));
-      queryClient.setQueriesData<any[]>({ queryKey: ["/api/attendance/conversations"] }, (old) =>
-        Array.isArray(old) ? old.map(item => item.id === updated.id ? { ...item, ...updated } : item) : old
-      );
-    }
-  }
-
-  queryClient.invalidateQueries({ queryKey: ["/api/attendance/conversations"] });
-  queryClient.invalidateQueries({ queryKey: ["/api/attendance/reports/summary"] });
-
-  if (event.conversationId) {
-    if (event.type !== "attendance.message.created") {
-      queryClient.invalidateQueries({ queryKey: ["/api/attendance/conversations", event.conversationId] });
-    }
-    queryClient.invalidateQueries({ queryKey: ["/api/attendance/conversations", event.conversationId, "history"] });
-  }
 }
 
 export function useAttendanceRealtime(enabled = true) {
@@ -72,7 +29,7 @@ export function useAttendanceRealtime(enabled = true) {
         try {
           const payload = JSON.parse(event.data) as AttendanceRealtimeEvent;
           if (payload.type === "attendance.realtime.connected") return;
-          if (payload.type.startsWith("attendance.")) invalidateConversation(payload);
+          if (payload.type.startsWith("attendance.")) applyAttendanceRealtimeEvent(queryClient, payload);
           if (payload.type === "attendance.settings.updated") {
             queryClient.invalidateQueries({ queryKey: ["/api/attendance/connections"] });
             queryClient.invalidateQueries({ queryKey: ["/api/attendance/sectors"] });
