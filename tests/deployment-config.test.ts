@@ -716,6 +716,7 @@ describe("deployment configuration", () => {
     expect(trivy).toContain("image-ref: ${{ steps.image.outputs.reference }}");
     expect(trivy).toContain("severity: HIGH,CRITICAL");
     expect(trivy).toContain("exit-code: '1'");
+    expect(trivy).toContain("ignore-unfixed: true");
     expect(trivy).not.toContain("version: latest");
     expect(archive).toContain('docker save "$IMAGE_REFERENCE" | gzip');
     expect(archive).toContain("sha256sum");

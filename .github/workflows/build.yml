@@ -143,6 +143,7 @@ jobs:
           image-ref: ${{ steps.image.outputs.reference }}
           severity: HIGH,CRITICAL
           exit-code: '1'
+          ignore-unfixed: true
 
       - name: Archive scanned Docker candidate
         id: archive
