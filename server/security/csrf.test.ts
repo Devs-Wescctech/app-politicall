@@ -220,6 +220,16 @@ describe("CSRF primitives", () => {
     expect(response.status).toHaveBeenCalledWith(403);
   });
 
+  it("uses the generic authentication error body for every CSRF rejection", () => {
+    const middleware = requireCsrf({ kind: "user", allowedOrigins: ["https://app.politicall.com"] });
+    const response = createResponse();
+
+    middleware(request({ method: "POST", origin: "https://evil.example.test" }) as never, response as never, vi.fn());
+
+    expect(response.setHeader).toHaveBeenCalledWith("Cache-Control", "no-store");
+    expect(response.json).toHaveBeenCalledWith({ error: "Authentication failed" });
+  });
+
   it("requires an exact configured Origin for mutating methods, including rejecting absent and null Origin values", () => {
     const accessToken = issueAccessToken({ sid: "session-user-5", kind: "user" });
     const csrfToken = issueCsrfToken({ sid: "session-user-5", kind: "user" });

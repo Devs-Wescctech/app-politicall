@@ -5,6 +5,9 @@ import { isPureLegacyGlobalAdminClaims, verifyPureLegacyGlobalAdminToken } from 
 describe("legacy global-admin claims", () => {
   it("rejects a tenant-admin Bearer from global-admin routes", () => {
     expect(isPureLegacyGlobalAdminClaims({ isAdmin: true, userId: "tenant-admin", accountId: "account-a" })).toBe(false);
+    expect(isPureLegacyGlobalAdminClaims({ isAdmin: true, sid: "new-session" })).toBe(false);
+    expect(isPureLegacyGlobalAdminClaims({ isAdmin: true, kind: "admin" })).toBe(false);
+    expect(isPureLegacyGlobalAdminClaims({ isAdmin: true, principalId: "politicall:global-admin" })).toBe(false);
     expect(isPureLegacyGlobalAdminClaims({ isAdmin: true })).toBe(true);
   });
 

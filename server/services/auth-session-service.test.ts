@@ -209,7 +209,19 @@ describe("auth session service", () => {
     await expect(service.refresh({ kind: "admin", refreshToken: userSession.cookies.refreshToken }))
       .resolves.toEqual({ status: "missing" });
     await expect(service.refresh({ kind: "user", refreshToken: adminSession.cookies.refreshToken }))
-      .resolves.toEqual({ status: "missing" });
+      .resolves.toEqual({ status: "missing", clearCookies: "user" });
+  });
+
+  it("clears the known cookie kind for missing and race-expired refresh outcomes", async () => {
+    const { dependencies } = createDependencies();
+    const service = createAuthSessionService(dependencies);
+    dependencies.sessionStore.rotateRefreshSession = async () => ({ status: "expired" });
+
+    await expect(service.refresh({ kind: "admin", refreshToken: "missing-refresh" }))
+      .resolves.toEqual({ status: "missing", clearCookies: "admin" });
+    const issued = await service.issueAdminSession();
+    await expect(service.refresh({ kind: "admin", refreshToken: issued.cookies.refreshToken }))
+      .resolves.toEqual({ status: "expired", clearCookies: "admin" });
   });
 
   it("exchanges a valid legacy user JWT once, re-reading its exact user and account", async () => {

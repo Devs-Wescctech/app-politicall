@@ -165,6 +165,60 @@ describe("auth session route responses", () => {
     expect(limiter.size()).toBe(2);
   });
 
+  it("fails closed for a new key when the bounded limiter is saturated without forgetting an active limited key", async () => {
+    const limiter = createAuthenticationRateLimiter({ maximumEntries: 2, now: () => 1_000 });
+    const app = express();
+    app.set("trust proxy", true);
+    app.post("/limited", limiter("saturated", 1), (_request, response) => response.status(204).end());
+    const server = await new Promise<any>((resolve) => { const instance = app.listen(0, "127.0.0.1", () => resolve(instance)); });
+    activeServer = { baseUrl: `http://127.0.0.1:${server.address().port}`, close: () => new Promise((resolve, reject) => server.close((error: Error | undefined) => error ? reject(error) : resolve())) };
+
+    await fetch(`${activeServer.baseUrl}/limited`, { method: "POST", headers: { "x-forwarded-for": "198.51.100.1" } });
+    const originalLimited = await fetch(`${activeServer.baseUrl}/limited`, { method: "POST", headers: { "x-forwarded-for": "198.51.100.1" } });
+    await fetch(`${activeServer.baseUrl}/limited`, { method: "POST", headers: { "x-forwarded-for": "198.51.100.2" } });
+    const saturatedNewKey = await fetch(`${activeServer.baseUrl}/limited`, { method: "POST", headers: { "x-forwarded-for": "198.51.100.3" } });
+    const originalStillLimited = await fetch(`${activeServer.baseUrl}/limited`, { method: "POST", headers: { "x-forwarded-for": "198.51.100.1" } });
+
+    expect(originalLimited.status).toBe(429);
+    expect(saturatedNewKey.status).toBe(429);
+    expect(saturatedNewKey.headers.get("cache-control")).toBe("no-store");
+    expect(originalStillLimited.status).toBe(429);
+    expect(limiter.size()).toBe(2);
+  });
+
+  it("uses inactive refresh resolution for DELETE refresh logout and reaches the reuse path", async () => {
+    const dependencies = routeDependencies({
+      resolveRefreshSession: vi.fn(async () => session("refresh-session", "revoked")),
+      service: { ...routeDependencies().service, logoutRefresh: vi.fn(async () => ({ clearCookies: "user", status: "reuse_detected" })) },
+    });
+    activeServer = await startAuthRoutes(dependencies);
+    const csrf = issueCsrfToken({ sid: "refresh-session", kind: "user" });
+    const response = await fetch(`${activeServer.baseUrl}/api/auth/refresh`, {
+      method: "DELETE",
+      headers: { Origin: "https://app.example.test", "x-csrf-token": csrf, Cookie: cookieHeader({ politicall_refresh: "revoked-refresh", politicall_csrf: csrf }) },
+    });
+
+    expect(response.status).toBe(204);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(dependencies.resolveRefreshSession).toHaveBeenCalledWith({ kind: "user", refreshToken: "revoked-refresh", includeInactive: true });
+    expect(dependencies.service.logoutRefresh).toHaveBeenCalledWith({ kind: "user", refreshToken: "revoked-refresh" });
+  });
+
+  it("keeps access logout idempotent after the session has already been revoked", async () => {
+    const dependencies = routeDependencies();
+    activeServer = await startAuthRoutes(dependencies);
+    const access = issueAccessToken({ sid: "access-session", kind: "user" });
+    const csrf = issueCsrfToken({ sid: "access-session", kind: "user" });
+    const headers = { Origin: "https://app.example.test", Cookie: cookieHeader({ politicall_access: access, politicall_csrf: csrf }), "x-csrf-token": csrf };
+
+    const first = await fetch(`${activeServer.baseUrl}/api/auth/logout`, { method: "POST", headers });
+    const repeated = await fetch(`${activeServer.baseUrl}/api/auth/logout`, { method: "POST", headers });
+
+    expect(first.status).toBe(204);
+    expect(repeated.status).toBe(204);
+    expect(dependencies.service.logoutAccess).toHaveBeenCalledTimes(2);
+  });
+
   it("rejects non-http public application URLs", () => {
     expect(() => getAuthAllowedOrigins({ PUBLIC_APP_URL: "ftp://app.example.test", NODE_ENV: "production" })).toThrow("http");
   });
