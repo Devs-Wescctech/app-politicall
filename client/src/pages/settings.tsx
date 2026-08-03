@@ -254,6 +254,14 @@ const smsSchema = z.object({
   smsCode: z.string().optional(),
   smsClient: z.string().optional(),
   enabled: z.boolean().default(true),
+}).superRefine((data, ctx) => {
+  if (data.enabled && !data.smsClient?.trim()) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["smsClient"],
+      message: "Cliente de cobrança é obrigatório",
+    });
+  }
 });
 type SmsFormData = z.infer<typeof smsSchema>;
 
@@ -340,7 +348,7 @@ function SmsForm({ current, isAdmin, onSaved }: { current?: IntegrationRecord | 
           <FormField control={form.control} name="smsClient" render={({ field }) => (
             <FormItem>
               <FormLabel className="text-xs flex items-center gap-1.5">
-                Cliente de cobrança (client)
+                Cliente de cobrança (client) *
                 {clientLocked && <Lock className="w-3 h-3 text-muted-foreground" />}
               </FormLabel>
               <FormControl>
@@ -368,7 +376,12 @@ function SmsForm({ current, isAdmin, onSaved }: { current?: IntegrationRecord | 
                   )}
                 </p>
               ) : (
-                <FormMessage />
+                <>
+                  <p className="text-xs text-muted-foreground">
+                    Obrigatório para enviar SMS. Use o centro de custo fornecido pela Oktor/Wescctech.
+                  </p>
+                  <FormMessage />
+                </>
               )}
             </FormItem>
           )} />

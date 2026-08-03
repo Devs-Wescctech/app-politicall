@@ -92,6 +92,7 @@ import { z } from "zod";
 import { groupTextResponses } from "@shared/text-normalization";
 import { calculateGenderDistribution } from "./utils/gender-detector";
 import { sendOktorSms, queryOktorSms } from "./services/oktor-sms";
+import { assertActiveOktorSmsCredentials, hasOktorSmsCredentials, oktorConfigFromIntegration } from "./services/sms-integration-validation";
 import { locawebEmail } from "./services/locaweb-email-marketing";
 import { resolveChannels, channelToService, channelLabel, computeFinalStatus, canCancel, canSend, normalizeCampaignStatus, canPause, canResume, canEditCritical, normalizeSendConfig, isWithinSendWindow, classifyFailure, canRetry, shouldRetryDispatch, retryBackoffMs, computeRateBudget, buildRecipientCounts, computeRecipientMetrics, estimateSmsCost, friendlyErrorMessage, groupErrorsByReason, summarizeChannels, computeSendTiming, parseWhatsAppStatusEvents, type RecipientLite } from "./services/campaigns";
 import {
@@ -165,22 +166,6 @@ function decryptIntegrationForUse<T extends Record<string, any> | null | undefin
     decrypted[key] = decryptSecretIfNeeded(decrypted[key]);
   }
   return decrypted as T;
-}
-
-function oktorConfigFromIntegration(integration: Record<string, any>) {
-  return {
-    endpoint: process.env.OKTOR_SMS_ENDPOINT || integration.smsEndpoint,
-    account: integration.smsAccount || process.env.OKTOR_SMS_ACCOUNT,
-    code: integration.smsCode || process.env.OKTOR_SMS_CODE,
-    client: integration.smsClient || process.env.OKTOR_SMS_CLIENT || "",
-    tipoEnvio: integration.smsTipoEnvio || process.env.OKTOR_SMS_TIPO_ENVIO || "7",
-  };
-}
-
-function hasOktorSmsCredentials(integration: Record<string, any> | null | undefined) {
-  if (!integration?.enabled) return false;
-  const config = oktorConfigFromIntegration(integration);
-  return Boolean(config.account && config.code && config.client);
 }
 
 type AiConfigurationRecord = typeof aiConfigurations.$inferSelect;
@@ -5072,6 +5057,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      assertActiveOktorSmsCredentials(validatedData as any);
+
       const owner = req.userId || existing?.userId || (await storage.getAccountAdmin(accountId))?.id;
       if (!owner) return res.status(400).json({ error: "Nao foi possivel identificar usuario responsavel pela integracao" });
 
@@ -5115,6 +5102,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           (validatedData as any)[key] = normalizeIntegrationSecretForWrite((validatedData as any)[key], (existing as any)?.[key]);
         }
       }
+      assertActiveOktorSmsCredentials(validatedData as any);
       const owner = req.userId || existing?.userId || (await storage.getAccountAdmin(accountId))?.id;
       if (!owner) return res.status(400).json({ error: "Nao foi possivel identificar usuario responsavel pela integracao" });
       const integration = await storage.upsertIntegration({ ...validatedData, userId: owner, accountId });
@@ -5273,6 +5261,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
       }
+
+      assertActiveOktorSmsCredentials(validatedData as any);
 
       const integration = await storage.upsertIntegration({
         ...validatedData,
