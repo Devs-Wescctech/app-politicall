@@ -44,7 +44,7 @@ const upload = multer({
 });
 import { db } from "./db";
 import { accounts, politicalParties, politicalAlliances, surveyTemplates, surveyCampaigns, surveyLandingPages, surveyResponses, users, events, demands, demandComments, contacts, aiConfigurations, systemSettings, type SurveyTemplate, type SurveyCampaign, type InsertSurveyCampaign, type SurveyLandingPage, type InsertSurveyLandingPage, type SurveyResponse, type InsertSurveyResponse, type AudienceFilters, insertContactListSchema, CONTACT_LIST_KINDS, insertMessageTemplateSchema, MESSAGE_TEMPLATE_CHANNELS, type CampaignTemplateConfig } from "@shared/schema";
-import { normalizeActionCardTemplate, wescctech } from "./services/wescctech";
+import { isWesccChannelConnected, normalizeActionCardTemplate, wescctech } from "./services/wescctech";
 import { isDirectMetaConnection } from "@shared/attendance-meta-window";
 import { buildWhatsappConnectionConfig } from "./services/whatsapp-connection-config";
 import { renderTemplate, extractVariables, unknownVariables, isBlankMessage, smsSegments, isWaTemplateUsable, waTemplateBlockReason, waTemplateBodyVariables, contactTemplateContext, type TemplateContext } from "@shared/templates";
@@ -5154,7 +5154,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
         const text = await response.text();
         if (!response.ok) throw new Error(`Wescctech ${response.status}: ${text}`);
-        result = text ? JSON.parse(text) : { success: true };
+        result = text ? JSON.parse(text) : {};
+        if (!isWesccChannelConnected(result)) {
+          throw new Error(`Canal WHU desconectado (status: ${String((result as any)?.status ?? "desconhecido")})`);
+        }
       } else {
         return res.status(400).json({ error: "Servico nao suportado" });
       }
@@ -5298,7 +5301,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
         const body = await resp.text();
         if (!resp.ok) throw new Error(`Wescctech ${resp.status}: ${body}`);
-        res.json({ success: true, message: 'WhatsApp/WHU configurado corretamente!', provider: body ? JSON.parse(body) : null });
+        const provider = body ? JSON.parse(body) : {};
+        if (!isWesccChannelConnected(provider)) {
+          return res.status(400).json({
+            error: `Canal WHU desconectado (status: ${String(provider?.status ?? "desconhecido")})`,
+          });
+        }
+        res.json({ success: true, message: 'WhatsApp/WHU configurado corretamente!', provider });
       } else if (req.params.service === 'sms') {
         if (!hasOktorSmsCredentials(integration as any)) {
           return res.status(400).json({ error: 'Credenciais SMS (account/code/client) incompletas' });

@@ -3,6 +3,7 @@ import {
   getMetaWindowState,
   isDirectMetaConnection,
   isOfficialAttendanceChannel,
+  supportsWhuActionCards,
   isWhuCloudChannelInfo,
 } from "./attendance-meta-window";
 
@@ -64,6 +65,28 @@ describe("isDirectMetaConnection", () => {
   it("separates direct Graph credentials from WHU-operated WACLOUD", () => {
     expect(isDirectMetaConnection({ provider: "meta_cloud" })).toBe(true);
     expect(isDirectMetaConnection({ provider: "wescctech_cloud", metadata: { channelType: 3 } })).toBe(false);
+  });
+});
+
+describe("supportsWhuActionCards", () => {
+  it("rejects normal WHU channels that do not expose WhatsApp Cloud templates", () => {
+    expect(supportsWhuActionCards({
+      provider: "wescctech",
+      channel: "whatsapp",
+      metadata: { apiType: "whu", channelType: 0 },
+    })).toBe(false);
+  });
+
+  it("accepts WHU-managed WhatsApp Cloud channels", () => {
+    expect(supportsWhuActionCards({
+      provider: "wescctech",
+      channel: "whatsapp",
+      metadata: { phoneNumberId: "phone", businessAccountId: "waba" },
+    })).toBe(true);
+  });
+
+  it("leaves direct Meta Graph connections to the official template endpoint", () => {
+    expect(supportsWhuActionCards({ provider: "meta_cloud" })).toBe(false);
   });
 });
 

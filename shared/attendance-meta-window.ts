@@ -57,6 +57,14 @@ export function isDirectMetaConnection(connection: ChannelRecord | null | undefi
   return provider === "meta_cloud" || metadata.directMeta === true || metadata.providerMode === "graph";
 }
 
+export function supportsWhuActionCards(connection: ChannelRecord | null | undefined): boolean {
+  const provider = String(connection?.provider ?? "").toLowerCase();
+  const whuManaged = provider.includes("wescctech") || provider.includes("whu");
+  return whuManaged
+    && !isDirectMetaConnection(connection)
+    && isOfficialAttendanceChannel({ connection });
+}
+
 export function isOfficialAttendanceChannel(input: OfficialChannelInput): boolean {
   if (explicitOfficial(input.connection) || explicitOfficial(input.conversation)) return true;
 
