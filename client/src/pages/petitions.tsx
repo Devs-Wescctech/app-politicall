@@ -20,6 +20,7 @@ import {
   type InsertLinkBioPage,
   type InsertLinkTreePage,
 } from "@shared/schema";
+import { isPetitionPublicStatus } from "@shared/petition-status";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -398,9 +399,15 @@ function PetitionFormView({
       }
       return apiRequest("POST", "/api/petitions", data);
     },
-    onSuccess: () => {
+    onSuccess: (_response, savedPetition) => {
       queryClient.invalidateQueries({ queryKey: ["/api/petitions"] });
-      toast({ title: isEdit ? "Petição atualizada!" : "Petição criada!" });
+      const isPublic = isPetitionPublicStatus(savedPetition.status);
+      toast({
+        title: isEdit ? "Petição atualizada!" : "Petição criada!",
+        description: isPublic
+          ? "O link público já está disponível."
+          : "Salva como rascunho. Altere o status para Publicada antes de compartilhar.",
+      });
       onBack();
     },
     onError: () => {
@@ -850,6 +857,7 @@ function PetitionDetailsView({
   const publicLink = petition
     ? `${window.location.origin}/p/${petition.slug}`
     : "";
+  const hasPublicLink = isPetitionPublicStatus(petition?.status);
 
   const { data: signatures, isLoading } = useQuery<PetitionSignature[]>({
     queryKey: ["/api/petitions", petition?.id, "signatures"],
@@ -1141,11 +1149,18 @@ function PetitionDetailsView({
                   variant="outline"
                   size="icon"
                   onClick={() => copyToClipboard(publicLink, toast)}
+                  disabled={!hasPublicLink}
+                  title={hasPublicLink ? "Copiar link público" : "Publique a petição para liberar o link"}
                   data-testid="button-copy-public-link"
                 >
                   <Copy className="h-4 w-4" />
                 </Button>
               </div>
+              {!hasPublicLink && (
+                <p className="text-sm text-muted-foreground" data-testid="text-petition-link-unavailable">
+                  O link será liberado quando o status da petição for alterado para Publicada.
+                </p>
+              )}
               <div className="flex flex-wrap gap-2 pt-1">
                 <Button
                   variant="outline"
@@ -1563,7 +1578,10 @@ function PetitionsTab() {
                       onClick={() =>
                         copyToClipboard(`${window.location.origin}/p/${p.slug}`, toast)
                       }
-                      title="Copiar link público"
+                      disabled={!isPetitionPublicStatus(p.status)}
+                      title={isPetitionPublicStatus(p.status)
+                        ? "Copiar link público"
+                        : "Publique a petição para liberar o link"}
                       data-testid={`button-copy-petition-${p.id}`}
                     >
                       <Copy className="h-4 w-4" />
