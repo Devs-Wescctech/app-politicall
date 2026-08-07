@@ -13,9 +13,11 @@ describe("production authentication configuration", () => {
     ]);
 
     expect(example).toContain("PUBLIC_APP_URL=https://politicall.example");
+    expect(example).toContain("PUBLIC_APP_ORIGINS=https://www.politicall.example");
     expect(example).toContain("ENABLE_BEARER_EXCHANGE=false");
     expect(example).toContain("ENABLE_BEARER_AUTH=false");
     expect(compose).toContain('PUBLIC_APP_URL: "${PUBLIC_APP_URL:?required}"');
+    expect(compose).toContain('PUBLIC_APP_ORIGINS: "${PUBLIC_APP_ORIGINS:-}"');
     expect(compose).toContain('ENABLE_BEARER_EXCHANGE: "${ENABLE_BEARER_EXCHANGE:-false}"');
     expect(compose).toContain('ENABLE_BEARER_AUTH: "${ENABLE_BEARER_AUTH:-false}"');
   });

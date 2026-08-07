@@ -4,7 +4,7 @@ This document describes the browser authentication contract used by Politicall a
 
 ## Shared Rules
 
-- Production requires `PUBLIC_APP_URL` and every browser credential route validates the request `Origin` against that exact origin.
+- Production requires `PUBLIC_APP_URL`. Browser credential routes accept its exact origin plus any exact origins listed in the optional comma-separated `PUBLIC_APP_ORIGINS` value.
 - Credential-bearing cookies are host-only, `HttpOnly`, `SameSite=Lax`, and `Secure` when `NODE_ENV=production`.
 - Browser requests must use `credentials: "include"`.
 - State-changing authenticated requests require `x-csrf-token`.
@@ -223,5 +223,6 @@ Rules:
 ## Deployment Notes
 
 - Production must start with `ENABLE_BEARER_AUTH=false` and `ENABLE_BEARER_EXCHANGE=false`.
+- Configure `PUBLIC_APP_ORIGINS` only for additional HTTPS hostnames that serve the same application, such as the approved `www` alias. Cookies remain host-only, so each hostname maintains its own browser session.
 - When migration from old browser Bearer sessions is required, enable only `ENABLE_BEARER_EXCHANGE=true` for a short window, validate `/api/auth/exchange` and `/api/admin/auth/exchange`, then disable it again.
 - Rotate `SESSION_SECRET`, `DATA_ENCRYPTION_KEY`, and admin password hash before production sign-off. Purge or revoke any historical secret that appeared outside the secret manager before pushing a public release.

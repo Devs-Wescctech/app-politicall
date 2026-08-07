@@ -76,13 +76,33 @@ export const createAuthenticationRateLimiter: AuthenticationRateLimiterFactory =
 
 runtimeLimiter = createAuthenticationRateLimiter();
 
-export function getAuthAllowedOrigins(env: { PUBLIC_APP_URL?: string; NODE_ENV?: string } = process.env as { PUBLIC_APP_URL?: string; NODE_ENV?: string }): string[] {
+type AuthOriginEnvironment = {
+  PUBLIC_APP_URL?: string;
+  PUBLIC_APP_ORIGINS?: string;
+  NODE_ENV?: string;
+};
+
+function parseHttpOrigin(value: string, variableName: string): string {
+  const url = new URL(value);
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    throw new Error(`${variableName} must use http or https`);
+  }
+  return url.origin;
+}
+
+export function getAuthAllowedOrigins(env: AuthOriginEnvironment = process.env as AuthOriginEnvironment): string[] {
   const configured = env.PUBLIC_APP_URL;
   if (!configured && env.NODE_ENV !== "production") return ["http://localhost:5000"];
   if (!configured) throw new Error("PUBLIC_APP_URL must be configured in production");
-  const url = new URL(configured);
-  if (url.protocol !== "http:" && url.protocol !== "https:") throw new Error("PUBLIC_APP_URL must use http or https");
-  return [url.origin];
+  const origins = [
+    parseHttpOrigin(configured, "PUBLIC_APP_URL"),
+    ...(env.PUBLIC_APP_ORIGINS ?? "")
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean)
+      .map((value) => parseHttpOrigin(value, "PUBLIC_APP_ORIGINS")),
+  ];
+  return [...new Set(origins)];
 }
 
 function setNoStore(response: Response): void {

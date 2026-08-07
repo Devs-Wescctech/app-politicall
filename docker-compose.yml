@@ -10,6 +10,7 @@ services:
       NODE_ENV: production
       PORT: 5000
       PUBLIC_APP_URL: "${PUBLIC_APP_URL:?required}"
+      PUBLIC_APP_ORIGINS: "${PUBLIC_APP_ORIGINS:-}"
       ENABLE_BEARER_EXCHANGE: "${ENABLE_BEARER_EXCHANGE:-false}"
       ENABLE_BEARER_AUTH: "${ENABLE_BEARER_AUTH:-false}"
       PROD_DATABASE_URL: "${PROD_DATABASE_URL:?required}"
