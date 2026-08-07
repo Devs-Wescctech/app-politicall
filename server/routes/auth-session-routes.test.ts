@@ -241,4 +241,15 @@ describe("auth session route responses", () => {
   it("rejects non-http public application URLs", () => {
     expect(() => getAuthAllowedOrigins({ PUBLIC_APP_URL: "ftp://app.example.test", NODE_ENV: "production" })).toThrow("http");
   });
+
+  it("allows explicitly configured additional public application origins", () => {
+    expect(getAuthAllowedOrigins({
+      PUBLIC_APP_URL: "https://politicall.com.br",
+      PUBLIC_APP_ORIGINS: "https://www.politicall.com.br",
+      NODE_ENV: "production",
+    })).toEqual([
+      "https://politicall.com.br",
+      "https://www.politicall.com.br",
+    ]);
+  });
 });

@@ -37,6 +37,7 @@ Set these environment variables in Portainer, not in a committed `.env` file:
 | `PROD_DATABASE_URL` | Required PostgreSQL connection string. |
 | `SESSION_SECRET` | Required random session secret. |
 | `DATA_ENCRYPTION_KEY` | Required canonical base64 encoding of exactly 32 random bytes. The app fails before serving when it is missing or invalid. |
+| `PUBLIC_APP_ORIGINS` | Optional comma-separated list of additional exact HTTPS origins, such as the approved `www` alias. |
 | `LEGACY_DATA_ENCRYPTION_KEY` | Optional and temporary. Retain only through the data-key backup/rotation/rollback window, then remove it. |
 | `ADMIN_MASTER_PASSWORD_HASH` | Required bcrypt password hash. |
 | `TRUST_PROXY` | Number of trusted proxy hops for the deployed Nginx topology. |
@@ -46,11 +47,11 @@ Set these environment variables in Portainer, not in a committed `.env` file:
 
 ## Authentication Rollout
 
-Deploy cookie-only first. The current browser contract uses host-only HttpOnly session cookies, readable CSRF cookies, exact `PUBLIC_APP_URL` origin validation, and `x-csrf-token` on authenticated mutations. `ENABLE_BEARER_AUTH=false` keeps legacy browser Bearer authentication disabled, and `ENABLE_BEARER_EXCHANGE=false` keeps the one-time exchange endpoint closed.
+Deploy cookie-only first. The current browser contract uses host-only HttpOnly session cookies, readable CSRF cookies, exact `PUBLIC_APP_URL` plus optional `PUBLIC_APP_ORIGINS` validation, and `x-csrf-token` on authenticated mutations. `ENABLE_BEARER_AUTH=false` keeps legacy browser Bearer authentication disabled, and `ENABLE_BEARER_EXCHANGE=false` keeps the one-time exchange endpoint closed.
 
 Required checks before reopening traffic:
 
-1. Confirm `PUBLIC_APP_URL` exactly matches the HTTPS public origin.
+1. Confirm `PUBLIC_APP_URL` exactly matches the primary HTTPS public origin and every `PUBLIC_APP_ORIGINS` entry is an approved alias.
 2. Rotate `SESSION_SECRET`, `DATA_ENCRYPTION_KEY`, and `ADMIN_MASTER_PASSWORD_HASH` before production sign-off. If any previous value was exposed outside the secret manager, revoke or purge it before a public Git/GHCR release.
 3. Login as a tenant user and verify dashboard, refresh, logout, and one mutating request with CSRF.
 4. Login as global admin and verify `/api/admin/verify`, impersonation, admin logout, and tenant logout.
