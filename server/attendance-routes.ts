@@ -5,13 +5,13 @@ import type { Express, Response } from "express";
 import crypto from "node:crypto";
 import { storage } from "./storage";
 import { authenticateToken, requireAnyPermission, requirePermission, type AuthRequest } from "./auth";
-import { mapWesccStatus, normalizeActionCardTemplate, wescctech } from "./services/wescctech";
+import { isWesccChannelConnected, mapWesccStatus, normalizeActionCardTemplate, wescctech } from "./services/wescctech";
 import { assertAttendanceTransition, isFinalAttendanceStatus, statusForSyncedConversation } from "./services/attendance-state";
 import { selectRoutingCandidate } from "./services/attendance-routing";
 import { decryptApiKey, encryptApiKey, isEncryptedDataValue, isMalformedEncryptedDataValue } from "./crypto";
 import { maskChannelConnectionSecrets, prepareChannelConnectionSecrets, verifyWebhookSecret } from "./services/data-secret-fields";
 import { publishAttendanceEvent } from "./attendance-events";
-import { getMetaWindowState, isDirectMetaConnection, isOfficialAttendanceChannel, isWhuCloudChannelInfo } from "@shared/attendance-meta-window";
+import { getMetaWindowState, isDirectMetaConnection, isOfficialAttendanceChannel, isWhuCloudChannelInfo, supportsWhuActionCards } from "@shared/attendance-meta-window";
 import { evaluatePublicReplyPolicy, resolveLastCustomerActivityAt } from "./services/attendance-meta-policy";
 import { selectTemplateConnections } from "./services/attendance-template-selection";
 import { prepareAttendanceTemplateSend, TemplateVariablesRequiredError } from "./services/attendance-template-variables";
@@ -807,7 +807,7 @@ async function resolveAttendanceTemplates(accountId: string, connectionId?: stri
           console.error("[ATT] official templates error:", String(err.message ?? "Falha ao listar templates").slice(0, 300));
         }
       }
-    } else if (token) {
+    } else if (token && supportsWhuActionCards(connection)) {
       try {
         const remote = await wescctech.listActionCardTemplates(token);
         collected.push(...remote.filter(template => Boolean(template.id)).map(template => ({
@@ -931,7 +931,7 @@ export function registerAttendanceRoutes(app: Express) {
           status = "connected";
         } else {
           const result = await wescctech.getStatus(token);
-          status = result.status === "CONNECTED" ? "connected" : "error";
+          status = isWesccChannelConnected(result) ? "connected" : "error";
           if (status === "error") error = `Status remoto: ${result.status}`;
         }
       } catch (err: any) {

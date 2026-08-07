@@ -44,7 +44,7 @@ const upload = multer({
 });
 import { db } from "./db";
 import { accounts, politicalParties, politicalAlliances, surveyTemplates, surveyCampaigns, surveyLandingPages, surveyResponses, users, events, demands, demandComments, contacts, aiConfigurations, systemSettings, type SurveyTemplate, type SurveyCampaign, type InsertSurveyCampaign, type SurveyLandingPage, type InsertSurveyLandingPage, type SurveyResponse, type InsertSurveyResponse, type AudienceFilters, insertContactListSchema, CONTACT_LIST_KINDS, insertMessageTemplateSchema, MESSAGE_TEMPLATE_CHANNELS, type CampaignTemplateConfig } from "@shared/schema";
-import { normalizeActionCardTemplate, wescctech } from "./services/wescctech";
+import { isWesccChannelConnected, normalizeActionCardTemplate, wescctech } from "./services/wescctech";
 import { isDirectMetaConnection } from "@shared/attendance-meta-window";
 import { buildWhatsappConnectionConfig } from "./services/whatsapp-connection-config";
 import { renderTemplate, extractVariables, unknownVariables, isBlankMessage, smsSegments, isWaTemplateUsable, waTemplateBlockReason, waTemplateBodyVariables, contactTemplateContext, type TemplateContext } from "@shared/templates";
@@ -92,6 +92,7 @@ import { z } from "zod";
 import { groupTextResponses } from "@shared/text-normalization";
 import { calculateGenderDistribution } from "./utils/gender-detector";
 import { sendOktorSms, queryOktorSms } from "./services/oktor-sms";
+import { assertActiveOktorSmsCredentials, hasOktorSmsCredentials, oktorConfigFromIntegration } from "./services/sms-integration-validation";
 import { locawebEmail } from "./services/locaweb-email-marketing";
 import { resolveChannels, channelToService, channelLabel, computeFinalStatus, canCancel, canSend, normalizeCampaignStatus, canPause, canResume, canEditCritical, normalizeSendConfig, isWithinSendWindow, classifyFailure, canRetry, shouldRetryDispatch, retryBackoffMs, computeRateBudget, buildRecipientCounts, computeRecipientMetrics, estimateSmsCost, friendlyErrorMessage, groupErrorsByReason, summarizeChannels, computeSendTiming, parseWhatsAppStatusEvents, type RecipientLite } from "./services/campaigns";
 import {
@@ -165,22 +166,6 @@ function decryptIntegrationForUse<T extends Record<string, any> | null | undefin
     decrypted[key] = decryptSecretIfNeeded(decrypted[key]);
   }
   return decrypted as T;
-}
-
-function oktorConfigFromIntegration(integration: Record<string, any>) {
-  return {
-    endpoint: process.env.OKTOR_SMS_ENDPOINT || integration.smsEndpoint,
-    account: integration.smsAccount || process.env.OKTOR_SMS_ACCOUNT,
-    code: integration.smsCode || process.env.OKTOR_SMS_CODE,
-    client: integration.smsClient || process.env.OKTOR_SMS_CLIENT || "",
-    tipoEnvio: integration.smsTipoEnvio || process.env.OKTOR_SMS_TIPO_ENVIO || "7",
-  };
-}
-
-function hasOktorSmsCredentials(integration: Record<string, any> | null | undefined) {
-  if (!integration?.enabled) return false;
-  const config = oktorConfigFromIntegration(integration);
-  return Boolean(config.account && config.code && config.client);
 }
 
 type AiConfigurationRecord = typeof aiConfigurations.$inferSelect;
@@ -5072,6 +5057,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      assertActiveOktorSmsCredentials(validatedData as any);
+
       const owner = req.userId || existing?.userId || (await storage.getAccountAdmin(accountId))?.id;
       if (!owner) return res.status(400).json({ error: "Nao foi possivel identificar usuario responsavel pela integracao" });
 
@@ -5115,6 +5102,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           (validatedData as any)[key] = normalizeIntegrationSecretForWrite((validatedData as any)[key], (existing as any)?.[key]);
         }
       }
+      assertActiveOktorSmsCredentials(validatedData as any);
       const owner = req.userId || existing?.userId || (await storage.getAccountAdmin(accountId))?.id;
       if (!owner) return res.status(400).json({ error: "Nao foi possivel identificar usuario responsavel pela integracao" });
       const integration = await storage.upsertIntegration({ ...validatedData, userId: owner, accountId });
@@ -5166,7 +5154,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
         const text = await response.text();
         if (!response.ok) throw new Error(`Wescctech ${response.status}: ${text}`);
-        result = text ? JSON.parse(text) : { success: true };
+        result = text ? JSON.parse(text) : {};
+        if (!isWesccChannelConnected(result)) {
+          throw new Error(`Canal WHU desconectado (status: ${String((result as any)?.status ?? "desconhecido")})`);
+        }
       } else {
         return res.status(400).json({ error: "Servico nao suportado" });
       }
@@ -5274,6 +5265,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      assertActiveOktorSmsCredentials(validatedData as any);
+
       const integration = await storage.upsertIntegration({
         ...validatedData,
         userId: req.userId!,
@@ -5308,7 +5301,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
         const body = await resp.text();
         if (!resp.ok) throw new Error(`Wescctech ${resp.status}: ${body}`);
-        res.json({ success: true, message: 'WhatsApp/WHU configurado corretamente!', provider: body ? JSON.parse(body) : null });
+        const provider = body ? JSON.parse(body) : {};
+        if (!isWesccChannelConnected(provider)) {
+          return res.status(400).json({
+            error: `Canal WHU desconectado (status: ${String(provider?.status ?? "desconhecido")})`,
+          });
+        }
+        res.json({ success: true, message: 'WhatsApp/WHU configurado corretamente!', provider });
       } else if (req.params.service === 'sms') {
         if (!hasOktorSmsCredentials(integration as any)) {
           return res.status(400).json({ error: 'Credenciais SMS (account/code/client) incompletas' });

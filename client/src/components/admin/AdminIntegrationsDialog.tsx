@@ -172,6 +172,9 @@ export default function AdminIntegrationsDialog({
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!account) throw new Error("Empresa nao selecionada");
+      if (service === "sms" && currentDraft.enabled !== false && !currentDraft.smsClient?.trim()) {
+        throw new Error("Cliente de cobrança (client) é obrigatório para SMS ativo.");
+      }
       return adminJson<IntegrationRecord>(`/api/admin/accounts/${account.id}/integrations/${service}`, {
         method: "PATCH",
         body: JSON.stringify({ ...currentDraft, service, enabled: true }),
@@ -216,7 +219,10 @@ export default function AdminIntegrationsDialog({
           </TabsContent>
 
           <TabsContent value="sms" className="mt-4 space-y-3">
-            <IntegrationField label="Client / centro de custo" value={currentDraft.smsClient} onChange={smsClient => updateDraft({ smsClient })} placeholder="333" />
+            <IntegrationField label="Client / centro de custo *" value={currentDraft.smsClient} onChange={smsClient => updateDraft({ smsClient })} placeholder="333" />
+            <p className="text-xs text-muted-foreground">
+              Obrigatório para envio SMS. Os campos account e code continuam sendo configurados no painel do cliente.
+            </p>
           </TabsContent>
 
           <TabsContent value="email" className="mt-4 space-y-3">
