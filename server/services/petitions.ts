@@ -1,3 +1,5 @@
+import { isPetitionPublicStatus } from "@shared/petition-status";
+
 export type PublicPetitionStatus = {
   status?: string | null;
 };
@@ -41,8 +43,6 @@ export type FixedWindowEntry = {
   resetAt: number;
 };
 
-const PUBLIC_VISIBLE_STATUSES = new Set(["publicada", "pausada", "concluida"]);
-
 function hasText(value: unknown): boolean {
   return typeof value === "string" ? value.trim().length > 0 : value != null && String(value).trim().length > 0;
 }
@@ -52,7 +52,7 @@ function isAccepted(value: unknown): boolean {
 }
 
 export function isPublicPetitionVisible<T extends PublicPetitionStatus>(petition: T | null | undefined): petition is T {
-  return Boolean(petition?.status && PUBLIC_VISIBLE_STATUSES.has(petition.status));
+  return isPetitionPublicStatus(petition?.status);
 }
 
 export function isPublicPetitionOpenForSignature<T extends PublicPetitionStatus>(petition: T | null | undefined): petition is T {
