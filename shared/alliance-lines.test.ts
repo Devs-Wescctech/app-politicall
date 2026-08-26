@@ -93,7 +93,6 @@ describe("alliance line contracts", () => {
     }
   });
 });
-
 describe("custom alliance lines migration", () => {
   it("creates constrained lines and preserves legacy ideology assignments idempotently", () => {
     const migration = readFileSync(resolve(process.cwd(), "migrations/0018_custom_alliance_lines.sql"), "utf8");
@@ -113,4 +112,3 @@ describe("custom alliance lines migration", () => {
     expect(migration).toContain("#6366f1");
   });
 });
-

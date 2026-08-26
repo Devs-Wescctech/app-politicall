@@ -14,9 +14,7 @@ export type AttendanceChannelHealth = {
   missing?: string[];
   lastCheckedAt?: string | null;
 };
-
 export type AttendanceChannelHealthResponse = {
   channels: AttendanceChannelHealth[];
   checkedAt: string;
 };
-

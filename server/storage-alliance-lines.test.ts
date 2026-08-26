@@ -50,4 +50,3 @@ describe("alliance line reorder storage", () => {
     expect(mocks.update).not.toHaveBeenCalled();
   });
 });
-

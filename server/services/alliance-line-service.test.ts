@@ -15,7 +15,6 @@ const line = (overrides: Record<string, unknown> = {}) => ({
   updatedAt: new Date("2026-08-12T12:00:00.000Z"),
   ...overrides,
 });
-
 function store(overrides: Record<string, unknown> = {}) {
   return {
     list: vi.fn(async () => [line()]),
@@ -127,4 +126,3 @@ describe("alliance line service", () => {
     expect(new AllianceLineError("ALLIANCE_LINE_NOT_FOUND", "Linha nao encontrada")).toBeInstanceOf(Error);
   });
 });
-

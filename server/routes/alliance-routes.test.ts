@@ -176,4 +176,3 @@ describe("alliance line routes", () => {
     expect(context.storage.getAlliances).toHaveBeenCalledOnce();
   });
 });
-

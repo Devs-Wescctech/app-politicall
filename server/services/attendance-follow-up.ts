@@ -47,4 +47,3 @@ export function buildAttendanceFollowUp(conversation: AttendanceFollowUpConversa
     attendanceConversationId: conversation.id,
   };
 }
-

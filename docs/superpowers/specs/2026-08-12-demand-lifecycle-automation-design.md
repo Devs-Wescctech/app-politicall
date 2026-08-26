@@ -61,4 +61,3 @@ O painel lateral da demanda ganha a aba **Anexos**, com seletor de arquivo, prog
 - Integracao: isolamento por conta, upload/download/exclusao e idempotencia dos alertas.
 - Frontend: aba, estados, envio e exclusao.
 - Fluxo local: login, upload, download, exclusao, alerta SLA e historico, sem erros de console ou HTTP.
-

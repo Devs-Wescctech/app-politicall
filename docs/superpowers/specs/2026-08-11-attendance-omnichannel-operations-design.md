@@ -34,4 +34,3 @@ Transformar a tela de Atendimentos em um centro operacional confiavel, deixando 
 - Simular caixa de entrada de e-mail sem IMAP configurado.
 - Testar provedores externos automaticamente em cada abertura da tela.
 - Alterar credenciais ou publicar configuracoes.
-

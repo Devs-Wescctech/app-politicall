@@ -249,4 +249,3 @@ Run: `npm run security:secrets`
 Validar deteccao, preview, mesclagem, duas conversas com numeros receptores diferentes, reversao, console, respostas HTTP e overflow.
 
 - [ ] **Step 5: Revisar diff, confirmar arvore limpa e criar commit local final**
-

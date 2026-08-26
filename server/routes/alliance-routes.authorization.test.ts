@@ -83,4 +83,3 @@ describe("alliance line route authorization", () => {
     expect(context.lineService.list).not.toHaveBeenCalled();
   });
 });
-

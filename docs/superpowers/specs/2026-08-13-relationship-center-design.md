@@ -1,7 +1,9 @@
 # Central de Relacionamento - Especificação de Design
 
-Data: 2026-08-13  
-Projeto: Politicall  
+Data: 2026-08-13
+
+Projeto: Politicall
+
 Status: Aguardando revisão do patrocinador
 
 ## 1. Objetivo

@@ -9,4 +9,3 @@
 7. Aplicar a migracao somente no PostgreSQL local isolado.
 8. Executar testes focados, suite completa, TypeScript, build, seguranca e QA no navegador.
 9. Atualizar `docs/DEMANDAS.md` e criar checkpoint Git local, sem publicar.
-

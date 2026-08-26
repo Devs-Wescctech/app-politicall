@@ -35,4 +35,3 @@ describe("buildAttendanceFollowUp", () => {
     })).toThrow("posterior");
   });
 });
-
