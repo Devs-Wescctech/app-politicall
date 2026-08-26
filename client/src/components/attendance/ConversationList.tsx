@@ -37,6 +37,7 @@ import { isOfficialAttendanceChannel } from "@shared/attendance-meta-window";
 import { AttendanceViewSwitcher, type AttendanceView } from "./AttendanceViewSwitcher";
 import { listPollingInterval, type AttendancePollingVisibility } from "@/lib/attendance-polling";
 import type { AttendanceConnectionMode } from "@/lib/attendance-connection-state";
+import { syncWhuAttendanceConnections } from "@/lib/attendance-sync";
 
 const STATUS_LABELS: Record<string, { label: string; dot: string }> = {
   new: { label: "Novo", dot: "bg-sky-500" },
@@ -178,6 +179,16 @@ export function nextAutoExpandedLane(
   return laneWithItems?.value ?? currentLane;
 }
 
+export function nextExpandedLaneForSelectedConversation(
+  currentLane: string,
+  selected: Pick<AttConversation, "mode" | "status" | "assignedUserId"> | null,
+  currentUserId?: string,
+): string {
+  if (!selected || !currentUserId || selected.assignedUserId !== currentUserId) return currentLane;
+  const isManual = selected.mode === "manual" || ["assigned", "in_progress", "transferred", "paused", "reopened"].includes(selected.status);
+  return isManual ? "manual" : currentLane;
+}
+
 function isGroupConversation(conv: AttConversation) {
   const metadata = (conv.metadata as any) ?? {};
   const remote = metadata.remote ?? {};
@@ -219,7 +230,7 @@ export default function ConversationList({ selected, onSelect, onNewConversation
   if (channelFilter !== "all") params.set("channel", channelFilter);
   const qs = params.toString();
 
-  const { data: conversationPages, isLoading, refetch, isFetching, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery<{ data: AttConversation[]; page: number; pageSize: number; hasNextPage: boolean }>({
+  const { data: conversationPages, isLoading, isError, refetch, isFetching, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery<{ data: AttConversation[]; page: number; pageSize: number; hasNextPage: boolean }>({
     queryKey: ["/api/attendance/conversations", "paged", qs],
     initialPageParam: 1,
     queryFn: async ({ pageParam }) => {
@@ -297,6 +308,11 @@ export default function ConversationList({ selected, onSelect, onNewConversation
     if (nextLane !== expandedLane) setExpandedLane(nextLane);
   }, [expandedLane, expandedLaneTouched, laneData]);
 
+  const selectedConversation = conversations.find(conversation => conversation.id === selected?.id) ?? selected;
+  useEffect(() => {
+    setExpandedLane(current => nextExpandedLaneForSelectedConversation(current, selectedConversation, currentUser?.id));
+  }, [selectedConversation?.mode, selectedConversation?.status, selectedConversation?.assignedUserId, currentUser?.id]);
+
   const resetFilters = () => {
     setStatusFilter("all");
     setChannelFilter("all");
@@ -318,9 +334,30 @@ export default function ConversationList({ selected, onSelect, onNewConversation
   const handleSync = async (silent = false) => {
     setIsSyncing(true);
     try {
-      await apiRequest("POST", "/api/attendance/sync", { page: 0 });
-      await queryClient.invalidateQueries({ queryKey: ["/api/attendance/conversations"] });
-      if (!silent) toast({ title: "Sincronizado com sucesso" });
+      const result = await syncWhuAttendanceConnections(
+        connections,
+        connectionId => apiRequest("POST", "/api/attendance/sync", { connectionId, page: 0 }),
+      );
+      if (result.succeeded > 0) {
+        await queryClient.invalidateQueries({ queryKey: ["/api/attendance/conversations"] });
+      }
+      if (silent) return;
+      if (result.attempted === 0) {
+        toast({
+          title: "Nenhuma conexão WHU disponível",
+          description: "Conecte ou teste um número WHU nas configurações de atendimento.",
+          variant: "destructive",
+        });
+      } else if (result.failures.length === 0) {
+        toast({ title: result.succeeded === 1 ? "Conexão sincronizada" : `${result.succeeded} conexões sincronizadas` });
+      } else {
+        const failedNames = result.failures.map(failure => failure.connectionName).join(", ");
+        toast({
+          title: result.succeeded > 0 ? "Sincronização concluída parcialmente" : "Erro ao sincronizar",
+          description: `${failedNames}: ${result.failures[0].message}`,
+          variant: "destructive",
+        });
+      }
     } catch (e: any) {
       if (!silent) toast({ title: "Erro ao sincronizar", description: e.message, variant: "destructive" });
     } finally {
@@ -411,6 +448,15 @@ export default function ConversationList({ selected, onSelect, onNewConversation
                 </div>
               </div>
             ))}
+          </div>
+        ) : isError ? (
+          <div className="flex h-64 flex-col items-center justify-center px-6 text-center" data-testid="error-conversations">
+            <WifiOff className="mb-3 h-8 w-8 text-destructive/70" />
+            <p className="text-sm font-semibold text-foreground">Não foi possível carregar os atendimentos</p>
+            <p className="mt-1 max-w-xs text-xs text-muted-foreground">Verifique a conexão e tente atualizar a caixa.</p>
+            <Button variant="outline" size="sm" className="mt-4 gap-1.5" onClick={() => refetch()} disabled={isFetching} data-testid="button-retry-conversations">
+              <RefreshCw className={cn("h-3.5 w-3.5", isFetching && "animate-spin")} /> Tentar novamente
+            </Button>
           </div>
         ) : filteredConversations.length === 0 ? (
           <div className="flex h-56 flex-col items-center justify-center px-6 text-center text-sm text-muted-foreground" data-testid="empty-conversations">

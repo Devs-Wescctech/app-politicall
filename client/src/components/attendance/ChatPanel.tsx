@@ -5,7 +5,9 @@ import {
   AlertTriangle,
   ArrowRight,
   Bot,
+  CalendarPlus,
   CheckCheck,
+  ClipboardList,
   Clock3,
   ExternalLink,
   FileText,
@@ -52,6 +54,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import type { AttConversation, AttMessage, QuickReply } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { reconcileAttendanceConversation } from "@/lib/attendance-reconciliation";
 import { conversationPollingInterval, type AttendancePollingVisibility } from "@/lib/attendance-polling";
 import type { AttendanceConnectionMode } from "@/lib/attendance-connection-state";
 import { useToast } from "@/hooks/use-toast";
@@ -62,6 +65,7 @@ import { TagSelector, labelColor, useAttendanceLabels } from "./TagSelector";
 import { buildComposerCommands, type ComposerCommand } from "@shared/attendance-composer";
 import TemplateVariableDialog, { type TemplateVariableConfirmation } from "./TemplateVariableDialog";
 import { ConnectionStatus } from "./ConnectionStatus";
+import FollowUpDialog from "./FollowUpDialog";
 
 const STATUS_META: Record<string, { label: string; className: string }> = {
   new: { label: "Novo", className: "bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/30 dark:text-sky-300 dark:border-sky-900" },
@@ -212,6 +216,7 @@ export default function ChatPanel({ conversation, onClose, onOpenContact, mode, 
   const [quickSearch, setQuickSearch] = useState("");
   const [showTransferDialog, setShowTransferDialog] = useState(false);
   const [showTagDialog, setShowTagDialog] = useState(false);
+  const [showFollowUpDialog, setShowFollowUpDialog] = useState(false);
   const [isLoadingOlder, setIsLoadingOlder] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<AttendanceTemplate | null>(null);
   const [tagDraft, setTagDraft] = useState<string[]>(conversation.tags ?? []);
@@ -411,10 +416,7 @@ export default function ChatPanel({ conversation, onClose, onOpenContact, mode, 
       return response.json() as Promise<AttConversation>;
     },
     onSuccess: (updated) => {
-      queryClient.setQueryData<any>(conversationDetailQueryKey, (old: any) => ({ ...(old ?? {}), ...updated }));
-      queryClient.setQueriesData<AttConversation[]>({ queryKey: ["/api/attendance/conversations"] }, (old) =>
-        Array.isArray(old) ? old.map(item => item.id === updated.id ? { ...item, ...updated } : item) : old
-      );
+      reconcileAttendanceConversation(queryClient, updated as unknown as Record<string, unknown> & { id: unknown });
       invalidateConversation();
       toast({ title: "Atendimento assumido" });
     },
@@ -601,6 +603,26 @@ export default function ChatPanel({ conversation, onClose, onOpenContact, mode, 
         <div className="flex items-center gap-1.5">
           <Button
             size="sm"
+            variant="outline"
+            className="hidden h-9 gap-1.5 sm:flex"
+            onClick={() => {
+              const params = new URLSearchParams({
+                origin: "attendance",
+                sourceType: "attendance",
+                sourceId: liveConversation.id,
+                title: `Atendimento - ${liveConversation.contactName ?? liveConversation.contactPhone ?? liveConversation.attendanceCode ?? "Contato"}`,
+              });
+              if ((liveConversation as any).contactId) params.set("contactId", (liveConversation as any).contactId);
+              window.location.assign(`/demands?${params.toString()}`);
+            }}
+            title="Criar demanda a partir deste atendimento"
+            data-testid="button-create-demand"
+          >
+            <ClipboardList className="h-4 w-4" />
+            Criar demanda
+          </Button>
+          <Button
+            size="sm"
             variant="ghost"
             className="hidden h-9 gap-1.5 rounded-full sm:flex"
             onClick={() => setShowTagDialog(true)}
@@ -664,6 +686,9 @@ export default function ChatPanel({ conversation, onClose, onOpenContact, mode, 
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => protocolMutation.mutate()} disabled={protocolMutation.isPending}>
                 <FileText className="mr-2 h-4 w-4" /> Gerar protocolo
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setShowFollowUpDialog(true)} data-testid="button-open-follow-up">
+                <CalendarPlus className="mr-2 h-4 w-4" /> Agendar retorno
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => flagsMutation.mutate({ pinned: true })}>
@@ -876,6 +901,7 @@ export default function ChatPanel({ conversation, onClose, onOpenContact, mode, 
         onClose={() => setShowTransferDialog(false)}
         conversationId={conversation.id}
       />
+      <FollowUpDialog open={showFollowUpDialog} onOpenChange={setShowFollowUpDialog} conversation={liveConversation} />
       <TemplateVariableDialog
         template={selectedTemplate}
         open={Boolean(selectedTemplate)}

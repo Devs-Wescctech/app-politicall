@@ -10,12 +10,25 @@ import { assertAttendanceTransition, isFinalAttendanceStatus, statusForSyncedCon
 import { selectRoutingCandidate } from "./services/attendance-routing";
 import { decryptApiKey, encryptApiKey, isEncryptedDataValue, isMalformedEncryptedDataValue } from "./crypto";
 import { maskChannelConnectionSecrets, prepareChannelConnectionSecrets, verifyWebhookSecret } from "./services/data-secret-fields";
+import {
+  assertWhuConnectionUnique,
+  buildWhuConnectionCreate,
+  buildWhuConnectionUpdate,
+  ConnectionValidationError,
+  isWhuConnectionRequest,
+} from "./services/channel-connection-service";
 import { publishAttendanceEvent } from "./attendance-events";
 import { getMetaWindowState, isDirectMetaConnection, isOfficialAttendanceChannel, isWhuCloudChannelInfo, supportsWhuActionCards } from "@shared/attendance-meta-window";
 import { evaluatePublicReplyPolicy, resolveLastCustomerActivityAt } from "./services/attendance-meta-policy";
 import { selectTemplateConnections } from "./services/attendance-template-selection";
 import { prepareAttendanceTemplateSend, TemplateVariablesRequiredError } from "./services/attendance-template-variables";
 import { extractAttendanceExternalMessageId } from "./services/attendance-message-identity";
+import { parseWesccMessageDate } from "./services/attendance-message-timestamp";
+import { buildAttendanceChannelHealth } from "./services/attendance-channel-health";
+import { buildAttendanceConnectionView } from "./services/attendance-connection-view";
+import { buildAttendanceFollowUp } from "./services/attendance-follow-up";
+import { resolveContactIdentity } from "./services/contact-identity";
+import { snapshotAttendanceConnection } from "./services/attendance-connection-snapshot";
 import multer from "multer";
 import PDFDocument from "pdfkit";
 import { rowsToXlsxBuffer, xlsxBufferToObjectRows } from "./services/excel";
@@ -36,6 +49,15 @@ import {
   type UserPermissions,
 } from "@shared/schema";
 import { z } from "zod";
+
+import {
+  AttendanceConnectionError,
+  InboundConnectionError,
+  assertInboundConnection,
+  isAttendanceConnectionThreadUniqueViolation,
+  requireConversationSendConnection,
+  requireNewConversationConnection,
+} from "./services/attendance-connection-routing";
 
 const attendanceUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
@@ -321,9 +343,9 @@ function remoteLastMessagePreview(chat: any): string | null {
 }
 
 function remoteLastMessageDate(chat: any): Date | null {
+  const providerDate = parseWesccMessageDate(chat?.lastMessage ?? {});
+  if (providerDate) return providerDate;
   const raw =
-    chat?.lastMessage?.utcDhMessage ??
-    chat?.lastMessage?.dhMessage ??
     chat?.lastReceivedMessageDate ??
     chat?.lastSentMessageDate ??
     chat?.lastSeen;
@@ -426,7 +448,7 @@ function remoteMessageStatus(message: any): string {
 
 async function syncConversationMessages(accountId: string, conversation: any): Promise<{ created: number; total: number }> {
   if (!conversation?.externalThreadId) return { created: 0, total: 0 };
-  const token = await getWesccToken(accountId, conversation.connectionId ?? undefined);
+  const { token } = await resolveConversationSendToken(accountId, conversation);
   if (!token) return { created: 0, total: 0 };
 
   const remoteChat = await wescctech.getChat(token, conversation.externalThreadId);
@@ -439,7 +461,7 @@ async function syncConversationMessages(accountId: string, conversation: any): P
     const existing = await storage.getMessageByExternalId(externalMessageId, accountId);
     if (existing) continue;
 
-    const createdAt = remote?.utcDhMessage || remote?.dhMessage ? new Date(remote.utcDhMessage ?? remote.dhMessage) : new Date();
+    const createdAt = parseWesccMessageDate(remote) ?? new Date();
     const dataMedia = remote?.dataMedia ?? {};
     const dataLocation = remote?.dataLocation ?? null;
     const dataVcard = Array.isArray(remote?.dataVcard) ? remote.dataVcard : null;
@@ -473,8 +495,8 @@ async function syncConversationMessages(accountId: string, conversation: any): P
 
   const latest = messages.reduce((current: any, candidate: any) => {
     if (!current) return candidate;
-    const currentTime = new Date(current?.utcDhMessage ?? current?.dhMessage ?? 0).getTime();
-    const candidateTime = new Date(candidate?.utcDhMessage ?? candidate?.dhMessage ?? 0).getTime();
+    const currentTime = parseWesccMessageDate(current)?.getTime() ?? 0;
+    const candidateTime = parseWesccMessageDate(candidate)?.getTime() ?? 0;
     return candidateTime > currentTime ? candidate : current;
   }, null as any);
   const localMessages = await storage.getMessages(conversation.id, accountId);
@@ -485,8 +507,8 @@ async function syncConversationMessages(accountId: string, conversation: any): P
     current: conversation.lastCustomerActivityAt,
   });
   if (latest || latestLocal) {
-    const latestRemoteDate = new Date(latest?.utcDhMessage ?? latest?.dhMessage ?? 0);
-    const remoteTime = Number.isNaN(latestRemoteDate.getTime()) ? 0 : latestRemoteDate.getTime();
+    const latestRemoteDate = parseWesccMessageDate(latest);
+    const remoteTime = latestRemoteDate?.getTime() ?? 0;
     const localTime = latestLocal?.createdAt ? new Date(latestLocal.createdAt).getTime() : 0;
     const currentTime = conversation.lastMessageAt ? new Date(conversation.lastMessageAt).getTime() : 0;
     const localIsLatest = localTime >= remoteTime && localTime >= currentTime;
@@ -616,20 +638,26 @@ function templatePreview(template: any): string {
   return body?.text ?? template?.message ?? template?.title ?? template?.name ?? "";
 }
 
-async function syncAttendanceContact(accountId: string, userId: string, conversation: AttConversation) {
+async function syncAttendanceContact(accountId: string, userId: string, conversation: AttConversation, preferredContactId?: string | null) {
   const phone = normalizePhone(conversation.contactPhone ?? conversation.externalContactId);
-  if (!phone) return null;
-  const all = await storage.getContacts(accountId);
-  const existing = all.find(contact => normalizePhone(contact.phone) === phone);
+  const email = String(conversation.contactEmail ?? "").trim().toLowerCase() || null;
+  const preferred = preferredContactId ? await storage.getContact(preferredContactId, accountId) : undefined;
+  if (!preferred && !phone && !email) return null;
   const payload = {
     name: conversation.contactName ?? conversation.contactPhone ?? phone,
     phone,
-    email: conversation.contactEmail ?? undefined,
+    email,
     source: "Atendimento",
     notes: (conversation.summary ?? undefined) as any,
   };
-  if (existing) return storage.updateContact(existing.id, accountId, payload);
-  return storage.createContact({ ...payload, userId, accountId } as any);
+  const contact = preferred ?? await resolveContactIdentity({ ...payload, userId, accountId }, {
+    findContact: (scope, identity) => storage.findContactByIdentity(scope, identity),
+    createContact: (input) => storage.createContact(input as any),
+  });
+  if (conversation.contactId !== contact.id) {
+    await storage.updateConversation(conversation.id, accountId, { contactId: contact.id });
+  }
+  return contact;
 }
 
 async function syncAttendanceContacts(accountId: string, userId: string) {
@@ -653,13 +681,17 @@ async function sendTemplateToConversation(req: AuthRequest, conv: AttConversatio
   templateComponents?: any[];
   fallbackText?: string;
 }) {
-  const initialConnection = options.connection ?? (conv.connectionId ? await storage.getChannelConnection(conv.connectionId, req.accountId!) : null);
+  const bound = conv.connectionId === null ? null : await resolveConversationSendToken(req.accountId!, conv);
+  if (bound?.connection && options.connection && String(options.connection.id ?? "").trim() !== bound.connection.id) {
+    throw new AttendanceConnectionError("WHU_CONNECTION_UNAVAILABLE", "A conexão vinculada a este atendimento não está disponível", 409);
+  }
+  const initialConnection = bound?.connection ?? options.connection ?? null;
   const templates = await resolveAttendanceTemplates(req.accountId!, initialConnection?.id);
   const selected = templates.find((template: any) => template.id === options.templateId || template.name === options.templateName);
   if (!selected) throw new Error("Template não encontrado ou indisponível para esta conexão");
   const prepared = prepareAttendanceTemplateSend(selected, options.templateComponents, options.fallbackText);
   const connection = initialConnection ?? (selected?.connectionId ? await storage.getChannelConnection(selected.connectionId, req.accountId!) : null);
-  const token = await getWesccToken(req.accountId!, connection?.id ?? conv.connectionId ?? undefined);
+  const token = bound?.token ?? await getWesccToken(req.accountId!, connection?.id ?? undefined);
   const name = options.templateName ?? selected?.name;
   const language = options.templateLanguage ?? selected?.language ?? "pt_BR";
   const body = prepared.preview;
@@ -839,13 +871,69 @@ async function resolveAttendanceConnection(accountId: string, connectionId?: str
 }
 
 async function getWesccToken(accountId: string, connectionId?: string): Promise<string | null> {
-  const connection = await resolveAttendanceConnection(accountId, connectionId);
+  const connection = connectionId
+    ? await storage.getChannelConnection(connectionId, accountId)
+    : await resolveAttendanceConnection(accountId);
   const connectionToken = decryptTokenIfNeeded(connection?.token, connection?.id);
   if (connectionToken) return connectionToken;
+  if (connectionId) return null;
   const whatsappIntegration = await storage
     .getIntegrationByAccount(accountId, "whatsapp")
     .catch(() => null);
   return decryptTokenIfNeeded((whatsappIntegration as any)?.whatsappToken);
+}
+
+async function resolveConversationSendToken(accountId: string, conversation: Pick<AttConversation, "connectionId">) {
+  if (conversation.connectionId === null) return { connection: null, token: await getWesccToken(accountId) };
+
+  const connectionId = typeof conversation.connectionId === "string" ? conversation.connectionId.trim() : "";
+
+  const connection = requireConversationSendConnection(
+    conversation,
+    connectionId ? await storage.getChannelConnection(connectionId, accountId) : null,
+  );
+  let token: string | null = null;
+  try {
+    token = decryptTokenIfNeeded(connection?.token, connection?.id);
+  } catch {
+    throw new AttendanceConnectionError("WHU_CONNECTION_UNAVAILABLE", "A conexão vinculada a este atendimento não está disponível", 409);
+  }
+  if (!token) {
+    throw new AttendanceConnectionError("WHU_CONNECTION_UNAVAILABLE", "A conexão vinculada a este atendimento não está disponível", 409);
+  }
+  return { connection, token };
+}
+
+function sendAttendanceConnectionError(res: Response, error: unknown): boolean {
+  if (!(error instanceof AttendanceConnectionError)) return false;
+  res.status(error.status).json({ code: error.code, error: error.message });
+  return true;
+}
+
+function channelConnectionUniqueViolation(error: unknown): "phone" | "token" | null {
+  const values = [
+    (error as any)?.constraint,
+    (error as any)?.cause?.constraint,
+    (error as any)?.message,
+  ].map(value => String(value ?? ""));
+  if (values.some(value => value.includes("channel_connections_token_active_uidx"))) return "token";
+  if (values.some(value => value.includes("channel_connections_account_phone_active_uidx"))) return "phone";
+  return null;
+}
+
+function sendChannelConnectionError(res: Response, error: unknown) {
+  if (error instanceof ConnectionValidationError) {
+    const status = error.code.startsWith("WHU_DUPLICATE_") ? 409 : 400;
+    return res.status(status).json({ code: error.code, error: error.message });
+  }
+  const uniqueViolation = channelConnectionUniqueViolation(error);
+  if (uniqueViolation === "token") {
+    return res.status(409).json({ code: "WHU_DUPLICATE_TOKEN", error: "Este token WHU já está em uso." });
+  }
+  if (uniqueViolation === "phone") {
+    return res.status(409).json({ code: "WHU_DUPLICATE_PHONE", error: "Já existe uma conexão WHU ativa com este número." });
+  }
+  return res.status(400).json({ error: (error as any)?.message ?? "Falha ao salvar conexão" });
 }
 
 // ─── route registration ───────────────────────────────────────────────────────
@@ -857,20 +945,49 @@ export function registerAttendanceRoutes(app: Express) {
   app.get("/api/attendance/connections", authenticateToken, requirePermission("attendanceSettings"), async (req: AuthRequest, res: Response) => {
     try {
       const connections = await storage.getChannelConnections(req.accountId!);
-      res.json(connections.map(maskChannelConnectionSecrets));
+      res.json(connections.map(connection => buildAttendanceConnectionView(connection)));
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
   app.get("/api/attendance/connections/available", authenticateToken, requireAttendanceRead(), async (req: AuthRequest, res: Response) => {
     try {
       const connections = await storage.getChannelConnections(req.accountId!);
-      res.json(connections.filter(c => c.status !== "disabled").map(maskChannelConnectionSecrets));
+      res.json(connections.filter(c => {
+        const status = String(c.status ?? "").trim().toLowerCase();
+        return status === "connected" && (isWhuConnectionRequest(c) || isOfficialConnection(c));
+      }).map(maskChannelConnectionSecrets));
     } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.get("/api/attendance/channels/health", authenticateToken, requireAttendanceRead(), async (req: AuthRequest, res: Response) => {
+    try {
+      const accountId = req.accountId!;
+      const [connections, whatsappIntegration, smsIntegration, emailIntegration, sendgridIntegration] = await Promise.all([
+        storage.getChannelConnections(accountId),
+        storage.getIntegrationByAccount(accountId, "whatsapp").catch(() => null),
+        storage.getIntegrationByAccount(accountId, "sms").catch(() => null),
+        storage.getIntegrationByAccount(accountId, "email").catch(() => null),
+        storage.getIntegrationByAccount(accountId, "sendgrid").catch(() => null),
+      ]);
+      res.json(buildAttendanceChannelHealth({
+        connections,
+        whatsappIntegration,
+        smsIntegration,
+        emailIntegration: emailIntegration?.enabled ? emailIntegration : sendgridIntegration ?? emailIntegration,
+        smsEndpoint: process.env.OKTOR_SMS_ENDPOINT,
+      }));
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
   });
 
   app.post("/api/attendance/connections", authenticateToken, requirePermission("attendanceSettings"), async (req: AuthRequest, res: Response) => {
     try {
-      const data = insertChannelConnectionSchema.parse(req.body);
+      const isWhu = isWhuConnectionRequest(req.body);
+      const data = isWhu
+        ? insertChannelConnectionSchema.parse(buildWhuConnectionCreate(req.body, req.accountId!))
+        : insertChannelConnectionSchema.parse(req.body);
+      if (isWhu) await assertWhuConnectionUnique(storage, data);
       const conn = await storage.createChannelConnection(prepareChannelConnectionSecrets({ ...data, id: crypto.randomUUID(), token: data.token ?? null, accountId: req.accountId! }));
       await recordAttendanceEvent(req, "connection.created", {
         entityType: "connection",
@@ -879,14 +996,19 @@ export function registerAttendanceRoutes(app: Express) {
         realtimeType: "attendance.settings.updated",
       });
       res.json(maskChannelConnectionSecrets(conn));
-    } catch (e: any) { res.status(400).json({ error: e.message }); }
+    } catch (e: any) { sendChannelConnectionError(res, e); }
   });
 
   app.patch("/api/attendance/connections/:id", authenticateToken, requirePermission("attendanceSettings"), async (req: AuthRequest, res: Response) => {
     try {
       const before = await storage.getChannelConnection(req.params.id, req.accountId!);
       if (!before) return res.status(404).json({ error: "Conexão não encontrada" });
-      const conn = await storage.updateChannelConnection(req.params.id, req.accountId!, prepareChannelConnectionSecrets({ ...req.body, id: before.id }, before));
+      const isWhu = isWhuConnectionRequest(req.body, before);
+      const update = isWhu
+        ? buildWhuConnectionUpdate(req.body, before)
+        : req.body;
+      if (isWhu) await assertWhuConnectionUnique(storage, { ...before, ...update, accountId: req.accountId! }, before.id);
+      const conn = await storage.updateChannelConnection(req.params.id, req.accountId!, prepareChannelConnectionSecrets({ ...update, id: before.id }, before));
       await recordAttendanceEvent(req, "connection.updated", {
         entityType: "connection",
         entityId: conn.id,
@@ -895,20 +1017,30 @@ export function registerAttendanceRoutes(app: Express) {
         realtimeType: "attendance.settings.updated",
       });
       res.json(maskChannelConnectionSecrets(conn));
-    } catch (e: any) { res.status(400).json({ error: e.message }); }
+    } catch (e: any) { sendChannelConnectionError(res, e); }
   });
 
   app.delete("/api/attendance/connections/:id", authenticateToken, requirePermission("attendanceSettings"), async (req: AuthRequest, res: Response) => {
     try {
-      const before = await storage.getChannelConnection(req.params.id, req.accountId!);
-      await storage.deleteChannelConnection(req.params.id, req.accountId!);
+      const result = await storage.removeChannelConnection(req.accountId!, req.params.id);
+      if (!result) return res.status(404).json({ error: "Conexão não encontrada" });
+      if (!result.deleted) {
+        await recordAttendanceEvent(req, "connection.disabled", {
+          entityType: "connection",
+          entityId: result.before.id,
+          before: maskChannelConnectionSecrets(result.before),
+          after: maskChannelConnectionSecrets(result.connection!),
+          realtimeType: "attendance.settings.updated",
+        });
+        return res.json(maskChannelConnectionSecrets(result.connection!));
+      }
       await recordAttendanceEvent(req, "connection.deleted", {
         entityType: "connection",
         entityId: req.params.id,
-        before: before ? maskChannelConnectionSecrets(before) : null,
+        before: maskChannelConnectionSecrets(result.before),
         realtimeType: "attendance.settings.updated",
       });
-      res.json({ success: true });
+      res.json({ success: true, deleted: true });
     } catch (e: any) { res.status(400).json({ error: e.message }); }
   });
 
@@ -916,6 +1048,12 @@ export function registerAttendanceRoutes(app: Express) {
   app.post("/api/attendance/connections/:id/test", authenticateToken, requirePermission("attendanceSettings"), async (req: AuthRequest, res: Response) => {
     try {
       const conn = await storage.getChannelConnection(req.params.id, req.accountId!);
+      if (String(conn?.status ?? "").trim().toLowerCase() === "disabled") {
+        return res.status(409).json({
+          code: "CHANNEL_CONNECTION_DISABLED",
+          error: "Reative a conexão por PATCH antes de testá-la",
+        });
+      }
       const token = decryptTokenIfNeeded(conn?.token, conn?.id);
       if (!conn || !token) return res.status(400).json({ error: "Conexão não encontrada ou token ausente" });
 
@@ -950,7 +1088,7 @@ export function registerAttendanceRoutes(app: Express) {
         metadata: { status, error },
         realtimeType: "attendance.settings.updated",
       });
-      res.json(maskChannelConnectionSecrets(updated));
+      res.json(buildAttendanceConnectionView(updated));
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
@@ -989,12 +1127,32 @@ export function registerAttendanceRoutes(app: Express) {
   app.post("/api/attendance/sync", authenticateToken, requireAttendanceRead(), async (req: AuthRequest, res: Response) => {
     try {
       const { connectionId, page = 0, status: requestedStatus } = req.body;
-      let effectiveConnection = await resolveAttendanceConnection(req.accountId!, connectionId);
-      const effectiveConnectionId = effectiveConnection?.id ?? connectionId ?? null;
-      const token = await getWesccToken(req.accountId!, effectiveConnectionId ?? undefined);
+      const selectedConnectionId = String(connectionId ?? "").trim();
+      if (!selectedConnectionId) {
+        return res.status(400).json({
+          code: "ATTENDANCE_CONNECTION_REQUIRED",
+          error: "Selecione uma conexão WHU para sincronizar os atendimentos",
+        });
+      }
+      let effectiveConnection = await storage.getChannelConnection(selectedConnectionId, req.accountId!);
+      if (!effectiveConnection?.id || String(effectiveConnection.status).toLowerCase() !== "connected") {
+        return res.status(400).json({
+          code: "ATTENDANCE_CONNECTION_UNAVAILABLE",
+          error: "A conexão WHU selecionada não está disponível para esta conta",
+        });
+      }
+      if (isDirectMetaConnection(effectiveConnection)) {
+        return res.status(400).json({
+          code: "ATTENDANCE_SYNC_UNSUPPORTED",
+          error: "Esta conexão recebe mensagens diretamente pela Meta e não usa sincronização WHU",
+        });
+      }
+      const effectiveConnectionId = effectiveConnection.id;
+      const token = await getWesccToken(req.accountId!, effectiveConnectionId);
       if (!token) return res.status(400).json({ error: "Token não configurado" });
 
       if (effectiveConnection && !isDirectMetaConnection(effectiveConnection)) {
+        let syncConnectionUpdate: Record<string, unknown> | undefined;
         try {
           const channelResult: any = await wescctech.getChannel(token);
           const channelInfo = channelResult?.data ?? channelResult?.result ?? channelResult;
@@ -1011,13 +1169,20 @@ export function registerAttendanceRoutes(app: Express) {
               businessAccountId: channelInfo?.wabaId ?? (effectiveConnection.metadata as any)?.businessAccountId ?? null,
               phoneNumberId: channelInfo?.numberId ?? (effectiveConnection.metadata as any)?.phoneNumberId ?? null,
             };
-            effectiveConnection = await storage.updateChannelConnection(effectiveConnection.id, req.accountId!, {
+            syncConnectionUpdate = {
               provider: official ? "wescctech_cloud" : "wescctech",
               metadata,
-            });
+            };
           }
         } catch (err: any) {
           console.error("[ATT] channel type detection error:", String(err.message ?? "Falha ao identificar canal").slice(0, 300));
+        }
+        if (syncConnectionUpdate) {
+          effectiveConnection = await storage.updateChannelConnection(
+            effectiveConnection.id,
+            req.accountId!,
+            prepareChannelConnectionSecrets<Record<string, any>>({ ...syncConnectionUpdate, id: effectiveConnection.id }, effectiveConnection),
+          );
         }
       }
 
@@ -1041,6 +1206,7 @@ export function registerAttendanceRoutes(app: Express) {
       }
 
       const chats = Array.from(byExternalId.values());
+      const connectionSnapshot = snapshotAttendanceConnection(effectiveConnection);
 
       let created = 0;
       let updated = 0;
@@ -1049,13 +1215,19 @@ export function registerAttendanceRoutes(app: Express) {
         const externalThreadId = remoteChatId(chat);
         if (!externalThreadId) continue;
         const contactNumber = remoteContactNumber(chat);
-        const existing = await storage.getConversationByExternal(req.accountId!, externalThreadId);
+        const existing = await storage.getConversationByExternal(
+          req.accountId!,
+          externalThreadId,
+          effectiveConnectionId,
+        );
         const remoteStatus = mapWesccStatus(Number(chat.status ?? chat.attendance?.status ?? 1));
 
         if (existing) {
           const localStatus = statusForSyncedConversation(remoteStatus, existing.assignedUserId);
           await storage.updateConversation(existing.id, req.accountId!, {
             connectionId: existing.connectionId ?? effectiveConnectionId,
+            inboundConnectionName: existing.inboundConnectionName ?? connectionSnapshot.inboundConnectionName,
+            inboundNumber: existing.inboundNumber ?? connectionSnapshot.inboundNumber,
             provider: effectiveConnection?.provider ?? existing.provider,
             status: localStatus,
             mode: modeForStatus(localStatus, existing.assignedUserId),
@@ -1087,6 +1259,7 @@ export function registerAttendanceRoutes(app: Express) {
           await storage.createConversation({
             accountId: req.accountId!,
             connectionId: effectiveConnectionId,
+            ...connectionSnapshot,
             channel: "whatsapp",
             provider: effectiveConnection?.provider ?? "wescctech",
             externalThreadId,
@@ -1124,7 +1297,16 @@ export function registerAttendanceRoutes(app: Express) {
         realtimeType: "attendance.sync.completed",
       });
       res.json(result);
-    } catch (e: any) { res.status(500).json({ error: e.message }); }
+    } catch (e: any) {
+      const providerError = String(e?.message ?? "");
+      if (/auth_03|channel cannot be found/i.test(providerError)) {
+        return res.status(422).json({
+          code: "WHU_CHANNEL_NOT_FOUND",
+          error: "O token não corresponde a um canal WHU ativo. Revise ou teste esta conexão.",
+        });
+      }
+      res.status(500).json({ error: e.message });
+    }
   });
 
   // ===================== CONVERSATIONS =====================
@@ -1153,8 +1335,28 @@ export function registerAttendanceRoutes(app: Express) {
 
   app.post("/api/attendance/conversations/create-new", authenticateToken, requirePermission("attendanceReply"), async (req: AuthRequest, res: Response) => {
     try {
-      const { phone, name, connectionId, sectorId, message, sendInitialMessage, templateId, templateName, templateLanguage, templateComponents } = req.body;
-      if (!phone) return res.status(400).json({ error: "Telefone obrigatório" });
+      const { phone, name, contactId, connectionId, sectorId, message, sendInitialMessage, templateId, templateName, templateLanguage, templateComponents } = req.body;
+      const selectedConnectionId = String(connectionId ?? "").trim();
+      if (!selectedConnectionId) {
+        throw new AttendanceConnectionError("WHU_CONNECTION_REQUIRED", "Selecione uma conexão WhatsApp conectada para iniciar o atendimento", 400);
+      }
+      const connection = requireNewConversationConnection(
+        await storage.getChannelConnection(selectedConnectionId, req.accountId!),
+      );
+      let token: string | null = null;
+      try {
+        token = decryptTokenIfNeeded(connection.token, connection.id);
+      } catch {
+        throw new AttendanceConnectionError("WHU_CONNECTION_REQUIRED", "Selecione uma conexão WhatsApp conectada para iniciar o atendimento", 400);
+      }
+      if (!token) {
+        throw new AttendanceConnectionError("WHU_CONNECTION_REQUIRED", "Selecione uma conexão WhatsApp conectada para iniciar o atendimento", 400);
+      }
+      const preferredContact = contactId ? await storage.getContact(String(contactId), req.accountId!) : undefined;
+      if (contactId && !preferredContact) return res.status(400).json({ error: "Eleitor não encontrado" });
+      const effectivePhone = phone || preferredContact?.phone;
+      const effectiveName = name || preferredContact?.name;
+      if (!effectivePhone) return res.status(400).json({ error: "Telefone obrigatório" });
 
       if (templateId || templateName) {
         const availableTemplates = await resolveAttendanceTemplates(req.accountId!, connectionId);
@@ -1163,28 +1365,27 @@ export function registerAttendanceRoutes(app: Express) {
         prepareAttendanceTemplateSend(selectedTemplate, templateComponents, message);
       }
 
-      let externalId: string | null = null;
-      const token = await getWesccToken(req.accountId!, connectionId);
-      const connection = connectionId ? await storage.getChannelConnection(connectionId, req.accountId!) : null;
-      if (token) {
-        try {
-          const chat = await wescctech.createChat(token, phone);
-          externalId = remoteChatId(chat);
-        } catch (err: any) {
-          console.error("[ATT] create-new remote error:", err.message);
-        }
-      }
-
+      const connectionSnapshot = snapshotAttendanceConnection(connection);
       const initiatedAt = new Date();
-      const conv = await storage.createConversation({
+      const connectionMetadata = {
+        id: connection.id,
+        name: connection.name,
+        channel: connection.channel,
+        provider: connection.provider,
+        official: isOfficialConnection(connection),
+      };
+      let conv = await storage.createConversation({
         accountId: req.accountId!,
-        connectionId: connectionId ?? null,
+        contactId: preferredContact?.id ?? null,
+        connectionId: connection.id,
+        ...connectionSnapshot,
         channel: connection?.channel ?? "whatsapp",
         provider: connection?.provider ?? (token ? "wescctech" : null),
-        externalThreadId: externalId,
-        externalContactId: phone,
-        contactName: name ?? phone,
-        contactPhone: phone,
+        externalThreadId: null,
+        externalContactId: effectivePhone,
+        contactName: effectiveName ?? effectivePhone,
+        contactPhone: effectivePhone,
+        contactEmail: preferredContact?.email ?? null,
         sectorId: sectorId || null,
         mode: "manual",
         status: "in_progress",
@@ -1192,17 +1393,56 @@ export function registerAttendanceRoutes(app: Express) {
         assignedByUserId: req.userId!,
         assignedAt: initiatedAt,
         lastOperatorActivityAt: initiatedAt,
-        metadata: connection ? {
-          connection: {
-            id: connection.id,
-            name: connection.name,
-            channel: connection.channel,
-            provider: connection.provider,
-            official: isOfficialConnection(connection),
-          },
-        } : undefined,
+        metadata: { connection: connectionMetadata, providerCreate: { status: "pending" } },
       });
-      await syncAttendanceContact(req.accountId!, req.userId!, conv);
+      let providerCreateFailed = false;
+      try {
+        const chat = await wescctech.createChat(token, effectivePhone);
+        const externalThreadId = remoteChatId(chat);
+        if (!externalThreadId) throw new Error("WHU_CREATE_CHAT_MISSING_ID");
+        const remoteStatus = mapWesccStatus(Number(chat?.status ?? 2));
+        conv = await storage.updateConversation(conv.id, req.accountId!, {
+          externalThreadId,
+          status: statusForSyncedConversation(remoteStatus, conv.assignedUserId),
+          metadata: { connection: connectionMetadata, providerCreate: { status: "created" } },
+        });
+      } catch (err: any) {
+        console.error("[ATT] create-new remote error:", err.message);
+        providerCreateFailed = true;
+        conv = await storage.updateConversation(conv.id, req.accountId!, {
+          externalThreadId: null,
+          metadata: {
+            connection: connectionMetadata,
+            providerCreate: {
+              status: "failed",
+              errorCode: "WHU_CREATE_CHAT_FAILED",
+            },
+          },
+        });
+      }
+      if (providerCreateFailed) {
+        try {
+          await syncAttendanceContact(req.accountId!, req.userId!, conv, preferredContact?.id);
+        } catch {
+          console.warn("[ATT] create-new provider failure contact sync failed");
+        }
+        try {
+          await recordAttendanceEvent(req, "conversation.created", {
+            conversationId: conv.id,
+            after: conv,
+            metadata: { source: "manual", providerCreate: "failed" },
+            realtimeType: "attendance.conversation.created",
+          });
+        } catch {
+          console.warn("[ATT] create-new provider failure audit event failed");
+        }
+        return res.status(502).json({
+          code: "WHU_CREATE_CHAT_FAILED",
+          error: "Não foi possível iniciar o atendimento no WHU. A conversa foi salva para auditoria.",
+          conversationId: conv.id,
+        });
+      }
+      await syncAttendanceContact(req.accountId!, req.userId!, conv, preferredContact?.id);
 
       const initialText = String(message ?? "").trim();
       if (templateId || templateName) {
@@ -1227,7 +1467,7 @@ export function registerAttendanceRoutes(app: Express) {
           status: "sent",
         });
         if (token) {
-          wescctech.sendText(token, { number: phone, message: initialText }).catch((err: any) => {
+          wescctech.sendText(token, { number: effectivePhone, message: initialText }).catch((err: any) => {
             console.error("[ATT] create-new initial send error:", err.message);
           });
         }
@@ -1254,6 +1494,7 @@ export function registerAttendanceRoutes(app: Express) {
       });
       res.json(conv);
     } catch (e: any) {
+      if (sendAttendanceConnectionError(res, e)) return;
       if (e instanceof TemplateVariablesRequiredError || e?.code === "TEMPLATE_VARIABLES_REQUIRED") {
         return res.status(400).json({ error: e.message, code: "TEMPLATE_VARIABLES_REQUIRED", missingVariables: e.missingVariables ?? [] });
       }
@@ -1780,9 +2021,12 @@ export function registerAttendanceRoutes(app: Express) {
       if (!conv) return res.status(404).json({ error: "Conversa não encontrada" });
       const requestedMessagePageSize = req.query.messagePageSize ? Math.min(100, Math.max(1, Number(req.query.messagePageSize) || 50)) : null;
       if (conv.externalThreadId) {
-        await syncConversationMessages(req.accountId!, conv).catch((err) => {
-          console.error("[ATT] message sync error:", err.message);
-        });
+        try {
+          await syncConversationMessages(req.accountId!, conv);
+        } catch (error) {
+          if (sendAttendanceConnectionError(res, error)) return;
+          console.error("[ATT] message sync error:", (error as Error).message);
+        }
         conv = await storage.getConversation(req.params.id, req.accountId!) ?? conv;
       }
       const [messageResult, notes, connection] = await Promise.all([
@@ -1800,6 +2044,39 @@ export function registerAttendanceRoutes(app: Express) {
         res.json({ ...conv, metaWindow, messages: messageResult, notes });
       }
     } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post("/api/attendance/conversations/:id/follow-up", authenticateToken, requireAnyPermission("attendanceReply", "agenda"), async (req: AuthRequest, res: Response) => {
+    try {
+      const input = z.object({
+        startDate: z.string().datetime(),
+        endDate: z.string().datetime(),
+        title: z.string().trim().min(2).max(160).optional(),
+        reminderMinutes: z.number().int().min(0).max(10_080).optional(),
+      }).parse(req.body);
+      const conversation = await storage.getConversation(req.params.id, req.accountId!);
+      if (!conversation) return res.status(404).json({ error: "Conversa não encontrada" });
+
+      const followUp = buildAttendanceFollowUp(conversation, input);
+      const event = await storage.createEvent({
+        ...followUp,
+        accountId: req.accountId!,
+        userId: req.userId!,
+      });
+      await recordAttendanceEvent(req, "conversation.follow_up.created", {
+        conversationId: conversation.id,
+        entityType: "event",
+        entityId: event.id,
+        after: event,
+        metadata: { eventId: event.id, startDate: event.startDate },
+      });
+      res.status(201).json(event);
+    } catch (e: any) {
+      if (e instanceof z.ZodError || /inválid|posterior|Título/.test(String(e.message))) {
+        return res.status(400).json({ error: e.message });
+      }
+      res.status(500).json({ error: e.message });
+    }
   });
 
   app.post("/api/attendance/conversations/:id/assume", authenticateToken, requirePermission("attendanceAssume"), async (req: AuthRequest, res: Response) => {
@@ -1950,7 +2227,7 @@ export function registerAttendanceRoutes(app: Express) {
         if (!conv.externalContactId) {
           return res.status(400).json({ error: "Contato externo não identificado para envio" });
         }
-        const token = await getWesccToken(req.accountId!, conv.connectionId ?? undefined);
+        const { token } = await resolveConversationSendToken(req.accountId!, conv);
         if (!token) {
           return res.status(400).json({ error: "Conexão WHU não configurada para este atendimento" });
         }
@@ -2004,7 +2281,7 @@ export function registerAttendanceRoutes(app: Express) {
 
       res.json(msg);
 
-    } catch (e: any) { res.status(500).json({ error: e.message }); }
+    } catch (e: any) { if (!sendAttendanceConnectionError(res, e)) res.status(500).json({ error: e.message }); }
   });
 
   app.post("/api/attendance/conversations/:id/send-template", authenticateToken, requirePermission("attendanceReply"), async (req: AuthRequest, res: Response) => {
@@ -2023,6 +2300,7 @@ export function registerAttendanceRoutes(app: Express) {
       });
       res.json(msg);
     } catch (e: any) {
+      if (sendAttendanceConnectionError(res, e)) return;
       if (e instanceof TemplateVariablesRequiredError || e?.code === "TEMPLATE_VARIABLES_REQUIRED") {
         return res.status(400).json({ error: e.message, code: "TEMPLATE_VARIABLES_REQUIRED", missingVariables: e.missingVariables ?? [] });
       }
@@ -2079,7 +2357,7 @@ export function registerAttendanceRoutes(app: Express) {
       let externalMsgId: string | null = null;
       let sendError: string | null = null;
       if (conv.externalContactId) {
-        const token = await getWesccToken(req.accountId!, conv.connectionId ?? undefined);
+        const { token } = await resolveConversationSendToken(req.accountId!, conv);
         if (token) {
           try {
             const sent = await wescctech.sendMedia(token, {
@@ -2150,7 +2428,7 @@ export function registerAttendanceRoutes(app: Express) {
       });
 
       res.json(msg);
-    } catch (e: any) { res.status(500).json({ error: e.message }); }
+    } catch (e: any) { if (!sendAttendanceConnectionError(res, e)) res.status(500).json({ error: e.message }); }
   });
 
   app.post("/api/attendance/conversations/:id/send-location", authenticateToken, requirePermission("attendanceReply"), async (req: AuthRequest, res: Response) => {
@@ -2170,7 +2448,7 @@ export function registerAttendanceRoutes(app: Express) {
       let externalMsgId: string | null = null;
       let sendError: string | null = null;
       if (conv.externalContactId) {
-        const token = await getWesccToken(req.accountId!, conv.connectionId ?? undefined);
+        const { token } = await resolveConversationSendToken(req.accountId!, conv);
         if (token) {
           try {
             const sent = await wescctech.sendLocation(token, {
@@ -2218,7 +2496,7 @@ export function registerAttendanceRoutes(app: Express) {
       });
 
       res.json(msg);
-    } catch (e: any) { res.status(400).json({ error: e.message }); }
+    } catch (e: any) { if (!sendAttendanceConnectionError(res, e)) res.status(400).json({ error: e.message }); }
   });
 
   app.post("/api/attendance/conversations/:id/send-contacts", authenticateToken, requirePermission("attendanceReply"), async (req: AuthRequest, res: Response) => {
@@ -2236,7 +2514,7 @@ export function registerAttendanceRoutes(app: Express) {
       let externalMsgId: string | null = null;
       let sendError: string | null = null;
       if (conv.externalContactId) {
-        const token = await getWesccToken(req.accountId!, conv.connectionId ?? undefined);
+        const { token } = await resolveConversationSendToken(req.accountId!, conv);
         if (token) {
           try {
             const sent = await wescctech.sendContacts(token, {
@@ -2285,7 +2563,7 @@ export function registerAttendanceRoutes(app: Express) {
       });
 
       res.json(msg);
-    } catch (e: any) { res.status(400).json({ error: e.message }); }
+    } catch (e: any) { if (!sendAttendanceConnectionError(res, e)) res.status(400).json({ error: e.message }); }
   });
 
   app.post("/api/attendance/conversations/:id/transfer", authenticateToken, requirePermission("attendanceTransfer"), async (req: AuthRequest, res: Response) => {
@@ -2317,7 +2595,7 @@ export function registerAttendanceRoutes(app: Express) {
       }
 
       if (conv.externalThreadId) {
-        const token = await getWesccToken(req.accountId!, conv.connectionId ?? undefined);
+        const { token } = await resolveConversationSendToken(req.accountId!, conv);
         if (token) {
           try {
             await wescctech.transferChat(token, conv.externalThreadId, { sectorId, userId: targetUserId });
@@ -2386,7 +2664,7 @@ export function registerAttendanceRoutes(app: Express) {
         realtimeType: "attendance.message.created",
       });
       res.json(updated);
-    } catch (e: any) { res.status(500).json({ error: e.message }); }
+    } catch (e: any) { if (!sendAttendanceConnectionError(res, e)) res.status(500).json({ error: e.message }); }
   });
 
   app.post("/api/attendance/conversations/:id/close", authenticateToken, requirePermission("attendanceClose"), async (req: AuthRequest, res: Response) => {
@@ -2399,7 +2677,7 @@ export function registerAttendanceRoutes(app: Express) {
       assertAttendanceTransition(conv.status, "finalized");
 
       if (conv.externalThreadId) {
-        const token = await getWesccToken(req.accountId!, conv.connectionId ?? undefined);
+        const { token } = await resolveConversationSendToken(req.accountId!, conv);
         if (token) {
           try {
             await wescctech.finalizeChat(token, conv.externalThreadId);
@@ -2424,7 +2702,7 @@ export function registerAttendanceRoutes(app: Express) {
         realtimeType: "attendance.conversation.updated",
       });
       res.json(updated);
-    } catch (e: any) { res.status(500).json({ error: e.message }); }
+    } catch (e: any) { if (!sendAttendanceConnectionError(res, e)) res.status(500).json({ error: e.message }); }
   });
 
   app.post("/api/attendance/conversations/:id/reopen", authenticateToken, requirePermission("attendanceReopen"), async (req: AuthRequest, res: Response) => {
@@ -2985,7 +3263,14 @@ export function registerAttendanceRoutes(app: Express) {
     try {
       const { channel, connectionId } = req.params;
       const conn = await storage.getChannelConnection(connectionId, undefined);
-      if (!conn) return res.status(404).json({ error: "Connection not found" });
+      try {
+        assertInboundConnection(conn);
+      } catch (error) {
+        if (error instanceof InboundConnectionError) {
+          return res.status(error.status).json({ code: error.code, error: error.message });
+        }
+        throw error;
+      }
       if (conn.channel !== channel) return res.status(400).json({ error: "Channel mismatch" });
 
       if (attendancePayloadSize(req) > ATTENDANCE_WEBHOOK_MAX_BODY_BYTES) {
@@ -3013,26 +3298,38 @@ export function registerAttendanceRoutes(app: Express) {
         return res.status(400).json({ error: "Missing required fields" });
       }
 
-      let conv = await storage.getConversationByExternal(conn.accountId, externalThreadId);
+      let conv = await storage.getConversationByExternal(conn.accountId, externalThreadId, conn.id);
       if (!conv) {
-        conv = await storage.createConversation({
-          accountId: conn.accountId,
-          connectionId: conn.id,
-          channel,
-          provider: conn.provider,
-          externalThreadId,
-          externalContactId,
-          contactPhone: externalContactId,
-          contactName: externalContactId,
-          mode: "automatic",
-          status: "automatic",
-        });
-        await recordSystemAttendanceEvent(conn.accountId, "conversation.created", {
-          conversationId: conv.id,
-          after: conv,
-          metadata: { source: "webhook" },
-          realtimeType: "attendance.conversation.created",
-        });
+        let createdConversation = false;
+        try {
+          conv = await storage.createConversation({
+            accountId: conn.accountId,
+            connectionId: conn.id,
+            ...snapshotAttendanceConnection(conn),
+            channel,
+            provider: conn.provider,
+            externalThreadId,
+            externalContactId,
+            contactPhone: externalContactId,
+            contactName: externalContactId,
+            mode: "automatic",
+            status: "automatic",
+          });
+          createdConversation = true;
+        } catch (error) {
+          if (!isAttendanceConnectionThreadUniqueViolation(error)) throw error;
+          const concurrentConversation = await storage.getConversationByExternal(conn.accountId, externalThreadId, conn.id);
+          if (!concurrentConversation) throw error;
+          conv = concurrentConversation;
+        }
+        if (createdConversation) {
+          await recordSystemAttendanceEvent(conn.accountId, "conversation.created", {
+            conversationId: conv.id,
+            after: conv,
+            metadata: { source: "webhook" },
+            realtimeType: "attendance.conversation.created",
+          });
+        }
       }
 
       const nextStatus = isManualTransfer

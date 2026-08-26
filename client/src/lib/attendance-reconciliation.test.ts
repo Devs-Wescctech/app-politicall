@@ -117,6 +117,48 @@ describe("mergeAttendanceMessages", () => {
 });
 
 describe("applyAttendanceRealtimeEvent", () => {
+  it("updates conversations stored inside paginated list caches", () => {
+    const queryClient = new QueryClient();
+    const key = ["/api/attendance/conversations", "paged", "status=waiting_agent"];
+    queryClient.setQueryData(key, {
+      pages: [
+        {
+          data: [
+            { id: "conversation-1", mode: "automatic", status: "waiting_agent", assignedUserId: null },
+            { id: "conversation-2", mode: "automatic", status: "waiting_agent", assignedUserId: null },
+          ],
+          nextCursor: null,
+        },
+      ],
+      pageParams: [undefined],
+    });
+
+    applyAttendanceRealtimeEvent(queryClient, {
+      type: "attendance.conversation.updated",
+      conversationId: "conversation-1",
+      payload: {
+        event: {
+          after: {
+            id: "conversation-1",
+            mode: "manual",
+            status: "in_progress",
+            assignedUserId: "user-1",
+          },
+        },
+      },
+    });
+
+    expect(queryClient.getQueryData<any>(key).pages[0].data).toEqual([
+      expect.objectContaining({
+        id: "conversation-1",
+        mode: "manual",
+        status: "in_progress",
+        assignedUserId: "user-1",
+      }),
+      expect.objectContaining({ id: "conversation-2", status: "waiting_agent" }),
+    ]);
+  });
+
   it("reconciles message-created events in the conversation-detail cache shape", () => {
     const queryClient = new QueryClient();
     const key = ["/api/attendance/conversations", "conversation-1"];

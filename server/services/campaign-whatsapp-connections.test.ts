@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  campaignWhatsappConnectionId,
   listCampaignWhatsappConnectionOptions,
+  mergeCampaignWhatsappScheduleConfig,
+  normalizeCampaignWhatsappSender,
   requireCampaignWhatsappConnection,
   toCampaignWhatsappConnectionOption,
 } from "./campaign-whatsapp-connections";
@@ -12,6 +15,7 @@ const normal = {
   channel: "whatsapp",
   provider: "wescctech",
   status: "connected",
+  token: "token-normal",
   metadata: { phoneNumber: "5551999990000", apiType: "whu" },
 };
 
@@ -22,6 +26,7 @@ const official = {
   channel: "whatsapp",
   provider: "meta_cloud",
   status: "connected",
+  token: "token-official",
   metadata: {
     phoneNumber: "5551988880000",
     phoneNumberId: "phone-id",
@@ -86,5 +91,49 @@ describe("campaign WhatsApp connections", () => {
 
     expect(options.map(option => option.id)).toEqual(["normal-1", "official-1"]);
     expect(options.every(option => !("token" in option))).toBe(true);
+  });
+
+  it("lists and resolves only connected tenant senders with a usable token", () => {
+    const candidates = [
+      normal,
+      { ...official, id: "pending", status: "pending" },
+      { ...official, id: "error", status: "error" },
+      { ...official, id: "disabled", status: "disabled" },
+      { ...official, id: "tokenless", token: "   " },
+      { ...official, id: "malformed", token: "v2:not-a-valid-envelope" },
+      { ...official, id: "foreign", accountId: "account-2", token: "token-foreign" },
+    ];
+
+    expect(listCampaignWhatsappConnectionOptions(candidates as any, "account-1").map(option => option.id))
+      .toEqual(["normal-1"]);
+    expect(requireCampaignWhatsappConnection(candidates as any, "normal-1", "whatsapp", "account-1"))
+      .toEqual(normal);
+    for (const id of ["pending", "error", "disabled", "tokenless", "malformed", "foreign"]) {
+      expect(() => requireCampaignWhatsappConnection(candidates as any, id, "whatsapp_oficial", "account-1"))
+        .toThrow("A conexão selecionada não está mais disponível");
+    }
+  });
+
+  it("uses one exact saved sender and rejects disagreement between legacy locations", () => {
+    expect(campaignWhatsappConnectionId({ waConnectionId: " sender-1 " }, { waConnectionId: "sender-1" }))
+      .toBe("sender-1");
+    expect(normalizeCampaignWhatsappSender({ waConnectionId: " sender-1 " }, { waConnectionId: "sender-1" }))
+      .toEqual({ sendConfig: { waConnectionId: "sender-1" }, templateConfig: { waConnectionId: "sender-1" } });
+    expect(campaignWhatsappConnectionId({}, { waConnectionId: "legacy-sender" })).toBe("legacy-sender");
+    expect(() => campaignWhatsappConnectionId({ waConnectionId: "sender-1" }, { waConnectionId: "sender-2" }))
+      .toThrow("A campanha possui conexões WhatsApp conflitantes");
+  });
+
+  it("does not allow scheduling to replace the persisted WhatsApp sender", () => {
+    expect(mergeCampaignWhatsappScheduleConfig(
+      { waConnectionId: "sender-1", batchSize: 10 },
+      { batchSize: 20 },
+      { waConnectionId: "sender-1" },
+    )).toEqual({ waConnectionId: "sender-1", batchSize: 20 });
+    expect(() => mergeCampaignWhatsappScheduleConfig(
+      { waConnectionId: "sender-1" },
+      { waConnectionId: "fallback-2" },
+      { waConnectionId: "sender-1" },
+    )).toThrow("A conexão WhatsApp não pode ser alterada no agendamento");
   });
 });

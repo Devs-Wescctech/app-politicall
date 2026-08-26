@@ -22,4 +22,20 @@ describe("buildWhatsappConnectionConfig", () => {
     expect(result).toMatchObject({ name: "WhatsApp / WHU", provider: "wescctech", token: "whu-secret" });
     expect(result.metadata.official).toBe(false);
   });
+
+  it("normalizes a known legacy phone and marks its settings origin", () => {
+    const result = buildWhatsappConnectionConfig({
+      enabled: true,
+      whatsappToken: "whu-secret",
+      whatsappPhoneNumber: "+55 (51) 99999-0000",
+    });
+
+    expect(result).toMatchObject({
+      phoneNumber: "5551999990000",
+      metadata: {
+        source: "settings-omni",
+        phoneNumber: "5551999990000",
+      },
+    });
+  });
 });

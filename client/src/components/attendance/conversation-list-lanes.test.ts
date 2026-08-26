@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { nextAutoExpandedLane } from "./ConversationList";
+import { nextAutoExpandedLane, nextExpandedLaneForSelectedConversation } from "./ConversationList";
 
 const source = readFileSync(new URL("./ConversationList.tsx", import.meta.url), "utf8");
 
@@ -44,5 +44,13 @@ describe("attendance conversation lanes", () => {
       manual: 0,
       group: 0,
     }, false)).toBe("waiting");
+  });
+
+  it("opens the manual lane when the selected conversation is assumed by the current operator", () => {
+    expect(nextExpandedLaneForSelectedConversation("automatic", {
+      mode: "manual",
+      status: "in_progress",
+      assignedUserId: "operator-1",
+    }, "operator-1")).toBe("manual");
   });
 });

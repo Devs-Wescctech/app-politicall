@@ -82,6 +82,32 @@ type SendConfig = {
   window?: { start?: string; end?: string; businessHoursOnly?: boolean; timezoneOffsetMinutes?: number };
 };
 
+export function selectedCampaignTemplateConfig(
+  templateConfig: CampaignTemplateConfig | null,
+  template: WaTemplate,
+): CampaignTemplateConfig {
+  const variables = extractWhatsAppTemplateVariables(template);
+  return {
+    ...(templateConfig ?? {}),
+    waTemplateId: template.id,
+    waTemplateName: template.name,
+    waTemplateLanguage: template.language,
+    waTemplateCategory: template.category ?? undefined,
+    waTemplateStatus: template.status ?? undefined,
+    waTemplateSource: template.source,
+    // The connection select is the explicit sender action. Templates are loaded
+    // for it, never allowed to silently replace it.
+    waConnectionId: templateConfig?.waConnectionId,
+    waTemplatePreview: template.preview,
+    waTemplateComponents: template.components,
+    variables: Object.fromEntries(variables.map(variable => [variable.key, ""])),
+  };
+}
+
+export function clearCampaignWhatsappSelection(_templateConfig: CampaignTemplateConfig | null) {
+  return { waConnectionId: "", templateConfig: null, templateId: null };
+}
+
 function buildSendConfig(d: CampaignForm): SendConfig | null {
   const cfg: SendConfig = {};
   if ((d.type === "whatsapp" || d.type === "whatsapp_oficial") && d.waConnectionId) cfg.waConnectionId = d.waConnectionId;
@@ -295,21 +321,8 @@ export function MessageComposer({
               setSelectedWaName(name);
               const tmpl = waTemplates.find((t) => t.name === name);
               if (tmpl) {
-                const variables = extractWhatsAppTemplateVariables(tmpl);
                 onTemplateIdChange(tmpl.id);
-                onTemplateConfigChange({
-                  ...(templateConfig ?? {}),
-                  waTemplateId: tmpl.id,
-                  waTemplateName: tmpl.name,
-                  waTemplateLanguage: tmpl.language,
-                  waTemplateCategory: tmpl.category ?? undefined,
-                  waTemplateStatus: tmpl.status ?? undefined,
-                  waTemplateSource: tmpl.source,
-                  waConnectionId: tmpl.connectionId,
-                  waTemplatePreview: tmpl.preview,
-                  waTemplateComponents: tmpl.components,
-                  variables: Object.fromEntries(variables.map(variable => [variable.key, ""])),
-                });
+                onTemplateConfigChange(selectedCampaignTemplateConfig(templateConfig, tmpl));
                 if (isWaTemplateUsable(tmpl.status)) onMessageChange(tmpl.preview);
               }
             }}>
@@ -804,12 +817,18 @@ export function CampaignWizard({
                         setTemplateId(null);
                         setTemplateConfig(connection.official ? { waConnectionId: connection.id } : null);
                       };
+                      const clearWhatsappSelection = () => {
+                        const cleared = clearCampaignWhatsappSelection(templateConfig);
+                        form.setValue("waConnectionId", cleared.waConnectionId);
+                        setTemplateConfig(cleared.templateConfig);
+                        setTemplateId(cleared.templateId);
+                      };
                       return (
                       <FormItem>
                         <div className="space-y-2">
-                          <ChannelCard value="whatsapp" label="WhatsApp" description="Envie pelo número conectado (normal ou API Oficial). Alta taxa de abertura." icon={SiWhatsapp} selected={isWa} allowed={waAllowed} onClick={() => { if (!isWa && waConnections[0]) selectWhatsappConnection(waConnections[0]); }} />
-                          <ChannelCard value="email" label="E-mail" description="Ideal para comunicados formais e conteúdo rico." icon={Mail} selected={field.value === "email"} allowed={allowedTypes.includes("email")} onClick={() => { field.onChange("email"); form.setValue("waConnectionId", ""); }} />
-                          <ChannelCard value="sms" label="SMS" description="Mensagem curta com alta taxa de leitura. Custo por envio." icon={Phone} selected={field.value === "sms"} allowed={allowedTypes.includes("sms")} onClick={() => { field.onChange("sms"); form.setValue("waConnectionId", ""); }} />
+                          <ChannelCard value="whatsapp" label="WhatsApp" description="Envie pelo número conectado (normal ou API Oficial). Alta taxa de abertura." icon={SiWhatsapp} selected={isWa} allowed={waAllowed} onClick={() => { if (!isWa) { field.onChange("whatsapp"); clearWhatsappSelection(); } }} />
+                          <ChannelCard value="email" label="E-mail" description="Ideal para comunicados formais e conteúdo rico." icon={Mail} selected={field.value === "email"} allowed={allowedTypes.includes("email")} onClick={() => { field.onChange("email"); clearWhatsappSelection(); }} />
+                          <ChannelCard value="sms" label="SMS" description="Mensagem curta com alta taxa de leitura. Custo por envio." icon={Phone} selected={field.value === "sms"} allowed={allowedTypes.includes("sms")} onClick={() => { field.onChange("sms"); clearWhatsappSelection(); }} />
                         </div>
                         {isWa && (
                           <div className="space-y-2 rounded-md border p-3 mt-1" data-testid="wa-connection-picker">

@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,11 +31,14 @@ import { SiFacebook, SiInstagram, SiWhatsapp } from "react-icons/si";
 import { useMutation } from "@tanstack/react-query";
 import { useQuery } from "@tanstack/react-query";
 import type { AttConversation, AttConversationEvent, AttMessage, AttNote, AttSector, AttTransfer, ChannelConnection, Contact } from "@shared/schema";
+import type { Contact360Response } from "@shared/contact-360";
+import { normalizeBrazilPhone } from "@shared/phone";
 import { isOfficialAttendanceChannel } from "@shared/attendance-meta-window";
 import { templatesForNewConversation } from "@shared/attendance-composer";
 import ConversationList from "@/components/attendance/ConversationList";
 import ChatPanel from "@/components/attendance/ChatPanel";
 import { ConnectionStatus } from "@/components/attendance/ConnectionStatus";
+import OmnichannelHealth from "@/components/attendance/OmnichannelHealth";
 import ContactPanel from "@/components/attendance/ContactPanel";
 import SettingsTab from "@/components/attendance/SettingsTab";
 import ReportsTab from "@/components/attendance/ReportsTab";
@@ -79,6 +82,19 @@ function isWhuConnection(connection?: ChannelConnection | null) {
   return provider.includes("wescctech") || provider.includes("whu") || channel.includes("whu");
 }
 
+function isEligibleNewConversationConnection(connection?: ChannelConnection | null) {
+  return String(connection?.status ?? "").trim().toLowerCase() === "connected"
+    && (isWhuConnection(connection) || isOfficialConnection(connection));
+}
+
+function newConversationConnectionLabel(connection: ChannelConnection) {
+  const metadata = (connection.metadata as Record<string, unknown> | null) ?? {};
+  const number = [metadata.phoneNumber, metadata.whatsappPhoneNumber, metadata.number]
+    .map(value => String(value ?? "").trim())
+    .find(Boolean);
+  return number ? `${connection.name} (${number})` : connection.name;
+}
+
 function connectionIcon(connection?: ChannelConnection | null) {
   const provider = String(connection?.provider ?? "").toLowerCase();
   const channel = String(connection?.channel ?? "").toLowerCase();
@@ -89,7 +105,7 @@ function connectionIcon(connection?: ChannelConnection | null) {
   return <MessageSquare className="h-4 w-4 text-primary" />;
 }
 
-function NewConversationDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function NewConversationDialog({ open, onClose, initialContact }: { open: boolean; onClose: () => void; initialContact?: Contact360Response["contact"] }) {
   const [phone, setPhone] = useState("");
   const [name, setName] = useState("");
   const [connectionId, setConnectionId] = useState("");
@@ -101,10 +117,30 @@ function NewConversationDialog({ open, onClose }: { open: boolean; onClose: () =
   const [templateValues, setTemplateValues] = useState<TemplateVariableValues>({});
   const { toast } = useToast();
 
+  useEffect(() => {
+    if (!open || !initialContact) return;
+    setName(initialContact.name);
+    setPhone(normalizeBrazilPhone(initialContact.phone));
+  }, [initialContact, open]);
+
+  useEffect(() => {
+    if (open) return;
+    setPhone("");
+    setName("");
+    setConnectionId("");
+    setSectorId("");
+    setCountryCode("+55");
+    setSendInitialMessage(false);
+    setMessage("");
+    setTemplateId("");
+    setTemplateValues({});
+  }, [open]);
+
   const { data: connections = [] } = useQuery<ChannelConnection[]>({
     queryKey: ["/api/attendance/connections/available"],
     enabled: open,
   });
+  const eligibleConnections = connections.filter(isEligibleNewConversationConnection);
   const { data: sectors = [] } = useQuery<AttSector[]>({
     queryKey: ["/api/attendance/sectors"],
     enabled: open,
@@ -112,7 +148,7 @@ function NewConversationDialog({ open, onClose }: { open: boolean; onClose: () =
   const templatesUrl = connectionId
     ? `/api/attendance/templates?connectionId=${encodeURIComponent(connectionId)}`
     : "/api/attendance/templates";
-  const selectedConnection = connections.find(connection => connection.id === connectionId);
+  const selectedConnection = eligibleConnections.find(connection => connection.id === connectionId);
   const officialChannel = isOfficialConnection(selectedConnection);
   const whuProviderConnection = isWhuConnection(selectedConnection);
   const whuChannel = whuProviderConnection && !officialChannel;
@@ -138,9 +174,10 @@ function NewConversationDialog({ open, onClose }: { open: boolean; onClose: () =
 
   const mutation = useMutation({
     mutationFn: () => apiRequest("POST", "/api/attendance/conversations/create-new", {
-      phone: `${countryCode}${phone}`.replace(/\D/g, ""),
+      phone: normalizeBrazilPhone(phone.startsWith("+") ? phone : `${countryCode}${phone}`),
       name,
-      connectionId: connectionId || undefined,
+      contactId: initialContact?.id,
+      connectionId,
       sectorId: sectorId || undefined,
       sendInitialMessage,
       message: selectedTemplate ? selectedTemplatePreview : message,
@@ -181,7 +218,7 @@ function NewConversationDialog({ open, onClose }: { open: boolean; onClose: () =
         >
           <Select value={connectionId || "__none"} onValueChange={value => {
             const nextConnectionId = value === "__none" ? "" : value;
-            const nextConnection = connections.find(connection => connection.id === nextConnectionId);
+            const nextConnection = eligibleConnections.find(connection => connection.id === nextConnectionId);
             setConnectionId(nextConnectionId);
             setTemplateId("");
             setTemplateValues({});
@@ -192,17 +229,18 @@ function NewConversationDialog({ open, onClose }: { open: boolean; onClose: () =
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="__none">Canal</SelectItem>
-              {connections.map(connection => (
+              {eligibleConnections.map(connection => (
                 <SelectItem key={connection.id} value={connection.id}>
                   <span className="flex items-center gap-2">
                     {connectionIcon(connection)}
-                    <span>{connection.name}</span>
+                    <span>{newConversationConnectionLabel(connection)}</span>
                     {isOfficialConnection(connection) ? <span className="text-xs text-sky-400">Oficial</span> : null}
                   </span>
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
+          {!connectionId ? <p role="alert" className="text-xs text-destructive">Selecione um número conectado para iniciar a conversa.</p> : null}
 
           <Select value={sectorId || "__none"} onValueChange={value => setSectorId(value === "__none" ? "" : value)}>
             <SelectTrigger className="h-11" data-testid="select-new-conv-sector">
@@ -303,7 +341,7 @@ function NewConversationDialog({ open, onClose }: { open: boolean; onClose: () =
           <Button variant="outline" onClick={onClose}>Cancelar</Button>
           <Button
             onClick={() => mutation.mutate()}
-            disabled={!phone.trim() || mutation.isPending || Boolean(selectedTemplate && !selectedTemplateValidation.valid)}
+            disabled={!connectionId || !phone.trim() || mutation.isPending || Boolean(selectedTemplate && !selectedTemplateValidation.valid)}
             data-testid="button-confirm-new-conversation"
           >
             Iniciar
@@ -323,16 +361,43 @@ function AttendanceSectionHeader({ value, onValueChange }: { value: AttendanceVi
 }
 
 export default function AttendancePage() {
-  const [activeTab, setActiveTab] = useState<AttendanceView>("inbox");
+  const sourceParams = new URLSearchParams(window.location.search);
+  const requestedContactId = sourceParams.get("contactId");
+  const requestedView = sourceParams.get("view");
+  const initialView: AttendanceView = requestedView === "settings" ? "settings" : "inbox";
+  const [activeTab, setActiveTab] = useState<AttendanceView>(initialView);
   const [selectedConversation, setSelectedConversation] = useState<AttConversation | null>(null);
-  const [showNewConv, setShowNewConv] = useState(false);
+  const [showNewConv, setShowNewConv] = useState(sourceParams.get("new") === "1");
   const [showContactPanel, setShowContactPanel] = useState(false);
   const { mode, reconnectNow } = useAttendanceRealtime();
   const { visibility } = useAttendancePollingEnvironment();
+  const linkedConversationId = new URLSearchParams(window.location.search).get("conversationId");
+  const { data: requestedContact } = useQuery<Contact360Response>({
+    queryKey: ["/api/contacts", requestedContactId, "360"],
+    enabled: Boolean(requestedContactId),
+  });
+  const { data: linkedConversation } = useQuery<AttConversation>({
+    queryKey: ["/api/attendance/conversations", linkedConversationId],
+    queryFn: async () => {
+      const response = await apiRequest("GET", `/api/attendance/conversations/${linkedConversationId}`);
+      return response.json();
+    },
+    enabled: Boolean(linkedConversationId),
+  });
+
+  useEffect(() => {
+    if (linkedConversation) {
+      setActiveTab("inbox");
+      setSelectedConversation(linkedConversation);
+    }
+  }, [linkedConversation]);
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden bg-muted/20 p-2" data-testid="page-attendance">
-      <ConnectionStatus mode={mode} retryInProgress={mode === "reconnecting"} onRetry={reconnectNow} className="shrink-0 px-1" />
+      <div className="mb-2 flex min-h-8 shrink-0 items-center justify-between gap-2 overflow-hidden px-1">
+        <ConnectionStatus mode={mode} retryInProgress={mode === "reconnecting"} onRetry={reconnectNow} className="min-w-0 shrink px-0" />
+        <OmnichannelHealth onOpenSettings={() => setActiveTab("settings")} />
+      </div>
       <Tabs
         value={activeTab}
         onValueChange={value => {
@@ -370,11 +435,6 @@ export default function AttendancePage() {
                 <div
                   className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center text-muted-foreground"
                   data-testid="empty-chat-panel"
-                  style={{
-                    backgroundColor: "hsl(var(--accent) / 0.22)",
-                    backgroundImage: "radial-gradient(circle at 1px 1px, hsl(var(--muted-foreground) / 0.16) 1px, transparent 0)",
-                    backgroundSize: "22px 22px",
-                  }}
                 >
                   <div className="flex h-14 w-14 items-center justify-center rounded-md border border-border bg-background/85 text-primary shadow-sm">
                     <MessageSquare className="h-7 w-7" />
@@ -419,7 +479,7 @@ export default function AttendancePage() {
 
       </Tabs>
 
-      <NewConversationDialog open={showNewConv} onClose={() => setShowNewConv(false)} />
+      <NewConversationDialog open={showNewConv} onClose={() => setShowNewConv(false)} initialContact={requestedContact?.contact} />
       <Dialog open={showContactPanel} onOpenChange={setShowContactPanel}>
         <DialogContent className="max-h-[86vh] max-w-xl overflow-hidden p-0" data-testid="dialog-contact-panel">
           <DialogHeader className="sr-only">
