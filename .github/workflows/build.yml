@@ -149,6 +149,8 @@ jobs:
           databaseUrl.password = process.env.POSTGRES_PASSWORD;
           appendFileSync(process.env.GITHUB_ENV, `DATABASE_URL=${databaseUrl}\n`);
           appendFileSync(process.env.GITHUB_ENV, `SESSION_SECRET=${randomBytes(48).toString('base64url')}\n`);
+          appendFileSync(process.env.GITHUB_ENV, `DATA_ENCRYPTION_KEY=${randomBytes(32).toString('base64')}\n`);
+          appendFileSync(process.env.GITHUB_ENV, `TOKEN_FINGERPRINT_KEY=${randomBytes(32).toString('base64')}\n`);
           NODE
 
       - name: Bootstrap E2E database
