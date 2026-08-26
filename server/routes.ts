@@ -42,15 +42,25 @@ const upload = multer({
     fieldSize: 10 * 1024 * 1024 // 10MB for field values
   }
 });
-import { db } from "./db";
+import { db, pool } from "./db";
 import { accounts, politicalParties, politicalAlliances, surveyTemplates, surveyCampaigns, surveyLandingPages, surveyResponses, users, events, demands, demandComments, contacts, aiConfigurations, systemSettings, type SurveyTemplate, type SurveyCampaign, type InsertSurveyCampaign, type SurveyLandingPage, type InsertSurveyLandingPage, type SurveyResponse, type InsertSurveyResponse, type AudienceFilters, insertContactListSchema, CONTACT_LIST_KINDS, insertMessageTemplateSchema, MESSAGE_TEMPLATE_CHANNELS, type CampaignTemplateConfig } from "@shared/schema";
 import { isWesccChannelConnected, normalizeActionCardTemplate, wescctech } from "./services/wescctech";
 import { isDirectMetaConnection } from "@shared/attendance-meta-window";
-import { buildWhatsappConnectionConfig } from "./services/whatsapp-connection-config";
+import {
+  assertLegacyWhatsappCollectionWrite,
+  migrateLegacyWhuIntegration,
+  summarizeLegacyWhatsappConnections,
+} from "./services/legacy-whu-connection-migration";
 import { renderTemplate, extractVariables, unknownVariables, isBlankMessage, smsSegments, isWaTemplateUsable, waTemplateBlockReason, waTemplateBodyVariables, contactTemplateContext, type TemplateContext } from "@shared/templates";
 import { extractWhatsAppTemplateVariables } from "@shared/whatsapp-template-variables";
 import { prepareCampaignTemplateComponents, selectCampaignOfficialConnection, validateCampaignTemplateConfiguration } from "./services/campaign-template-variables";
-import { listCampaignWhatsappConnectionOptions, requireCampaignWhatsappConnection } from "./services/campaign-whatsapp-connections";
+import {
+  campaignWhatsappConnectionId,
+  listCampaignWhatsappConnectionOptions,
+  mergeCampaignWhatsappScheduleConfig,
+  normalizeCampaignWhatsappSender,
+  requireCampaignWhatsappConnection,
+} from "./services/campaign-whatsapp-connections";
 import { toRecipientRecords, toRecipientStrings } from "@shared/recipients";
 import { parsePaginationParams, makePaginatedResult, paginateInMemory } from "@shared/pagination";
 import { workbookSheetsToXlsxBuffer, xlsxBufferToObjectRows } from "./services/excel";
@@ -78,7 +88,6 @@ import { authenticateAdminToken, authenticateToken, hasActiveGlobalAdminCookie, 
 import { encryptApiKey, decryptApiKey } from "./crypto";
 import { sanitizeAiConfiguration } from "./services/ai-config-security";
 import { redactGoogleOauthFailure, toSafeGoogleOauthResponse } from "./services/google-oauth-security";
-import { prepareWhatsappOmniConnection } from "./services/data-secret-fields";
 import { normalizeIntegrationSecretForWrite } from "./services/integration-secret-fields";
 import { decryptAiConfigProviderSecrets } from "./services/ai-config-secrets";
 import {
@@ -109,6 +118,10 @@ import { registerLegalRoutes } from "./routes/legal-routes";
 import { registerApiKeyRoutes } from "./routes/api-key-routes";
 import { registerDashboardRoutes } from "./routes/dashboard-routes";
 import { registerAllianceRoutes } from "./routes/alliance-routes";
+import { registerDemandRoutes } from "./routes/demand-routes";
+import { registerDemandOperationRoutes } from "./routes/demand-operation-routes";
+import { startDemandSlaScheduler } from "./services/demand-sla-automation";
+import { startDemandForwardingScheduler } from "./services/demand-forwarding-automation";
 import { makeUniqueSlug } from "./services/slugs";
 import { isSystemSyncEnabled } from "./services/system-sync-security";
 import { IMAGE_MIME_TYPES, hasPdfMagic, validateImageBuffer } from "./services/upload-security";
@@ -124,6 +137,14 @@ import { locawebConfigFromIntegration } from "./services/locaweb-config";
 import { createAuthenticationRateLimiter, createRuntimeAuthSessionService, getAuthAllowedOrigins, registerAuthSessionRoutes, sendAuthSessionResponse, toAuthSessionUser } from "./routes/auth-session-routes";
 import { registerPublicAuthRoutes } from "./routes/public-auth-routes";
 import { registerProfileRoute } from "./routes/profile-route";
+import { registerContact360Route } from "./routes/contact-360-route";
+import { getContact360 } from "./services/contact-360";
+import { registerContactDuplicatesRoutes } from "./routes/contact-duplicates-route";
+import { createContactMergeService } from "./services/contact-merge";
+import { createPostgresContactMergeStore } from "./services/contact-merge-store";
+import { resolvePetitionSignatureContact } from "./services/petition-contact-link";
+import { normalizeContactEmail } from "./services/contact-identity";
+import { normalizeBrazilPhone } from "@shared/phone";
 import { createAuthSessionService } from "./services/auth-session-service";
 import { createAuthSessionStore, createDrizzleAuthSessionRepository } from "./services/auth-session-store";
 const require = createRequire(import.meta.url);
@@ -276,20 +297,17 @@ async function requireValidMetaWebhookSignature(
 
 async function syncWhatsappIntegrationConnection(accountId: string, integration: Record<string, any>) {
   if (integration.service !== "whatsapp") return;
-
-  const connections = await storage.getChannelConnections(accountId).catch(() => []);
-  const existing = connections.find(
-    c => c.channel === "whatsapp" && (c.metadata as any)?.source === "settings-omni"
-  );
-  const config = buildWhatsappConnectionConfig(integration);
-  const connection = prepareWhatsappOmniConnection({ accountId, ...config }, existing as any);
-
-  if (existing) {
-    await storage.updateChannelConnection(existing.id, accountId, connection as any);
-    return;
-  }
-
-  await storage.createChannelConnection(connection as any);
+  await migrateLegacyWhuIntegration(accountId, integration, {
+    findLegacyOrigin: async tenantId => {
+      const connections = await storage.getChannelConnections(tenantId).catch(() => []);
+      return connections.find(connection =>
+        connection.channel === "whatsapp"
+        && (connection.metadata as any)?.source === "settings-omni"
+      ) ?? null;
+    },
+    create: data => storage.createChannelConnection(data as any),
+    update: (id, tenantId, data) => storage.updateChannelConnection(id, tenantId, data as any),
+  });
 }
 
 // Cache para evitar processamento duplicado de mensagens (Facebook/Instagram)
@@ -2271,6 +2289,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ==================== CONTACTS ====================
+
+  registerContactDuplicatesRoutes(app, {
+    authenticate: authenticateToken,
+    requireContacts: requirePermission("contacts"),
+    service: createContactMergeService(createPostgresContactMergeStore(pool)),
+  });
+
+  registerContact360Route(app, {
+    authenticate: authenticateToken,
+    requireContacts: requirePermission("contacts"),
+    getContact360,
+  });
   
   app.get("/api/contacts", authenticateToken, requirePermission("contacts"), async (req: AuthRequest, res) => {
     try {
@@ -2508,114 +2538,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   registerAllianceRoutes(app);
+  registerDemandRoutes(app);
+  registerDemandOperationRoutes(app);
+  startDemandSlaScheduler();
+  startDemandForwardingScheduler();
 
   // ==================== DEMANDS ====================
-  
-  app.get("/api/demands", authenticateToken, requirePermission("demands"), async (req: AuthRequest, res) => {
-    try {
-      const demands = await storage.getDemands(req.accountId!);
-      res.json(demands);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  app.post("/api/demands", authenticateToken, requirePermission("demands"), async (req: AuthRequest, res) => {
-    try {
-      const validatedData = insertDemandSchema.parse(req.body);
-      const demand = await storage.createDemand({
-        ...validatedData,
-        userId: req.userId!,
-        accountId: req.accountId!,
-      });
-
-      // Create notification for urgent demands (non-blocking)
-      if (demand.priority === "urgent") {
-        try {
-          await storage.createNotification({
-            userId: req.userId!,
-            accountId: req.accountId!,
-            type: "demand",
-            title: "Demanda Urgente Criada",
-            message: `A demanda "${demand.title}" foi criada com prioridade URGENTE`,
-            priority: "urgent",
-            isRead: false,
-            link: `/demands/${demand.id}`,
-          });
-        } catch (notificationError) {
-          console.error("Failed to create notification for urgent demand:", notificationError);
-        }
-      }
-
-      res.json(demand);
-    } catch (error: any) {
-      res.status(400).json({ error: error.message });
-    }
-  });
-
-  app.patch("/api/demands/:id", authenticateToken, requirePermission("demands"), async (req: AuthRequest, res) => {
-    try {
-      const validatedData = insertDemandSchema.partial().parse(req.body);
-      const demand = await storage.updateDemand(req.params.id, req.accountId!, validatedData);
-      res.json(demand);
-    } catch (error: any) {
-      res.status(400).json({ error: error.message });
-    }
-  });
-
-  app.delete("/api/demands/:id", authenticateToken, requirePermission("demands"), async (req: AuthRequest, res) => {
-    try {
-      await storage.deleteDemand(req.params.id, req.accountId!);
-      res.json({ success: true });
-    } catch (error: any) {
-      res.status(400).json({ error: error.message });
-    }
-  });
-
-  // Demand comments
-  app.get("/api/demands/:id/comments", authenticateToken, requirePermission("demands"), async (req: AuthRequest, res) => {
-    try {
-      const comments = await storage.getDemandComments(req.params.id, req.accountId!);
-      res.json(comments);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  app.post("/api/demands/:id/comments", authenticateToken, requirePermission("demands"), async (req: AuthRequest, res) => {
-    try {
-      const validatedData = insertDemandCommentSchema.parse(req.body);
-      const comment = await storage.createDemandComment({
-        ...validatedData,
-        demandId: req.params.id,
-        userId: req.userId!,
-        accountId: req.accountId!,
-      });
-
-      // Notify demand owner about new comment (non-blocking)
-      try {
-        const demand = await storage.getDemand(req.params.id, req.accountId!);
-        if (demand && demand.userId !== req.userId) {
-          await storage.createNotification({
-            userId: demand.userId,
-            accountId: req.accountId!,
-            type: "comment",
-            title: "Novo Comentário",
-            message: `Novo comentário adicionado na demanda "${demand.title}"`,
-            priority: "normal",
-            isRead: false,
-            link: `/demands/${demand.id}`,
-          });
-        }
-      } catch (notificationError) {
-        console.error("Failed to create notification for demand comment:", notificationError);
-      }
-
-      res.json(comment);
-    } catch (error: any) {
-      res.status(400).json({ error: error.message });
-    }
-  });
 
   // ==================== EVENTS ====================
   
@@ -3249,13 +3177,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (channel === "whatsapp" || channel === "whatsapp_oficial") {
         const connections = accountId ? await storage.getChannelConnections(accountId).catch(() => []) : [];
+        const savedConnectionId = campaignWhatsappConnectionId(
+          { waConnectionId: whatsappConnectionId },
+          templateConfig,
+        );
         const selectedConnection = requireCampaignWhatsappConnection(
           connections,
-          whatsappConnectionId ?? templateConfig?.waConnectionId,
+          savedConnectionId,
           channel,
+          accountId,
         );
-        const selectedToken = decryptSecretIfNeeded((selectedConnection as any).token) as string | undefined;
-        if (!selectedToken) return { ok: false, error: "A conexão WhatsApp selecionada não possui token configurado" };
+        let selectedToken: string;
+        try {
+          const decrypted = decryptSecretIfNeeded((selectedConnection as any).token);
+          if (typeof decrypted !== "string" || !decrypted.trim()) throw new Error("missing token");
+          selectedToken = decrypted.trim();
+        } catch {
+          return { ok: false, error: "A conexão selecionada não está mais disponível" };
+        }
 
         // WhatsApp API Oficial template send (via Meta Graph) when a template is selected.
         if (channel === "whatsapp_oficial" && templateConfig?.waTemplateName) {
@@ -3392,10 +3331,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     templateConfig?: CampaignTemplateConfig | null,
   ) {
     if (type !== "whatsapp" && type !== "whatsapp_oficial") return null;
-    const normalized = normalizeSendConfig(sendConfig);
-    const connectionId = normalized?.waConnectionId ?? templateConfig?.waConnectionId;
+    const connectionId = campaignWhatsappConnectionId(
+      normalizeSendConfig(sendConfig),
+      templateConfig,
+    );
     const connections = await storage.getChannelConnections(accountId).catch(() => []);
-    return requireCampaignWhatsappConnection(connections, connectionId, type);
+    const connection = requireCampaignWhatsappConnection(connections, connectionId, type, accountId);
+    try {
+      const token = decryptSecretIfNeeded((connection as any).token);
+      if (typeof token !== "string" || !token.trim()) throw new Error("missing token");
+    } catch {
+      throw new Error("A conexão selecionada não está mais disponível");
+    }
+    return connection;
+  }
+
+  function normalizeCampaignWhatsappConfigs(
+    type: string,
+    sendConfig: unknown,
+    templateConfig?: CampaignTemplateConfig | null,
+  ) {
+    if (type !== "whatsapp" && type !== "whatsapp_oficial") {
+      return { sendConfig: normalizeSendConfig(sendConfig), templateConfig: templateConfig ?? null };
+    }
+    return normalizeCampaignWhatsappSender(
+      normalizeSendConfig(sendConfig),
+      templateConfig as Record<string, any> | null | undefined,
+    );
   }
 
   // ==================== Phase 4 — scheduling & send control ====================
@@ -3433,13 +3395,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
     const connections = await storage.getChannelConnections(campaign.accountId).catch(() => []);
     const sendConfig = normalizeSendConfig(campaign.sendConfig);
+    const savedWhatsappConnectionId = campaignWhatsappConnectionId(sendConfig, campaign.templateConfig);
+    if (channels.some(channel => channel === "whatsapp" || channel === "whatsapp_oficial")) {
+      await validateCampaignWhatsappConnection(
+        campaign.accountId,
+        campaign.type,
+        sendConfig,
+        campaign.templateConfig as CampaignTemplateConfig | null,
+      );
+    }
     const usableChannels = channels.filter((ch) => {
       if (ch === "whatsapp" || ch === "whatsapp_oficial") {
         try {
           requireCampaignWhatsappConnection(
             connections,
-            sendConfig?.waConnectionId ?? campaign.templateConfig?.waConnectionId,
+            savedWhatsappConnectionId,
             ch,
+            campaign.accountId,
           );
           return true;
         } catch {
@@ -3497,10 +3469,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       },
     });
 
+    const accountContacts = await storage.getContacts(campaign.accountId);
+    const contactByEmail = new Map(accountContacts
+      .map((contact) => [normalizeContactEmail(contact.email), contact] as const)
+      .filter(([key]) => Boolean(key)));
+    const contactByPhone = new Map(accountContacts
+      .map((contact) => [normalizeBrazilPhone(contact.phone), contact] as const)
+      .filter(([key]) => Boolean(key)));
+
     const pendingRows = usableChannels.flatMap((ch) =>
       recipientRecords.map((r) => ({
         accountId: campaign.accountId,
         campaignId: campaign.id,
+        contactId: ch === "email"
+          ? contactByEmail.get(normalizeContactEmail(r.recipient))?.id ?? null
+          : contactByPhone.get(normalizeBrazilPhone(r.recipient))?.id ?? null,
         channel: ch,
         recipient: r.recipient,
         name: r.name ?? null,
@@ -3560,6 +3543,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (normalizeCampaignStatus(campaign.status) !== "em_envio") return;
 
       const cfg = normalizeSendConfig(campaign.sendConfig) ?? {};
+      const savedWhatsappConnectionId = campaignWhatsappConnectionId(cfg, campaign.templateConfig as CampaignTemplateConfig | null);
+      if (savedWhatsappConnectionId) cfg.waConnectionId = savedWhatsappConnectionId;
       const now = new Date();
       if (!isWithinSendWindow(now, cfg.window)) return; // outside window — wait
 
@@ -3597,8 +3582,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Respect pause/cancel issued mid-batch.
           const fresh = await storage.getCampaign(campaignId, accountId);
           if (!fresh || normalizeCampaignStatus(fresh.status) !== "em_envio") break;
-
           const row = dispatchable[i];
+          const freshTemplateConfig = (fresh.templateConfig ?? null) as CampaignTemplateConfig | null;
+          const freshWhatsappConnectionId = campaignWhatsappConnectionId(
+            normalizeSendConfig(fresh.sendConfig),
+            freshTemplateConfig,
+          );
+          if (row.channel === "whatsapp" || row.channel === "whatsapp_oficial") {
+            if (freshWhatsappConnectionId !== savedWhatsappConnectionId) {
+              throw new Error("A conexão WhatsApp da campanha mudou durante o envio");
+            }
+            await validateCampaignWhatsappConnection(
+              accountId,
+              row.channel,
+              fresh.sendConfig,
+              freshTemplateConfig,
+            );
+          }
+
           const integ = integrationByService[channelToService(row.channel)];
           const contact = findContact(row.recipient);
           // Prefer the name stored on the recipient row (manual/imported entries),
@@ -3625,7 +3626,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           const attempts = (row.attempts ?? 0) + 1;
           if (attempts > 1) retriedCount++;
-          const outcome = await dispatchCampaignMessage(row.channel, row.recipient, perContactCampaign, dispatchIntegration, templateConfig, ctx, campaign.accountId, cfg.waConnectionId);
+          const outcome = await dispatchCampaignMessage(
+            row.channel,
+            row.recipient,
+            perContactCampaign,
+            dispatchIntegration,
+            freshTemplateConfig,
+            ctx,
+            campaign.accountId,
+            freshWhatsappConnectionId,
+          );
 
           if (outcome.ok) {
             await storage.updateCampaignRecipient(row.id, accountId, {
@@ -3803,12 +3813,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const validatedData = insertMarketingCampaignSchema.parse(req.body);
       if (validatedData.type === "whatsapp_oficial") validateCampaignTemplateConfiguration(validatedData.templateConfig as CampaignTemplateConfig | null);
-      await validateCampaignWhatsappConnection(req.accountId!, validatedData.type, validatedData.sendConfig, validatedData.templateConfig as CampaignTemplateConfig | null);
+      const campaignWhatsappConfigs = normalizeCampaignWhatsappConfigs(
+        validatedData.type,
+        validatedData.sendConfig,
+        validatedData.templateConfig as CampaignTemplateConfig | null,
+      );
+      await validateCampaignWhatsappConnection(req.accountId!, validatedData.type, campaignWhatsappConfigs.sendConfig, campaignWhatsappConfigs.templateConfig as CampaignTemplateConfig | null);
       if (!userHasCampaignTypePermission(req, validatedData.type)) {
         return res.status(403).json({ error: "Você não tem permissão para criar campanhas deste tipo" });
       }
       const campaign = await storage.createCampaign({
         ...validatedData,
+        ...campaignWhatsappConfigs,
         userId: req.userId!,
         accountId: req.accountId!,
       });
@@ -3838,14 +3854,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       const validatedData = insertMarketingCampaignSchema.partial().parse(req.body);
       const nextType = validatedData.type ?? existing.type;
-      const nextTemplateConfig = (validatedData.templateConfig ?? existing.templateConfig) as CampaignTemplateConfig | null;
+      const nextTemplateConfig = (
+        Object.prototype.hasOwnProperty.call(validatedData, "templateConfig")
+          ? validatedData.templateConfig
+          : existing.templateConfig
+      ) as CampaignTemplateConfig | null;
       const nextSendConfig = validatedData.sendConfig ?? existing.sendConfig;
       if (nextType === "whatsapp_oficial") validateCampaignTemplateConfiguration(nextTemplateConfig);
-      await validateCampaignWhatsappConnection(req.accountId!, nextType, nextSendConfig, nextTemplateConfig);
+      const campaignWhatsappConfigs = normalizeCampaignWhatsappConfigs(nextType, nextSendConfig, nextTemplateConfig);
+      await validateCampaignWhatsappConnection(req.accountId!, nextType, campaignWhatsappConfigs.sendConfig, campaignWhatsappConfigs.templateConfig as CampaignTemplateConfig | null);
       if (validatedData.type && !userHasCampaignTypePermission(req, validatedData.type)) {
         return res.status(403).json({ error: "Você não tem permissão para campanhas deste tipo" });
       }
-      const updated = await storage.updateCampaign(req.params.id, req.accountId!, validatedData);
+      const updated = await storage.updateCampaign(req.params.id, req.accountId!, { ...validatedData, ...campaignWhatsappConfigs });
       await storage.createCampaignEvent({
         accountId: req.accountId!,
         campaignId: updated.id,
@@ -4114,6 +4135,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!canResume(campaign.status)) {
         return res.status(400).json({ error: `Campanha não pode ser retomada no status atual (${normalizeCampaignStatus(campaign.status)})` });
       }
+      try {
+        await validateCampaignWhatsappConnection(req.accountId!, campaign.type, campaign.sendConfig, campaign.templateConfig as CampaignTemplateConfig | null);
+      } catch (error: any) {
+        return res.status(400).json({ error: error.message });
+      }
       const fromStatus = normalizeCampaignStatus(campaign.status);
       const updated = await storage.updateCampaign(campaign.id, req.accountId!, { status: "em_envio" });
       await storage.createCampaignEvent({
@@ -4145,18 +4171,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!when || isNaN(when.getTime())) {
         return res.status(400).json({ error: "Data de agendamento inválida" });
       }
-      const sendConfig = normalizeSendConfig(req.body?.sendConfig) ?? normalizeSendConfig(campaign.sendConfig);
-      await validateCampaignWhatsappConnection(req.accountId!, campaign.type, sendConfig, campaign.templateConfig as CampaignTemplateConfig | null);
+      const sendConfig = mergeCampaignWhatsappScheduleConfig(
+        normalizeSendConfig(campaign.sendConfig),
+        normalizeSendConfig(req.body?.sendConfig),
+        campaign.templateConfig as Record<string, any> | null,
+      );
+      const campaignWhatsappConfigs = normalizeCampaignWhatsappConfigs(campaign.type, sendConfig, campaign.templateConfig as CampaignTemplateConfig | null);
+      await validateCampaignWhatsappConnection(req.accountId!, campaign.type, campaignWhatsappConfigs.sendConfig, campaignWhatsappConfigs.templateConfig as CampaignTemplateConfig | null);
       const fromStatus = normalizeCampaignStatus(campaign.status);
       const updated = await storage.updateCampaign(campaign.id, req.accountId!, {
         status: "agendada",
         scheduledFor: when,
-        sendConfig: sendConfig ?? null,
+        ...campaignWhatsappConfigs,
       });
       await storage.createCampaignEvent({
         accountId: req.accountId!, campaignId: campaign.id, userId: req.userId!,
         action: "scheduled", fromStatus, toStatus: "agendada",
-        detail: { scheduledFor: when.toISOString(), sendConfig: sendConfig ?? null },
+        detail: { scheduledFor: when.toISOString(), sendConfig: campaignWhatsappConfigs.sendConfig },
       });
       res.json(updated);
     } catch (error: any) {
@@ -4913,7 +4944,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/campaigns/whatsapp/connections", authenticateToken, requireAnyPermission("marketing", "whatsappBroadcast"), async (req: AuthRequest, res) => {
     try {
       const connections = await storage.getChannelConnections(req.accountId!);
-      res.json({ connections: listCampaignWhatsappConnectionOptions(connections) });
+      res.json({ connections: listCampaignWhatsappConnectionOptions(connections, req.accountId!) });
     } catch (error: any) {
       res.status(400).json({ error: error.message, connections: [] });
     }
@@ -5144,6 +5175,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else if (service === "email") {
         result = await locawebEmail.listAccounts(locawebConfigFromIntegration(integration as any));
       } else if (service === "whatsapp") {
+        assertLegacyWhatsappCollectionWrite(
+          service,
+          await storage.getChannelConnections(accountId).catch(() => []),
+        );
         if (!(integration as any).whatsappToken) return res.status(400).json({ error: "Token WHU/WhatsApp nao configurado" });
         const response = await fetch("https://api.wescctech.com.br/core/v2/api/channel/status", {
           headers: {
@@ -5197,6 +5232,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/integrations/whatsapp/connections-summary", authenticateToken, requireAnyPermission("marketing", "attendanceSettings"), async (req: AuthRequest, res) => {
+    try {
+      const legacyIntegration = await storage.getIntegration(req.userId!, req.accountId!, "whatsapp");
+      if (legacyIntegration) {
+        await syncWhatsappIntegrationConnection(req.accountId!, legacyIntegration as any);
+      }
+      const connections = await storage.getChannelConnections(req.accountId!);
+      res.json(summarizeLegacyWhatsappConnections(connections));
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Get specific integration
   app.get("/api/integrations/:service", authenticateToken, requireAnyPermission("marketing", "attendanceSettings"), async (req: AuthRequest, res) => {
     try {
@@ -5214,6 +5262,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validatedData = insertIntegrationSchema.parse(body);
 
       const existing = await storage.getIntegration(req.userId!, req.accountId!, validatedData.service);
+      if (validatedData.service === "whatsapp") {
+        assertLegacyWhatsappCollectionWrite(
+          validatedData.service,
+          await storage.getChannelConnections(req.accountId!).catch(() => []),
+        );
+      }
 
       // Preserve sensitive fields when left blank or sent masked ("***")
       for (const key of INTEGRATION_SENSITIVE_FIELDS) {
@@ -5289,6 +5343,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       if (req.params.service === 'whatsapp') {
+        assertLegacyWhatsappCollectionWrite(
+          req.params.service,
+          await storage.getChannelConnections(req.accountId!).catch(() => []),
+        );
         if (!integration.whatsappToken) {
           return res.status(400).json({ error: 'Token WHU/WhatsApp nao configurado' });
         }
@@ -5865,11 +5923,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
               continue;
             }
           }
-          await storage.createPetitionSignature({
-            petitionId: req.params.id,
+          const phone = norm(row.phone ?? row.telefone ?? row.celular) || null;
+          const contactId = await resolvePetitionSignatureContact({
+            accountId: req.accountId!,
+            userId: petition.userId,
             name,
             email: email || null,
-            phone: norm(row.phone ?? row.telefone ?? row.celular) || null,
+            phone,
+            city: norm(row.city ?? row.cidade) || null,
+            state: norm(row.state ?? row.estado ?? row.uf) || null,
+          }, {
+            findContact: (accountId, identity) => storage.findContactByIdentity(accountId, identity),
+            createContact: (input) => storage.createContactFromPetition(input as any),
+          });
+          await storage.createPetitionSignature({
+            petitionId: req.params.id,
+            contactId,
+            name,
+            email: email || null,
+            phone,
             city: norm(row.city ?? row.cidade) || null,
             state: norm(row.state ?? row.estado ?? row.uf) || null,
             cpf: norm(row.cpf) || null,

@@ -32,7 +32,8 @@ import { sessionClient } from "@/lib/session";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { useQuery } from "@tanstack/react-query";
-import { DEFAULT_PERMISSIONS, type UserPermissions, ATTENDANCE_PERMISSION_KEYS, BROADCAST_PERMISSION_KEYS, REPORT_PERMISSION_KEYS } from "@shared/schema";
+import { type UserPermissions, ATTENDANCE_PERMISSION_KEYS, BROADCAST_PERMISSION_KEYS, REPORT_PERMISSION_KEYS } from "@shared/schema";
+import { canAccessPermission, canAccessPermissionSet } from "@/lib/permission-access";
 import logoUrl from "@assets/icon politicall_1763309153389.png";
 
 type MenuItem = {
@@ -57,11 +58,6 @@ export function AppSidebar() {
   });
   
   const isAdmin = user?.role === "admin";
-  const permissions: UserPermissions =
-    user?.permissions ||
-    DEFAULT_PERMISSIONS[user?.role as keyof typeof DEFAULT_PERMISSIONS] ||
-    DEFAULT_PERMISSIONS.assessor;
-
   // Define menu items with permission mappings
   const menuItems: MenuItem[] = [
     {
@@ -140,7 +136,7 @@ export function AppSidebar() {
       title: "Configurações",
       url: "/settings",
       icon: Settings,
-      adminOnly: true,
+      permissionKey: "settings",
     },
   ];
   
@@ -163,13 +159,11 @@ export function AppSidebar() {
 
     // Verifica se o usuário tem permissão explícita para este menu
     // Isso vale para TODOS os usuários, incluindo admins
-    if (item.permissionKey) {
-      return permissions[item.permissionKey] === true;
-    }
+    if (item.permissionKey) return canAccessPermission(user, item.permissionKey);
 
     // Itens de grupo: visíveis se o usuário tiver QUALQUER uma das permissões
     if (item.anyPermissionKeys) {
-      return item.anyPermissionKeys.some(key => permissions[key] === true);
+      return canAccessPermissionSet(user, item.anyPermissionKeys);
     }
 
     // Se não tem permissionKey, alwaysVisible ou adminOnly, não mostra

@@ -31,6 +31,8 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import type { UserPermissions } from "@shared/schema";
 import { format } from "date-fns";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { DemandOperationsReport } from "@/components/reports/demand-operations-report";
 
 type ExportFormat = "csv" | "xlsx" | "pdf";
 
@@ -294,7 +296,7 @@ export default function Reports() {
   const [, setLocation] = useLocation();
 
   const permissions = user?.permissions as UserPermissions | undefined;
-  const hasAny =
+  const canViewCampaigns =
     permissions?.marketing === true ||
     permissions?.reports === true ||
     permissions?.campaignReports === true ||
@@ -302,12 +304,15 @@ export default function Reports() {
     permissions?.emailBroadcast === true ||
     permissions?.smsBroadcast === true ||
     user?.role === "admin";
+  const canViewDemands = permissions?.demands === true || user?.role === "admin";
+  const hasAny = canViewCampaigns || canViewDemands;
 
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [channel, setChannel] = useState("all");
   const [status, setStatus] = useState("all");
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [reportArea, setReportArea] = useState<"campaigns" | "demands">("campaigns");
 
   const queryParams = useMemo(() => {
     const p = new URLSearchParams();
@@ -325,12 +330,15 @@ export default function Reports() {
       const response = await apiRequest("GET", summaryUrl);
       return response.json();
     },
-    enabled: hasAny,
+    enabled: hasAny && canViewCampaigns && reportArea === "campaigns",
   });
 
   useEffect(() => {
     if (!userLoading && user && !hasAny) setLocation("/dashboard");
   }, [userLoading, user, hasAny, setLocation]);
+  useEffect(() => {
+    if (!userLoading && !canViewCampaigns && canViewDemands) setReportArea("demands");
+  }, [userLoading, canViewCampaigns, canViewDemands]);
 
   const statusChartData = useMemo(
     () => Object.entries(data?.statusDistribution ?? {}).map(([k, v]) => ({ name: STATUS_LABELS[k] ?? k, value: v })),
@@ -371,17 +379,26 @@ export default function Reports() {
         <div className="flex items-center gap-2">
           <BarChart3 className="w-6 h-6 text-primary" />
           <div>
-            <h1 className="text-2xl font-semibold" data-testid="text-reports-title">Relatórios de Campanhas</h1>
-            <p className="text-sm text-muted-foreground">Métricas, canais e erros das suas campanhas</p>
+            <h1 className="text-2xl font-semibold" data-testid="text-reports-title">Relatorios</h1>
+            <p className="text-sm text-muted-foreground">Indicadores de campanhas e operacao do gabinete</p>
           </div>
         </div>
-        <ExportButton
+        {reportArea === "campaigns" && canViewCampaigns && <ExportButton
           label="Exportar resumo"
           baseUrl="/api/campaigns/reports/summary/export"
           extraParams={exportParams}
           fileBase="relatorio_campanhas"
-        />
+        />}
       </div>
+
+      <Tabs value={reportArea} onValueChange={(value) => setReportArea(value as "campaigns" | "demands")}>
+        <TabsList className="grid w-full max-w-xs grid-cols-2">
+          <TabsTrigger value="campaigns" disabled={!canViewCampaigns}>Campanhas</TabsTrigger>
+          <TabsTrigger value="demands" disabled={!canViewDemands}>Demandas</TabsTrigger>
+        </TabsList>
+      </Tabs>
+
+      {reportArea === "demands" ? <DemandOperationsReport /> : <>
 
       <Card>
         <CardHeader className="pb-3">
@@ -559,6 +576,7 @@ export default function Reports() {
       )}
 
       <CampaignDetailModal campaignId={detailId} open={!!detailId} onClose={() => setDetailId(null)} />
+      </>}
     </div>
   );
 }

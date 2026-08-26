@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { z } from "zod";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -14,7 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, Calendar as CalendarIcon, Clock, Trash2, Pencil, MapPin, RefreshCw, CheckCircle2, AlertCircle, Link2, Video, ExternalLink, Tag } from "lucide-react";
+import { Plus, Calendar as CalendarIcon, Clock, Trash2, Pencil, MapPin, RefreshCw, CheckCircle2, AlertCircle, Link2, Video, ExternalLink, Tag, MessageSquare } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -88,6 +88,7 @@ const RECURRENCE_CONFIG = {
 // Tipo para o formulário com campos string separados
 interface EventFormData {
   title: string;
+  contactId?: string | null;
   description?: string | null;
   startDateStr: string;
   startTimeStr: string;
@@ -110,7 +111,10 @@ const eventFormSchema = insertEventSchema.omit({ startDate: true, endDate: true 
 });
 
 export default function Agenda() {
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const sourceParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : new URLSearchParams();
+  const linkedEventId = sourceParams.get("eventId");
+  const linkedEventHandled = useRef(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(sourceParams.get("new") === "1");
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [view, setView] = useState<"calendar" | "timeline">("calendar");
@@ -180,6 +184,7 @@ export default function Agenda() {
       recurrence: "none",
       reminder: false,
       reminderMinutes: 30,
+      contactId: sourceParams.get("contactId") || null,
     },
   });
 
@@ -250,6 +255,7 @@ export default function Agenda() {
 
       const eventData: InsertEvent = {
         title: data.title,
+        contactId: data.contactId || null,
         description: data.description || null,
         startDate: dateRange.startDate,
         endDate: dateRange.endDate,
@@ -304,6 +310,13 @@ export default function Agenda() {
     });
     setIsDialogOpen(true);
   };
+
+  useEffect(() => {
+    if (!linkedEventId || linkedEventHandled.current || !events) return;
+    const linked = events.find((event) => event.id === linkedEventId);
+    if (linked) handleEdit(linked);
+    linkedEventHandled.current = true;
+  }, [events, linkedEventId]);
 
   const handleDelete = async (id: string) => {
     if (confirm("Tem certeza que deseja excluir este evento? Se for um evento recorrente, todas as repetições serão excluídas.")) {
@@ -819,6 +832,17 @@ export default function Agenda() {
                           )}
                         </div>
                         <div className="flex gap-2">
+                          {event.attendanceConversationId && (
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              onClick={() => window.location.assign(`/attendance?conversationId=${encodeURIComponent(event.attendanceConversationId!)}`)}
+                              title="Abrir atendimento"
+                              data-testid={`timeline-button-attendance-${event.id}`}
+                            >
+                              <MessageSquare className="h-4 w-4 text-primary" />
+                            </Button>
+                          )}
                           {(event as any).googleMeetLink && (
                             <Button 
                               variant="outline" 

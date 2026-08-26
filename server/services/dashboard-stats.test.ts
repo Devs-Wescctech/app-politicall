@@ -11,7 +11,11 @@ describe("buildDashboardStats", () => {
         { name: "Sem idade", age: 0 },
       ],
       [{ partyId: "p1" }, { partyId: "p1" }, { partyId: "p2" }, { partyId: "missing" }],
-      [{ status: "pending" }, { status: "completed" }, { status: "pending" }],
+      [
+        { status: "open", slaDueAt: "2026-07-22T10:00:00.000Z", priority: "urgent" },
+        { status: "completed", slaDueAt: "2026-07-21T10:00:00.000Z", priority: "low" },
+        { status: "triage", slaDueAt: "2026-07-23T10:00:00.000Z", priority: "medium" },
+      ],
       [{ startDate: "2026-07-23T12:00:00.000Z" }, { startDate: "2026-07-21T12:00:00.000Z" }],
       [
         { id: "p1", ideology: "Centro" },
@@ -23,6 +27,8 @@ describe("buildDashboardStats", () => {
     expect(stats.totalContacts).toBe(4);
     expect(stats.totalAlliances).toBe(4);
     expect(stats.pendingDemands).toBe(2);
+    expect(stats.overdueDemands).toBe(1);
+    expect(stats.urgentDemands).toBe(1);
     expect(stats.upcomingEvents).toBe(1);
     expect(stats.averageAge).toBe(40);
     expect(stats.ageSampleSize).toBe(3);

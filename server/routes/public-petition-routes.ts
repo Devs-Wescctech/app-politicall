@@ -2,6 +2,7 @@ import type { Express, NextFunction, Request, Response } from "express";
 import { insertPetitionSignatureSchema } from "@shared/schema";
 import { z } from "zod";
 import { storage } from "../storage";
+import { resolvePetitionSignatureContact } from "../services/petition-contact-link";
 import {
   allowFixedWindowAttempt,
   filterPublishedPetitions,
@@ -110,10 +111,24 @@ export function registerPublicPetitionRoutes(app: Express) {
         }
       }
 
+      const contactId = await resolvePetitionSignatureContact({
+        accountId: petition.accountId,
+        userId: petition.userId,
+        name: validated.name,
+        email,
+        phone: validated.phone,
+        city: validated.city,
+        state: validated.state,
+      }, {
+        findContact: (accountId, identity) => storage.findContactByIdentity(accountId, identity),
+        createContact: (input) => storage.createContactFromPetition(input as any),
+      });
+
       await storage.createPetitionSignature({
         ...validated,
         email,
         cpf,
+        contactId,
         petitionId: petition.id,
         ipAddress: getRequestIp(req),
       });

@@ -1,6 +1,12 @@
 import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { type User, DEFAULT_PERMISSIONS, type UserPermissions, ATTENDANCE_PERMISSION_GROUP, BROADCAST_MODULES, REPORT_MODULES } from "@shared/schema";
+import {
+  type User,
+  DEFAULT_PERMISSIONS,
+  USER_PERMISSION_GROUPS,
+  resolveUserPermissions,
+  type UserPermissions,
+} from "@shared/schema";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -60,15 +66,65 @@ const createUserSchema = z.object({
 
 type CreateUserForm = z.infer<typeof createUserSchema>;
 
-// Grupos de permissões extras exibidos na seção "Permissões de Acesso aos Menus"
-const PERMISSION_GROUPS: ReadonlyArray<{
-  title: string;
-  items: ReadonlyArray<{ key: keyof UserPermissions; label: string }>;
-}> = [
-  { title: "Atendimento", items: ATTENDANCE_PERMISSION_GROUP },
-  { title: "Campanhas / Disparos", items: BROADCAST_MODULES },
-  { title: "Relatórios", items: REPORT_MODULES },
-];
+function limitPermissionsToManager(
+  role: string,
+  managerPermissions: UserPermissions,
+): UserPermissions {
+  const rolePermissions = resolveUserPermissions(role);
+  return Object.fromEntries(
+    USER_PERMISSION_GROUPS.flatMap((group) => group.items).map(({ key }) => [
+      key,
+      rolePermissions[key] === true && managerPermissions[key] === true,
+    ]),
+  ) as UserPermissions;
+}
+
+function PermissionChecklist({
+  value,
+  available,
+  idPrefix,
+  onChange,
+}: {
+  value: UserPermissions;
+  available: UserPermissions;
+  idPrefix: string;
+  onChange: (permissions: UserPermissions) => void;
+}) {
+  return (
+    <div className="space-y-4">
+      {USER_PERMISSION_GROUPS.map((group) => {
+        const items = group.items.filter(({ key }) => available[key] === true);
+        if (items.length === 0) return null;
+        return (
+          <section key={group.title} className="space-y-2 rounded-md border p-3">
+            <div>
+              <p className="text-sm font-medium">{group.title}</p>
+              <p className="text-xs text-muted-foreground">{group.description}</p>
+            </div>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {items.map(({ key, label }) => {
+                const id = `${idPrefix}-${key}`;
+                return (
+                  <div key={key} className="flex items-start gap-2 rounded-sm px-1 py-1.5">
+                    <Checkbox
+                      id={id}
+                      checked={value[key] === true}
+                      onCheckedChange={(checked) => onChange({ ...value, [key]: checked === true })}
+                      data-testid={`checkbox-${idPrefix}-permission-${key}`}
+                    />
+                    <label htmlFor={id} className="cursor-pointer text-sm leading-4">
+                      {label}
+                    </label>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        );
+      })}
+    </div>
+  );
+}
 
 export default function UsersManagement() {
   const { toast } = useToast();
@@ -125,46 +181,15 @@ export default function UsersManagement() {
   // Merge with the role defaults so permission keys added after the current
   // user's permissions were saved (e.g. reports/campaignReports) still appear.
   const adminPermissions: UserPermissions = useMemo(() => {
-    const roleDefaults =
-      DEFAULT_PERMISSIONS[(currentUser?.role as keyof typeof DEFAULT_PERMISSIONS) || "admin"] ??
-      DEFAULT_PERMISSIONS.admin;
-    return { ...roleDefaults, ...(currentUser?.permissions ?? {}) };
+    if (currentUser?.role === "admin") return { ...DEFAULT_PERMISSIONS.admin } as UserPermissions;
+    return resolveUserPermissions(currentUser?.role ?? "admin", currentUser?.permissions);
   }, [currentUser?.role, currentUser?.permissions]);
-  
-  // Filter permissions to only show modules the admin has access to
-  const availablePermissionKeys = Object.entries(adminPermissions)
-    .filter(([_, hasAccess]) => hasAccess)
-    .map(([key]) => key as keyof UserPermissions);
   
   // Update permissions when role changes in create dialog
   // Only enable permissions that the admin has access to
   useEffect(() => {
     if (selectedRoleInForm && adminPermissions) {
-      const roleDefaults = DEFAULT_PERMISSIONS[selectedRoleInForm as keyof typeof DEFAULT_PERMISSIONS];
-      // Limit to only permissions the admin has
-      const limitedPermissions: UserPermissions = {
-        dashboard: roleDefaults.dashboard && adminPermissions.dashboard,
-        contacts: roleDefaults.contacts && adminPermissions.contacts,
-        alliances: roleDefaults.alliances && adminPermissions.alliances,
-        demands: roleDefaults.demands && adminPermissions.demands,
-        agenda: roleDefaults.agenda && adminPermissions.agenda,
-        ai: roleDefaults.ai && adminPermissions.ai,
-        marketing: roleDefaults.marketing && adminPermissions.marketing,
-        users: roleDefaults.users && adminPermissions.users,
-        petitions: roleDefaults.petitions && adminPermissions.petitions,
-        settings: roleDefaults.settings && adminPermissions.settings,
-        whatsappAttendance: roleDefaults.whatsappAttendance && adminPermissions.whatsappAttendance,
-        emailAttendance: roleDefaults.emailAttendance && adminPermissions.emailAttendance,
-        socialAttendance: roleDefaults.socialAttendance && adminPermissions.socialAttendance,
-        whatsappBroadcast: roleDefaults.whatsappBroadcast && adminPermissions.whatsappBroadcast,
-        emailBroadcast: roleDefaults.emailBroadcast && adminPermissions.emailBroadcast,
-        smsBroadcast: roleDefaults.smsBroadcast && adminPermissions.smsBroadcast,
-        attendanceReports: roleDefaults.attendanceReports && adminPermissions.attendanceReports,
-        attendanceSettings: roleDefaults.attendanceSettings && adminPermissions.attendanceSettings,
-        reports: roleDefaults.reports && adminPermissions.reports,
-        campaignReports: roleDefaults.campaignReports && adminPermissions.campaignReports,
-      };
-      setCustomPermissions(limitedPermissions);
+      setCustomPermissions(limitPermissionsToManager(selectedRoleInForm, adminPermissions));
     }
   }, [selectedRoleInForm, adminPermissions]);
   
@@ -173,8 +198,7 @@ export default function UsersManagement() {
     if (selectedUser) {
       // Load SAVED permissions from user, merged over the role defaults so
       // permission keys added later (e.g. reports/campaignReports) are defined
-      const roleDefaults = DEFAULT_PERMISSIONS[selectedUser.role as keyof typeof DEFAULT_PERMISSIONS] ?? DEFAULT_PERMISSIONS.assessor;
-      setEditPermissions({ ...roleDefaults, ...(selectedUser.permissions ?? {}) });
+      setEditPermissions(resolveUserPermissions(selectedUser.role, selectedUser.permissions));
       setNewRole(selectedUser.role);
     }
   }, [selectedUser]);
@@ -183,31 +207,7 @@ export default function UsersManagement() {
   // Limit to permissions the admin has access to
   useEffect(() => {
     if (newRole && selectedUser && newRole !== selectedUser.role && adminPermissions) {
-      const roleDefaults = DEFAULT_PERMISSIONS[newRole as keyof typeof DEFAULT_PERMISSIONS];
-      // Limit to only permissions the admin has
-      const limitedPermissions: UserPermissions = {
-        dashboard: roleDefaults.dashboard && adminPermissions.dashboard,
-        contacts: roleDefaults.contacts && adminPermissions.contacts,
-        alliances: roleDefaults.alliances && adminPermissions.alliances,
-        demands: roleDefaults.demands && adminPermissions.demands,
-        agenda: roleDefaults.agenda && adminPermissions.agenda,
-        ai: roleDefaults.ai && adminPermissions.ai,
-        marketing: roleDefaults.marketing && adminPermissions.marketing,
-        users: roleDefaults.users && adminPermissions.users,
-        petitions: roleDefaults.petitions && adminPermissions.petitions,
-        settings: roleDefaults.settings && adminPermissions.settings,
-        whatsappAttendance: roleDefaults.whatsappAttendance && adminPermissions.whatsappAttendance,
-        emailAttendance: roleDefaults.emailAttendance && adminPermissions.emailAttendance,
-        socialAttendance: roleDefaults.socialAttendance && adminPermissions.socialAttendance,
-        whatsappBroadcast: roleDefaults.whatsappBroadcast && adminPermissions.whatsappBroadcast,
-        emailBroadcast: roleDefaults.emailBroadcast && adminPermissions.emailBroadcast,
-        smsBroadcast: roleDefaults.smsBroadcast && adminPermissions.smsBroadcast,
-        attendanceReports: roleDefaults.attendanceReports && adminPermissions.attendanceReports,
-        attendanceSettings: roleDefaults.attendanceSettings && adminPermissions.attendanceSettings,
-        reports: roleDefaults.reports && adminPermissions.reports,
-        campaignReports: roleDefaults.campaignReports && adminPermissions.campaignReports,
-      };
-      setEditPermissions(limitedPermissions);
+      setEditPermissions(limitPermissionsToManager(newRole, adminPermissions));
     }
   }, [newRole, selectedUser?.role, adminPermissions]);
 
@@ -371,7 +371,7 @@ export default function UsersManagement() {
     setSelectedUser(user);
     setNewRole(user.role);
     // Set current permissions or default for role
-    setEditPermissions(user.permissions || DEFAULT_PERMISSIONS[user.role as keyof typeof DEFAULT_PERMISSIONS]);
+    setEditPermissions(resolveUserPermissions(user.role, user.permissions));
   };
 
   const handleSaveRole = () => {
@@ -826,9 +826,9 @@ export default function UsersManagement() {
           setConfirmNewPassword("");
         }
       }}>
-        <DialogContent className="max-w-md max-h-[90vh] flex flex-col p-0" data-testid="dialog-edit-role">
+        <DialogContent className="max-h-[90vh] max-w-3xl flex flex-col p-0" data-testid="dialog-edit-role">
           <DialogHeader className="px-6 pt-6 pb-4 border-b">
-            <DialogTitle>Alterar Nível de Acesso</DialogTitle>
+            <DialogTitle>Permissões e nível de acesso</DialogTitle>
           </DialogHeader>
           {selectedUser && (
             <>
@@ -860,75 +860,14 @@ export default function UsersManagement() {
                 </div>
                 
                 <div className="space-y-3">
-                  <p className="font-medium text-[12px]">Permissões de Acesso aos Menus</p>
-                  <p className="text-xs text-muted-foreground">Apenas módulos disponíveis na sua conta</p>
-                  <div className="grid grid-cols-2 gap-3">
-                    {Object.entries({
-                      dashboard: 'Dashboard',
-                      contacts: 'Eleitores',
-                      alliances: 'Alianças',
-                      demands: 'Demandas',
-                      agenda: 'Agenda',
-                      ai: 'Atendimento IA',
-                      marketing: 'Pesquisas',
-                      petitions: 'Petições',
-                      users: 'Usuários'
-                    })
-                    .filter(([key]) => adminPermissions[key as keyof UserPermissions])
-                    .map(([key, label]) => (
-                      <div key={key} className="flex items-center space-x-2">
-                        <Checkbox
-                          id={`edit-perm-${key}`}
-                          checked={editPermissions[key as keyof UserPermissions]}
-                          onCheckedChange={(checked) => {
-                            setEditPermissions(prev => ({
-                              ...prev,
-                              [key]: checked === true
-                            }));
-                          }}
-                          data-testid={`checkbox-edit-permission-${key}`}
-                        />
-                        <label
-                          htmlFor={`edit-perm-${key}`}
-                          className="text-sm cursor-pointer"
-                        >
-                          {label}
-                        </label>
-                      </div>
-                    ))}
-                  </div>
-                  {PERMISSION_GROUPS.map((group) => {
-                    const visibleItems = group.items.filter((item) => adminPermissions[item.key]);
-                    if (visibleItems.length === 0) return null;
-                    return (
-                      <div key={group.title} className="space-y-2 pt-1">
-                        <p className="text-xs font-medium text-muted-foreground">{group.title}</p>
-                        <div className="grid grid-cols-2 gap-3">
-                          {visibleItems.map((item) => (
-                            <div key={item.key} className="flex items-center space-x-2">
-                              <Checkbox
-                                id={`edit-perm-${item.key}`}
-                                checked={editPermissions[item.key] === true}
-                                onCheckedChange={(checked) => {
-                                  setEditPermissions(prev => ({
-                                    ...prev,
-                                    [item.key]: checked === true
-                                  }));
-                                }}
-                                data-testid={`checkbox-edit-permission-${item.key}`}
-                              />
-                              <label
-                                htmlFor={`edit-perm-${item.key}`}
-                                className="text-sm cursor-pointer"
-                              >
-                                {item.label}
-                              </label>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })}
+                  <p className="font-medium text-[12px]">Permissões de acesso</p>
+                  <p className="text-xs text-muted-foreground">As permissões controlam o menu, o acesso direto e as ações disponíveis.</p>
+                  <PermissionChecklist
+                    value={editPermissions}
+                    available={adminPermissions}
+                    idPrefix="edit"
+                    onChange={setEditPermissions}
+                  />
                 </div>
                 
                 <div className="space-y-3">
@@ -981,7 +920,7 @@ export default function UsersManagement() {
       </Dialog>
       {/* Add User Dialog */}
       <Dialog open={showAddUserDialog} onOpenChange={setShowAddUserDialog}>
-        <DialogContent className="max-w-md max-h-[90vh] flex flex-col p-0" data-testid="dialog-add-user">
+        <DialogContent className="max-h-[90vh] max-w-3xl flex flex-col p-0" data-testid="dialog-add-user">
           <DialogHeader className="px-6 pt-6 pb-4 border-b">
             <DialogTitle>Adicionar Novo Usuário</DialogTitle>
           </DialogHeader>
@@ -1114,75 +1053,14 @@ export default function UsersManagement() {
                 />
                 
                 <div className="space-y-3">
-                  <p className="text-sm font-medium">Permissões de Acesso aos Menus</p>
-                  <p className="text-xs text-muted-foreground">Apenas módulos disponíveis na sua conta</p>
-                  <div className="grid grid-cols-2 gap-3">
-                    {Object.entries({
-                      dashboard: 'Dashboard',
-                      contacts: 'Eleitores',
-                      alliances: 'Alianças',
-                      demands: 'Demandas',
-                      agenda: 'Agenda',
-                      ai: 'Atendimento IA',
-                      marketing: 'Pesquisas',
-                      petitions: 'Petições',
-                      users: 'Usuários'
-                    })
-                    .filter(([key]) => adminPermissions[key as keyof UserPermissions])
-                    .map(([key, label]) => (
-                      <div key={key} className="flex items-center space-x-2">
-                        <Checkbox
-                          id={`perm-${key}`}
-                          checked={customPermissions[key as keyof UserPermissions]}
-                          onCheckedChange={(checked) => {
-                            setCustomPermissions(prev => ({
-                              ...prev,
-                              [key]: checked === true
-                            }));
-                          }}
-                          data-testid={`checkbox-permission-${key}`}
-                        />
-                        <label
-                          htmlFor={`perm-${key}`}
-                          className="text-sm cursor-pointer"
-                        >
-                          {label}
-                        </label>
-                      </div>
-                    ))}
-                  </div>
-                  {PERMISSION_GROUPS.map((group) => {
-                    const visibleItems = group.items.filter((item) => adminPermissions[item.key]);
-                    if (visibleItems.length === 0) return null;
-                    return (
-                      <div key={group.title} className="space-y-2 pt-1">
-                        <p className="text-xs font-medium text-muted-foreground">{group.title}</p>
-                        <div className="grid grid-cols-2 gap-3">
-                          {visibleItems.map((item) => (
-                            <div key={item.key} className="flex items-center space-x-2">
-                              <Checkbox
-                                id={`perm-${item.key}`}
-                                checked={customPermissions[item.key] === true}
-                                onCheckedChange={(checked) => {
-                                  setCustomPermissions(prev => ({
-                                    ...prev,
-                                    [item.key]: checked === true
-                                  }));
-                                }}
-                                data-testid={`checkbox-permission-${item.key}`}
-                              />
-                              <label
-                                htmlFor={`perm-${item.key}`}
-                                className="text-sm cursor-pointer"
-                              >
-                                {item.label}
-                              </label>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })}
+                  <p className="text-sm font-medium">Permissões de acesso</p>
+                  <p className="text-xs text-muted-foreground">As permissões controlam o menu, o acesso direto e as ações disponíveis.</p>
+                  <PermissionChecklist
+                    value={customPermissions}
+                    available={adminPermissions}
+                    idPrefix="create"
+                    onChange={setCustomPermissions}
+                  />
                 </div>
               </div>
               
