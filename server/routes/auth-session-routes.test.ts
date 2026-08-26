@@ -231,11 +231,13 @@ describe("auth session route responses", () => {
 
     const distinct = await Promise.all([1, 2, 3, 4, 5, 6].map((index) => request(`access-${index}`)));
     const repeated = await Promise.all(Array.from({ length: 31 }, () => request("repeated-access")));
+    const repeatedStatuses = repeated.map((response) => response.status);
+    const limitedResponse = repeated.find((response) => response.status === 429);
 
     expect(distinct.map((response) => response.status)).toEqual([200, 200, 200, 200, 200, 200]);
-    expect(repeated.slice(0, 30).every((response) => response.status === 200)).toBe(true);
-    expect(repeated[30].status).toBe(429);
-    expect(repeated[30].headers.get("cache-control")).toBe("no-store");
+    expect(repeatedStatuses.filter((status) => status === 200)).toHaveLength(30);
+    expect(repeatedStatuses.filter((status) => status === 429)).toHaveLength(1);
+    expect(limitedResponse?.headers.get("cache-control")).toBe("no-store");
   });
 
   it("rejects non-http public application URLs", () => {

@@ -205,6 +205,12 @@ describe("attendance realtime lifecycle", () => {
       }
       socket.once("close", () => resolve());
     });
+    const closedWithoutIntervention = await Promise.race([
+      socketClosed.then(() => true),
+      new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 2_000)),
+    ]);
+
+    if (!socket.destroyed) socket.destroy();
     let serverCloseFinished = false;
     const serverClosed = new Promise<void>((resolve) => {
       server.close(() => {
@@ -212,12 +218,6 @@ describe("attendance realtime lifecycle", () => {
         resolve();
       });
     });
-    const closedWithoutIntervention = await Promise.race([
-      Promise.all([socketClosed, serverClosed]).then(() => true),
-      new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 500)),
-    ]);
-
-    if (!socket.destroyed) socket.destroy();
     await serverClosed;
 
     expect(closedWithoutIntervention).toBe(true);

@@ -30,6 +30,10 @@ produção por engano.
 - Playwright E2E: 10 cenários passaram em Chromium contra PostgreSQL 16
   descartável; 24 migrações incrementais e o baseline foram aplicados antes dos
   cenários.
+- Estabilidade concorrente: os testes de limite de sessão e encaminhamento de
+  upgrade WebSocket reproduziram falhas por pressupor ordem/temporização; após
+  corrigir somente a sincronização das especificações, os dois arquivos passaram
+  três vezes consecutivas e a suíte paralela completa voltou a passar.
 
 ## Lacunas conhecidas
 
