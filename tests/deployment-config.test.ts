@@ -668,6 +668,8 @@ describe("deployment configuration", () => {
     expect(build).toContain("POSTGRES_PASSWORD: ${{ github.run_id }}");
     expect(build).toContain("new URL('postgresql://127.0.0.1:5432/postgres')");
     expect(build).toContain("MIGRATION_TEST_DATABASE_URL");
+    expect(build).toContain("DATA_ENCRYPTION_KEY=${randomBytes(32).toString('base64')}");
+    expect(build).toContain("TOKEN_FINGERPRINT_KEY=${randomBytes(32).toString('base64')}");
     expect(build).toContain("npm test");
     expect(build).not.toMatch(/process\.env\.DATABASE_URL|^\s*DATABASE_URL=/m);
     expect(security).toContain("npm run security:secrets");
