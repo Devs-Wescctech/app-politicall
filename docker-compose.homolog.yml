@@ -1,0 +1,94 @@
+name: politicall-homolog
+
+services:
+  db:
+    image: postgres:18.1-alpine
+    environment:
+      POSTGRES_DB: ${HOMOLOG_DB_NAME:-politicall_homolog}
+      POSTGRES_USER: ${HOMOLOG_DB_USER:-politicall_homolog}
+      POSTGRES_PASSWORD: ${HOMOLOG_DB_PASSWORD:?required}
+    volumes:
+      - politicall_homolog_postgres_data:/var/lib/postgresql/data
+    networks:
+      - homolog_backend
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${HOMOLOG_DB_USER:-politicall_homolog} -d ${HOMOLOG_DB_NAME:-politicall_homolog}"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+      PUBLIC_APP_URL: http://localhost:${HOMOLOG_APP_PORT:-5100}
+      PUBLIC_APP_ORIGINS: http://localhost:${HOMOLOG_APP_PORT:-5100}
+      PROD_DATABASE_URL: ${HOMOLOG_DATABASE_URL:?required}
+      SESSION_SECRET: ${HOMOLOG_SESSION_SECRET:?required}
+      DATA_ENCRYPTION_KEY: ${HOMOLOG_DATA_ENCRYPTION_KEY:?required}
+      TOKEN_FINGERPRINT_KEY: ${HOMOLOG_TOKEN_FINGERPRINT_KEY:?required}
+      ADMIN_MASTER_PASSWORD_HASH: ${HOMOLOG_ADMIN_MASTER_PASSWORD_HASH:?required}
+      ENABLE_BEARER_AUTH: "false"
+      ENABLE_BEARER_EXCHANGE: "false"
+      TRUST_PROXY: "0"
+    ports:
+      - "127.0.0.1:${HOMOLOG_APP_PORT:-5100}:5000"
+    volumes:
+      - politicall_homolog_uploads:/app/uploads
+    networks:
+      - homolog_frontend
+      - homolog_backend
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:5000/api/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 120s
+    restart: unless-stopped
+    stop_grace_period: 30s
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+  seed:
+    image: postgres:18.1-alpine
+    environment:
+      PGPASSWORD: ${HOMOLOG_DB_PASSWORD:?required}
+    command:
+      - sh
+      - -c
+      - >-
+        psql --set=ON_ERROR_STOP=1
+        --host=db
+        --username=${HOMOLOG_DB_USER:-politicall_homolog}
+        --dbname=${HOMOLOG_DB_NAME:-politicall_homolog}
+        --file=/seed/homolog_seed.sql
+    volumes:
+      - ./scripts/homolog_seed.sql:/seed/homolog_seed.sql:ro
+    networks:
+      - homolog_backend
+    depends_on:
+      app:
+        condition: service_healthy
+    restart: "no"
+    security_opt:
+      - no-new-privileges:true
+
+networks:
+  homolog_frontend:
+  homolog_backend:
+    internal: true
+
+volumes:
+  politicall_homolog_postgres_data:
+  politicall_homolog_uploads:

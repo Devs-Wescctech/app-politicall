@@ -1,4 +1,7 @@
 node_modules
+playwright-report/
+test-results/
+playwright/.auth/
 dist
 .DS_Store
 server/public
@@ -7,6 +10,7 @@ vite.config.ts.*
 .env
 .env.*
 !.env.example
+!.env.*.example
 .admin-config.json
 .admin-config.json.tmp
 /.runtime/
@@ -19,3 +23,6 @@ vite.config.ts.*
 /uploads/*
 !/uploads/.gitkeep
 /.superpowers/
+/.artifacts/
+/.playwright-cli/
+/.codex-tmp/

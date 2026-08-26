@@ -43,8 +43,13 @@ function candidatePaths() {
     ["ls-files", "--cached", "--others", "--exclude-standard", "-z"],
     { encoding: "buffer" },
   );
+  const deleted = new Set(execFileSync(
+    "git",
+    ["ls-files", "--deleted", "-z"],
+    { encoding: "buffer" },
+  ).toString("utf8").split("\0").filter(Boolean));
 
-  return output.toString("utf8").split("\0").filter(Boolean);
+  return output.toString("utf8").split("\0").filter((path) => path && !deleted.has(path));
 }
 
 function report(path, rule, line) {
