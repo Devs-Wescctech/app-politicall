@@ -41,3 +41,18 @@ produção por engano.
   produzido percentual de cobertura nesta execução.
 - Cinco arquivos Vitest e sete testes permanecem condicionais ao ambiente, como
   declarado pela própria suíte.
+
+## Correção do bootstrap E2E no GitHub Actions
+
+Jornada: como mantenedor, quero que o job E2E gere todas as chaves efêmeras
+exigidas pelo bootstrap para que a validação do Pull Request alcance o
+Playwright sem depender de segredos persistentes.
+
+| Garantia | Teste | RED | GREEN |
+|---|---|---|---|
+| O job E2E exporta chaves Base64 independentes para criptografia e fingerprint | `npm test -- tests/deployment-config.test.ts` | 1 falha e 35 testes aprovados; ausência de `DATA_ENCRYPTION_KEY` detectada | 36 testes aprovados após exportar `DATA_ENCRYPTION_KEY` e `TOKEN_FINGERPRINT_KEY` |
+
+Validação posterior com Node 24.19.0: `npm run check`, 1.049 testes Vitest,
+`npm run build`, `npm run security:secrets` e
+`npm audit --omit=dev --audit-level=high` passaram. O projeto continua sem um
+script de cobertura configurado; não foi produzido percentual de cobertura.
