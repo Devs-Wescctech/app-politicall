@@ -37,6 +37,7 @@ Set these environment variables in Portainer, not in a committed `.env` file:
 | `PROD_DATABASE_URL` | Required PostgreSQL connection string. |
 | `SESSION_SECRET` | Required random session secret. |
 | `DATA_ENCRYPTION_KEY` | Required canonical base64 encoding of exactly 32 random bytes. The app fails before serving when it is missing or invalid. |
+| `TOKEN_FINGERPRINT_KEY` | Required canonical base64 encoding of exactly 32 random bytes used only for WHU token fingerprints. Its rotation is gated by the automatic startup re-fingerprint described below. |
 | `PUBLIC_APP_ORIGINS` | Optional comma-separated list of additional exact HTTPS origins, such as the approved `www` alias. |
 | `LEGACY_DATA_ENCRYPTION_KEY` | Optional and temporary. Retain only through the data-key backup/rotation/rollback window, then remove it. |
 | `ADMIN_MASTER_PASSWORD_HASH` | Required bcrypt password hash. |
@@ -52,7 +53,7 @@ Deploy cookie-only first. The current browser contract uses host-only HttpOnly s
 Required checks before reopening traffic:
 
 1. Confirm `PUBLIC_APP_URL` exactly matches the primary HTTPS public origin and every `PUBLIC_APP_ORIGINS` entry is an approved alias.
-2. Rotate `SESSION_SECRET`, `DATA_ENCRYPTION_KEY`, and `ADMIN_MASTER_PASSWORD_HASH` before production sign-off. If any previous value was exposed outside the secret manager, revoke or purge it before a public Git/GHCR release.
+2. Rotate `SESSION_SECRET`, `DATA_ENCRYPTION_KEY`, `TOKEN_FINGERPRINT_KEY`, and `ADMIN_MASTER_PASSWORD_HASH` before production sign-off. If any previous value was exposed outside the secret manager, revoke or purge it before a public Git/GHCR release.
 3. Login as a tenant user and verify dashboard, refresh, logout, and one mutating request with CSRF.
 4. Login as global admin and verify `/api/admin/verify`, impersonation, admin logout, and tenant logout.
 5. Confirm browser storage contains no tenant/admin credential values; only non-authoritative UI preferences such as theme or impersonation display state may remain.
@@ -67,6 +68,12 @@ If the deployment must preserve old browser sessions, enable only `ENABLE_BEARER
 3. Investigate any malformed or undecryptable rows without changing their values. Do not use output as a source of credentials.
 4. During a controlled maintenance window run `node dist/rotate-data-encryption.js --apply`, verify a following dry run has no rotatable rows, then keep `LEGACY_DATA_ENCRYPTION_KEY` only for the approved rollback window.
 5. Remove `LEGACY_DATA_ENCRYPTION_KEY` only after the backup retention and rollback window have elapsed. Restore the paired backup and prior key together for operational rollback.
+
+## WHU Token Fingerprint Backfill
+
+The production migration runner performs an automatic WHU token fingerprint backfill after migration `0019` and before the application accepts traffic. On every startup it scans all active WHU channel connections with a token, decrypts each retained token only in process, and recomputes its fingerprint using the current `TOKEN_FINGERPRINT_KEY`. It updates divergent fingerprints with compare-and-set protection in batches and is idempotent on later starts.
+
+`TOKEN_FINGERPRINT_KEY` rotation is therefore an automatic all-active-WHU re-fingerprint during startup, not a manual key swap. The application remains unavailable until the scan completes. An invalid fingerprint key or a global active WHU token conflict fails startup closed. Do not bypass the migration: disable or rotate the duplicate active connection, correct the key configuration when applicable, then restart so the automatic backfill can resume.
 
 The uploads mount is persistent: `${UPLOADS_HOST_PATH}` is mounted at `/app/uploads`. Do not replace it with an anonymous volume or a repository-relative directory.
 

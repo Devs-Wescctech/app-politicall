@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import {
-  Plus, Pencil, Trash2, Plug, CheckCircle2, XCircle, Loader2, Zap, Users, Tags
+  Plus, Pencil, Trash2, Plug, CheckCircle2, XCircle, Loader2, Zap, Users, Tags,
+  Copy, Power, RotateCcw, Clock3,
 } from "lucide-react";
 import { SiWhatsapp } from "react-icons/si";
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,12 @@ import type { ChannelConnection, AttSector, AttQueue, AttQueueMember, QuickReply
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { isOfficialAttendanceChannel } from "@shared/attendance-meta-window";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  buildWhuConnectionPayload,
+  connectionErrorMessage,
+  validateWhuConnectionForm,
+} from "./whu-connection-form";
 
 type AttendanceLabel = { id: string; name: string; color: string };
 type ConnectionForm = {
@@ -30,6 +37,7 @@ type ConnectionForm = {
   channel: string;
   provider: "wescctech" | "wescctech_cloud" | "meta_cloud";
   token: string;
+  phoneNumber: string;
   baseUrl: string;
   businessAccountId: string;
   phoneNumberId: string;
@@ -40,6 +48,7 @@ const EMPTY_CONNECTION: ConnectionForm = {
   channel: "whatsapp",
   provider: "wescctech",
   token: "",
+  phoneNumber: "",
   baseUrl: "https://api.wescctech.com.br",
   businessAccountId: "",
   phoneNumberId: "",
@@ -68,11 +77,13 @@ function ConnStatus({ status }: { status: string }) {
 function ConnectionsSection() {
   const [open, setOpen] = useState(false);
   const [editConn, setEditConn] = useState<ChannelConnection | null>(null);
-  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [lifecycleTarget, setLifecycleTarget] = useState<OperationalConnection | null>(null);
+  const [testingIds, setTestingIds] = useState<Set<string>>(() => new Set());
+  const [lifecycleBusyIds, setLifecycleBusyIds] = useState<Set<string>>(() => new Set());
   const [form, setForm] = useState<ConnectionForm>(EMPTY_CONNECTION);
   const { toast } = useToast();
 
-  const { data: connections = [], isLoading } = useQuery<ChannelConnection[]>({
+  const { data: connections = [], isLoading, isError, error, refetch } = useQuery<OperationalConnection[]>({
     queryKey: ["/api/attendance/connections"],
   });
   const attendanceConnections = connections.filter(c => c.channel !== "sms");
@@ -91,6 +102,7 @@ function ConnectionsSection() {
       channel: c.channel,
       provider: c.provider === "wescctech_cloud" ? "wescctech_cloud" : official ? "meta_cloud" : "wescctech",
       token: "",
+      phoneNumber: c.phoneNumber ?? metadata.phoneNumber ?? "",
       baseUrl: c.baseUrl ?? (official ? "https://graph.facebook.com" : "https://api.wescctech.com.br"),
       businessAccountId: metadata.businessAccountId ?? metadata.whatsappBusinessAccountId ?? metadata.wabaId ?? "",
       phoneNumberId: metadata.phoneNumberId ?? metadata.whatsappPhoneNumberId ?? "",
@@ -101,13 +113,21 @@ function ConnectionsSection() {
 
   const saveMutation = useMutation({
     mutationFn: () => {
-      const official = form.provider !== "wescctech";
+      if (form.provider === "wescctech") {
+        const errors = validateWhuConnectionForm(form, Boolean(editConn));
+        if (errors.length > 0) throw new Error(errors[0]);
+        const payload = buildWhuConnectionPayload(form, Boolean(editConn));
+        return editConn
+          ? apiRequest("PATCH", `/api/attendance/connections/${editConn.id}`, payload)
+          : apiRequest("POST", "/api/attendance/connections", payload);
+      }
+      const official = true;
       const directMeta = form.provider === "meta_cloud";
       const payload = {
         name: form.name,
         channel: "whatsapp",
         provider: form.provider,
-        token: form.token,
+        ...(form.token.trim() ? { token: form.token.trim() } : {}),
         baseUrl: directMeta ? "https://graph.facebook.com" : "https://api.wescctech.com.br",
         metadata: {
           apiType: official ? "official" : "whu",
@@ -127,26 +147,58 @@ function ConnectionsSection() {
       setOpen(false);
       toast({ title: editConn ? "Conexão atualizada" : "Conexão criada" });
     },
-    onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
+    onError: (e: any) => toast({ title: "Não foi possível salvar", description: connectionErrorMessage(e), variant: "destructive" }),
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) => apiRequest("DELETE", `/api/attendance/connections/${id}`, {}),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/attendance/connections"] });
-      toast({ title: "Conexão removida" });
+  const lifecycleMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: "disabled" | "pending" }) => {
+      setLifecycleBusyIds(current => new Set(current).add(id));
+      try {
+        return await apiRequest("PATCH", `/api/attendance/connections/${id}`, { status });
+      } finally {
+        setLifecycleBusyIds(current => {
+          const next = new Set(current);
+          next.delete(id);
+          return next;
+        });
+      }
     },
-    onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/attendance/connections"] });
+      toast({ title: variables.status === "disabled" ? "Conexão desativada" : "Conexão reativada", description: variables.status === "pending" ? "Teste a conexão para confirmar a disponibilidade." : undefined });
+    },
+    onError: (e: any) => toast({ title: "Não foi possível alterar a conexão", description: connectionErrorMessage(e), variant: "destructive" }),
+    onSettled: () => setLifecycleTarget(null),
   });
 
   const testMutation = useMutation({
-    mutationFn: (id: string) => apiRequest("POST", `/api/attendance/connections/${id}/test`, {}),
+    mutationFn: async (id: string) => {
+      setTestingIds(current => new Set(current).add(id));
+      try {
+        return await apiRequest("POST", `/api/attendance/connections/${id}/test`, {});
+      } finally {
+        setTestingIds(current => {
+          const next = new Set(current);
+          next.delete(id);
+          return next;
+        });
+      }
+    },
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/attendance/connections"] });
       toast({ title: data.status === "connected" ? "Conexão OK" : "Falha na conexão", description: data.lastError ?? undefined });
     },
-    onError: (e: any) => toast({ title: "Erro no teste", description: e.message, variant: "destructive" }),
+    onError: (e: any) => toast({ title: "Erro no teste", description: connectionErrorMessage(e), variant: "destructive" }),
   });
+
+  const copyWebhook = async (setupUrl: string) => {
+    try {
+      await navigator.clipboard.writeText(setupUrl);
+      toast({ title: "Webhook copiado" });
+    } catch {
+      toast({ title: "Não foi possível copiar", description: "Selecione e copie a URL exibida.", variant: "destructive" });
+    }
+  };
 
   return (
     <div data-testid="section-connections">
@@ -161,37 +213,75 @@ function ConnectionsSection() {
       </div>
 
       {isLoading ? (
-        <div className="space-y-2">{[...Array(3)].map((_, i) => <div key={i} className="h-14 bg-muted animate-pulse rounded-md" />)}</div>
+        <div className="space-y-2" role="status" aria-live="polite">
+          <span className="sr-only">Carregando conexões</span>
+          {[...Array(3)].map((_, i) => <div key={i} className="h-14 bg-muted animate-pulse rounded-md" />)}
+        </div>
+      ) : isError ? (
+        <ConnectionLoadError error={error} onRetry={() => void refetch()} />
       ) : attendanceConnections.length === 0 ? (
         <div className="text-center py-10 text-muted-foreground border border-dashed border-border rounded-md" data-testid="empty-connections">
           <Plug className="w-8 h-8 mx-auto mb-2 opacity-30" />
           <p className="text-sm">Nenhuma conexão configurada</p>
         </div>
       ) : (
+        <TooltipProvider>
         <div className="space-y-2">
-          {attendanceConnections.map(c => (
-            <div key={c.id} data-testid={`item-connection-${c.id}`} className="flex items-center gap-3 p-3 rounded-md border border-border bg-background">
-              <div className={`w-8 h-8 rounded-md flex items-center justify-center flex-shrink-0 ${isOfficialAttendanceChannel({ connection: c }) ? "bg-sky-600/10" : "bg-green-600/10"}`}>
-                <SiWhatsapp className={`w-4 h-4 ${isOfficialAttendanceChannel({ connection: c }) ? "text-sky-600" : "text-green-600"}`} />
+          {attendanceConnections.map(c => {
+            const testing = testingIds.has(c.id);
+            const lifecycleBusy = lifecycleBusyIds.has(c.id);
+            return (
+              <div key={c.id} data-testid={`item-connection-${c.id}`} className="rounded-md border border-border bg-background p-3">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+                <div className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md ${isOfficialAttendanceChannel({ connection: c }) ? "bg-sky-600/10" : "bg-green-600/10"}`}>
+                  <SiWhatsapp className={`h-4 w-4 ${isOfficialAttendanceChannel({ connection: c }) ? "text-sky-600" : "text-green-600"}`} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="truncate text-sm font-medium text-foreground">{c.name}</p>
+                    <Badge variant="outline" className="text-[10px]">{isOfficialAttendanceChannel({ connection: c }) ? "Meta oficial" : "WHU"}</Badge>
+                  </div>
+                  <p className="mt-0.5 text-xs text-muted-foreground">{c.phoneNumber || (c.metadata as any)?.phoneNumber || "Número não informado"}</p>
+                  <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                    <ConnStatus status={c.status} />
+                    <span className="inline-flex items-center gap-1"><Clock3 className="h-3 w-3" />{c.lastTestedAt ? `Testado em ${new Date(c.lastTestedAt).toLocaleString("pt-BR")}` : "Ainda não testado"}</span>
+                    {c.lastError ? <span className="text-destructive">{c.lastError}</span> : null}
+                  </div>
+                </div>
+                <div className="flex shrink-0 flex-wrap items-center gap-1">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    aria-label={testing ? `Testando ${c.name}` : `Testar ${c.name}`}
+                    onClick={() => testMutation.mutate(c.id)}
+                    disabled={testing || c.status === "disabled"}
+                    data-testid={`button-test-connection-${c.id}`}
+                  >
+                    {testing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                    {testing ? "Testando" : "Testar"}
+                  </Button>
+                  <ConnectionIconAction label="Editar conexão" onClick={() => openEdit(c)} testId={`button-edit-connection-${c.id}`}><Pencil className="h-3.5 w-3.5" /></ConnectionIconAction>
+                  <ConnectionIconAction
+                    label={c.status === "disabled" ? "Reativar conexão" : "Desativar conexão"}
+                    onClick={() => setLifecycleTarget(c)}
+                    disabled={lifecycleBusy || (c.status === "disabled" && !c.hasToken)}
+                    testId={`button-toggle-connection-${c.id}`}
+                  >
+                    {c.status === "disabled" ? <RotateCcw className="h-3.5 w-3.5" /> : <Power className="h-3.5 w-3.5" />}
+                  </ConnectionIconAction>
+                </div>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-foreground truncate">{c.name}</p>
-                <p className="text-xs text-muted-foreground">{c.channel} · {c.provider}</p>
+              {c.webhookSetupUrl ? (
+                <div className="mt-3 flex items-center gap-2 border-t border-border pt-3">
+                  <Input readOnly aria-label={`Webhook de ${c.name}`} value={c.webhookSetupUrl} className="h-8 font-mono text-xs" />
+                  <ConnectionIconAction label="Copiar webhook" onClick={() => copyWebhook(c.webhookSetupUrl!)} testId={`button-copy-webhook-${c.id}`}><Copy className="h-3.5 w-3.5" /></ConnectionIconAction>
+                </div>
+              ) : null}
               </div>
-              <ConnStatus status={c.status} />
-              <div className="flex items-center gap-1">                <Button size="sm" variant="outline" onClick={() => testMutation.mutate(c.id)} disabled={testMutation.isPending} data-testid={`button-test-connection-${c.id}`}>
-                  Testar
-                </Button>
-                <Button size="icon" variant="ghost" onClick={() => openEdit(c)} data-testid={`button-edit-connection-${c.id}`}>
-                  <Pencil className="w-3.5 h-3.5" />
-                </Button>
-                <Button size="icon" variant="ghost" onClick={() => setDeleteId(c.id)} data-testid={`button-delete-connection-${c.id}`}>
-                  <Trash2 className="w-3.5 h-3.5 text-destructive" />
-                </Button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
+        </TooltipProvider>
       )}
 
       <Dialog open={open} onOpenChange={v => !v && setOpen(false)}>
@@ -205,8 +295,9 @@ function ConnectionsSection() {
               { key: "token", label: editConn ? "Novo token (deixe vazio para manter)" : "Token de acesso", placeholder: "access-token do provedor" },
             ].map(({ key, label, placeholder }) => (
               <div key={key}>
-                <label className="text-sm font-medium mb-1.5 block">{label}</label>
+                <label htmlFor={`connection-${key}`} className="text-sm font-medium mb-1.5 block">{label}</label>
                 <Input
+                  id={`connection-${key}`}
                   value={(form as any)[key]}
                   onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
                   placeholder={placeholder}
@@ -215,6 +306,20 @@ function ConnectionsSection() {
                 />
               </div>
             ))}
+            {form.provider === "wescctech" ? (
+              <div>
+                <label htmlFor="connection-phone-number" className="mb-1.5 block text-sm font-medium">Número do WhatsApp</label>
+                <Input
+                  id="connection-phone-number"
+                  value={form.phoneNumber}
+                  onChange={e => setForm(f => ({ ...f, phoneNumber: e.target.value }))}
+                  placeholder="+55 51 99999-0000"
+                  inputMode="tel"
+                  autoComplete="tel"
+                  data-testid="input-connection-phone-number"
+                />
+              </div>
+            ) : null}
             <div>
               <label className="text-sm font-medium mb-1.5 block">Tipo de conexão</label>
               <Select value={form.provider} onValueChange={(provider: "wescctech" | "wescctech_cloud" | "meta_cloud") => setForm(f => ({
@@ -247,7 +352,7 @@ function ConnectionsSection() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
-            <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending || !form.name || (form.provider === "meta_cloud" && (!form.businessAccountId || !form.phoneNumberId))} data-testid="button-save-connection">
+            <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending || !form.name.trim() || (form.provider === "wescctech" && (!form.phoneNumber.trim() || (!editConn && !form.token.trim()))) || (form.provider === "meta_cloud" && (!form.businessAccountId || !form.phoneNumberId))} data-testid="button-save-connection">
               {saveMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
               Salvar
             </Button>
@@ -255,21 +360,79 @@ function ConnectionsSection() {
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={!!deleteId} onOpenChange={v => !v && setDeleteId(null)}>
+      <AlertDialog open={Boolean(lifecycleTarget)} onOpenChange={v => !v && !(lifecycleTarget && lifecycleBusyIds.has(lifecycleTarget.id)) && setLifecycleTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remover conexão?</AlertDialogTitle>
-            <AlertDialogDescription>Essa ação é irreversível. Conversas vinculadas permanecerão mas ficarão sem canal.</AlertDialogDescription>
+            <AlertDialogTitle>{lifecycleTarget?.status === "disabled" ? "Reativar conexão?" : "Desativar conexão?"}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {lifecycleTarget?.status === "disabled"
+                ? "A conexão voltará como pendente e deverá ser testada antes do uso."
+                : "O histórico será preservado e novos envios por este número ficarão bloqueados."}
+            </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={() => { deleteMutation.mutate(deleteId!); setDeleteId(null); }} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Remover
+            <AlertDialogCancel disabled={Boolean(lifecycleTarget && lifecycleBusyIds.has(lifecycleTarget.id))}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              aria-label={lifecycleTarget?.status === "disabled" ? "Confirmar reativação" : "Confirmar desativação"}
+              disabled={Boolean(lifecycleTarget && lifecycleBusyIds.has(lifecycleTarget.id))}
+              onClick={event => {
+                event.preventDefault();
+                if (!lifecycleTarget) return;
+                lifecycleMutation.mutate({
+                  id: lifecycleTarget.id,
+                  status: lifecycleTarget.status === "disabled" ? "pending" : "disabled",
+                });
+              }}
+              className={lifecycleTarget?.status === "disabled" ? "" : "bg-destructive text-destructive-foreground hover:bg-destructive/90"}
+            >
+              {lifecycleTarget && lifecycleBusyIds.has(lifecycleTarget.id) ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              {lifecycleTarget?.status === "disabled" ? "Reativar" : "Desativar"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  );
+}
+
+type OperationalConnection = ChannelConnection & {
+  hasToken?: boolean;
+  webhookSetupUrl?: string | null;
+};
+
+function ConnectionLoadError({ error, onRetry }: { error: unknown; onRetry: () => void }) {
+  const message = error instanceof Error ? error.message.toLowerCase() : "";
+  const forbidden = message.includes("permission") || message.includes("forbidden") || message.includes("permissão");
+  return (
+    <div className="rounded-md border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground" role="alert">
+      <p>{forbidden ? "Sem permissão para gerenciar conexões." : "Não foi possível carregar as conexões."}</p>
+      {!forbidden ? <Button type="button" variant="outline" size="sm" className="mt-3" onClick={onRetry}>Tentar novamente</Button> : null}
+    </div>
+  );
+}
+
+function ConnectionIconAction({
+  label,
+  onClick,
+  testId,
+  disabled = false,
+  children,
+}: {
+  label: string;
+  onClick: () => void;
+  testId: string;
+  disabled?: boolean;
+  children: JSX.Element;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button type="button" size="icon" variant="ghost" aria-label={label} title={label} onClick={onClick} disabled={disabled} data-testid={testId}>
+          {children}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent>{label}</TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -798,6 +961,8 @@ function LabelsSection() {
 export default function SettingsTab() {
   return (
     <div className="max-w-3xl mx-auto p-6 space-y-8" data-testid="tab-settings">
+      <ConnectionsSection />
+      <Separator />
       <SectorsSection />
       <Separator />
       <QueuesSection />

@@ -1,11 +1,11 @@
 // Storage implementation using blueprint javascript_database
 import {
-  accounts, users, contacts, politicalParties, politicalAlliances, allianceInvites, demands, demandComments, events,
+  accounts, users, contacts, politicalParties, politicalAlliances, allianceLines, allianceInvites, demands, demandComments, events,
   aiConfigurations, aiConversations, aiTrainingExamples, aiResponseTemplates, 
   marketingCampaigns, campaignRecipients, campaignEvents, notifications, integrations, googleCalendarIntegrations, surveyTemplates, surveyCampaigns, surveyLandingPages, surveyResponses, leads,
   apiKeys, apiKeyUsage, contactLists, contactListMembers, messageTemplates, campaignExports,
   type Account, type User, type InsertUser, type Contact, type InsertContact,
-  type PoliticalParty, type PoliticalAlliance, type InsertPoliticalAlliance,
+  type PoliticalParty, type PoliticalAlliance, type AllianceLine, type InsertAllianceLine, type UpdateAllianceLine, type InsertPoliticalAlliance,
   type AllianceInvite, type InsertAllianceInvite,
   type Demand, type InsertDemand, type DemandComment, type InsertDemandComment,
   type Event, type InsertEvent, type AiConfiguration, type InsertAiConfiguration,
@@ -55,15 +55,30 @@ import {
   type AttConversationEvent, type InsertAttConversationEvent,
   type AttTransfer, type InsertAttTransfer
 } from "@shared/schema";
-import { ensureAttendanceMessageCreatedAt } from "./services/attendance-message-timestamp";
+import { ensureAttendanceMessageCreatedAt, normalizeStoredWesccMessageDate } from "./services/attendance-message-timestamp";
 import { decryptAiConfigProviderSecrets, encryptAiConfigProviderSecrets } from "./services/ai-config-secrets";
 import { db } from "./db";
-import { eq, desc, and, count, inArray, sql, or, ilike, gte, lte, lt, asc, notInArray } from "drizzle-orm";
+import { eq, ne, desc, and, count, inArray, sql, or, ilike, gte, lte, lt, asc, notInArray, isNull } from "drizzle-orm";
 import type { PaginationParams } from "@shared/pagination";
 import { encryptApiKey, decryptApiKey } from "./crypto";
 import bcrypt from "bcrypt";
 import crypto from "crypto";
 import { normalizeText } from "@shared/text-normalization";
+import { AllianceLineError } from "./services/alliance-line-service";
+
+export function buildConversationExternalIdentityFilter(
+  accountId: string,
+  externalThreadId: string,
+  connectionId?: string,
+) {
+  return and(
+    eq(attConversations.accountId, accountId),
+    eq(attConversations.externalThreadId, externalThreadId),
+    connectionId === undefined
+      ? isNull(attConversations.connectionId)
+      : eq(attConversations.connectionId, connectionId),
+  );
+}
 
 export type CampaignReportFilters = {
   from?: Date;
@@ -72,6 +87,80 @@ export type CampaignReportFilters = {
   status?: string;
   creatorId?: string;
 };
+
+export type ChannelConnectionRemoval = {
+  before: ChannelConnection;
+  connection: ChannelConnection | null;
+  deleted: boolean;
+};
+
+export function channelConnectionLockKey(accountId: string, connectionId: string): string {
+  return crypto.createHash("sha256")
+    .update(`politicall:channel-connection:${accountId}:${connectionId}`)
+    .digest()
+    .readBigInt64BE(0)
+    .toString();
+}
+
+function campaignConnectionIds(...configs: unknown[]): string[] {
+  const ids = new Set<string>();
+  for (const config of configs) {
+    if (config == null || typeof config !== "object" || Array.isArray(config)) continue;
+    const connectionId = (config as Record<string, unknown>).waConnectionId;
+    if (typeof connectionId === "string" && connectionId.trim()) ids.add(connectionId.trim());
+  }
+  return [...ids].sort();
+}
+
+async function lockChannelConnection(transaction: any, accountId: string, connectionId: string): Promise<void> {
+  await transaction.execute(sql`SELECT pg_advisory_xact_lock(${channelConnectionLockKey(accountId, connectionId)}::bigint)`);
+}
+
+async function lockAvailableChannelConnection(
+  transaction: any,
+  accountId: string,
+  connectionId: string,
+  unavailableMessage: string,
+): Promise<void> {
+  await lockChannelConnection(transaction, accountId, connectionId);
+  const [connection] = await transaction.select({ id: channelConnections.id, status: channelConnections.status })
+    .from(channelConnections)
+    .where(and(eq(channelConnections.id, connectionId), eq(channelConnections.accountId, accountId)));
+  if (!connection || String(connection.status).trim().toLowerCase() === "disabled") {
+    throw new Error(unavailableMessage);
+  }
+}
+
+async function lockCampaignConnections(transaction: any, accountId: string, ...configs: unknown[]): Promise<void> {
+  for (const connectionId of campaignConnectionIds(...configs)) {
+    await lockAvailableChannelConnection(transaction, accountId, connectionId, "Conexão WhatsApp não está disponível para campanhas");
+  }
+}
+
+function executeRows<T>(result: unknown): T[] {
+  if (Array.isArray(result)) return result as T[];
+  if (result && typeof result === "object" && Array.isArray((result as { rows?: unknown }).rows)) {
+    return (result as { rows: T[] }).rows;
+  }
+  return [];
+}
+
+async function channelConnectionHasHistoryInTransaction(transaction: any, accountId: string, connectionId: string): Promise<boolean> {
+  const [history] = executeRows<{ used?: unknown }>(await transaction.execute(sql`
+    SELECT EXISTS (
+      SELECT 1 FROM att_conversations
+      WHERE account_id = ${accountId} AND connection_id = ${connectionId}
+      UNION ALL
+      SELECT 1 FROM marketing_campaigns
+      WHERE account_id = ${accountId}
+        AND (
+          send_config->>'waConnectionId' = ${connectionId}
+          OR template_config->>'waConnectionId' = ${connectionId}
+        )
+    ) AS used
+  `));
+  return Boolean(history?.used);
+}
 
 export interface IStorage {
   // Accounts
@@ -92,7 +181,9 @@ export interface IStorage {
   getContacts(accountId: string): Promise<Contact[]>;
   getContactsByUser(accountId: string, userId: string): Promise<Contact[]>;
   getContact(id: string, accountId: string): Promise<Contact | undefined>;
+  findContactByIdentity(accountId: string, identity: { email?: string | null; phone?: string | null }): Promise<Contact | undefined>;
   createContact(contact: InsertContact & { userId: string; accountId: string }): Promise<Contact>;
+  createContactFromPetition(contact: InsertContact & { userId: string; accountId: string }): Promise<Contact>;
   updateContact(id: string, accountId: string, contact: Partial<InsertContact>): Promise<Contact>;
   deleteContact(id: string, accountId: string): Promise<void>;
   
@@ -105,8 +196,18 @@ export interface IStorage {
   getAllParties(): Promise<PoliticalParty[]>;
   createParty(party: Omit<PoliticalParty, "id">): Promise<PoliticalParty>;
 
+  // Alliance Lines
+  getAllianceLines(accountId: string, includeInactive: boolean): Promise<AllianceLine[]>;
+  getAllianceLine(accountId: string, id: string): Promise<AllianceLine | undefined>;
+  getAllianceLineByName(accountId: string, name: string): Promise<AllianceLine | undefined>;
+  createAllianceLine(input: { accountId: string; userId: string; data: InsertAllianceLine }): Promise<AllianceLine>;
+  updateAllianceLine(accountId: string, id: string, data: UpdateAllianceLine): Promise<AllianceLine | undefined>;
+  reorderAllianceLines(accountId: string, ids: string[]): Promise<void>;
+  countAlliancesByLine(accountId: string, lineId: string): Promise<number>;
+  deleteAllianceLine(accountId: string, id: string): Promise<boolean>;
+
   // Political Alliances
-  getAlliances(accountId: string): Promise<PoliticalAlliance[]>;
+  getAlliances(accountId: string): Promise<(PoliticalAlliance & { line: AllianceLine | null })[]>;
   createAlliance(alliance: InsertPoliticalAlliance & { userId: string; accountId: string }): Promise<PoliticalAlliance>;
   updateAlliance(id: string, accountId: string, alliance: Partial<InsertPoliticalAlliance>): Promise<PoliticalAlliance>;
   deleteAlliance(id: string, accountId: string): Promise<void>;
@@ -285,7 +386,7 @@ export interface IStorage {
   getPetitionSignatureCount(petitionId: string): Promise<number>;
   getPetitionSignatureByEmail(petitionId: string, email: string): Promise<PetitionSignature | undefined>;
   getPetitionSignatureByCpf(petitionId: string, cpf: string): Promise<PetitionSignature | undefined>;
-  createPetitionSignature(signature: InsertPetitionSignature & { ipAddress?: string | null }): Promise<PetitionSignature>;
+  createPetitionSignature(signature: InsertPetitionSignature & { contactId?: string | null; ipAddress?: string | null }): Promise<PetitionSignature>;
   deletePetitionSignature(id: string, accountId: string): Promise<void>;
 
   // Petition Campaigns
@@ -330,6 +431,10 @@ export interface IStorage {
   createChannelConnection(data: InsertChannelConnection & { accountId: string }): Promise<ChannelConnection>;
   updateChannelConnection(id: string, accountId: string, data: Partial<ChannelConnection>): Promise<ChannelConnection>;
   deleteChannelConnection(id: string, accountId: string): Promise<void>;
+  removeChannelConnection(accountId: string, connectionId: string): Promise<ChannelConnectionRemoval | null>;
+  findActiveChannelConnectionByPhone(accountId: string, phoneNumber: string, excludeId?: string): Promise<ChannelConnection | null>;
+  findActiveChannelConnectionByTokenFingerprint(accountId: string, fingerprint: string, excludeId?: string): Promise<ChannelConnection | null>;
+  channelConnectionHasHistory(accountId: string, connectionId: string): Promise<boolean>;
   getIntegrationByAccount(accountId: string, service: string): Promise<Integration | null>;
 
   // Attendance — Conversations
@@ -349,7 +454,7 @@ export interface IStorage {
     offset?: number;
   }): Promise<AttConversation[]>;
   getConversation(id: string, accountId: string): Promise<AttConversation | null>;
-  getConversationByExternal(accountId: string, externalThreadId: string): Promise<AttConversation | null>;
+  getConversationByExternal(accountId: string, externalThreadId: string, connectionId?: string): Promise<AttConversation | null>;
   createConversation(data: Partial<InsertAttConversation> & { accountId: string; channel: string }): Promise<AttConversation>;
   updateConversation(id: string, accountId: string, data: Partial<AttConversation>): Promise<AttConversation>;
   assumeConversation(id: string, accountId: string, userId: string, assignedByUserId: string): Promise<{ conversation: AttConversation | null; conflict: AttConversation | null }>;
@@ -558,7 +663,7 @@ export class DatabaseStorage implements IStorage {
     params: PaginationParams & { search?: string; userId?: string },
   ): Promise<{ data: Contact[]; total: number }> {
     const offset = (params.page - 1) * params.pageSize;
-    const conds: any[] = [eq(contacts.accountId, accountId)];
+    const conds: any[] = [eq(contacts.accountId, accountId), isNull(contacts.mergedIntoContactId)];
     if (params.userId) conds.push(eq(contacts.userId, params.userId));
     if (params.search) {
       conds.push(or(
@@ -618,14 +723,17 @@ export class DatabaseStorage implements IStorage {
 
   // Contacts
   async getContacts(accountId: string): Promise<Contact[]> {
-    return await db.select().from(contacts).where(eq(contacts.accountId, accountId)).orderBy(desc(contacts.createdAt));
+    return await db.select().from(contacts)
+      .where(and(eq(contacts.accountId, accountId), isNull(contacts.mergedIntoContactId)))
+      .orderBy(desc(contacts.createdAt));
   }
 
   async getContactsByUser(accountId: string, userId: string): Promise<Contact[]> {
     return await db.select().from(contacts)
       .where(and(
         eq(contacts.accountId, accountId),
-        eq(contacts.userId, userId)
+        eq(contacts.userId, userId),
+        isNull(contacts.mergedIntoContactId)
       ))
       .orderBy(desc(contacts.createdAt));
   }
@@ -640,40 +748,32 @@ export class DatabaseStorage implements IStorage {
     return contact || undefined;
   }
 
+  async findContactByIdentity(accountId: string, identity: { email?: string | null; phone?: string | null }): Promise<Contact | undefined> {
+    const conditions: any[] = [];
+    const email = String(identity.email ?? "").trim().toLowerCase();
+    if (email) conditions.push(sql`lower(trim(coalesce(${contacts.email}, ''))) = ${email}`);
+    const phone = String(identity.phone ?? "").replace(/\D/g, "");
+    if (phone) {
+      const localPhone = phone.startsWith("55") ? phone.slice(2) : phone;
+      conditions.push(sql`regexp_replace(coalesce(${contacts.phone}, ''), '[^0-9]', '', 'g') in (${phone}, ${localPhone})`);
+    }
+    if (conditions.length === 0) return undefined;
+    const [contact] = await db.select().from(contacts)
+      .where(and(eq(contacts.accountId, accountId), isNull(contacts.mergedIntoContactId), or(...conditions)))
+      .orderBy(desc(contacts.createdAt)).limit(1);
+    return contact;
+  }
+
   async createContact(contact: InsertContact & { userId: string; accountId: string }): Promise<Contact> {
-    // Normalize the contact name for deduplication
-    const normalized = normalizeText(contact.name);
-    
-    // Use transaction to ensure atomicity
-    const result = await db.transaction(async (tx: any) => {
-      // Check if a contact with the same normalized name already exists
-      const existing = await tx.select()
-        .from(contacts)
-        .where(and(
-          eq(contacts.accountId, contact.accountId),
-          eq(contacts.normalizedName, normalized)
-        ))
-        .limit(1);
-      
-      // If exists, delete the old one (keeping only the newest)
-      if (existing.length > 0) {
-        await tx.delete(contacts)
-          .where(eq(contacts.id, existing[0].id));
-        console.log(`Deduplicação: Removido contato duplicado "${existing[0].name}" (ID: ${existing[0].id})`);
-      }
-      
-      // Create the new contact with normalized name
-      const [newContact] = await tx.insert(contacts)
-        .values({
-          ...contact,
-          normalizedName: normalized
-        })
-        .returning();
-      
-      return newContact;
-    });
-    
-    return result;
+    const [created] = await db.insert(contacts).values({
+      ...contact,
+      normalizedName: normalizeText(contact.name),
+    }).returning();
+    return created;
+  }
+
+  async createContactFromPetition(contact: InsertContact & { userId: string; accountId: string }): Promise<Contact> {
+    return this.createContact(contact);
   }
 
   async updateContact(id: string, accountId: string, contact: Partial<InsertContact>): Promise<Contact> {
@@ -853,8 +953,70 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Political Alliances
-  async getAlliances(accountId: string): Promise<PoliticalAlliance[]> {
-    return await db.select().from(politicalAlliances).where(eq(politicalAlliances.accountId, accountId)).orderBy(desc(politicalAlliances.createdAt));
+  async getAllianceLines(accountId: string, includeInactive: boolean): Promise<AllianceLine[]> {
+    return db.select().from(allianceLines)
+      .where(includeInactive ? eq(allianceLines.accountId, accountId) : and(eq(allianceLines.accountId, accountId), eq(allianceLines.active, true)))
+      .orderBy(asc(allianceLines.displayOrder), asc(allianceLines.name));
+  }
+
+  async getAllianceLine(accountId: string, id: string): Promise<AllianceLine | undefined> {
+    const [line] = await db.select().from(allianceLines).where(and(eq(allianceLines.accountId, accountId), eq(allianceLines.id, id)));
+    return line;
+  }
+
+  async getAllianceLineByName(accountId: string, name: string): Promise<AllianceLine | undefined> {
+    const [line] = await db.select().from(allianceLines)
+      .where(and(eq(allianceLines.accountId, accountId), sql`lower(${allianceLines.name}) = lower(${name})`));
+    return line;
+  }
+
+  async createAllianceLine(input: { accountId: string; userId: string; data: InsertAllianceLine }): Promise<AllianceLine> {
+    const [created] = await db.insert(allianceLines).values({
+      ...input.data,
+      accountId: input.accountId,
+      createdByUserId: input.userId,
+    }).returning();
+    return created;
+  }
+
+  async updateAllianceLine(accountId: string, id: string, data: UpdateAllianceLine): Promise<AllianceLine | undefined> {
+    const [updated] = await db.update(allianceLines).set({ ...data, updatedAt: new Date() })
+      .where(and(eq(allianceLines.accountId, accountId), eq(allianceLines.id, id))).returning();
+    return updated;
+  }
+
+  async reorderAllianceLines(accountId: string, ids: string[]): Promise<void> {
+    await db.transaction(async (tx: any) => {
+      // The account lock blocks concurrent line inserts through the account FK.
+      await tx.execute(sql`SELECT id FROM accounts WHERE id = ${accountId} FOR UPDATE`);
+      const lockedLines = await tx.execute(sql`SELECT id FROM alliance_lines WHERE account_id = ${accountId} FOR UPDATE`);
+      const currentIds = (lockedLines.rows as Array<{ id: string }>).map((line) => line.id);
+      if (ids.length === 0 || new Set(ids).size !== ids.length || ids.length !== currentIds.length || ids.some((id) => !currentIds.includes(id))) {
+        throw new AllianceLineError("ALLIANCE_LINE_REORDER_INVALID", "A ordem deve conter todas as linhas do gabinete uma unica vez");
+      }
+      for (const [displayOrder, id] of ids.entries()) {
+        await tx.update(allianceLines).set({ displayOrder, updatedAt: new Date() })
+          .where(and(eq(allianceLines.accountId, accountId), eq(allianceLines.id, id)));
+      }
+    }, { isolationLevel: "serializable" });
+  }
+
+  async countAlliancesByLine(accountId: string, lineId: string): Promise<number> {
+    const [result] = await db.select({ total: count() }).from(politicalAlliances)
+      .where(and(eq(politicalAlliances.accountId, accountId), eq(politicalAlliances.lineId, lineId)));
+    return Number(result?.total ?? 0);
+  }
+
+  async deleteAllianceLine(accountId: string, id: string): Promise<boolean> {
+    const deleted = await db.delete(allianceLines).where(and(eq(allianceLines.accountId, accountId), eq(allianceLines.id, id))).returning({ id: allianceLines.id });
+    return deleted.length > 0;
+  }
+
+  async getAlliances(accountId: string): Promise<(PoliticalAlliance & { line: AllianceLine | null })[]> {
+    const rows = await db.select({ alliance: politicalAlliances, line: allianceLines }).from(politicalAlliances)
+      .leftJoin(allianceLines, and(eq(politicalAlliances.lineId, allianceLines.id), eq(politicalAlliances.accountId, allianceLines.accountId)))
+      .where(eq(politicalAlliances.accountId, accountId)).orderBy(desc(politicalAlliances.createdAt));
+    return rows.map(({ alliance, line }: { alliance: PoliticalAlliance; line: AllianceLine | null }) => ({ ...alliance, line }));
   }
 
   async createAlliance(alliance: InsertPoliticalAlliance & { userId: string; accountId: string }): Promise<PoliticalAlliance> {
@@ -1407,8 +1569,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createCampaign(campaign: InsertMarketingCampaign & { userId: string; accountId: string }): Promise<MarketingCampaign> {
-    const [newCampaign] = await db.insert(marketingCampaigns).values(campaign).returning();
-    return newCampaign;
+    return db.transaction(async (tx: any) => {
+      await lockCampaignConnections(tx, campaign.accountId, campaign.sendConfig, campaign.templateConfig);
+      const [newCampaign] = await tx.insert(marketingCampaigns).values(campaign).returning();
+      return newCampaign;
+    });
   }
 
   async deleteCampaign(id: string, accountId: string): Promise<void> {
@@ -1419,15 +1584,18 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateCampaign(id: string, accountId: string, campaign: Partial<InsertMarketingCampaign> & { sentAt?: Date }): Promise<MarketingCampaign> {
-    const [updated] = await db.update(marketingCampaigns)
-      .set(campaign)
-      .where(and(
-        eq(marketingCampaigns.id, id),
-        eq(marketingCampaigns.accountId, accountId)
-      ))
-      .returning();
-    if (!updated) throw new Error('Campaign not found or access denied');
-    return updated;
+    return db.transaction(async (tx: any) => {
+      await lockCampaignConnections(tx, accountId, campaign.sendConfig, campaign.templateConfig);
+      const [updated] = await tx.update(marketingCampaigns)
+        .set(campaign)
+        .where(and(
+          eq(marketingCampaigns.id, id),
+          eq(marketingCampaigns.accountId, accountId)
+        ))
+        .returning();
+      if (!updated) throw new Error('Campaign not found or access denied');
+      return updated;
+    });
   }
 
   // Campaign recipients (per-recipient tracking)
@@ -2243,7 +2411,7 @@ export class DatabaseStorage implements IStorage {
     return signature || undefined;
   }
 
-  async createPetitionSignature(signature: InsertPetitionSignature & { ipAddress?: string | null }): Promise<PetitionSignature> {
+  async createPetitionSignature(signature: InsertPetitionSignature & { contactId?: string | null; ipAddress?: string | null }): Promise<PetitionSignature> {
     const [newSignature] = await db.insert(petitionSignatures)
       .values(signature as any)
       .returning();
@@ -2507,6 +2675,63 @@ export class DatabaseStorage implements IStorage {
       .where(and(eq(channelConnections.id, id), eq(channelConnections.accountId, accountId)));
   }
 
+  async removeChannelConnection(accountId: string, connectionId: string): Promise<ChannelConnectionRemoval | null> {
+    return db.transaction(async (tx: any) => {
+      await lockChannelConnection(tx, accountId, connectionId);
+      const [locked] = executeRows<{ id: string }>(await tx.execute(sql`
+        SELECT id FROM channel_connections
+        WHERE id = ${connectionId} AND account_id = ${accountId}
+        FOR UPDATE
+      `));
+      if (!locked) return null;
+
+      const [before] = await tx.select().from(channelConnections)
+        .where(and(eq(channelConnections.id, connectionId), eq(channelConnections.accountId, accountId)));
+      if (!before) return null;
+
+      if (await channelConnectionHasHistoryInTransaction(tx, accountId, connectionId)) {
+        const [connection] = await tx.update(channelConnections)
+          .set({ status: "disabled", updatedAt: new Date() })
+          .where(and(eq(channelConnections.id, connectionId), eq(channelConnections.accountId, accountId)))
+          .returning();
+        return { before, connection, deleted: false };
+      }
+
+      await tx.delete(channelConnections)
+        .where(and(eq(channelConnections.id, connectionId), eq(channelConnections.accountId, accountId)));
+      return { before, connection: null, deleted: true };
+    });
+  }
+
+  async findActiveChannelConnectionByPhone(accountId: string, phoneNumber: string, excludeId?: string): Promise<ChannelConnection | null> {
+    const conditions = [
+      eq(channelConnections.accountId, accountId),
+      eq(channelConnections.channel, "whatsapp"),
+      eq(channelConnections.provider, "wescctech"),
+      eq(channelConnections.phoneNumber, phoneNumber),
+      ne(channelConnections.status, "disabled"),
+    ];
+    if (excludeId) conditions.push(ne(channelConnections.id, excludeId));
+    const [row] = await db.select().from(channelConnections).where(and(...conditions));
+    return row ?? null;
+  }
+
+  async findActiveChannelConnectionByTokenFingerprint(_accountId: string, fingerprint: string, excludeId?: string): Promise<ChannelConnection | null> {
+    const conditions = [
+      eq(channelConnections.channel, "whatsapp"),
+      eq(channelConnections.provider, "wescctech"),
+      eq(channelConnections.tokenFingerprint, fingerprint),
+      ne(channelConnections.status, "disabled"),
+    ];
+    if (excludeId) conditions.push(ne(channelConnections.id, excludeId));
+    const [row] = await db.select().from(channelConnections).where(and(...conditions));
+    return row ?? null;
+  }
+
+  async channelConnectionHasHistory(accountId: string, connectionId: string): Promise<boolean> {
+    return channelConnectionHasHistoryInTransaction(db, accountId, connectionId);
+  }
+
   async getIntegrationByAccount(accountId: string, service: string): Promise<Integration | null> {
     const [row] = await db.select().from(integrations)
       .where(and(eq(integrations.accountId, accountId), eq(integrations.service, service)));
@@ -2587,9 +2812,9 @@ export class DatabaseStorage implements IStorage {
     return row ?? null;
   }
 
-  async getConversationByExternal(accountId: string, externalThreadId: string): Promise<AttConversation | null> {
+  async getConversationByExternal(accountId: string, externalThreadId: string, connectionId?: string): Promise<AttConversation | null> {
     const [row] = await db.select().from(attConversations)
-      .where(and(eq(attConversations.accountId, accountId), eq(attConversations.externalThreadId, externalThreadId)));
+      .where(buildConversationExternalIdentityFilter(accountId, externalThreadId, connectionId));
     return row ?? null;
   }
 
@@ -2597,14 +2822,23 @@ export class DatabaseStorage implements IStorage {
     const now = new Date();
     for (let attempt = 0; attempt < 5; attempt++) {
       try {
-        const [row] = await db.insert(attConversations).values({
-          mode: "automatic",
-          status: "automatic",
-          statusChangedAt: now,
-          attendanceCode: buildAttendanceCode(now),
-          ...data,
-        } as any).returning();
-        return row;
+        const create = async (transaction: any) => {
+          const [row] = await transaction.insert(attConversations).values({
+            mode: "automatic",
+            status: "automatic",
+            statusChangedAt: now,
+            attendanceCode: buildAttendanceCode(now),
+            ...data,
+          } as any).returning();
+          return row;
+        };
+        if (data.connectionId) {
+          return await db.transaction(async (tx: any) => {
+            await lockAvailableChannelConnection(tx, data.accountId, data.connectionId!, "Conexão WhatsApp não está disponível para conversas");
+            return create(tx);
+          });
+        }
+        return await create(db);
       } catch (error: any) {
         const message = String(error?.message ?? "");
         if (!message.includes("attendance_code") && !message.includes("duplicate") && !message.includes("unique")) {
@@ -2619,12 +2853,21 @@ export class DatabaseStorage implements IStorage {
     const patch: Record<string, any> = { ...data };
     if (data.status !== undefined) patch.statusChangedAt = new Date();
     delete patch.attendanceCode;
-    const [row] = await db.update(attConversations)
-      .set({ ...patch, updatedAt: new Date() } as any)
-      .where(and(eq(attConversations.id, id), eq(attConversations.accountId, accountId)))
-      .returning();
-    if (!row) throw new Error("Conversa não encontrada");
-    return row;
+    const update = async (transaction: any) => {
+      const [row] = await transaction.update(attConversations)
+        .set({ ...patch, updatedAt: new Date() } as any)
+        .where(and(eq(attConversations.id, id), eq(attConversations.accountId, accountId)))
+        .returning();
+      if (!row) throw new Error("Conversa não encontrada");
+      return row;
+    };
+    if (data.connectionId) {
+      return db.transaction(async (tx: any) => {
+        await lockAvailableChannelConnection(tx, accountId, data.connectionId!, "Conexão WhatsApp não está disponível para conversas");
+        return update(tx);
+      });
+    }
+    return update(db);
   }
 
   async assumeConversation(id: string, accountId: string, userId: string, assignedByUserId: string): Promise<{ conversation: AttConversation | null; conflict: AttConversation | null }> {
@@ -2676,9 +2919,10 @@ export class DatabaseStorage implements IStorage {
   // ─── Attendance: Messages ─────────────────────────────────────────────────────
 
   async getMessages(conversationId: string, accountId: string): Promise<AttMessage[]> {
-    return db.select().from(attMessages)
+    const rows = await db.select().from(attMessages)
       .where(and(eq(attMessages.conversationId, conversationId), eq(attMessages.accountId, accountId)))
       .orderBy(attMessages.createdAt);
+    return rows.map(normalizeStoredWesccMessageDate);
   }
 
   async getMessagesPage(conversationId: string, accountId: string, options: { before?: Date; limit?: number } = {}): Promise<{ data: AttMessage[]; hasMore: boolean; nextCursor: string | null }> {
@@ -2690,8 +2934,9 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(attMessages.createdAt), desc(attMessages.id))
       .limit(limit + 1);
     const hasMore = rows.length > limit;
-    const data = rows.slice(0, limit).reverse();
-    return { data, hasMore, nextCursor: data[0]?.createdAt?.toISOString() ?? null };
+    const pageRows = rows.slice(0, limit).reverse();
+    const data = pageRows.map(normalizeStoredWesccMessageDate);
+    return { data, hasMore, nextCursor: pageRows[0]?.createdAt?.toISOString() ?? null };
   }
 
   async createMessage(data: Partial<InsertAttMessage> & { accountId: string; conversationId: string; direction: string }): Promise<AttMessage> {

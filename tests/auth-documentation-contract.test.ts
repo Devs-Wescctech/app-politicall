@@ -53,7 +53,12 @@ describe("authentication documentation contract", () => {
     expect(portainer).toContain("Deploy cookie-only first");
     expect(portainer).toContain("enable only `ENABLE_BEARER_EXCHANGE=true`");
     expect(portainer).toContain("disable `ENABLE_BEARER_EXCHANGE` again");
-    expect(portainer).toContain("Rotate `SESSION_SECRET`, `DATA_ENCRYPTION_KEY`, and `ADMIN_MASTER_PASSWORD_HASH`");
+    expect(portainer).toContain("Rotate `SESSION_SECRET`, `DATA_ENCRYPTION_KEY`, `TOKEN_FINGERPRINT_KEY`, and `ADMIN_MASTER_PASSWORD_HASH`");
+    expect(portainer).toContain("automatic WHU token fingerprint backfill");
+    expect(portainer).toContain("global active WHU token conflict");
+    expect(portainer).toContain("all active WHU channel connections");
+    expect(portainer).toContain("`TOKEN_FINGERPRINT_KEY` rotation");
+    expect(portainer).toContain("remains unavailable");
     expect(evidence).toContain("Browser QA Matrix");
   });
 

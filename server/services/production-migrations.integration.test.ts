@@ -3,7 +3,7 @@ import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promi
 import os from "node:os";
 import path from "node:path";
 import { Pool } from "pg";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { runProductionMigrations } from "./production-migrations";
 
 const rootDir = process.cwd();
@@ -19,6 +19,21 @@ const migrationNames = [
   "0008_att_messages_external_id_unique.sql",
   "0009_petitionsbr_module.sql",
   "0010_auth_sessions.sql",
+  "0011_demand_ecosystem.sql",
+  "0012_attendance_follow_up.sql",
+  "0013_petition_signature_contact.sql",
+  "0014_contact_identity_ecosystem.sql",
+  "0015_contact_deduplication.sql",
+  "0016_demand_lifecycle_automation.sql",
+  "0017_demand_forwarding_workflow.sql",
+  "0018_custom_alliance_lines.sql",
+  "0019_multiple_whu_connections.sql",
+  "0020_canonical_whu_connection_identity.sql",
+  "0021_normalize_whu_connection_identity.sql",
+  "0022_attendance_connection_thread_identity.sql",
+  "0023_reconcile_schema_contract.sql",
+  "0024_remove_empty_stale_baseline_tables.sql",
+  "0025_reconcile_remaining_baseline_drift.sql",
 ];
 
 function poolOptions(connectionString: string) {
@@ -54,6 +69,11 @@ async function createRollbackFixtureRoot(): Promise<string> {
 }
 
 describe("production migrations PostgreSQL integration", () => {
+  beforeEach(() => {
+    process.env.DATA_ENCRYPTION_KEY = Buffer.alloc(32, 3).toString("base64");
+    process.env.TOKEN_FINGERPRINT_KEY = Buffer.alloc(32, 5).toString("base64");
+  });
+
   integrationIt(
     "runs in a disposable database and rolls back SQL when history persistence fails [MIGRATION_TEST_DATABASE_URL]",
     async () => {

@@ -27,7 +27,7 @@ import {
   Building2, Wrench, Bus, Shield, Siren, Landmark, Vote,
   Flag, Home, Droplet, Construction, Hospital, Building,
   School, University, Baby as BabyIcon, Smile, Drum, Cake,
-  Calendar as CalendarIcon, Star, Mic2, ShoppingCart, Download, FileText, Sheet, MoreVertical, QrCode, Share2, UserCircle2, TrendingUp, MapPin, Info, Lock, Upload, FileSpreadsheet, AlertCircle, CheckCircle2, Filter, ChevronDown, ExternalLink, ChevronLeft, ChevronRight
+  Calendar as CalendarIcon, Star, Mic2, ShoppingCart, Download, FileText, Sheet, MoreVertical, QrCode, Share2, UserCircle2, TrendingUp, MapPin, Info, Lock, Upload, FileSpreadsheet, AlertCircle, CheckCircle2, Filter, ChevronDown, ExternalLink, ChevronLeft, ChevronRight, ContactRound
 } from "lucide-react";
 import { SiWhatsapp, SiFacebook, SiX } from "react-icons/si";
 import { useToast } from "@/hooks/use-toast";
@@ -45,6 +45,7 @@ import { downloadPdf } from "@/lib/pdfmake";
 import logoUrl from "@assets/logo pol_1763308638963_1763559095972.png";
 import politicallIconUrl from "@assets/icon politicall_1763309153389.png";
 import { QRCodeSVG } from 'qrcode.react';
+import { Link } from "wouter";
 
 const BRAZILIAN_STATES = [
   "Acre", "Alagoas", "Amapá", "Amazonas", "Bahia", "Ceará", "Distrito Federal",
@@ -1593,6 +1594,17 @@ export default function Contacts() {
         
         {/* Mobile: Icon buttons in a row */}
         <div className="flex items-center gap-1 sm:gap-2">
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-8 w-8 sm:h-9 sm:w-9"
+            asChild
+            title="Revisar eleitores duplicados"
+          >
+            <Link href="/contacts/duplicates" data-testid="button-review-duplicates">
+              <Users2 className="h-4 w-4" />
+            </Link>
+          </Button>
           {currentUser?.role === 'voluntario' && (
             <Button 
               variant="outline"
@@ -3023,6 +3035,12 @@ export default function Contacts() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
+                          <DropdownMenuItem asChild>
+                            <Link href={`/contacts/${contact.id}`}>
+                              <ContactRound className="h-4 w-4 mr-2" />
+                              Ver ficha 360
+                            </Link>
+                          </DropdownMenuItem>
                           {contact.email && (
                             <DropdownMenuItem
                               onClick={() => window.location.href = `mailto:${contact.email}`}
@@ -3125,6 +3143,12 @@ export default function Contacts() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
+                              <DropdownMenuItem asChild>
+                                <Link href={`/contacts/${contact.id}`} data-testid={`button-contact-360-${contact.id}`}>
+                                  <ContactRound className="h-4 w-4 mr-2" />
+                                  Ver ficha 360
+                                </Link>
+                              </DropdownMenuItem>
                               {contact.email && (
                                 <DropdownMenuItem
                                   onClick={() => window.location.href = `mailto:${contact.email}`}

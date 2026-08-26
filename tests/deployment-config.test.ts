@@ -93,6 +93,7 @@ function syntheticComposeEnvironment(imageReference: string): NodeJS.ProcessEnv 
     PROD_DATABASE_URL: "postgresql://database.invalid/politicall",
     SESSION_SECRET: "synthetic-session-secret-not-for-use",
     DATA_ENCRYPTION_KEY: "synthetic-encryption-key-not-for-use",
+    TOKEN_FINGERPRINT_KEY: "synthetic-fingerprint-key-not-for-use",
     ADMIN_MASTER_PASSWORD_HASH: "synthetic-bcrypt-hash-not-for-use",
     TRUST_PROXY: "1",
   };
@@ -184,6 +185,7 @@ describe("deployment configuration", () => {
       PROD_DATABASE_URL: "${PROD_DATABASE_URL:?required}",
       SESSION_SECRET: "${SESSION_SECRET:?required}",
       DATA_ENCRYPTION_KEY: "${DATA_ENCRYPTION_KEY:?required}",
+      TOKEN_FINGERPRINT_KEY: "${TOKEN_FINGERPRINT_KEY:?required}",
       ADMIN_MASTER_PASSWORD_HASH: "${ADMIN_MASTER_PASSWORD_HASH:?required}",
       TRUST_PROXY: "${TRUST_PROXY:-1}",
     });
@@ -250,6 +252,7 @@ describe("deployment configuration", () => {
       PROD_DATABASE_URL: "<postgresql-connection-string>",
       SESSION_SECRET: "<generate-with-openssl-rand-base64-48>",
       DATA_ENCRYPTION_KEY: "<generate-32-byte-key-base64>",
+      TOKEN_FINGERPRINT_KEY: "<generate-32-byte-key-base64>",
       ADMIN_MASTER_PASSWORD_HASH: "<generate-with-bcrypt>",
       TRUST_PROXY: "1",
       OKTOR_SMS_ENDPOINT: "<optional-n8n-webhook-url>",
@@ -571,49 +574,49 @@ describe("deployment configuration", () => {
     expect(packageJson.scripts.build).toContain("--outfile=dist/migrate-production.js");
   });
 
-  it("stops database bootstrap on the first SQL error", async () => {
+  it("uses the transactional production migrator for database bootstrap", async () => {
     const setup = await readProjectFile("scripts/setup-dev-db.ts");
     const schema = await readProjectFile("scripts/full_schema.sql");
 
-    expect(setup).toContain('"-v ON_ERROR_STOP=1"');
-    expect(setup.indexOf('`-f ${file}`')).toBeLessThan(
-      setup.indexOf("parsed.pathname.slice(1)"),
-    );
+    expect(setup).toContain('import { runProductionMigrations } from "../server/services/production-migrations"');
+    expect(setup).toContain("await runProductionMigrations(pool, process.cwd(), {");
+    expect(setup).not.toContain("applyMigration");
+    expect(setup).not.toContain("execSync");
     expect(schema).not.toMatch(/^\\unrestrict\b/m);
   });
 
   it("applies the campaign center migration during database bootstrap", async () => {
-    const setup = await readProjectFile("scripts/setup-dev-db.ts");
+    const migrator = await readProjectFile("server/services/production-migrations.ts");
     const migration = await readProjectFile("migrations/0006_campaign_center.sql");
 
-    expect(setup).toContain('applyMigration("migrations/0006_campaign_center.sql")');
+    expect(migrator).toContain('"0006_campaign_center.sql"');
     expect(migration).toContain("ADD COLUMN IF NOT EXISTS channels text[]");
     expect(migration).toContain("CREATE TABLE IF NOT EXISTS campaign_recipients");
     expect(migration).toContain("CREATE TABLE IF NOT EXISTS message_templates");
   });
 
   it("applies the contact neighborhood migration during database bootstrap", async () => {
-    const setup = await readProjectFile("scripts/setup-dev-db.ts");
+    const migrator = await readProjectFile("server/services/production-migrations.ts");
     const migration = await readProjectFile("migrations/0007_contact_neighborhood.sql");
 
-    expect(setup).toContain('applyMigration("migrations/0007_contact_neighborhood.sql")');
+    expect(migrator).toContain('"0007_contact_neighborhood.sql"');
     expect(migration).toContain("ADD COLUMN IF NOT EXISTS neighborhood text");
   });
 
   it("applies the attendance external-message-id migration during database bootstrap", async () => {
-    const setup = await readProjectFile("scripts/setup-dev-db.ts");
+    const migrator = await readProjectFile("server/services/production-migrations.ts");
     const migration = await readProjectFile("migrations/0008_att_messages_external_id_unique.sql");
 
-    expect(setup).toContain('applyMigration("migrations/0008_att_messages_external_id_unique.sql")');
+    expect(migrator).toContain('"0008_att_messages_external_id_unique.sql"');
     expect(migration).toContain("att_messages");
     expect(migration).toContain("external_message_id");
   });
 
   it("applies the PetiçõesBR module migration during database bootstrap", async () => {
-    const setup = await readProjectFile("scripts/setup-dev-db.ts");
+    const migrator = await readProjectFile("server/services/production-migrations.ts");
     const migration = await readProjectFile("migrations/0009_petitionsbr_module.sql");
 
-    expect(setup).toContain('applyMigration("migrations/0009_petitionsbr_module.sql")');
+    expect(migrator).toContain('"0009_petitionsbr_module.sql"');
     expect(migration).toContain("CREATE TABLE IF NOT EXISTS petitions");
     expect(migration).toContain("CREATE TABLE IF NOT EXISTS petition_signatures");
     expect(migration).toContain("CREATE TABLE IF NOT EXISTS petition_campaigns");
@@ -640,17 +643,18 @@ describe("deployment configuration", () => {
     expect(workflow).toContain("NODE_VERSION: '24.18.0'");
     expect(workflow).not.toMatch(/npm\s+install\s+-g\s+npm(?:@latest)?/i);
     expect(workflow).not.toMatch(/(?:uses:\s*[^\s@]+@|npm@)(?:latest|master)\b/i);
-    expect(workflow.match(/run: npm ci/g)).toHaveLength(3);
+    expect(workflow.match(/run: npm ci/g)).toHaveLength(4);
     expect(actionReferences(workflow)).toEqual(expect.arrayContaining(expectedActions));
     for (const reference of actionReferences(workflow)) {
       expect(reference).toMatch(/^[\w.-]+\/[\w.-]+@[a-f0-9]{40}$/);
     }
   });
 
-  it("requires typecheck, real PostgreSQL migration tests, build, and security gates before Docker", async () => {
+  it("requires typecheck, PostgreSQL migration tests, browser flows, build, and security gates before Docker", async () => {
     const workflow = await readProjectFile(".github/workflows/build.yml");
     const build = workflowJob(workflow, "build");
     const security = workflowJob(workflow, "security");
+    const e2e = workflowJob(workflow, "e2e");
     const docker = workflowJob(workflow, "docker");
     const publish = workflowJob(workflow, "publish");
 
@@ -664,12 +668,20 @@ describe("deployment configuration", () => {
     expect(build).toContain("POSTGRES_PASSWORD: ${{ github.run_id }}");
     expect(build).toContain("new URL('postgresql://127.0.0.1:5432/postgres')");
     expect(build).toContain("MIGRATION_TEST_DATABASE_URL");
+    expect(build).toContain("DATA_ENCRYPTION_KEY=${randomBytes(32).toString('base64')}");
+    expect(build).toContain("TOKEN_FINGERPRINT_KEY=${randomBytes(32).toString('base64')}");
     expect(build).toContain("npm test");
     expect(build).not.toMatch(/process\.env\.DATABASE_URL|^\s*DATABASE_URL=/m);
     expect(security).toContain("npm run security:secrets");
     expect(security).toContain("npm audit --omit=dev --audit-level=high");
     expect(security).not.toContain("continue-on-error: true");
-    expect(docker).toContain("needs: [typecheck, build, security]");
+    expect(e2e).toContain("postgres:");
+    expect(e2e).toContain("npx tsx scripts/setup-dev-db.ts");
+    expect(e2e).toContain("DATA_ENCRYPTION_KEY=${randomBytes(32).toString('base64')}");
+    expect(e2e).toContain("TOKEN_FINGERPRINT_KEY=${randomBytes(32).toString('base64')}");
+    expect(e2e).toContain("npx playwright install --with-deps chromium");
+    expect(e2e).toContain("npm run test:e2e -- --project=chromium");
+    expect(docker).toContain("needs: [typecheck, build, security, e2e]");
     expect(docker).toContain("github.event_name == 'push'");
     expect(docker).toContain("github.ref == 'refs/heads/main'");
     expect(docker).toMatch(/permissions:\n      contents: read\n    outputs:/);

@@ -1,8 +1,10 @@
 import crypto from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { encryptApiKey } from "../crypto";
+import { fingerprintWhuToken } from "./whu-connection-identity";
 import {
   DATA_ENCRYPTION_ROTATION_INVENTORY,
+  backfillWhuTokenFingerprints,
   rotateDataEncryption,
   type DataKeyRotationStore,
 } from "./data-key-rotation";
@@ -13,10 +15,11 @@ const previousKey = Buffer.alloc(32, 4).toString("base64");
 function withKeys() {
   process.env.DATA_ENCRYPTION_KEY = activeKey;
   process.env.LEGACY_DATA_ENCRYPTION_KEY = previousKey;
+  process.env.TOKEN_FINGERPRINT_KEY = Buffer.alloc(32, 5).toString("base64");
 }
 
-function createStore(rows: Array<{ table: string; id: string; field: string; value: string; metadata?: Record<string, unknown> }>) {
-  const writes: Array<{ id: string; field: string; value: string }> = [];
+function createStore(rows: Array<{ table: string; id: string; field: string; value: string; tokenFingerprint?: string | null; metadata?: Record<string, unknown> }>) {
+  const writes: Array<{ id: string; field: string; value: string; tokenFingerprint?: string }> = [];
   let transactionCount = 0;
   const store: DataKeyRotationStore = {
     async readBatch(cursor, limit) {
@@ -28,11 +31,12 @@ function createStore(rows: Array<{ table: string; id: string; field: string; val
       transactionCount += 1;
       return work();
     },
-    async compareAndSet(row, encrypted) {
+    async compareAndSet(row, encrypted, tokenFingerprint) {
       const source = rows.find((candidate) => candidate.id === row.id && candidate.table === row.table && candidate.field === row.field);
       if (!source || source.value !== row.value) return false;
       source.value = encrypted;
-      writes.push({ id: row.id, field: row.field, value: encrypted });
+      if (tokenFingerprint !== undefined) source.tokenFingerprint = tokenFingerprint;
+      writes.push({ id: row.id, field: row.field, value: encrypted, tokenFingerprint });
       return true;
     },
   };
@@ -96,6 +100,125 @@ describe("data encryption rotation", () => {
     expect(applied.rotated).toBe(1);
     const secondRun = await rotateDataEncryption(fixture.store, { apply: true });
     expect(secondRun.unchanged).toBe(1);
+  });
+
+  it("rotates a channel token and its active-key fingerprint together", async () => {
+    withKeys();
+    process.env.DATA_ENCRYPTION_KEY = previousKey;
+    const priorEnvelope = encryptApiKey("whu-token", { table: "channel_connections", field: "token", recordId: "whu-1" });
+    process.env.DATA_ENCRYPTION_KEY = activeKey;
+    const row = {
+      table: "channel_connections",
+      id: "whu-1",
+      field: "token",
+      value: priorEnvelope,
+      channel: "whatsapp",
+      provider: "wescctech",
+      tokenFingerprint: "old-fingerprint",
+    };
+    const fixture = createStore([row]);
+
+    const dryRun = await rotateDataEncryption(fixture.store);
+    expect(dryRun.rotated).toBe(0);
+    expect(row.value).toBe(priorEnvelope);
+    expect(row.tokenFingerprint).toBe("old-fingerprint");
+
+    const applied = await rotateDataEncryption(fixture.store, { apply: true });
+    expect(applied.rotated).toBe(1);
+    expect(row.value).not.toBe(priorEnvelope);
+    expect(row.tokenFingerprint).toBe(fingerprintWhuToken("whu-token"));
+
+    const secondRun = await rotateDataEncryption(fixture.store, { apply: true });
+    expect(secondRun.rotated).toBe(0);
+  });
+
+  it("backfills a missing fingerprint for an active channel token without rotating its envelope", async () => {
+    withKeys();
+    const activeEnvelope = encryptApiKey("active-whu-token", { table: "channel_connections", field: "token", recordId: "whu-active" });
+    const row = {
+      table: "channel_connections",
+      id: "whu-active",
+      field: "token",
+      value: activeEnvelope,
+      channel: "whatsapp",
+      provider: "wescctech",
+      tokenFingerprint: null,
+    };
+    const fixture = createStore([row]);
+
+    const dryRun = await backfillWhuTokenFingerprints(fixture.store);
+    expect(dryRun).toMatchObject({ rotatable: 1, rotated: 0 });
+    expect(row).toMatchObject({ value: activeEnvelope, tokenFingerprint: null });
+
+    const applied = await backfillWhuTokenFingerprints(fixture.store, { apply: true });
+    expect(applied.rotated).toBe(1);
+    expect(row).toMatchObject({ value: activeEnvelope, tokenFingerprint: fingerprintWhuToken("active-whu-token") });
+
+    const secondRun = await backfillWhuTokenFingerprints(fixture.store, { apply: true });
+    expect(secondRun).toMatchObject({ rotated: 0, unchanged: 1 });
+  });
+
+  it("recomputes every active WHU fingerprint after fingerprint-key rotation and is idempotent", async () => {
+    withKeys();
+    const currentFingerprintKey = process.env.TOKEN_FINGERPRINT_KEY!;
+    const nullEnvelope = encryptApiKey("null-fingerprint", { table: "channel_connections", field: "token", recordId: "whu-null" });
+    const staleEnvelope = encryptApiKey("stale-fingerprint", { table: "channel_connections", field: "token", recordId: "whu-stale" });
+    const currentEnvelope = encryptApiKey("current-fingerprint", { table: "channel_connections", field: "token", recordId: "whu-current" });
+    process.env.TOKEN_FINGERPRINT_KEY = Buffer.alloc(32, 6).toString("base64");
+    const staleFingerprint = fingerprintWhuToken("stale-fingerprint");
+    process.env.TOKEN_FINGERPRINT_KEY = currentFingerprintKey;
+    const currentFingerprint = fingerprintWhuToken("current-fingerprint");
+    const rows = [
+      { table: "channel_connections", id: "whu-null", field: "token", value: nullEnvelope, channel: "whatsapp", provider: "wescctech", tokenFingerprint: null },
+      { table: "channel_connections", id: "whu-stale", field: "token", value: staleEnvelope, channel: "whatsapp", provider: "wescctech", tokenFingerprint: staleFingerprint },
+      { table: "channel_connections", id: "whu-current", field: "token", value: currentEnvelope, channel: "whatsapp", provider: "wescctech", tokenFingerprint: currentFingerprint },
+    ];
+    const fixture = createStore(rows);
+
+    const dryRun = await backfillWhuTokenFingerprints(fixture.store);
+    expect(dryRun).toMatchObject({ scanned: 3, rotatable: 2, rotated: 0, unchanged: 1 });
+    expect(fixture.writes).toHaveLength(0);
+
+    const applied = await backfillWhuTokenFingerprints(fixture.store, { apply: true });
+    expect(applied).toMatchObject({ scanned: 3, rotatable: 2, rotated: 2, unchanged: 1 });
+    expect(rows.map((row) => row.tokenFingerprint)).toEqual([
+      fingerprintWhuToken("null-fingerprint"),
+      fingerprintWhuToken("stale-fingerprint"),
+      currentFingerprint,
+    ]);
+
+    const secondRun = await backfillWhuTokenFingerprints(fixture.store, { apply: true });
+    expect(secondRun).toMatchObject({ scanned: 3, rotatable: 0, rotated: 0, unchanged: 3 });
+  });
+
+  it("validates the fingerprint key before reading even an empty backfill store", async () => {
+    withKeys();
+    process.env.TOKEN_FINGERPRINT_KEY = "not-canonical-base64";
+    const fixture = createStore([]);
+    let reads = 0;
+    const readBatch = fixture.store.readBatch;
+    fixture.store.readBatch = async (...args) => {
+      reads += 1;
+      return readBatch(...args);
+    };
+
+    await expect(backfillWhuTokenFingerprints(fixture.store)).rejects.toThrow("TOKEN_FINGERPRINT_KEY");
+    expect(reads).toBe(0);
+  });
+
+  it("reports malformed WHU tokens without attempting to fingerprint them", async () => {
+    withKeys();
+    const fixture = createStore([{
+      table: "channel_connections",
+      id: "whu-malformed",
+      field: "token",
+      value: "v2:bad:bad:bad:bad",
+      channel: "whatsapp",
+      provider: "wescctech",
+      tokenFingerprint: null,
+    }]);
+
+    await expect(rotateDataEncryption(fixture.store)).resolves.toMatchObject({ errors: 1, rotated: 0 });
   });
 
   it("requires the active key even for dry-run before reading rows", async () => {

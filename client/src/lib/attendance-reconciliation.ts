@@ -11,6 +11,7 @@ export type AttendanceRealtimeEvent = {
 
 type MessageRecord = Partial<AttMessage> & Pick<AttMessage, "id">;
 type ConversationDetailCache = { messages: AttMessage[]; [key: string]: unknown };
+type ConversationRecord = Record<string, unknown> & { id: unknown };
 
 function usableExternalMessageId(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value : null;
@@ -82,6 +83,37 @@ function messageAfterEvent(event: AttendanceRealtimeEvent): MessageRecord | null
   return isRecord(after) && typeof after.id === "string" && after.id ? after as MessageRecord : null;
 }
 
+function patchConversationListCache(current: unknown, updated: ConversationRecord): unknown {
+  if (Array.isArray(current)) {
+    return current.map(item => isRecord(item) && item.id === updated.id ? { ...item, ...updated } : item);
+  }
+  if (!isRecord(current)) return current;
+
+  if (Array.isArray(current.data)) {
+    return { ...current, data: patchConversationListCache(current.data, updated) };
+  }
+  if (Array.isArray(current.pages)) {
+    return {
+      ...current,
+      pages: current.pages.map(page => patchConversationListCache(page, updated)),
+    };
+  }
+  return current;
+}
+
+export function reconcileAttendanceConversation(
+  queryClient: QueryClient,
+  updated: ConversationRecord,
+): void {
+  queryClient.setQueryData<Record<string, unknown>>(
+    ["/api/attendance/conversations", String(updated.id)],
+    old => ({ ...(old ?? {}), ...updated }),
+  );
+  queryClient.setQueriesData({ queryKey: ["/api/attendance/conversations"] }, old =>
+    patchConversationListCache(old, updated),
+  );
+}
+
 export function applyAttendanceRealtimeEvent(queryClient: QueryClient, event: AttendanceRealtimeEvent): void {
   if (event.type === "attendance.message.created" && event.conversationId) {
     const message = messageAfterEvent(event);
@@ -96,13 +128,7 @@ export function applyAttendanceRealtimeEvent(queryClient: QueryClient, event: At
   if (event.type === "attendance.conversation.updated" && event.conversationId) {
     const updated = isRecord(event.payload?.event) ? event.payload.event.after : undefined;
     if (isRecord(updated) && updated.id) {
-      queryClient.setQueryData<Record<string, unknown>>(
-        ["/api/attendance/conversations", event.conversationId],
-        old => ({ ...(old ?? {}), ...updated }),
-      );
-      queryClient.setQueriesData<Record<string, unknown>[]>({ queryKey: ["/api/attendance/conversations"] }, old =>
-        Array.isArray(old) ? old.map(item => item.id === updated.id ? { ...item, ...updated } : item) : old,
-      );
+      reconcileAttendanceConversation(queryClient, updated as ConversationRecord);
     }
   }
 

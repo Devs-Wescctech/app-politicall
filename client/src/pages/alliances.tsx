@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { type PoliticalAlliance, type PoliticalParty, type InsertPoliticalAlliance, insertPoliticalAllianceSchema, type Contact, type AllianceInvite } from "@shared/schema";
+import { type PoliticalAlliance, type PoliticalParty, type InsertPoliticalAlliance, insertPoliticalAllianceSchema, type Contact, type AllianceInvite, type AllianceLine } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,13 +13,23 @@ import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, Trash2, Mail, MessageCircle, Edit, UserPlus, Users, TrendingUp, Send, Copy, Download, FileText, Sheet, Lock, CheckCircle2, X, Loader2, Clock } from "lucide-react";
+import { Plus, Trash2, Mail, MessageCircle, Edit, UserPlus, Users, TrendingUp, Send, Copy, Download, FileText, Sheet, Lock, CheckCircle2, X, Loader2, Clock, Settings2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Skeleton } from "@/components/ui/skeleton";
 import { downloadWorkbookAsXlsx } from "@/lib/excel";
 import { downloadPdf } from "@/lib/pdfmake";
 import logoUrl from "@assets/logo pol_1763308638963_1763559095972.png";
+import { AllianceLineBadge } from "@/components/alliances/AllianceLineBadge";
+import { AllianceLineManager } from "@/components/alliances/AllianceLineManager";
+import {
+  ALLIANCE_LINE_FILTER_ALL,
+  ALLIANCE_LINE_FILTER_UNASSIGNED,
+  buildAllianceEmailCampaign,
+  filterAlliancesByLine,
+  getAllianceLineLabel,
+  getPredominantAllianceLine,
+} from "@/lib/alliance-line-view";
 
 const IDEOLOGY_COLORS = {
   'Esquerda': '#ef4444',
@@ -54,6 +64,7 @@ const BRAZILIAN_STATES = [
 
 interface AllianceWithParty extends PoliticalAlliance {
   party?: PoliticalParty;
+  line?: AllianceLine | null;
 }
 
 export default function Alliances() {
@@ -63,8 +74,10 @@ export default function Alliances() {
   const [isEditMode, setIsEditMode] = useState(false);
   const [stateFilter, setStateFilter] = useState<string>("");
   const [cityFilter, setCityFilter] = useState<string>("");
+  const [lineFilter, setLineFilter] = useState<string>(ALLIANCE_LINE_FILTER_ALL);
   const [filterKey, setFilterKey] = useState(0);
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
+  const [isAllianceLineManagerOpen, setIsAllianceLineManagerOpen] = useState(false);
   
   // Password protection states
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
@@ -103,6 +116,10 @@ export default function Alliances() {
     queryKey: ["/api/alliances"],
   });
 
+  const { data: allianceLines, isLoading: loadingAllianceLines, error: allianceLinesError } = useQuery<AllianceLine[]>({
+    queryKey: ["/api/alliance-lines?includeInactive=true"],
+  });
+
   const { data: parties, isLoading: loadingParties } = useQuery<PoliticalParty[]>({
     queryKey: ["/api/parties"],
   });
@@ -121,6 +138,19 @@ export default function Alliances() {
     queryKey: ["/api/alliance-invites"],
   });
 
+  const allianceLineCounts = useMemo(() => {
+    return (alliances ?? []).reduce<Map<string, number>>((counts, alliance) => {
+      if (alliance.lineId) counts.set(alliance.lineId, (counts.get(alliance.lineId) ?? 0) + 1);
+      return counts;
+    }, new Map());
+  }, [alliances]);
+
+  const activeAllianceLines = useMemo(() => {
+    return (allianceLines ?? [])
+      .filter(line => line.active)
+      .sort((left, right) => left.displayOrder - right.displayOrder || left.name.localeCompare(right.name, "pt-BR"));
+  }, [allianceLines]);
+
   // Função para obter contagens de convites por partido
   const getPartyInviteCounts = (partyId: string) => {
     if (!allianceInvites) return { pending: 0, accepted: 0, rejected: 0 };
@@ -136,6 +166,7 @@ export default function Alliances() {
     resolver: zodResolver(insertPoliticalAllianceSchema),
     defaultValues: {
       partyId: "",
+      lineId: undefined,
       allyName: "",
       position: "",
       state: "",
@@ -274,8 +305,17 @@ export default function Alliances() {
   };
 
   const handleSubmit = (data: InsertPoliticalAlliance) => {
+    if (!isEditMode && !data.lineId) {
+      form.setError("lineId", { message: "Selecione uma linha política" });
+      return;
+    }
+
     if (isEditMode && selectedAlliance) {
-      updateMutation.mutate({ id: selectedAlliance.id, data });
+      const updateData = { ...data };
+      if (selectedAlliance.line && !selectedAlliance.line.active && data.lineId === selectedAlliance.lineId) {
+        delete updateData.lineId;
+      }
+      updateMutation.mutate({ id: selectedAlliance.id, data: updateData });
     } else {
       createMutation.mutate(data);
     }
@@ -300,6 +340,7 @@ export default function Alliances() {
     if (selectedAlliance) {
       form.reset({
         partyId: selectedAlliance.partyId,
+        lineId: selectedAlliance.lineId,
         allyName: selectedAlliance.allyName,
         position: selectedAlliance.position || "",
         state: selectedAlliance.state || "",
@@ -312,13 +353,17 @@ export default function Alliances() {
     }
   };
 
-  const getFilteredAlliances = () => {
+  const getGeographicallyFilteredAlliances = () => {
     if (!alliances) return [];
     return alliances.filter((alliance) => {
       const matchesState = !stateFilter || alliance.state === stateFilter;
       const matchesCity = !cityFilter || alliance.city === cityFilter;
       return matchesState && matchesCity;
     });
+  };
+
+  const getFilteredAlliances = () => {
+    return filterAlliancesByLine(getGeographicallyFilteredAlliances(), lineFilter);
   };
 
   const getPartyAllianceCount = (partyId: string) => {
@@ -343,31 +388,7 @@ export default function Alliances() {
     return getFilteredAlliances().length;
   };
 
-  const getDominantIdeology = () => {
-    const filtered = getFilteredAlliances();
-    if (!parties || filtered.length === 0) return null;
-    
-    const ideologyCounts: { [key: string]: number } = {};
-    
-    filtered.forEach((alliance) => {
-      const party = parties.find((p) => p.id === alliance.partyId);
-      if (party) {
-        ideologyCounts[party.ideology] = (ideologyCounts[party.ideology] || 0) + 1;
-      }
-    });
-    
-    let maxCount = 0;
-    let dominantIdeology = "";
-    
-    Object.entries(ideologyCounts).forEach(([ideology, count]) => {
-      if (count > maxCount) {
-        maxCount = count;
-        dominantIdeology = ideology;
-      }
-    });
-    
-    return dominantIdeology || null;
-  };
+  const predominantLine = getPredominantAllianceLine(getFilteredAlliances());
 
   const getUniqueCities = () => {
     if (!alliances) return [];
@@ -466,33 +487,13 @@ export default function Alliances() {
     requestProtectedAction("bulk-email");
   };
 
-  // Email blocks calculation - divide alliances with email into chunks based on selected block size
-  const emailBlocks = useMemo(() => {
-    const alliancesWithEmail = getFilteredAlliances().filter(a => a.email);
-    const blocks: { emails: string[]; startIndex: number; endIndex: number }[] = [];
-    
-    // Se blockSize é 0, significa "sem limites" - todos em um único bloco
-    if (emailBlockSize === 0) {
-      if (alliancesWithEmail.length > 0) {
-        blocks.push({
-          emails: alliancesWithEmail.map(a => a.email!),
-          startIndex: 1,
-          endIndex: alliancesWithEmail.length
-        });
-      }
-      return blocks;
-    }
-    
-    for (let i = 0; i < alliancesWithEmail.length; i += emailBlockSize) {
-      const chunk = alliancesWithEmail.slice(i, i + emailBlockSize);
-      blocks.push({
-        emails: chunk.map(a => a.email!),
-        startIndex: i + 1,
-        endIndex: Math.min(i + emailBlockSize, alliancesWithEmail.length)
-      });
-    }
-    return blocks;
-  }, [alliances, stateFilter, cityFilter, emailBlockSize]);
+  const emailCampaign = useMemo(() => buildAllianceEmailCampaign(alliances ?? [], {
+    cityFilter,
+    emailBlockSize,
+    lineFilter,
+    stateFilter,
+  }), [alliances, stateFilter, cityFilter, lineFilter, emailBlockSize]);
+  const emailBlocks = emailCampaign.blocks;
 
   // Handle block size change - reset sent blocks
   const handleAllianceBlockSizeChange = (value: string) => {
@@ -504,18 +505,7 @@ export default function Alliances() {
   };
 
   // Generate a unique session ID based on alliances for tracking
-  const currentEmailSessionId = useMemo(() => {
-    const alliancesWithEmail = getFilteredAlliances().filter(a => a.email);
-    if (alliancesWithEmail.length === 0) return '';
-    const emailList = alliancesWithEmail.map(a => a.email).sort().join(',');
-    let hash = 0;
-    for (let i = 0; i < emailList.length; i++) {
-      const char = emailList.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash = hash & hash;
-    }
-    return `alliance_session_${Math.abs(hash)}`;
-  }, [alliances, stateFilter, cityFilter]);
+  const currentEmailSessionId = emailCampaign.sessionId;
 
   // Reset sent blocks if session changed (different alliance list)
   const checkAndResetSession = () => {
@@ -679,11 +669,12 @@ export default function Alliances() {
         {
           table: {
             headerRows: 1,
-            widths: ['*', 'auto', '*', 'auto', 'auto', 'auto', '*'],
+            widths: ['*', 'auto', '*', '*', 'auto', 'auto', 'auto', '*'],
             body: [
               [
                 { text: 'Nome', style: 'tableHeader' },
                 { text: 'Partido', style: 'tableHeader' },
+                { text: 'Linha política', style: 'tableHeader' },
                 { text: 'Cargo', style: 'tableHeader' },
                 { text: 'Estado', style: 'tableHeader' },
                 { text: 'Cidade', style: 'tableHeader' },
@@ -695,6 +686,7 @@ export default function Alliances() {
                 return [
                   alliance.allyName,
                   party?.acronym || '-',
+                  getAllianceLineLabel(alliance),
                   alliance.position || '-',
                   alliance.state || '-',
                   alliance.city || '-',
@@ -785,12 +777,13 @@ export default function Alliances() {
       [],
       [`Total de alianças: ${filteredAlliances.length}`],
       [],
-      ['Nome', 'Partido', 'Cargo', 'Estado', 'Cidade', 'Telefone', 'Email', 'Observações'],
+      ['Nome', 'Partido', 'Linha política', 'Cargo', 'Estado', 'Cidade', 'Telefone', 'Email', 'Observações'],
       ...filteredAlliances.map(alliance => {
         const party = parties?.find(p => p.id === alliance.partyId);
         return [
           alliance.allyName,
           party?.acronym || '-',
+          getAllianceLineLabel(alliance),
           alliance.position || '-',
           alliance.state || '-',
           alliance.city || '-',
@@ -804,8 +797,8 @@ export default function Alliances() {
     await downloadWorkbookAsXlsx(`aliancas-${new Date().toISOString().split('T')[0]}.xlsx`, [{
       name: "Alianças",
       rows: worksheetData,
-      columnWidths: [30, 15, 25, 10, 20, 18, 30, 40],
-      merges: [{ top: 1, left: 1, bottom: 1, right: 8 }],
+      columnWidths: [30, 15, 22, 25, 10, 20, 18, 30, 40],
+      merges: [{ top: 1, left: 1, bottom: 1, right: 9 }],
     }]);
     toast({ title: `Excel gerado com ${filteredAlliances.length} alianças!` });
     setIsExportDialogOpen(false);
@@ -818,6 +811,19 @@ export default function Alliances() {
           <h1 className="text-3xl font-bold">Aliança Política</h1>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
+          <Select value={lineFilter} onValueChange={setLineFilter}>
+            <SelectTrigger aria-label="Filtrar por linha política" className="w-[200px] rounded-full" data-testid="select-filter-alliance-line">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALLIANCE_LINE_FILTER_ALL}>Todas as linhas</SelectItem>
+              <SelectItem value={ALLIANCE_LINE_FILTER_UNASSIGNED}>Sem linha</SelectItem>
+              {activeAllianceLines.map(line => (
+                <SelectItem key={line.id} value={line.id}>{line.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
           <Select 
             key={`state-${filterKey}`}
             value={stateFilter || undefined} 
@@ -856,13 +862,14 @@ export default function Alliances() {
             </SelectContent>
           </Select>
 
-          {(stateFilter || cityFilter) && (
+          {(stateFilter || cityFilter || lineFilter !== ALLIANCE_LINE_FILTER_ALL) && (
             <Button
               variant="outline"
               size="sm"
               onClick={() => {
                 setStateFilter("");
                 setCityFilter("");
+                setLineFilter(ALLIANCE_LINE_FILTER_ALL);
                 setFilterKey(prev => prev + 1);
               }}
               className="rounded-full"
@@ -902,6 +909,25 @@ export default function Alliances() {
             <Download className="w-4 h-4" />
           </Button>
 
+          <Button
+            size="icon"
+            variant="outline"
+            onClick={() => setIsAllianceLineManagerOpen(true)}
+            data-testid="button-manage-alliance-lines"
+            title="Gerenciar linhas politicas"
+          >
+            <Settings2 className="w-4 h-4" />
+          </Button>
+
+          <AllianceLineManager
+            allianceCounts={allianceLineCounts}
+            error={allianceLinesError}
+            isLoading={loadingAllianceLines}
+            lines={allianceLines}
+            onOpenChange={setIsAllianceLineManagerOpen}
+            open={isAllianceLineManagerOpen}
+          />
+
           <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
             <DialogTrigger asChild>
               <Button data-testid="button-add-alliance" className="rounded-full">
@@ -940,7 +966,34 @@ export default function Alliances() {
                       </FormItem>
                     )}
                   />
-                  
+
+                  <FormField
+                    control={form.control}
+                    name="lineId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Linha política *</FormLabel>
+                        <Select
+                          disabled={loadingAllianceLines || activeAllianceLines.length === 0}
+                          onValueChange={field.onChange}
+                          value={field.value ?? ""}
+                        >
+                          <FormControl>
+                            <SelectTrigger data-testid="select-alliance-line">
+                              <SelectValue placeholder={activeAllianceLines.length === 0 ? "Nenhuma linha ativa" : "Selecione a linha política"} />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {activeAllianceLines.map(line => (
+                              <SelectItem key={line.id} value={line.id}>{line.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
                   <div className="flex items-center gap-4">
                     <div className="flex-1 border-t" />
                     <span className="text-xs text-muted-foreground">x</span>
@@ -1168,6 +1221,50 @@ export default function Alliances() {
         </Dialog>
         </div>
       </div>
+      <section aria-label="Resumo por linha politica" className="overflow-x-auto" data-testid="alliance-line-summary">
+        <div className="flex min-w-max items-center gap-2 pb-2">
+          <Button
+            aria-pressed={lineFilter === ALLIANCE_LINE_FILTER_ALL}
+            className="h-10 gap-2 rounded-md"
+            data-testid="button-alliance-line-summary-all"
+            onClick={() => setLineFilter(ALLIANCE_LINE_FILTER_ALL)}
+            type="button"
+            variant={lineFilter === ALLIANCE_LINE_FILTER_ALL ? "default" : "outline"}
+          >
+            Todas
+            <Badge variant="secondary">{getGeographicallyFilteredAlliances().length}</Badge>
+          </Button>
+          {activeAllianceLines.map(line => (
+            <Button
+              aria-pressed={lineFilter === line.id}
+              className="h-10 gap-2 rounded-md px-2"
+              data-testid={`button-alliance-line-summary-${line.id}`}
+              key={line.id}
+              onClick={() => setLineFilter(line.id)}
+              type="button"
+              variant={lineFilter === line.id ? "default" : "outline"}
+            >
+              <AllianceLineBadge className="border-0 py-0.5" line={line} />
+              <span className="min-w-5 text-center text-sm font-semibold">
+                {getGeographicallyFilteredAlliances().filter(alliance => alliance.lineId === line.id).length}
+              </span>
+            </Button>
+          ))}
+          <Button
+            aria-pressed={lineFilter === ALLIANCE_LINE_FILTER_UNASSIGNED}
+            className="h-10 gap-2 rounded-md"
+            data-testid="button-alliance-line-summary-unassigned"
+            onClick={() => setLineFilter(ALLIANCE_LINE_FILTER_UNASSIGNED)}
+            type="button"
+            variant={lineFilter === ALLIANCE_LINE_FILTER_UNASSIGNED ? "default" : "outline"}
+          >
+            <Badge variant="secondary">Sem linha</Badge>
+            <span className="min-w-5 text-center text-sm font-semibold">
+              {getGeographicallyFilteredAlliances().filter(alliance => !alliance.lineId).length}
+            </span>
+          </Button>
+        </div>
+      </section>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -1186,14 +1283,14 @@ export default function Alliances() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Ideologia Dominante</CardTitle>
+            <CardTitle className="text-sm font-medium">Linha predominante</CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            {getDominantIdeology() ? (
+            {predominantLine ? (
               <>
-                <div className="text-2xl font-bold" data-testid="text-dominant-ideology">
-                  {getDominantIdeology()}
+                <div className="text-2xl font-bold" data-testid="text-predominant-alliance-line">
+                  {predominantLine.name}
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
                   maioria dos aliados
@@ -1333,17 +1430,25 @@ export default function Alliances() {
           <div className="overflow-y-auto px-6 py-4 flex-1">
             <div className="space-y-3">
               {selectedParty && getPartyAlliances(selectedParty.id).length > 0 ? (
-                getPartyAlliances(selectedParty.id).map((alliance) => (
-                  <div
-                    key={alliance.id}
-                    className="p-4 border rounded-lg hover-elevate flex items-center justify-between gap-4"
-                    data-testid={`alliance-item-${alliance.id}`}
-                  >
+                  getPartyAlliances(selectedParty.id).map((alliance) => (
                     <div
-                      className="flex-1 cursor-pointer"
-                      onClick={() => handleAllianceClick(alliance)}
+                      key={alliance.id}
+                      className="flex items-center justify-between gap-4 rounded-lg border border-l-4 p-4 hover-elevate"
+                      data-testid={`alliance-item-${alliance.id}`}
+                      style={{ borderLeftColor: alliance.line?.color ?? "#94A3B8" }}
                     >
-                      <h4 className="font-semibold">{alliance.allyName}</h4>
+                      <div
+                        className="flex-1 cursor-pointer space-y-2"
+                        onClick={() => handleAllianceClick(alliance)}
+                      >
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h4 className="font-semibold">{alliance.allyName}</h4>
+                          {alliance.line ? (
+                            <AllianceLineBadge className="py-0.5 text-xs" line={alliance.line} />
+                          ) : (
+                            <Badge variant="secondary">Sem linha</Badge>
+                          )}
+                        </div>
                       {alliance.position && (
                         <p className="text-sm text-muted-foreground">{alliance.position}</p>
                       )}
@@ -1429,6 +1534,16 @@ export default function Alliances() {
                   </div>
                 </div>
               )}
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">Linha política</label>
+                <div className="mt-1">
+                  {selectedAlliance?.line ? (
+                    <AllianceLineBadge line={selectedAlliance.line} />
+                  ) : (
+                    <Badge variant="secondary">Sem linha</Badge>
+                  )}
+                </div>
+              </div>
               {selectedAlliance?.state && (
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Estado</label>
@@ -1513,6 +1628,35 @@ export default function Alliances() {
                             <SelectItem key={party.id} value={party.id}>
                               {party.acronym} - {party.name}
                             </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="lineId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Linha política *</FormLabel>
+                      <Select
+                        disabled={loadingAllianceLines || activeAllianceLines.length === 0}
+                        onValueChange={value => field.onChange(value === ALLIANCE_LINE_FILTER_UNASSIGNED ? null : value)}
+                        value={field.value ?? ALLIANCE_LINE_FILTER_UNASSIGNED}
+                      >
+                        <FormControl>
+                          <SelectTrigger data-testid="select-edit-alliance-line">
+                            <SelectValue placeholder="Selecione uma linha ativa" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {!selectedAlliance?.lineId && (
+                            <SelectItem value={ALLIANCE_LINE_FILTER_UNASSIGNED}>Sem linha</SelectItem>
+                          )}
+                          {activeAllianceLines.map(line => (
+                            <SelectItem key={line.id} value={line.id}>{line.name}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>

@@ -31,11 +31,10 @@ import * as fs from "fs";
 import * as path from "path";
 
 /**
- * Dev-only database readiness check.
- * On a fresh Replit-managed workspace database the schema has not been applied
- * yet, so login/navigation would fail. Detect that case and run the bootstrap
- * script (scripts/setup-dev-db.ts: full schema + migrations + seed data)
- * automatically before the server starts accepting requests.
+ * Dev-only database migration and readiness check.
+ * The bootstrap is intentionally idempotent and runs on every development
+ * startup so an existing database also receives newly added migrations before
+ * the server starts accepting requests.
  * Never runs in production (the production DB is managed separately via
  * PROD_DATABASE_URL).
  */
@@ -52,10 +51,7 @@ async function ensureDevDatabaseReady(): Promise<void> {
     return requiredTables.filter((t) => !found.includes(t));
   };
 
-  let missing = await check();
-  if (missing.length === 0) return;
-
-  log(`dev database missing tables (${missing.join(", ")}) — running scripts/setup-dev-db.ts …`);
+  log("checking development database migrations via scripts/setup-dev-db.ts …");
   try {
     execSync("npx tsx scripts/setup-dev-db.ts", { stdio: "inherit" });
   } catch (e: any) {
@@ -65,14 +61,14 @@ async function ensureDevDatabaseReady(): Promise<void> {
     );
   }
 
-  missing = await check();
+  const missing = await check();
   if (missing.length > 0) {
     throw new Error(
       `Dev database is still missing tables after bootstrap: ${missing.join(", ")}. ` +
       "Run manually to inspect: npx tsx scripts/setup-dev-db.ts"
     );
   }
-  log("dev database bootstrap complete — schema + seed data applied");
+  log("development database current — schema migrations and seed verified");
 }
 
 const app = express();
@@ -94,6 +90,9 @@ declare module 'http' {
 
 // Serve uploaded assets
 app.use('/assets', express.static('attached_assets'));
+
+// Demand attachments are private and must only be served by their authenticated route.
+app.use('/uploads/demands', (_req, res) => res.status(404).end());
 
 // Serve user uploads (avatars, backgrounds)
 app.use('/uploads', express.static('uploads'));

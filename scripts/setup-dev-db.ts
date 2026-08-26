@@ -8,10 +8,9 @@
  *   npx tsx scripts/setup-dev-db.ts
  *
  * What it does:
- *   1. On a FRESH DB: applies scripts/full_schema.sql (complete pg_dump schema —
- *      all 47 tables, indexes, and constraints) via psql.
- *   2. On an EXISTING DB: applies incremental migrations idempotently to catch up.
- *   3. Seeds: 1 gabinete (account), 1 admin user, 5 contacts, 4 demands, 3 events.
+ *   1. Uses the same transactional, hashed migration runner as production.
+ *   2. Seeds demo data after the baseline and before incremental migrations.
+ *   3. Re-runs safely: recorded migration hashes must remain immutable.
  *
  * Test credentials:
  *   Email   : adm@politicall.com.br
@@ -22,9 +21,9 @@
  */
 
 import { createRequire } from "module";
-import * as fs from "fs";
-import { execSync } from "child_process";
 import * as bcrypt from "bcrypt";
+import { runProductionMigrations } from "../server/services/production-migrations";
+import { assertDevelopmentSeedTarget } from "./development-database-safety";
 
 const require = createRequire(import.meta.url);
 const { Pool } = require("pg");
@@ -32,95 +31,15 @@ const { Pool } = require("pg");
 const url = process.env.DATABASE_URL;
 if (!url) throw new Error("DATABASE_URL is not set. Provision the Replit managed DB first.");
 
-if (/204\.157\.108\.76/.test(url)) {
-  throw new Error(
-    "DATABASE_URL appears to point at the production server. Aborting to protect production data."
-  );
-}
+assertDevelopmentSeedTarget({
+  databaseUrl: url,
+  productionDatabaseUrl: process.env.PROD_DATABASE_URL,
+  confirmation: process.env.ALLOW_DEVELOPMENT_SEED,
+  nodeEnv: process.env.NODE_ENV,
+});
 
 const ssl = /sslmode=require/i.test(url) ? { rejectUnauthorized: false } : false;
 const pool = new Pool({ connectionString: url, ssl });
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-async function tableExists(name: string): Promise<boolean> {
-  const { rows } = await pool.query(
-    "SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name=$1",
-    [name]
-  );
-  return rows.length > 0;
-}
-
-/**
- * Apply the full schema dump via psql.
- * This is the most reliable approach for a complete pg_dump SQL file because
- * psql handles multi-line statements, comments, and SET commands correctly.
- */
-function applyBootstrapViaPsql(file: string) {
-  const parsed = new URL(url!);
-  const env = {
-    ...process.env,
-    PGPASSWORD: parsed.password,
-  };
-  const cmd = [
-    "psql",
-     `-h ${parsed.hostname}`,
-     `-p ${parsed.port || 5432}`,
-     `-U ${parsed.username}`,
-     "-v ON_ERROR_STOP=1",
-     `-f ${file}`,
-     "--no-password",
-     "--quiet",
-    parsed.pathname.slice(1), // database name (strip leading slash)
-  ].join(" ");
-
-  execSync(cmd, { env, stdio: ["ignore", "ignore", "pipe"] });
-  console.log(`  ✓ Applied ${file} via psql`);
-}
-
-/**
- * Apply an incremental migration SQL file.
- * Swallows "already exists" / "duplicate column" errors (idempotent re-runs)
- * but re-throws unexpected failures.
- */
-async function applyMigration(file: string) {
-  if (!fs.existsSync(file)) {
-    console.log(`  skip (file not found): ${file}`);
-    return;
-  }
-  const raw = fs.readFileSync(file, "utf8");
-  const statements = raw
-    .split(/;[ \t]*\r?\n/)
-    .map((s) => s.trim())
-    .filter(Boolean)
-    .map((s) => (s.endsWith(";") ? s : s + ";"));
-
-  let applied = 0;
-  let skipped = 0;
-  for (const stmt of statements) {
-    try {
-      await pool.query(stmt);
-      applied++;
-    } catch (e: any) {
-      const msg: string = e.message ?? "";
-      if (
-        msg.includes("already exists") ||
-        msg.includes("duplicate column") ||
-        msg.includes("42701") || // duplicate_column
-        msg.includes("42P07")    // duplicate_table
-      ) {
-        skipped++;
-      } else {
-        throw new Error(
-          `Migration failed in ${file}:\n  SQL: ${stmt.slice(0, 120)}\n  Error: ${e.message}`
-        );
-      }
-    }
-  }
-  console.log(`  ✓ ${file} (applied: ${applied}, already-existing skipped: ${skipped})`);
-}
 
 // ---------------------------------------------------------------------------
 // Seed helpers
@@ -226,32 +145,20 @@ async function main() {
   console.log("Connected:", rows[0].version.split(" ").slice(0, 2).join(" "));
   console.log("Host:", new URL(url!).host);
 
-  // Step 1 — schema bootstrap
-  const fresh = !(await tableExists("accounts"));
-  if (fresh) {
-    console.log("\n=== Schema bootstrap (fresh DB) ===");
-    console.log("  Applying scripts/full_schema.sql via psql …");
-    applyBootstrapViaPsql("scripts/full_schema.sql");
-  } else {
-    // Step 2 — incremental migrations for existing DBs
-    console.log("\n=== Incremental migrations (existing DB) ===");
-    await applyMigration("migrations/0001_add_permissions.sql");
-    await applyMigration("migrations/0002_remove_permissions_default.sql");
-    await applyMigration("migrations/0003_add_google_event_id.sql");
-    await applyMigration("migrations/0005_attendance_omni.sql");
-  }
-
-  await applyMigration("migrations/0006_campaign_center.sql");
-  await applyMigration("migrations/0007_contact_neighborhood.sql");
-  await applyMigration("migrations/0008_att_messages_external_id_unique.sql");
-  await applyMigration("migrations/0009_petitionsbr_module.sql");
-  await applyMigration("migrations/0010_auth_sessions.sql");
-
-  // Step 3 — seed test data
-  console.log("\n=== Seeding test data ===");
-  await seedAccount();
-  await seedAdminUser();
-  await seedSampleData();
+  console.log("\n=== Transactional schema migration + demo seed ===");
+  const migrationResult = await runProductionMigrations(pool, process.cwd(), {
+    beforeMigrations: async () => {
+      console.log("\n=== Seeding test data before incremental migrations ===");
+      await seedAccount();
+      await seedAdminUser();
+      await seedSampleData();
+    },
+  });
+  console.log(
+    `  migrations applied: ${migrationResult.applied.length}; ` +
+    `already current: ${migrationResult.skipped.length}; ` +
+    `baseline applied: ${migrationResult.baselineApplied ? "yes" : "no"}`,
+  );
 
   // Summary
   const [c, d, e, p] = await Promise.all([

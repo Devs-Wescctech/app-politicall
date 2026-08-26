@@ -7,12 +7,16 @@ import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart as RechartsBarChart, Bar, XAxis, YAxis, Tooltip, Legend } from "recharts";
+import { Link } from "wouter";
+import type { DemandOperationsReport } from "@/components/demands/demand-operations-types";
 
 interface DashboardStats {
   totalContacts: number;
   totalAlliances: number;
   totalDemands: number;
   pendingDemands: number;
+  overdueDemands: number;
+  urgentDemands: number;
   totalEvents: number;
   upcomingEvents: number;
   ideologyDistribution: { ideology: string; count: number }[];
@@ -47,6 +51,8 @@ interface CurrentUser {
   avatar?: string;
   partyId?: string;
   politicalPosition?: string;
+  role?: string;
+  permissions?: { demands?: boolean };
   lastElectionVotes?: number;
   party?: {
     id: string;
@@ -91,6 +97,11 @@ export default function Dashboard() {
   // Fetch admin data for campaign goals (all users see admin's campaign metrics)
   const { data: adminData, isLoading: adminLoading } = useQuery<CurrentUser>({
     queryKey: ["/api/account/admin"],
+  });
+  const canViewDemandOperations = currentUser?.role === "admin" || currentUser?.permissions?.demands === true;
+  const { data: demandOperations } = useQuery<DemandOperationsReport>({
+    queryKey: ["/api/demand-operations?page=1&pageSize=10"],
+    enabled: canViewDemandOperations,
   });
 
   const isLoading = statsLoading || userLoading || adminLoading;
@@ -291,7 +302,8 @@ export default function Dashboard() {
         </Card>
 
         {/* Demandas */}
-        <Card data-testid="metric-demands">
+        <Card data-testid="metric-demands" className="transition-colors hover:border-primary/40">
+          <Link href="/demands?view=operations" className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Demandas Ativas
@@ -299,16 +311,18 @@ export default function Dashboard() {
             <ClipboardList className="h-5 w-5 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{stats?.totalDemands || 0}</div>
-            <div className="flex items-center gap-2 mt-1">
+            <div className="text-3xl font-bold">{stats?.pendingDemands || 0}</div>
+            <div className="flex flex-wrap items-center gap-2 mt-1">
               <span className="text-xs text-muted-foreground">
-                {stats?.pendingDemands || 0} pendentes
+                {stats?.overdueDemands || 0} com SLA vencido
               </span>
-              {(stats?.pendingDemands || 0) > 10 && (
+              {(stats?.urgentDemands || 0) > 0 && (
                 <Zap className="h-3 w-3 text-amber-500" />
               )}
             </div>
+            {demandOperations && <p className="mt-2 text-xs font-medium text-destructive">{demandOperations.summary.forwardingOverdue} encaminhamentos vencidos</p>}
           </CardContent>
+          </Link>
         </Card>
 
         {/* Eventos */}

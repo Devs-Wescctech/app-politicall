@@ -14,6 +14,7 @@ import { check, foreignKey, index, pgTable, text, unique, varchar, timestamp, in
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+import { insertAllianceLineSchema, updateAllianceLineSchema } from "./alliance-lines";
 
 // Accounts table - Each account represents a political office/cabinet
 export const accounts = pgTable("accounts", {
@@ -335,6 +336,100 @@ export const DEFAULT_PERMISSIONS = {
   }
 } as const;
 
+export type UserRole = keyof typeof DEFAULT_PERMISSIONS;
+
+export type PermissionGroup = {
+  title: string;
+  description: string;
+  items: ReadonlyArray<{ key: keyof UserPermissions; label: string }>;
+};
+
+export const USER_PERMISSION_GROUPS: ReadonlyArray<PermissionGroup> = [
+  {
+    title: "Módulos principais",
+    description: "Controla os itens principais do menu e o acesso direto às páginas.",
+    items: [
+      { key: "dashboard", label: "Dashboard" },
+      { key: "contacts", label: "Eleitores" },
+      { key: "alliances", label: "Alianças políticas" },
+      { key: "demands", label: "Demandas" },
+      { key: "agenda", label: "Agenda" },
+      { key: "ai", label: "Atendimento IA" },
+      { key: "marketing", label: "Pesquisas" },
+      { key: "petitions", label: "Petições" },
+      { key: "users", label: "Usuários" },
+      { key: "settings", label: "Configurações" },
+    ],
+  },
+  {
+    title: "Canais de atendimento",
+    description: "Define em quais canais o usuário pode trabalhar.",
+    items: [
+      { key: "whatsappAttendance", label: "WhatsApp" },
+      { key: "emailAttendance", label: "E-mail" },
+      { key: "socialAttendance", label: "Redes sociais" },
+      { key: "attendanceSettings", label: "Configurações de atendimento" },
+    ],
+  },
+  {
+    title: "Operações de atendimento",
+    description: "Permissões para visualizar e movimentar conversas.",
+    items: [
+      { key: "attendanceView", label: "Visualizar atendimentos" },
+      { key: "attendanceAssume", label: "Assumir" },
+      { key: "attendanceRelease", label: "Liberar" },
+      { key: "attendanceTransfer", label: "Transferir" },
+      { key: "attendanceClose", label: "Encerrar" },
+      { key: "attendanceReopen", label: "Reabrir" },
+      { key: "attendancePause", label: "Pausar" },
+      { key: "attendanceReply", label: "Responder próprios" },
+      { key: "attendanceReplyAny", label: "Responder qualquer atendimento" },
+      { key: "attendanceChangePriority", label: "Alterar prioridade" },
+      { key: "attendanceChangeAssignee", label: "Alterar responsável" },
+    ],
+  },
+  {
+    title: "Gestão de atendimento",
+    description: "Administração da estrutura e dos dados operacionais.",
+    items: [
+      { key: "attendanceManageQueues", label: "Gerenciar filas" },
+      { key: "attendanceManageDepartments", label: "Gerenciar departamentos" },
+      { key: "attendanceManageTags", label: "Gerenciar etiquetas" },
+      { key: "attendanceFullHistory", label: "Histórico completo" },
+      { key: "attendanceAudit", label: "Auditoria" },
+      { key: "attendanceExport", label: "Exportar" },
+      { key: "attendanceEditMessages", label: "Editar mensagens" },
+      { key: "attendanceDeleteMessages", label: "Excluir mensagens" },
+    ],
+  },
+  {
+    title: "Campanhas e disparos",
+    description: "Autoriza a criação e operação por canal.",
+    items: [
+      { key: "whatsappBroadcast", label: "Disparos WhatsApp" },
+      { key: "emailBroadcast", label: "Disparos E-mail" },
+      { key: "smsBroadcast", label: "Disparos SMS" },
+    ],
+  },
+  {
+    title: "Relatórios",
+    description: "Controla a visualização de resultados e indicadores.",
+    items: [
+      { key: "reports", label: "Relatórios gerais" },
+      { key: "campaignReports", label: "Relatórios de campanhas" },
+      { key: "attendanceReports", label: "Relatórios de atendimentos" },
+    ],
+  },
+];
+
+export function resolveUserPermissions(
+  role: string | undefined,
+  storedPermissions?: Partial<UserPermissions> | null,
+): UserPermissions {
+  const defaults = DEFAULT_PERMISSIONS[role as UserRole] ?? DEFAULT_PERMISSIONS.assessor;
+  return { ...defaults, ...(storedPermissions ?? {}) } as UserPermissions;
+}
+
 // Political positions available in Brazil
 export const POLITICAL_POSITIONS = [
   "Candidato",
@@ -593,8 +688,41 @@ export const contacts = pgTable("contacts", {
   interests: text("interests").array(),
   source: text("source"),
   notes: text("notes"),
+  mergedIntoContactId: varchar("merged_into_contact_id"),
+  mergedAt: timestamp("merged_at"),
+  mergedByUserId: varchar("merged_by_user_id").references(() => users.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  foreignKey({
+    columns: [table.mergedIntoContactId],
+    foreignColumns: [table.id],
+    name: "contacts_merged_into_contact_id_fkey",
+  }).onDelete("restrict"),
+  index("contacts_account_active_idx").on(table.accountId, table.mergedIntoContactId),
+]);
+
+export const contactMergeEvents = pgTable("contact_merge_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  accountId: varchar("account_id").notNull().references(() => accounts.id, { onDelete: "cascade" }),
+  sourceContactId: varchar("source_contact_id").notNull().references(() => contacts.id, { onDelete: "restrict" }),
+  targetContactId: varchar("target_contact_id").notNull().references(() => contacts.id, { onDelete: "restrict" }),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "restrict" }),
+  status: text("status").notNull().default("completed"),
+  sourceSnapshot: jsonb("source_snapshot").$type<Record<string, unknown>>().notNull(),
+  targetSnapshot: jsonb("target_snapshot").$type<Record<string, unknown>>().notNull(),
+  movedRelations: jsonb("moved_relations").$type<Record<string, string[]>>().notNull(),
+  conflictResolution: jsonb("conflict_resolution").$type<Record<string, unknown>>(),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  revertedAt: timestamp("reverted_at"),
+  revertedByUserId: varchar("reverted_by_user_id").references(() => users.id, { onDelete: "set null" }),
+}, (table) => [
+  index("contact_merge_events_account_created_idx").on(table.accountId, table.createdAt),
+  index("contact_merge_events_source_idx").on(table.accountId, table.sourceContactId),
+  index("contact_merge_events_target_idx").on(table.accountId, table.targetContactId),
+]);
 
 // Political parties - All 29 Brazilian parties from 2025
 export const politicalParties = pgTable("political_parties", {
@@ -604,6 +732,30 @@ export const politicalParties = pgTable("political_parties", {
   ideology: text("ideology").notNull(), // Esquerda, Centro-Esquerda, Centro, Centro-Direita, Direita
   description: text("description"),
 });
+
+// Configurable political groupings for alliances, isolated by cabinet.
+export const allianceLines = pgTable("alliance_lines", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  accountId: varchar("account_id").notNull().references(() => accounts.id, { onDelete: "cascade" }),
+  createdByUserId: varchar("created_by_user_id").notNull().references(() => users.id, { onDelete: "restrict" }),
+  name: text("name").notNull(),
+  description: text("description"),
+  color: text("color").notNull(),
+  icon: text("icon").notNull(),
+  displayOrder: integer("display_order").notNull().default(0),
+  active: boolean("active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  unique("alliance_lines_id_account_id_key").on(table.id, table.accountId),
+  uniqueIndex("alliance_lines_account_name_uidx").on(table.accountId, sql`lower(${table.name})`),
+  index("alliance_lines_account_active_order_idx").on(table.accountId, table.active, table.displayOrder, table.name),
+  check("alliance_lines_name_check", sql`${table.name} = btrim(${table.name}) AND char_length(${table.name}) BETWEEN 2 AND 60`),
+  check("alliance_lines_description_check", sql`${table.description} IS NULL OR char_length(${table.description}) <= 500`),
+  check("alliance_lines_color_check", sql`${table.color} ~ '^#[0-9A-Fa-f]{6}$'`),
+  check("alliance_lines_icon_check", sql`${table.icon} IN ('Flag', 'Landmark', 'Handshake', 'Users', 'Megaphone', 'Scale')`),
+  check("alliance_lines_display_order_check", sql`${table.displayOrder} >= 0`),
+]);
 
 // Political alliances - User's political allies
 export const politicalAlliances = pgTable("political_alliances", {
@@ -618,8 +770,15 @@ export const politicalAlliances = pgTable("political_alliances", {
   phone: text("phone"),
   email: text("email"),
   notes: text("notes"),
+  lineId: uuid("line_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => [
+  foreignKey({
+    columns: [table.lineId, table.accountId],
+    foreignColumns: [allianceLines.id, allianceLines.accountId],
+    name: "political_alliances_line_id_account_id_fkey",
+  }).onDelete("restrict"),
+]);
 
 // Alliance invites - Invitation system for political alliances
 export const allianceInvites = pgTable("alliance_invites", {
@@ -641,10 +800,39 @@ export const allianceInvites = pgTable("alliance_invites", {
 });
 
 // Demands - CRM for office demands
+export const demandCategories = pgTable("demand_categories", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  accountId: varchar("account_id").notNull().references(() => accounts.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  slaHours: integer("sla_hours").notNull().default(72),
+  color: text("color").notNull().default("#64748b"),
+  active: boolean("active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex("demand_categories_account_name_uidx").on(table.accountId, table.name),
+  index("demand_categories_account_active_idx").on(table.accountId, table.active),
+]);
+
+export const demandProtocolCounters = pgTable("demand_protocol_counters", {
+  accountId: varchar("account_id").notNull().references(() => accounts.id, { onDelete: "cascade" }),
+  year: integer("year").notNull(),
+  lastValue: integer("last_value").notNull().default(0),
+}, (table) => [
+  uniqueIndex("demand_protocol_counters_account_year_uidx").on(table.accountId, table.year),
+]);
+
 export const demands = pgTable("demands", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   accountId: varchar("account_id").notNull().references(() => accounts.id, { onDelete: 'cascade' }),
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  protocol: text("protocol"),
+  kind: text("kind").notNull().default("internal"),
+  contactId: varchar("contact_id").references(() => contacts.id, { onDelete: "set null" }),
+  origin: text("origin").notNull().default("manual"),
+  categoryId: varchar("category_id").references(() => demandCategories.id, { onDelete: "set null" }),
+  assigneeUserId: varchar("assignee_user_id").references(() => users.id, { onDelete: "set null" }),
+  sourceType: text("source_type"),
+  sourceId: varchar("source_id"),
   title: text("title").notNull(),
   description: text("description"),
   status: text("status").notNull().default("pending"), // pending, in_progress, completed, cancelled
@@ -652,10 +840,19 @@ export const demands = pgTable("demands", {
   assignee: text("assignee"),
   collaborators: text("collaborators").array(), // optional list of collaborators
   dueDate: timestamp("due_date"),
+  slaDueAt: timestamp("sla_due_at", { withTimezone: true }),
+  completedAt: timestamp("completed_at", { withTimezone: true }),
   recurrence: text("recurrence").default("none"), // none, daily, weekly, monthly
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (table) => [
+  uniqueIndex("demands_account_protocol_uidx").on(table.accountId, table.protocol),
+  index("demands_account_status_idx").on(table.accountId, table.status),
+  index("demands_account_contact_idx").on(table.accountId, table.contactId),
+  index("demands_account_assignee_idx").on(table.accountId, table.assigneeUserId),
+  index("demands_account_category_idx").on(table.accountId, table.categoryId),
+  index("demands_account_sla_idx").on(table.accountId, table.slaDueAt),
+]);
 
 // Demand comments
 export const demandComments = pgTable("demand_comments", {
@@ -666,6 +863,100 @@ export const demandComments = pgTable("demand_comments", {
   comment: text("comment").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
+export const demandHistory = pgTable("demand_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  accountId: varchar("account_id").notNull().references(() => accounts.id, { onDelete: "cascade" }),
+  demandId: varchar("demand_id").notNull().references(() => demands.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  eventType: text("event_type").notNull(),
+  fromValue: text("from_value"),
+  toValue: text("to_value"),
+  metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  index("demand_history_account_demand_idx").on(table.accountId, table.demandId, table.createdAt),
+]);
+
+export const demandAttachments = pgTable("demand_attachments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  accountId: varchar("account_id").notNull().references(() => accounts.id, { onDelete: "cascade" }),
+  demandId: varchar("demand_id").notNull().references(() => demands.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "restrict" }),
+  originalName: text("original_name").notNull(),
+  storedName: text("stored_name").notNull(),
+  mimeType: text("mime_type").notNull(),
+  sizeBytes: integer("size_bytes").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  index("demand_attachments_account_demand_idx").on(table.accountId, table.demandId, table.createdAt),
+]);
+
+export const demandAutomationEvents = pgTable("demand_automation_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  accountId: varchar("account_id").notNull().references(() => accounts.id, { onDelete: "cascade" }),
+  demandId: varchar("demand_id").notNull().references(() => demands.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "restrict" }),
+  eventType: text("event_type").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex("demand_automation_events_once_uidx").on(table.accountId, table.demandId, table.eventType),
+]);
+
+export const demandDestinations = pgTable("demand_destinations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  accountId: varchar("account_id").notNull().references(() => accounts.id, { onDelete: "cascade" }),
+  createdByUserId: varchar("created_by_user_id").references(() => users.id, { onDelete: "set null" }),
+  kind: text("kind").notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  contactName: text("contact_name"),
+  phone: text("phone"),
+  email: text("email"),
+  responseDeadlineHours: integer("response_deadline_hours").notNull().default(72),
+  active: boolean("active").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex("demand_destinations_name_uidx").on(table.accountId, table.kind, sql`lower(${table.name})`),
+  index("demand_destinations_account_active_idx").on(table.accountId, table.active, table.kind, table.name),
+]);
+
+export const demandForwardings = pgTable("demand_forwardings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  accountId: varchar("account_id").notNull().references(() => accounts.id, { onDelete: "cascade" }),
+  demandId: varchar("demand_id").notNull().references(() => demands.id, { onDelete: "cascade" }),
+  destinationId: varchar("destination_id").notNull().references(() => demandDestinations.id, { onDelete: "restrict" }),
+  createdByUserId: varchar("created_by_user_id").notNull().references(() => users.id, { onDelete: "restrict" }),
+  assigneeUserId: varchar("assignee_user_id").references(() => users.id, { onDelete: "set null" }),
+  externalProtocol: text("external_protocol"),
+  status: text("status").notNull().default("draft"),
+  priority: text("priority").notNull().default("medium"),
+  sentAt: timestamp("sent_at", { withTimezone: true }),
+  dueAt: timestamp("due_at", { withTimezone: true }),
+  answeredAt: timestamp("answered_at", { withTimezone: true }),
+  completedAt: timestamp("completed_at", { withTimezone: true }),
+  notes: text("notes"),
+  response: text("response"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  index("demand_forwardings_account_demand_idx").on(table.accountId, table.demandId, table.createdAt),
+  index("demand_forwardings_account_destination_idx").on(table.accountId, table.destinationId, table.status),
+  index("demand_forwardings_account_assignee_idx").on(table.accountId, table.assigneeUserId, table.status),
+  index("demand_forwardings_account_due_idx").on(table.accountId, table.status, table.dueAt),
+]);
+
+export const demandForwardingEvents = pgTable("demand_forwarding_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  accountId: varchar("account_id").notNull().references(() => accounts.id, { onDelete: "cascade" }),
+  forwardingId: varchar("forwarding_id").notNull().references(() => demandForwardings.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "set null" }),
+  eventType: text("event_type").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex("demand_forwarding_events_once_uidx").on(table.accountId, table.forwardingId, table.eventType),
+]);
 
 // Events - Agenda system
 export const events = pgTable("events", {
@@ -684,6 +975,10 @@ export const events = pgTable("events", {
   reminderMinutes: integer("reminder_minutes"), // minutes before event
   googleEventId: text("google_event_id"), // Google Calendar event ID for synced events
   googleMeetLink: text("google_meet_link"), // Google Meet video conference link
+  demandId: varchar("demand_id").references(() => demands.id, { onDelete: "set null" }),
+  contactId: varchar("contact_id").references(() => contacts.id, { onDelete: "set null" }),
+  // The migration owns this FK because attConversations is declared later in this module.
+  attendanceConversationId: varchar("attendance_conversation_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -1218,6 +1513,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   campaigns: many(marketingCampaigns),
   surveyCampaigns: many(surveyCampaigns),
   notifications: many(notifications),
+  allianceLines: many(allianceLines),
 }));
 
 export const contactsRelations = relations(contacts, ({ one }) => ({
@@ -1236,6 +1532,22 @@ export const politicalAlliancesRelations = relations(politicalAlliances, ({ one 
     fields: [politicalAlliances.partyId],
     references: [politicalParties.id],
   }),
+  line: one(allianceLines, {
+    fields: [politicalAlliances.lineId],
+    references: [allianceLines.id],
+  }),
+}));
+
+export const allianceLinesRelations = relations(allianceLines, ({ one, many }) => ({
+  account: one(accounts, {
+    fields: [allianceLines.accountId],
+    references: [accounts.id],
+  }),
+  createdByUser: one(users, {
+    fields: [allianceLines.createdByUserId],
+    references: [users.id],
+  }),
+  alliances: many(politicalAlliances),
 }));
 
 export const allianceInvitesRelations = relations(allianceInvites, ({ one }) => ({
@@ -1254,7 +1566,31 @@ export const demandsRelations = relations(demands, ({ one, many }) => ({
     fields: [demands.userId],
     references: [users.id],
   }),
+  assigneeUser: one(users, {
+    fields: [demands.assigneeUserId],
+    references: [users.id],
+  }),
+  contact: one(contacts, {
+    fields: [demands.contactId],
+    references: [contacts.id],
+  }),
+  category: one(demandCategories, {
+    fields: [demands.categoryId],
+    references: [demandCategories.id],
+  }),
   comments: many(demandComments),
+  history: many(demandHistory),
+  attachments: many(demandAttachments),
+  automationEvents: many(demandAutomationEvents),
+  forwardings: many(demandForwardings),
+}));
+
+export const demandCategoriesRelations = relations(demandCategories, ({ one, many }) => ({
+  account: one(accounts, {
+    fields: [demandCategories.accountId],
+    references: [accounts.id],
+  }),
+  demands: many(demands),
 }));
 
 export const demandCommentsRelations = relations(demandComments, ({ one }) => ({
@@ -1266,6 +1602,46 @@ export const demandCommentsRelations = relations(demandComments, ({ one }) => ({
     fields: [demandComments.userId],
     references: [users.id],
   }),
+}));
+
+export const demandHistoryRelations = relations(demandHistory, ({ one }) => ({
+  demand: one(demands, {
+    fields: [demandHistory.demandId],
+    references: [demands.id],
+  }),
+  user: one(users, {
+    fields: [demandHistory.userId],
+    references: [users.id],
+  }),
+}));
+
+export const demandAttachmentsRelations = relations(demandAttachments, ({ one }) => ({
+  demand: one(demands, { fields: [demandAttachments.demandId], references: [demands.id] }),
+  user: one(users, { fields: [demandAttachments.userId], references: [users.id] }),
+}));
+
+export const demandAutomationEventsRelations = relations(demandAutomationEvents, ({ one }) => ({
+  demand: one(demands, { fields: [demandAutomationEvents.demandId], references: [demands.id] }),
+  user: one(users, { fields: [demandAutomationEvents.userId], references: [users.id] }),
+}));
+
+export const demandDestinationsRelations = relations(demandDestinations, ({ one, many }) => ({
+  account: one(accounts, { fields: [demandDestinations.accountId], references: [accounts.id] }),
+  createdByUser: one(users, { fields: [demandDestinations.createdByUserId], references: [users.id] }),
+  forwardings: many(demandForwardings),
+}));
+
+export const demandForwardingsRelations = relations(demandForwardings, ({ one, many }) => ({
+  demand: one(demands, { fields: [demandForwardings.demandId], references: [demands.id] }),
+  destination: one(demandDestinations, { fields: [demandForwardings.destinationId], references: [demandDestinations.id] }),
+  createdByUser: one(users, { fields: [demandForwardings.createdByUserId], references: [users.id], relationName: "forwardingCreator" }),
+  assigneeUser: one(users, { fields: [demandForwardings.assigneeUserId], references: [users.id], relationName: "forwardingAssignee" }),
+  events: many(demandForwardingEvents),
+}));
+
+export const demandForwardingEventsRelations = relations(demandForwardingEvents, ({ one }) => ({
+  forwarding: one(demandForwardings, { fields: [demandForwardingEvents.forwardingId], references: [demandForwardings.id] }),
+  user: one(users, { fields: [demandForwardingEvents.userId], references: [users.id] }),
 }));
 
 export const eventsRelations = relations(events, ({ one }) => ({
@@ -1357,7 +1733,11 @@ export const insertContactSchema = createInsertSchema(contacts).omit({
   id: true,
   userId: true,
   accountId: true,
+  mergedIntoContactId: true,
+  mergedAt: true,
+  mergedByUserId: true,
   createdAt: true,
+  updatedAt: true,
 }).extend({
   age: z.number().int().positive().max(120).optional(),
   gender: z.enum(["Masculino", "Feminino", "Não-binário", "Outro", "Prefiro não responder"]).optional(),
@@ -1384,17 +1764,76 @@ export const insertDemandSchema = createInsertSchema(demands).omit({
   id: true,
   userId: true,
   accountId: true,
+  protocol: true,
+  completedAt: true,
   createdAt: true,
   updatedAt: true,
 }).extend({
   title: z.string({ required_error: "Título é obrigatório" }).min(1, "Título é obrigatório"),
   description: z.string().nullable().optional(),
+  kind: z.enum(["external", "internal"]).optional(),
+  contactId: z.string().trim().min(1).max(255).nullable().optional(),
+  origin: z.enum(["manual", "attendance", "whatsapp", "phone", "email", "petition", "in_person"]).optional(),
+  categoryId: z.string().trim().min(1).max(255).nullable().optional(),
+  assigneeUserId: z.string().trim().min(1).max(255).nullable().optional(),
+  sourceType: z.string().max(50).nullable().optional(),
+  sourceId: z.string().max(255).nullable().optional(),
   status: z.string().default("pending"),
   priority: z.string().default("medium"),
   assignee: z.string().nullable().optional(),
   collaborators: z.array(z.string()).nullable().optional(),
   dueDate: z.string().nullable().optional(),
+  slaDueAt: z.string().nullable().optional(),
   recurrence: z.string().nullable().optional(),
+});
+
+export const insertDemandCategorySchema = createInsertSchema(demandCategories).omit({
+  id: true,
+  accountId: true,
+  createdAt: true,
+}).extend({
+  name: z.string().trim().min(2, "Nome da categoria e obrigatorio").max(80),
+  slaHours: z.coerce.number().int().min(1).max(8760),
+  color: z.string().regex(/^#[0-9a-fA-F]{6}$/).default("#64748b"),
+  active: z.boolean().default(true),
+});
+
+export const insertDemandDestinationSchema = createInsertSchema(demandDestinations).omit({
+  id: true,
+  accountId: true,
+  createdByUserId: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  kind: z.enum(["internal", "external"]),
+  name: z.string().trim().min(2, "Nome do destino e obrigatorio").max(120),
+  description: z.string().trim().max(500).nullable().optional(),
+  contactName: z.string().trim().max(120).nullable().optional(),
+  phone: z.string().trim().max(30).nullable().optional(),
+  email: z.union([z.string().trim().email("E-mail invalido").max(254), z.literal("")]).nullable().optional(),
+  responseDeadlineHours: z.coerce.number().int().min(1).max(8760).default(72),
+  active: z.boolean().default(true),
+});
+
+export const insertDemandForwardingSchema = createInsertSchema(demandForwardings).omit({
+  id: true,
+  accountId: true,
+  demandId: true,
+  createdByUserId: true,
+  sentAt: true,
+  answeredAt: true,
+  completedAt: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  destinationId: z.string().trim().min(1),
+  assigneeUserId: z.string().trim().min(1).nullable().optional(),
+  externalProtocol: z.string().trim().max(120).nullable().optional(),
+  status: z.enum(["draft", "forwarded", "waiting", "answered", "completed", "cancelled"]).default("draft"),
+  priority: z.enum(["low", "medium", "high", "urgent"]).default("medium"),
+  dueAt: z.string().datetime().nullable().optional(),
+  notes: z.string().trim().max(4000).nullable().optional(),
+  response: z.string().trim().max(8000).nullable().optional(),
 });
 
 export const insertDemandCommentSchema = createInsertSchema(demandComments).omit({
@@ -1635,8 +2074,13 @@ export type LoginUser = z.infer<typeof loginSchema>;
 
 export type Contact = typeof contacts.$inferSelect;
 export type InsertContact = z.infer<typeof insertContactSchema>;
+export type ContactMergeEvent = typeof contactMergeEvents.$inferSelect;
 
 export type PoliticalParty = typeof politicalParties.$inferSelect;
+
+export type AllianceLine = typeof allianceLines.$inferSelect;
+export type InsertAllianceLine = z.infer<typeof insertAllianceLineSchema>;
+export type UpdateAllianceLine = z.infer<typeof updateAllianceLineSchema>;
 
 export type PoliticalAlliance = typeof politicalAlliances.$inferSelect;
 export type InsertPoliticalAlliance = z.infer<typeof insertPoliticalAllianceSchema>;
@@ -1646,6 +2090,16 @@ export type InsertAllianceInvite = z.infer<typeof insertAllianceInviteSchema>;
 
 export type Demand = typeof demands.$inferSelect;
 export type InsertDemand = z.infer<typeof insertDemandSchema>;
+export type DemandCategory = typeof demandCategories.$inferSelect;
+export type InsertDemandCategory = z.infer<typeof insertDemandCategorySchema>;
+export type DemandHistory = typeof demandHistory.$inferSelect;
+export type DemandAttachment = typeof demandAttachments.$inferSelect;
+export type DemandAutomationEvent = typeof demandAutomationEvents.$inferSelect;
+export type DemandDestination = typeof demandDestinations.$inferSelect;
+export type InsertDemandDestination = z.infer<typeof insertDemandDestinationSchema>;
+export type DemandForwarding = typeof demandForwardings.$inferSelect;
+export type InsertDemandForwarding = z.infer<typeof insertDemandForwardingSchema>;
+export type DemandForwardingEvent = typeof demandForwardingEvents.$inferSelect;
 
 export type DemandComment = typeof demandComments.$inferSelect;
 export type InsertDemandComment = z.infer<typeof insertDemandCommentSchema>;
@@ -1755,6 +2209,7 @@ export const petitions = pgTable("petitions", {
 export const petitionSignatures = pgTable("petition_signatures", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   petitionId: varchar("petition_id").notNull().references(() => petitions.id, { onDelete: 'cascade' }),
+  contactId: varchar("contact_id").references(() => contacts.id, { onDelete: "set null" }),
   name: text("name").notNull(),
   email: text("email"),
   phone: text("phone"),
@@ -1883,6 +2338,7 @@ export const insertPetitionSchema = createInsertSchema(petitions).omit({
 
 export const insertPetitionSignatureSchema = createInsertSchema(petitionSignatures).omit({
   id: true,
+  contactId: true,
   ipAddress: true,
   createdAt: true,
 }).extend({
@@ -2005,6 +2461,8 @@ export const channelConnections = pgTable("channel_connections", {
   provider: text("provider").notNull().default("wescctech"),
   baseUrl: text("base_url").default("https://api.wescctech.com.br"),
   token: text("token"),
+  phoneNumber: text("phone_number"),
+  tokenFingerprint: text("token_fingerprint"),
   status: text("status").default("pending").notNull(),
   lastTestedAt: timestamp("last_tested_at"),
   lastError: text("last_error"),
@@ -2065,6 +2523,8 @@ export const attConversations = pgTable("att_conversations", {
   attendanceCode: text("attendance_code"),
   contactId: varchar("contact_id"),
   connectionId: varchar("connection_id"),
+  inboundConnectionName: text("inbound_connection_name"),
+  inboundNumber: text("inbound_number"),
   channel: text("channel").notNull().default("whatsapp"),
   provider: text("provider"),
   externalThreadId: text("external_thread_id"),

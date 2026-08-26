@@ -31,6 +31,11 @@ import { BRAZILIAN_STATES, getCitiesByState } from "@shared/brazilian-locations"
 import { useEffect } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { DemandDestinationsSettings } from "@/components/settings/demand-destinations-settings";
+import {
+  WhatsappConnectionsSummary,
+  type WhatsappConnectionSummary,
+} from "@/components/settings/whatsapp-connections-summary";
 
 // Check if admin master is impersonating
 const isImpersonating = localStorage.getItem("isImpersonating") === "true";
@@ -158,95 +163,6 @@ function SecretInput({
 const keepHint = (
   <span className="text-muted-foreground font-normal">(deixe em branco para manter)</span>
 );
-
-// ---- WhatsApp / WHU Form ----
-const whatsappSchema = z.object({
-  whatsappToken: z.string().optional(),
-  whatsappPhoneNumber: z.string().optional(),
-  enabled: z.boolean().default(true),
-});
-type WhatsappFormData = z.infer<typeof whatsappSchema>;
-
-function WhatsappForm({ current, onSaved }: { current?: IntegrationRecord | null; onSaved: () => void }) {
-  const { toast } = useToast();
-  const hasToken = !!current?.whatsappToken;
-  const form = useForm<WhatsappFormData>({
-    resolver: zodResolver(whatsappSchema),
-    defaultValues: {
-      whatsappToken: "",
-      whatsappPhoneNumber: current?.whatsappPhoneNumber || "",
-      enabled: current?.enabled ?? true,
-    },
-  });
-
-  const mutation = useMutation({
-    mutationFn: (data: WhatsappFormData) =>
-      apiRequest("POST", "/api/integrations", { service: "whatsapp", ...data }),
-    onSuccess: onSaved,
-    onError: (err: any) => toast({ title: "Erro ao salvar", description: err.message, variant: "destructive" }),
-  });
-
-  const testMutation = useMutation({
-    mutationFn: () => apiRequest("POST", "/api/integrations/whatsapp/test", {}),
-    onSuccess: (data: any) => {
-      const status = data?.provider?.status ? `Status: ${data.provider.status}` : undefined;
-      toast({ title: "WhatsApp conectado", description: status });
-    },
-    onError: (err: any) => toast({ title: "Falha no teste", description: err.message, variant: "destructive" }),
-  });
-
-  return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit((d) => mutation.mutate(d))} className="space-y-4">
-        <FormField control={form.control} name="whatsappToken" render={({ field }) => (
-          <FormItem>
-            <FormLabel className="text-xs">Token do canal WHU/WhatsApp {hasToken && keepHint}</FormLabel>
-            <FormControl>
-              <SecretInput
-                value={field.value || ""}
-                onChange={field.onChange}
-                onBlur={field.onBlur}
-                name={field.name}
-                placeholder="61d49d8b20f435a8e6631bf6"
-                testId="input-whatsapp-token"
-              />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <FormField control={form.control} name="whatsappPhoneNumber" render={({ field }) => (
-          <FormItem>
-            <FormLabel className="text-xs">Número WhatsApp <span className="text-muted-foreground font-normal">(opcional)</span></FormLabel>
-            <FormControl><Input placeholder="+5511999999999" {...field} data-testid="input-whatsapp-phone" /></FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
-        <FormField control={form.control} name="enabled" render={({ field }) => (
-          <FormItem className="flex items-center gap-3">
-            <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} data-testid="switch-whatsapp-enabled" /></FormControl>
-            <FormLabel className="text-xs !mt-0">Integração ativa</FormLabel>
-          </FormItem>
-        )} />
-        <div className="flex flex-wrap items-center gap-2">
-          <Button type="submit" size="sm" className="rounded-full" disabled={mutation.isPending} data-testid="button-save-whatsapp">
-            {mutation.isPending ? "Salvando..." : "Salvar"}
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            className="rounded-full"
-            disabled={!hasToken || testMutation.isPending}
-            onClick={() => testMutation.mutate()}
-            data-testid="button-test-whatsapp"
-          >
-            {testMutation.isPending ? "Testando..." : "Testar conexão"}
-          </Button>
-        </div>
-      </form>
-    </Form>
-  );
-}
 
 // ---- SMS (Oktor) Form ----
 const smsSchema = z.object({
@@ -641,7 +557,7 @@ export default function Settings() {
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const tabParam = urlParams.get('tab');
-    if (tabParam && ['profile', 'api', 'google-calendar'].includes(tabParam)) {
+    if (tabParam && ['profile', 'api', 'google-calendar', 'demand-destinations', 'omni'].includes(tabParam)) {
       setActiveTab(tabParam);
     }
   }, []);
@@ -673,8 +589,12 @@ export default function Settings() {
 
   type IntegrationData = IntegrationRecord & { id: string; service: string; enabled: boolean; testMode?: boolean };
 
-  const { data: whatsappData, isLoading: loadingWhatsapp } = useQuery<IntegrationData | null>({
-    queryKey: ["/api/integrations/whatsapp"],
+  const {
+    data: whatsappConnections = [],
+    isLoading: loadingWhatsapp,
+    error: whatsappConnectionsError,
+  } = useQuery<WhatsappConnectionSummary[]>({
+    queryKey: ["/api/integrations/whatsapp/connections-summary"],
     enabled: activeTab === "omni",
   });
 
@@ -1143,6 +1063,11 @@ export default function Settings() {
 
   const selectedParty = parties?.find(p => p.id === form.watch("partyId"));
   const baseUrl = 'https://www.politicall.com.br';
+  const whatsappSummaryState = loadingWhatsapp
+    ? "loading"
+    : whatsappConnectionsError
+      ? /403|permiss/i.test(String((whatsappConnectionsError as Error).message)) ? "forbidden" : "error"
+      : whatsappConnections.length === 0 ? "empty" : "success";
 
   return (
     <div className="p-4 sm:p-6 md:p-8 space-y-6 max-w-full overflow-x-hidden">
@@ -1151,7 +1076,7 @@ export default function Settings() {
         <p className="text-muted-foreground mt-2">Gerencie suas preferências e informações da conta</p>
       </div>
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full max-w-full">
-        <TabsList className="grid w-full max-w-xl grid-cols-3 rounded-full p-1">
+        <TabsList className="grid h-auto w-full max-w-4xl grid-cols-2 rounded-md p-1 sm:grid-cols-5">
           <TabsTrigger value="profile" data-testid="tab-profile" className="rounded-full">
             <User className="w-4 h-4 mr-1" />
             Perfil
@@ -1164,6 +1089,11 @@ export default function Settings() {
             <Key className="w-4 h-4 mr-1" />
             API
           </TabsTrigger>
+          <TabsTrigger value="omni" data-testid="tab-integrations" className="rounded-full">
+            <MessageCircle className="w-4 h-4 mr-1" />
+            Integrações
+          </TabsTrigger>
+          <TabsTrigger value="demand-destinations" className="rounded-full">Órgãos e setores</TabsTrigger>
         </TabsList>
 
         <TabsContent value="profile" className="space-y-6 mt-6 max-w-full overflow-x-hidden">
@@ -1643,6 +1573,60 @@ export default function Settings() {
             </Card>
         </TabsContent>
 
+        <TabsContent value="omni" className="mt-6 space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <SiWhatsapp className="h-5 w-5" />
+                Números de WhatsApp
+              </CardTitle>
+              <CardDescription>
+                Os tokens e números são administrados no gerenciador de conexões do atendimento.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <WhatsappConnectionsSummary
+                state={whatsappSummaryState}
+                connections={whatsappConnections}
+                onOpenManager={() => window.location.assign("/attendance?view=settings")}
+              />
+            </CardContent>
+          </Card>
+
+          <div className="grid gap-6 lg:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base"><Phone className="h-5 w-5" />SMS</CardTitle>
+                <CardDescription>Configuração de envio por SMS</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {loadingSms ? <Skeleton className="h-24 w-full" /> : (
+                  <SmsForm
+                    current={smsData}
+                    isAdmin={user?.role === "admin"}
+                    onSaved={() => queryClient.invalidateQueries({ queryKey: ["/api/integrations/sms"] })}
+                  />
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base"><Mail className="h-5 w-5" />E-mail</CardTitle>
+                <CardDescription>Configuração de envio por e-mail</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {loadingEmail ? <Skeleton className="h-24 w-full" /> : (
+                  <EmailForm
+                    current={emailData}
+                    onSaved={() => queryClient.invalidateQueries({ queryKey: ["/api/integrations/email"] })}
+                  />
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
         <TabsContent value="google-calendar" className="mt-6">
           <div className="grid gap-6 lg:grid-cols-2">
             {/* Left Column - Configuration */}
@@ -1938,6 +1922,7 @@ export default function Settings() {
             </div>
           </div>
         </TabsContent>
+        <TabsContent value="demand-destinations" className="mt-6"><DemandDestinationsSettings /></TabsContent>
 
       </Tabs>
       {/* Edit Profile Dialog */}

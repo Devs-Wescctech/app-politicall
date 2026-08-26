@@ -17,6 +17,8 @@ type DashboardParty = {
 
 type DashboardDemand = {
   status: string;
+  priority?: string | null;
+  slaDueAt?: Date | string | null;
 };
 
 type DashboardEvent = {
@@ -28,6 +30,8 @@ export type DashboardStats = {
   totalAlliances: number;
   totalDemands: number;
   pendingDemands: number;
+  overdueDemands: number;
+  urgentDemands: number;
   totalEvents: number;
   upcomingEvents: number;
   ideologyDistribution: { ideology: string; count: number }[];
@@ -62,7 +66,9 @@ export function buildDashboardStats(
     totalContacts: contacts.length,
     totalAlliances: alliances.length,
     totalDemands: demands.length,
-    pendingDemands: demands.filter((demand) => demand.status === "pending").length,
+    pendingDemands: demands.filter((demand) => !["completed", "cancelled"].includes(demand.status)).length,
+    overdueDemands: demands.filter((demand) => !["completed", "cancelled"].includes(demand.status) && demand.slaDueAt && new Date(demand.slaDueAt) < now).length,
+    urgentDemands: demands.filter((demand) => !["completed", "cancelled"].includes(demand.status) && demand.priority === "urgent").length,
     totalEvents: events.length,
     upcomingEvents: events.filter((event) => new Date(event.startDate) > now).length,
     ideologyDistribution: Object.entries(ideologyDistribution).map(([ideology, count]) => ({ ideology, count })),

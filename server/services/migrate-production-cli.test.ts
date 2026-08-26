@@ -123,6 +123,29 @@ describe("production migration CLI", () => {
     expect(output).not.toContain(productionUrl);
   });
 
+  it("preserves only the actionable global WHU duplicate remediation", async () => {
+    const pool = createFakePool();
+    const errors: string[] = [];
+    const privateSql = "UPDATE channel_connections SET token_fingerprint = 'secret'";
+    const duplicateRemediation = "WHU token fingerprint backfill found a global active WHU token conflict; disable or rotate the duplicate connection before retrying";
+
+    const exitCode = await runProductionMigrationCli({
+      env: { NODE_ENV: "production", PROD_DATABASE_URL: productionUrl },
+      rootDir,
+      createPool: () => pool,
+      runMigrations: async () => {
+        throw new Error(duplicateRemediation);
+      },
+      stderr: (message) => errors.push(message),
+    });
+
+    expect(exitCode).toBe(1);
+    expect(pool.endCalls).toBe(1);
+    expect(errors).toEqual([duplicateRemediation]);
+    expect(errors.join("\n")).not.toContain(privateSql);
+    expect(errors.join("\n")).not.toContain(productionUrl);
+  });
+
   it("executes the guarded entrypoint from the production bundle", async () => {
     const runtimeRoot = path.join(rootDir, ".runtime");
     await mkdir(runtimeRoot, { recursive: true });

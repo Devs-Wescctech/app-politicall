@@ -20,9 +20,11 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { ProtectedRoute } from "@/components/protected-route";
 import { AdminRoute } from "@/components/admin-route";
+import { PermissionRoute } from "@/components/permission-route";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { NotificationBell } from "@/components/notification-bell";
+import { ATTENDANCE_PERMISSION_KEYS, BROADCAST_PERMISSION_KEYS, REPORT_PERMISSION_KEYS } from "@shared/schema";
 import logoUrl from "@assets/logo pol_1763308638963.png";
 
 const NotFound = lazy(() => import("@/pages/not-found"));
@@ -33,6 +35,8 @@ const Admin = lazy(() => import("@/pages/admin"));
 const Contracts = lazy(() => import("@/pages/contracts"));
 const Dashboard = lazy(() => import("@/pages/dashboard"));
 const Contacts = lazy(() => import("@/pages/contacts"));
+const ContactDuplicates = lazy(() => import("@/pages/contact-duplicates"));
+const Contact360 = lazy(() => import("@/pages/contact-360"));
 const Alliances = lazy(() => import("@/pages/alliances"));
 const Demands = lazy(() => import("@/pages/demands"));
 const Agenda = lazy(() => import("@/pages/agenda"));
@@ -129,62 +133,74 @@ function App() {
               </Route>
               <Route path="/contacts">
                 <AuthenticatedPage>
-                  <Contacts />
+                  <PermissionRoute permission="contacts"><Contacts /></PermissionRoute>
+                </AuthenticatedPage>
+              </Route>
+              <Route path="/contacts/duplicates">
+                <AuthenticatedPage>
+                  <PermissionRoute permission="contacts"><ContactDuplicates /></PermissionRoute>
+                </AuthenticatedPage>
+              </Route>
+              <Route path="/contacts/:id">
+                <AuthenticatedPage>
+                  <PermissionRoute permission="contacts"><Contact360 /></PermissionRoute>
                 </AuthenticatedPage>
               </Route>
               <Route path="/alliances">
                 <AuthenticatedPage>
-                  <Alliances />
+                  <PermissionRoute permission="alliances"><Alliances /></PermissionRoute>
                 </AuthenticatedPage>
               </Route>
               <Route path="/demands">
                 <AuthenticatedPage>
-                  <Demands />
+                  <PermissionRoute permission="demands"><Demands /></PermissionRoute>
                 </AuthenticatedPage>
               </Route>
               <Route path="/agenda">
                 <AuthenticatedPage>
-                  <Agenda />
+                  <PermissionRoute permission="agenda"><Agenda /></PermissionRoute>
                 </AuthenticatedPage>
               </Route>
               <Route path="/ai-attendance">
                 <AuthenticatedPage>
-                  <AiAttendance />
+                  <PermissionRoute permission="ai"><AiAttendance /></PermissionRoute>
                 </AuthenticatedPage>
               </Route>
               <Route path="/marketing">
                 <AuthenticatedPage>
-                  <Marketing />
+                  <PermissionRoute permission="marketing"><Marketing /></PermissionRoute>
                 </AuthenticatedPage>
               </Route>
               <Route path="/petitions">
                 <AuthenticatedPage>
-                  <Petitions />
+                  <PermissionRoute permission="petitions"><Petitions /></PermissionRoute>
                 </AuthenticatedPage>
               </Route>
               <Route path="/attendance">
                 <AuthenticatedPage>
-                  <Attendance />
+                  <PermissionRoute anyOf={ATTENDANCE_PERMISSION_KEYS}><Attendance /></PermissionRoute>
                 </AuthenticatedPage>
               </Route>
               <Route path="/broadcasts/:id">
                 <AuthenticatedPage>
-                  <CampaignDetail />
+                  <PermissionRoute anyOf={BROADCAST_PERMISSION_KEYS}><CampaignDetail /></PermissionRoute>
                 </AuthenticatedPage>
               </Route>
               <Route path="/broadcasts">
                 <AuthenticatedPage>
-                  <Broadcasts />
+                  <PermissionRoute anyOf={BROADCAST_PERMISSION_KEYS}><Broadcasts /></PermissionRoute>
                 </AuthenticatedPage>
               </Route>
               <Route path="/reports">
                 <AuthenticatedPage>
-                  <Reports />
+                  <PermissionRoute anyOf={REPORT_PERMISSION_KEYS}><Reports /></PermissionRoute>
                 </AuthenticatedPage>
               </Route>
               <Route path="/settings">
                 <AuthenticatedPage>
-                  <Settings />
+                  <PermissionRoute permission="settings">
+                    <Settings />
+                  </PermissionRoute>
                 </AuthenticatedPage>
               </Route>
               <Route path="/users">

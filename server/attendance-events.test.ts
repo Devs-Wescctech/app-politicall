@@ -164,20 +164,20 @@ describe("attendance realtime lifecycle", () => {
     expect(client.readyState).toBe(WebSocket.CLOSED);
   });
 
-  it("rejects an unsupported upgrade and lets the HTTP server close", async () => {
+  it("passes unrelated upgrades to other websocket handlers", async () => {
     const server = createServer();
     servers.push(server);
     setupAttendanceRealtime(server);
+    let handledByOtherListener = false;
+    server.on("upgrade", (request, socket) => {
+      if (request.url !== "/unsupported-realtime") return;
+      handledByOtherListener = true;
+      socket.end("HTTP/1.1 426 Upgrade Required\r\nConnection: close\r\n\r\n");
+    });
     await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
     const address = server.address();
     if (!address || typeof address === "string") throw new Error("Missing test server address");
 
-    const upgradeReceived = new Promise<Duplex>((resolve) => {
-      server.once("upgrade", (_request, socket) => {
-        serverUpgradeSockets.push(socket);
-        resolve(socket);
-      });
-    });
     const socket = connectSocket({ host: "127.0.0.1", port: address.port });
     rawSockets.push(socket);
     socket.setEncoding("utf8");
@@ -198,8 +198,6 @@ describe("attendance realtime lifecycle", () => {
       + "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n"
       + "\r\n",
     );
-    const serverUpgradeSocket = await upgradeReceived;
-
     const socketClosed = new Promise<void>((resolve) => {
       if (socket.destroyed) {
         resolve();
@@ -207,6 +205,12 @@ describe("attendance realtime lifecycle", () => {
       }
       socket.once("close", () => resolve());
     });
+    const closedWithoutIntervention = await Promise.race([
+      socketClosed.then(() => true),
+      new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 2_000)),
+    ]);
+
+    if (!socket.destroyed) socket.destroy();
     let serverCloseFinished = false;
     const serverClosed = new Promise<void>((resolve) => {
       server.close(() => {
@@ -214,19 +218,13 @@ describe("attendance realtime lifecycle", () => {
         resolve();
       });
     });
-    const closedWithoutIntervention = await Promise.race([
-      Promise.all([socketClosed, serverClosed]).then(() => true),
-      new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 500)),
-    ]);
-
-    if (!socket.destroyed) socket.destroy();
-    if (!serverUpgradeSocket.destroyed) serverUpgradeSocket.destroy();
     await serverClosed;
 
     expect(closedWithoutIntervention).toBe(true);
     expect(serverCloseFinished).toBe(true);
+    expect(handledByOtherListener).toBe(true);
     expect(socket.destroyed).toBe(true);
-    expect(response).toMatch(/^HTTP\/1\.1 (404|426) /);
+    expect(response).toMatch(/^HTTP\/1\.1 426 /);
   });
 
   it("rejects setup while the previous realtime instance is closing", async () => {

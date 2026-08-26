@@ -15,6 +15,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:attendance": "vitest run",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
     "security:secrets": "node scripts/check-release-secrets.mjs"
   },
   "dependencies": {
@@ -101,6 +103,7 @@
     "zod-validation-error": "^3.4.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
     "@replit/vite-plugin-cartographer": "^0.4.2",
     "@replit/vite-plugin-dev-banner": "^0.1.1",
     "@replit/vite-plugin-runtime-error-modal": "^0.0.3",
@@ -152,7 +155,8 @@
       "unzipper": "0.12.5",
       "uuid": "11.1.1"
     },
-    "glob": "11.1.0"
+    "glob": "11.1.0",
+    "nanoid": "3.3.18"
   },
   "optionalDependencies": {
     "bufferutil": "^4.0.8"

@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, unlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
@@ -267,5 +267,13 @@ describe("release secret scanner", () => {
 
     expect(result.stdout).not.toContain(placeholder);
     expect(result.stderr).toBe("");
+  });
+
+  it("ignores tracked files intentionally deleted from the working tree", async () => {
+    const directory = await createCandidate({ "removed.txt": "safe text\n" });
+    await execFileAsync("git", ["add", "removed.txt"], { cwd: directory });
+    await unlink(path.join(directory, "removed.txt"));
+
+    await expect(scan(directory)).resolves.toMatchObject({ stderr: "" });
   });
 });

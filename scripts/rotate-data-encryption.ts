@@ -24,11 +24,15 @@ function quoteIdentifier(identifier: string): string {
 
 function selectStatement(table: string, field: string): string {
   const tableName = quoteIdentifier(table);
+  const emptyConnectionFields = "NULL::text AS token_fingerprint, NULL::text AS channel, NULL::text AS provider";
+  if (table === "channel_connections" && field === "token") {
+    return `SELECT '${table}' AS table_name, id::text AS id, '${field}' AS field_name, token AS value, token_fingerprint, channel, provider FROM ${tableName} WHERE token IS NOT NULL AND token <> ''`;
+  }
   if (field === "metadata.webhookSecret") {
-    return `SELECT '${table}' AS table_name, id::text AS id, '${field}' AS field_name, metadata->>'webhookSecret' AS value FROM ${tableName} WHERE metadata->>'webhookSecret' IS NOT NULL AND metadata->>'webhookSecret' <> ''`;
+    return `SELECT '${table}' AS table_name, id::text AS id, '${field}' AS field_name, metadata->>'webhookSecret' AS value, ${emptyConnectionFields} FROM ${tableName} WHERE metadata->>'webhookSecret' IS NOT NULL AND metadata->>'webhookSecret' <> ''`;
   }
   const column = quoteIdentifier(COLUMN_NAMES[field]);
-  return `SELECT '${table}' AS table_name, id::text AS id, '${field}' AS field_name, ${column} AS value FROM ${tableName} WHERE ${column} IS NOT NULL AND ${column} <> ''`;
+  return `SELECT '${table}' AS table_name, id::text AS id, '${field}' AS field_name, ${column} AS value, ${emptyConnectionFields} FROM ${tableName} WHERE ${column} IS NOT NULL AND ${column} <> ''`;
 }
 
 function createStore(pool: Pool): DataKeyRotationStore {
@@ -40,7 +44,15 @@ function createStore(pool: Pool): DataKeyRotationStore {
       const offset = cursor ? Number.parseInt(cursor, 10) : 0;
       if (!Number.isSafeInteger(offset) || offset < 0) throw new Error("Invalid rotation cursor");
       const result = await pool.query(`${sources} ORDER BY table_name, id, field_name LIMIT $1 OFFSET $2`, [limit, offset]);
-      const rows = result.rows.map((row) => ({ table: row.table_name, id: row.id, field: row.field_name, value: row.value })) as RotationRow[];
+      const rows = result.rows.map((row) => ({
+        table: row.table_name,
+        id: row.id,
+        field: row.field_name,
+        value: row.value,
+        tokenFingerprint: row.token_fingerprint,
+        channel: row.channel,
+        provider: row.provider,
+      })) as RotationRow[];
       return { rows, nextCursor: rows.length === limit ? String(offset + rows.length) : null };
     },
     async transaction(work) {
@@ -60,12 +72,19 @@ function createStore(pool: Pool): DataKeyRotationStore {
         client.release();
       }
     },
-    async compareAndSet(row, encrypted) {
+    async compareAndSet(row, encrypted, tokenFingerprint) {
       const table = quoteIdentifier(row.table);
       if (row.field === "metadata.webhookSecret") {
         const result = await query(
           `UPDATE ${table} SET metadata = jsonb_set(COALESCE(metadata, '{}'::jsonb), '{webhookSecret}', to_jsonb($1::text), true), updated_at = NOW() WHERE id::text = $2 AND metadata->>'webhookSecret' IS NOT DISTINCT FROM $3`,
           [encrypted, row.id, row.value],
+        );
+        return result.rowCount === 1;
+      }
+      if (row.table === "channel_connections" && row.field === "token") {
+        const result = await query(
+          `UPDATE ${table} SET token = $1, token_fingerprint = $2, updated_at = NOW() WHERE id::text = $3 AND token IS NOT DISTINCT FROM $4`,
+          [encrypted, tokenFingerprint, row.id, row.value],
         );
         return result.rowCount === 1;
       }

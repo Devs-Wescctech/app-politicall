@@ -76,6 +76,7 @@ export const ATTENDANCE_AUTHENTICATION_TIMEOUT_MS = 8_000;
 export const ATTENDANCE_MAX_PENDING_UPGRADES = 128;
 export const ATTENDANCE_MAX_PENDING_UPGRADES_PER_SESSION = 8;
 export const ATTENDANCE_MAX_PAYLOAD_BYTES = 4 * 1024;
+const ATTENDANCE_REALTIME_PATH = "/api/attendance/realtime";
 
 const clientsByAccount = new Map<string, Set<AttendanceRealtimeClient>>();
 let websocketServer: WebSocketServer | null = null;
@@ -153,6 +154,20 @@ function boundedPositiveInteger(value: number | undefined, defaultValue: number,
     throw new Error(`${name} is invalid`);
   }
   return value;
+}
+
+function isAttendanceRealtimeCandidate(target: string | undefined): boolean {
+  if (!target) return false;
+  if (target === ATTENDANCE_REALTIME_PATH
+    || target.startsWith(`${ATTENDANCE_REALTIME_PATH}?`)
+    || target.startsWith(`${ATTENDANCE_REALTIME_PATH}#`)
+    || target.startsWith(`${ATTENDANCE_REALTIME_PATH}/`)) return true;
+  try {
+    const url = new URL(target);
+    return url.pathname === ATTENDANCE_REALTIME_PATH || url.pathname.startsWith(`${ATTENDANCE_REALTIME_PATH}/`);
+  } catch {
+    return false;
+  }
 }
 
 function releasePendingAdmission(socket: Duplex): void {
@@ -235,6 +250,8 @@ export function setupAttendanceRealtime(
   });
 
   const listener: AttendanceUpgradeListener = async (request, socket, head) => {
+    if (!isAttendanceRealtimeCandidate(request.url)) return;
+
     pendingUpgradeSockets.add(socket);
     let tracking = true;
     const stopTrackingSocket = () => {
@@ -286,7 +303,7 @@ export function setupAttendanceRealtime(
     socket.on("error", onSocketError);
 
     try {
-      if (request.url !== "/api/attendance/realtime") {
+      if (request.url !== ATTENDANCE_REALTIME_PATH) {
         rejectUpgrade("404 Not Found");
         return;
       }

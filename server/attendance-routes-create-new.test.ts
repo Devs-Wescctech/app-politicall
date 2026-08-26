@@ -26,4 +26,5 @@ describe("POST /api/attendance/conversations/create-new", () => {
     expect(insert).not.toContain('mode: "automatic"');
     expect(insert).not.toContain('status: "automatic"');
   });
+
 });
