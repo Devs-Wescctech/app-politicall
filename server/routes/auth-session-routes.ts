@@ -2,7 +2,7 @@ import bcrypt from "bcrypt";
 import { createHash } from "node:crypto";
 import type { Express, NextFunction, Request, Response } from "express";
 import { parseCookie } from "cookie";
-import { DEFAULT_PERMISSIONS, legacyAuthExchanges, type User } from "@shared/schema";
+import { legacyAuthExchanges, resolveUserPermissions, type User } from "@shared/schema";
 import { getAdminPasswordHash } from "../admin-credentials";
 import { createAuthSessionService, type AuthSessionUser, type IssuedSessionCookies } from "../services/auth-session-service";
 import { createSession, resolveAccessSession, resolveRefreshSession, revokeSessionById, revokeSessionFamily, revokeUserSessions, rotateRefreshSession } from "../services/auth-session-store";
@@ -161,7 +161,7 @@ export function toAuthSessionUser(user: User): AuthSessionUser {
     email: user.email,
     name: user.name,
     role: user.role,
-    permissions: user.permissions ?? DEFAULT_PERMISSIONS.assessor,
+    permissions: resolveUserPermissions(user.role, user.permissions),
     password: user.password,
   };
 }

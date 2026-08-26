@@ -9,6 +9,7 @@ import {
   requireDataEncryptionKey,
 } from "../crypto";
 import { AI_CONFIG_PROVIDER_SECRET_FIELDS } from "./ai-config-secrets";
+import { fingerprintWhuToken, isWhuConnection, requireTokenFingerprintKey } from "./whu-connection-identity";
 
 export const DATA_ENCRYPTION_ROTATION_INVENTORY = [
   ["integrations", "sendgridApiKey"], ["integrations", "twilioAuthToken"], ["integrations", "whatsappToken"],
@@ -19,11 +20,19 @@ export const DATA_ENCRYPTION_ROTATION_INVENTORY = [
   ["google_calendar_integrations", "clientSecret"], ["google_calendar_integrations", "accessToken"], ["google_calendar_integrations", "refreshToken"],
 ] as const;
 
-export type RotationRow = { table: string; id: string; field: string; value: string };
+export type RotationRow = {
+  table: string;
+  id: string;
+  field: string;
+  value: string;
+  channel?: string | null;
+  provider?: string | null;
+  tokenFingerprint?: string | null;
+};
 export type DataKeyRotationStore = {
   readBatch(cursor: string | null, limit: number): Promise<{ rows: RotationRow[]; nextCursor: string | null }>;
   transaction<T>(work: () => Promise<T>): Promise<T>;
-  compareAndSet(row: RotationRow, encrypted: string): Promise<boolean>;
+  compareAndSet(row: RotationRow, encrypted: string, tokenFingerprint?: string): Promise<boolean>;
 };
 
 export type DataKeyRotationReport = {
@@ -37,6 +46,12 @@ export type DataKeyRotationReport = {
 
 type RotationCategory = "active_v2" | "previous_v2" | "legacy_v1" | "plaintext" | "malformed" | "undecryptable";
 type RotationLog = { table: string; id: string; field: string; category: RotationCategory };
+type RotationOptions = {
+  apply?: boolean;
+  batchSize?: number;
+  log?: (entry: RotationLog) => void;
+  whuTokenFingerprintBackfill?: boolean;
+};
 
 export class DataKeyRotationConflictError extends Error {
   constructor() {
@@ -64,7 +79,7 @@ function classify(row: RotationRow): { category: RotationCategory; plaintext?: s
 
 export async function rotateDataEncryption(
   store: DataKeyRotationStore,
-  options: { apply?: boolean; batchSize?: number; log?: (entry: RotationLog) => void } = {},
+  options: RotationOptions = {},
 ): Promise<DataKeyRotationReport> {
   requireDataEncryptionKey();
   const batchSize = Math.min(Math.max(options.batchSize ?? 100, 1), 500);
@@ -73,32 +88,72 @@ export async function rotateDataEncryption(
   do {
     const batch = await store.readBatch(cursor, batchSize);
     cursor = batch.nextCursor;
-    await store.transaction(async () => {
-      for (const row of batch.rows) {
-        report.scanned += 1;
-        const result = classify(row);
-        options.log?.({ table: row.table, id: row.id, field: row.field, category: result.category });
-        if (result.category === "active_v2") {
-          report.unchanged += 1;
-          continue;
+    if (batch.rows.length > 0) {
+      await store.transaction(async () => {
+        for (const row of batch.rows) {
+          report.scanned += 1;
+          const result = classify(row);
+          options.log?.({ table: row.table, id: row.id, field: row.field, category: result.category });
+          if (result.category === "malformed" || result.category === "undecryptable") {
+            report.errors += 1;
+            continue;
+          }
+          const isWhuToken = row.table === "channel_connections" && row.field === "token" && isWhuConnection(row);
+          const tokenFingerprint = isWhuToken ? fingerprintWhuToken(result.plaintext!) : undefined;
+          if (options.whuTokenFingerprintBackfill) {
+            if (!isWhuToken) {
+              report.skipped += 1;
+              continue;
+            }
+            if (row.tokenFingerprint === tokenFingerprint) {
+              report.unchanged += 1;
+              continue;
+            }
+            report.rotatable += 1;
+            if (!options.apply) continue;
+            if (await store.compareAndSet(row, row.value, tokenFingerprint)) report.rotated += 1;
+            else {
+              report.errors += 1;
+              throw new DataKeyRotationConflictError();
+            }
+            continue;
+          }
+          if (result.category === "active_v2") {
+            if (isWhuToken && row.tokenFingerprint !== tokenFingerprint) {
+              report.rotatable += 1;
+              if (!options.apply) continue;
+              if (await store.compareAndSet(row, row.value, tokenFingerprint)) report.rotated += 1;
+              else {
+                report.errors += 1;
+                throw new DataKeyRotationConflictError();
+              }
+              continue;
+            }
+            report.unchanged += 1;
+            continue;
+          }
+          report.rotatable += 1;
+          if (!options.apply) continue;
+          const context = row.table === "channel_connections"
+            ? { table: row.table, field: row.field, recordId: row.id }
+            : undefined;
+          const encrypted = encryptApiKey(result.plaintext!, context);
+          if (await store.compareAndSet(row, encrypted, tokenFingerprint)) report.rotated += 1;
+          else {
+            report.errors += 1;
+            throw new DataKeyRotationConflictError();
+          }
         }
-        if (result.category === "malformed" || result.category === "undecryptable") {
-          report.errors += 1;
-          continue;
-        }
-        report.rotatable += 1;
-        if (!options.apply) continue;
-        const context = row.table === "channel_connections"
-          ? { table: row.table, field: row.field, recordId: row.id }
-          : undefined;
-        const encrypted = encryptApiKey(result.plaintext!, context);
-        if (await store.compareAndSet(row, encrypted)) report.rotated += 1;
-        else {
-          report.errors += 1;
-          throw new DataKeyRotationConflictError();
-        }
-      }
-    });
+      });
+    }
   } while (cursor !== null);
   return report;
+}
+
+export async function backfillWhuTokenFingerprints(
+  store: DataKeyRotationStore,
+  options: Pick<RotationOptions, "apply" | "batchSize" | "log"> = {},
+): Promise<DataKeyRotationReport> {
+  requireTokenFingerprintKey();
+  return rotateDataEncryption(store, { ...options, whuTokenFingerprintBackfill: true });
 }

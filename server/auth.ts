@@ -1,34 +1,10 @@
 import type { NextFunction, Request, Response } from "express";
 import { storage } from "./storage";
-import type { UserPermissions } from "@shared/schema";
+import { resolveUserPermissions, type UserPermissions } from "@shared/schema";
 import { getAuthAllowedOrigins } from "./routes/auth-session-routes";
 import { createAuthenticationMiddleware, isActiveGlobalAdminSession, type BrowserAuthRequest } from "./security/authentication";
 import { resolveAccessSession } from "./services/auth-session-store";
 import { readAccessToken } from "./security/auth-cookies";
-
-// Default permissions if user has none
-const DEFAULT_USER_PERMISSIONS: UserPermissions = {
-  dashboard: true,
-  contacts: true,
-  alliances: true,
-  demands: true,
-  agenda: true,
-  ai: false,
-  marketing: false,
-  petitions: false,
-  users: false,
-  settings: false,
-  whatsappAttendance: false,
-  emailAttendance: false,
-  socialAttendance: false,
-  whatsappBroadcast: false,
-  emailBroadcast: false,
-  smsBroadcast: false,
-  attendanceReports: false,
-  attendanceSettings: false,
-  reports: false,
-  campaignReports: false,
-};
 
 // Extended request interface with user data
 export interface AuthRequest extends BrowserAuthRequest {}
@@ -45,7 +21,7 @@ const browserAuthentication = createAuthenticationMiddleware({
       email: user.email,
       name: user.name,
       role: user.role,
-      permissions: user.permissions || DEFAULT_USER_PERMISSIONS,
+      permissions: resolveUserPermissions(user.role, user.permissions),
     } : undefined;
   },
 });
