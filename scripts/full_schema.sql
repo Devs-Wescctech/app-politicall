@@ -496,6 +496,8 @@ CREATE TABLE public.channel_connections (
     provider text DEFAULT 'wescctech'::text NOT NULL,
     base_url text DEFAULT 'https://api.wescctech.com.br'::text,
     token text,
+    phone_number text,
+    token_fingerprint text,
     status text DEFAULT 'pending'::text NOT NULL,
     last_tested_at timestamp without time zone,
     last_error text,
@@ -936,6 +938,7 @@ CREATE TABLE public.petition_message_templates (
 CREATE TABLE public.petition_signatures (
     id character varying DEFAULT gen_random_uuid() NOT NULL,
     petition_id character varying NOT NULL,
+    contact_id character varying,
     name text NOT NULL,
     email text,
     phone text,
@@ -1745,7 +1748,28 @@ ALTER TABLE ONLY public.users
 -- Name: contacts_accountid_normalizedname_unique; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE UNIQUE INDEX contacts_accountid_normalizedname_unique ON public.contacts USING btree (account_id, normalized_name) WHERE (normalized_name IS NOT NULL);
+CREATE INDEX contacts_account_normalized_name_idx ON public.contacts USING btree (account_id, normalized_name) WHERE (normalized_name IS NOT NULL);
+
+
+--
+-- Name: att_conversations_account_connection_thread_uidx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX att_conversations_account_connection_thread_uidx ON public.att_conversations USING btree (account_id, connection_id, external_thread_id) WHERE ((connection_id IS NOT NULL) AND (external_thread_id IS NOT NULL));
+
+
+--
+-- Name: channel_connections_account_phone_active_uidx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX channel_connections_account_phone_active_uidx ON public.channel_connections USING btree (account_id, phone_number) WHERE ((NULLIF(btrim(phone_number), ''::text) IS NOT NULL) AND (lower(btrim(status)) <> 'disabled'::text) AND (lower(btrim(channel)) = 'whatsapp'::text) AND (lower(btrim(provider)) = 'wescctech'::text));
+
+
+--
+-- Name: channel_connections_token_active_uidx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX channel_connections_token_active_uidx ON public.channel_connections USING btree (token_fingerprint) WHERE ((token_fingerprint IS NOT NULL) AND (lower(btrim(status)) <> 'disabled'::text) AND (lower(btrim(channel)) = 'whatsapp'::text) AND (lower(btrim(provider)) = 'wescctech'::text));
 
 
 --
@@ -2162,6 +2186,9 @@ ALTER TABLE ONLY public.petition_message_templates
 ALTER TABLE ONLY public.petition_signatures
     ADD CONSTRAINT petition_signatures_petition_id_fkey FOREIGN KEY (petition_id) REFERENCES public.petitions(id) ON DELETE CASCADE;
 
+ALTER TABLE ONLY public.petition_signatures
+    ADD CONSTRAINT petition_signatures_contact_id_fkey FOREIGN KEY (contact_id) REFERENCES public.contacts(id) ON DELETE SET NULL;
+
 
 --
 -- Name: petitions petitions_account_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
@@ -2286,4 +2313,3 @@ ALTER TABLE ONLY public.users
 --
 -- PostgreSQL database dump complete
 --
-

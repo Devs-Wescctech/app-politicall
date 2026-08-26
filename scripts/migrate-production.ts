@@ -4,6 +4,7 @@ import { Pool, type PoolConfig } from "pg";
 import {
   runProductionMigrations,
   type MigrationRunResult,
+  WHU_TOKEN_FINGERPRINT_DUPLICATE_CONFLICT_MESSAGE,
 } from "../server/services/production-migrations";
 
 type MigrationPool = Parameters<typeof runProductionMigrations>[0];
@@ -40,6 +41,12 @@ function requireProductionDatabaseUrl(env: CliEnvironment): string {
   return env.PROD_DATABASE_URL;
 }
 
+function formatMigrationError(error: unknown): string {
+  return error instanceof Error && error.message === WHU_TOKEN_FINGERPRINT_DUPLICATE_CONFLICT_MESSAGE
+    ? WHU_TOKEN_FINGERPRINT_DUPLICATE_CONFLICT_MESSAGE
+    : "Production migration runner failed";
+}
+
 export async function runProductionMigrationCli(
   options: ProductionMigrationCliOptions = {},
 ): Promise<number> {
@@ -61,8 +68,8 @@ export async function runProductionMigrationCli(
     if (result.applied.length > 0) stdout(`applied_ids=${result.applied.join(",")}`);
     if (result.skipped.length > 0) stdout(`skipped_ids=${result.skipped.join(",")}`);
     return 0;
-  } catch {
-    stderr("Production migration runner failed");
+  } catch (error) {
+    stderr(formatMigrationError(error));
     return 1;
   } finally {
     if (pool) await pool.end();
