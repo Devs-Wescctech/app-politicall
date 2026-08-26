@@ -68,11 +68,14 @@ jobs:
         run: |
           node --input-type=module <<'NODE'
           import { appendFileSync } from 'node:fs';
+          import { randomBytes } from 'node:crypto';
 
           const databaseUrl = new URL('postgresql://127.0.0.1:5432/postgres');
           databaseUrl.username = 'postgres';
           databaseUrl.password = process.env.POSTGRES_PASSWORD;
           appendFileSync(process.env.GITHUB_ENV, `MIGRATION_TEST_DATABASE_URL=${databaseUrl}\n`);
+          appendFileSync(process.env.GITHUB_ENV, `DATA_ENCRYPTION_KEY=${randomBytes(32).toString('base64')}\n`);
+          appendFileSync(process.env.GITHUB_ENV, `TOKEN_FINGERPRINT_KEY=${randomBytes(32).toString('base64')}\n`);
           NODE
 
       - name: Run automated tests including PostgreSQL migrations
