@@ -56,3 +56,11 @@ Validação posterior com Node 24.19.0: `npm run check`, 1.049 testes Vitest,
 `npm run build`, `npm run security:secrets` e
 `npm audit --omit=dev --audit-level=high` passaram. O projeto continua sem um
 script de cobertura configurado; não foi produzido percentual de cobertura.
+
+## Correção dos testes de migração no GitHub Actions
+
+O job `Test and Build Application` falhou na Pull Request porque o migrador
+exigiu `TOKEN_FINGERPRINT_KEY`. O contrato foi ampliado antes da correção:
+`npm test -- tests/deployment-config.test.ts` reproduziu 1 falha com 35 testes
+aprovados. Após o job `build` passar a gerar `DATA_ENCRYPTION_KEY` e
+`TOKEN_FINGERPRINT_KEY` efêmeras, o mesmo alvo concluiu 36 testes aprovados.
