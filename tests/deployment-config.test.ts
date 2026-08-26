@@ -675,6 +675,8 @@ describe("deployment configuration", () => {
     expect(security).not.toContain("continue-on-error: true");
     expect(e2e).toContain("postgres:");
     expect(e2e).toContain("npx tsx scripts/setup-dev-db.ts");
+    expect(e2e).toContain("DATA_ENCRYPTION_KEY=${randomBytes(32).toString('base64')}");
+    expect(e2e).toContain("TOKEN_FINGERPRINT_KEY=${randomBytes(32).toString('base64')}");
     expect(e2e).toContain("npx playwright install --with-deps chromium");
     expect(e2e).toContain("npm run test:e2e -- --project=chromium");
     expect(docker).toContain("needs: [typecheck, build, security, e2e]");
