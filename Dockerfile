@@ -21,8 +21,22 @@ FROM node:24.18.0-trixie-slim@sha256:ae91dcc111a68c9d2d81ff2a17bda61be126426176f
 
 WORKDIR /app
 
-# Install the init process only.
-RUN apt-get update && apt-get install -y --no-install-recommends tini && rm -rf /var/lib/apt/lists/*
+# Install the init process and apply available security updates to the OS
+# package families present in the pinned base image.
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends --only-upgrade \
+      openssl \
+      libssl3t64 \
+      openssl-provider-legacy \
+      util-linux \
+      libblkid1 \
+      libmount1 \
+      libsmartcols1 \
+      libuuid1 \
+      login \
+      mount && \
+    apt-get install -y --no-install-recommends tini && \
+    rm -rf /var/lib/apt/lists/*
 
 # Create non-root user for security
 RUN groupadd --gid 1001 nodejs && \
