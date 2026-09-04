@@ -90,6 +90,9 @@ import {
   Phone,
   CreditCard,
   MessageCircle,
+  Facebook,
+  AtSign,
+  Send,
 } from "lucide-react";
 import {
   BarChart,
@@ -293,6 +296,10 @@ const petitionDefaults: InsertPetition = {
   status: "rascunho",
   primaryColor: "#14b8a6",
   shareText: "",
+  contactWhatsapp: "",
+  contactFacebookUrl: "",
+  contactXUrl: "",
+  contactTelegramUrl: "",
   videoUrl: "",
   bannerUrl: "",
   logoUrl: "",
@@ -351,6 +358,10 @@ function PetitionFormView({
           status: petition.status,
           primaryColor: petition.primaryColor ?? "#14b8a6",
           shareText: petition.shareText ?? "",
+          contactWhatsapp: petition.contactWhatsapp ?? "",
+          contactFacebookUrl: petition.contactFacebookUrl ?? "",
+          contactXUrl: petition.contactXUrl ?? "",
+          contactTelegramUrl: petition.contactTelegramUrl ?? "",
           videoUrl: petition.videoUrl ?? "",
           bannerUrl: petition.bannerUrl ?? "",
           logoUrl: petition.logoUrl ?? "",
@@ -471,6 +482,112 @@ function PetitionFormView({
                 </FormItem>
               )}
             />
+
+            <section className="space-y-4 border-t pt-5">
+              <div className="space-y-1">
+                <h3 className="text-base font-semibold text-foreground">
+                  Redes para contato após a assinatura
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  Estes canais aparecem após a confirmação para aproximar o apoiador do político.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <FormField
+                  control={form.control}
+                  name="contactWhatsapp"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>WhatsApp</FormLabel>
+                      <FormControl>
+                        <div className="relative">
+                          <MessageCircle className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                          <Input
+                            {...field}
+                            type="tel"
+                            value={field.value ?? ""}
+                            placeholder="+55 (51) 99999-0000"
+                            className="pl-9"
+                            data-testid="input-petition-contact-whatsapp"
+                          />
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="contactFacebookUrl"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Facebook</FormLabel>
+                      <FormControl>
+                        <div className="relative">
+                          <Facebook className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                          <Input
+                            {...field}
+                            type="url"
+                            value={field.value ?? ""}
+                            placeholder="https://facebook.com/seu-perfil"
+                            className="pl-9"
+                            data-testid="input-petition-contact-facebook"
+                          />
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="contactXUrl"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>X/Twitter</FormLabel>
+                      <FormControl>
+                        <div className="relative">
+                          <AtSign className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                          <Input
+                            {...field}
+                            type="url"
+                            value={field.value ?? ""}
+                            placeholder="https://x.com/seu-perfil"
+                            className="pl-9"
+                            data-testid="input-petition-contact-x"
+                          />
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="contactTelegramUrl"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Telegram</FormLabel>
+                      <FormControl>
+                        <div className="relative">
+                          <Send className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                          <Input
+                            {...field}
+                            type="url"
+                            value={field.value ?? ""}
+                            placeholder="https://t.me/seu-usuario"
+                            className="pl-9"
+                            data-testid="input-petition-contact-telegram"
+                          />
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </section>
 
             <FormField
               control={form.control}
