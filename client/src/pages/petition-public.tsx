@@ -17,9 +17,10 @@ import {
 } from "@shared/petition-contact-links";
 import { findBrazilianMunicipality } from "@shared/brazilian-municipalities";
 import { formatBrazilianPhone, isValidBrazilianPhone, normalizeBrazilianPhone } from "@shared/brazilian-phone";
+import { FaFacebookF, FaTelegram, FaWhatsapp, FaXTwitter } from "react-icons/fa6";
 import {
   Loader2, Users, Target, TrendingUp, CheckCircle2, Share2,
-  MessageCircle, Facebook, Twitter, Send, Link as LinkIcon, ChevronDown, ChevronUp,
+  Link as LinkIcon, ChevronDown, ChevronUp,
 } from "lucide-react";
 
 interface PublicPetition {
@@ -111,15 +112,22 @@ function renderVideo(url: string) {
 function renderContactIcon(network: PetitionContactNetwork) {
   switch (network) {
     case "whatsapp":
-      return <MessageCircle className="h-4 w-4" />;
+      return <FaWhatsapp className="h-5 w-5" />;
     case "facebook":
-      return <Facebook className="h-4 w-4" />;
+      return <FaFacebookF className="h-5 w-5" />;
     case "x":
-      return <Twitter className="h-4 w-4" />;
+      return <FaXTwitter className="h-5 w-5" />;
     case "telegram":
-      return <Send className="h-4 w-4" />;
+      return <FaTelegram className="h-5 w-5" />;
   }
 }
+
+const contactButtonClasses: Record<PetitionContactNetwork, string> = {
+  whatsapp: "bg-[#25D366] hover:bg-[#20bd5a]",
+  facebook: "bg-[#1877F2] hover:bg-[#1468d8]",
+  x: "bg-black hover:bg-slate-800",
+  telegram: "bg-[#229ED9] hover:bg-[#1d8fc5]",
+};
 
 export default function PetitionPublic() {
   const { slug } = useParams<{ slug: string }>();
@@ -206,10 +214,10 @@ export default function PetitionPublic() {
   const checkboxClass = "mt-0.5 border-slate-400 bg-white data-[state=checked]:text-white";
 
   const socialShares = [
-    { name: "WhatsApp", icon: MessageCircle, url: `https://wa.me/?text=${encodeURIComponent(shareText)}` },
-    { name: "Facebook", icon: Facebook, url: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}` },
-    { name: "Twitter", icon: Twitter, url: `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}` },
-    { name: "Telegram", icon: Send, url: `https://t.me/share/url?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(shareText)}` },
+    { name: "WhatsApp", icon: FaWhatsapp, className: "bg-[#25D366] hover:bg-[#20bd5a]", url: `https://wa.me/?text=${encodeURIComponent(shareText)}` },
+    { name: "Facebook", icon: FaFacebookF, className: "bg-[#1877F2] hover:bg-[#1468d8]", url: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}` },
+    { name: "X", icon: FaXTwitter, className: "bg-black hover:bg-slate-800", url: `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}` },
+    { name: "Telegram", icon: FaTelegram, className: "bg-[#229ED9] hover:bg-[#1d8fc5]", url: `https://t.me/share/url?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(shareText)}` },
   ];
   const contactLinks = buildPetitionContactLinks(petition, {
     nome: signedContactContext?.name ?? "",
@@ -472,23 +480,45 @@ export default function PetitionPublic() {
               </form>
             )}
 
-            <div className="mt-6 pt-4 border-t">
+            <section className="mt-6 border-t pt-4" data-testid="section-petition-initial-sharing">
               <p className="text-sm text-slate-600 text-center mb-3 flex items-center justify-center gap-1.5">
                 <Share2 className="w-4 h-4" /> Compartilhe esta petição
               </p>
-              <div className="flex flex-wrap items-center justify-center gap-2">
+              <div className="flex flex-wrap items-center justify-center gap-3">
                 {socialShares.map((s) => (
-                  <Button key={s.name} type="button" size="icon" variant="outline" onClick={() => window.open(s.url, "_blank", "width=600,height=400,noopener,noreferrer")} data-testid={`button-share-${s.name.toLowerCase()}`}>
-                    <span className="sr-only">Compartilhar no {s.name}</span>
-                    <s.icon className="w-4 h-4" />
+                  <Button
+                    key={s.name}
+                    type="button"
+                    size="icon"
+                    aria-label={`Compartilhar petição no ${s.name}`}
+                    title={`Compartilhar no ${s.name}`}
+                    className={`h-12 w-12 rounded-full border-0 text-white shadow-sm focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2 ${s.className}`}
+                    onClick={() => window.open(s.url, "_blank", "width=600,height=400,noopener,noreferrer")}
+                    data-testid={`button-share-${s.name.toLowerCase()}`}
+                  >
+                    <s.icon className="h-5 w-5" aria-hidden="true" />
                   </Button>
                 ))}
-                <Button type="button" size="icon" variant="outline" onClick={handleCopy} data-testid="button-copy-link">
-                  <span className="sr-only">Copiar link da petição</span>
-                  <LinkIcon className="w-4 h-4" />
+                <Button
+                  type="button"
+                  size="icon"
+                  aria-label="Copiar link da petição"
+                  title="Copiar link"
+                  className="h-12 w-12 rounded-full border-0 bg-slate-600 text-white shadow-sm hover:bg-slate-700 focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2"
+                  onClick={handleCopy}
+                  data-testid="button-copy-link"
+                >
+                  <LinkIcon className="h-5 w-5" aria-hidden="true" />
                 </Button>
               </div>
-            </div>
+              <p className="mt-2 min-h-5 text-center text-xs text-slate-500" aria-live="polite">
+                {copyStatus === "copied"
+                  ? "Link copiado"
+                  : copyStatus === "error"
+                    ? "Não foi possível copiar o link"
+                    : ""}
+              </p>
+            </section>
           </div>
         </div>
       </div>
@@ -514,9 +544,9 @@ export default function PetitionPublic() {
                       key={contact.network}
                       type="button"
                       size="icon"
-                      variant="outline"
                       aria-label={`Abrir ${contact.label} do proponente da petição`}
                       title={`Abrir ${contact.label} do proponente da petição`}
+                      className={`h-12 w-12 rounded-full border-0 text-white shadow-sm ${contactButtonClasses[contact.network]}`}
                       onClick={() => window.open(contact.url, "_blank", "noopener,noreferrer")}
                       data-testid={`button-contact-${contact.network}`}
                     >
@@ -526,43 +556,6 @@ export default function PetitionPublic() {
                 </div>
               </section>
             )}
-            <section className="mt-5 border-t pt-5" data-testid="section-petition-success-sharing">
-              <p className="mb-3 text-sm font-semibold text-foreground">Compartilhe esta petição</p>
-              <div className="flex flex-wrap items-center justify-center gap-2">
-                {socialShares.map((s) => (
-                  <Button
-                    key={s.name}
-                    type="button"
-                    size="icon"
-                    variant="outline"
-                    aria-label={`Compartilhar petição no ${s.name}`}
-                    title={`Compartilhar no ${s.name}`}
-                    onClick={() => window.open(s.url, "_blank", "width=600,height=400,noopener,noreferrer")}
-                    data-testid={`button-success-share-${s.name.toLowerCase()}`}
-                  >
-                    <s.icon className="h-4 w-4" />
-                  </Button>
-                ))}
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="outline"
-                  aria-label="Copiar link da petição"
-                  title="Copiar link"
-                  onClick={handleCopy}
-                  data-testid="button-success-copy-link"
-                >
-                  <LinkIcon className="h-4 w-4" />
-                </Button>
-              </div>
-              <p className="mt-2 min-h-5 text-xs text-muted-foreground" aria-live="polite">
-                {copyStatus === "copied"
-                  ? "Link copiado"
-                  : copyStatus === "error"
-                    ? "Não foi possível copiar o link"
-                    : ""}
-              </p>
-            </section>
           </div>
         </DialogContent>
       </Dialog>
