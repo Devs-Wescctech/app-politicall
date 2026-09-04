@@ -523,6 +523,20 @@ export default function PetitionPublic() {
         </div>
       </div>
 
+      <footer
+        className="border-t border-white/15 bg-black/95 px-4 py-5 text-center"
+        data-testid="footer-wescc-tech"
+      >
+        <a
+          href="https://wescctech.com.br/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-block text-sm text-white/75 underline-offset-4 transition-colors hover:text-white hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+        >
+          Plataforma desenvolvida por WESCC Tech
+        </a>
+      </footer>
+
       <Dialog
         open={showSuccess}
         onOpenChange={(open) => {
