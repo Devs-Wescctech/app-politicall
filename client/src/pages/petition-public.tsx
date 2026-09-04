@@ -121,6 +121,7 @@ function renderContactIcon(network: PetitionContactNetwork) {
 export default function PetitionPublic() {
   const { slug } = useParams<{ slug: string }>();
   const [showSuccess, setShowSuccess] = useState(false);
+  const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "error">("idle");
   const [showFullDescription, setShowFullDescription] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [acceptedLgpd, setAcceptedLgpd] = useState(false);
@@ -146,6 +147,7 @@ export default function PetitionPublic() {
       return res.json();
     },
     onSuccess: (_result, submitted) => {
+      setCopyStatus("idle");
       setSignedContactContext({
         name: String(submitted.name ?? "").trim(),
         city: String(submitted.city ?? "").trim(),
@@ -209,8 +211,13 @@ export default function PetitionPublic() {
     link: shareUrl,
   });
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(shareUrl).catch(() => {});
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopyStatus("copied");
+    } catch {
+      setCopyStatus("error");
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -441,15 +448,21 @@ export default function PetitionPublic() {
         </div>
       </div>
 
-      <Dialog open={showSuccess} onOpenChange={setShowSuccess}>
-        <DialogContent data-testid="dialog-success">
-          <div className="text-center py-6">
+      <Dialog
+        open={showSuccess}
+        onOpenChange={(open) => {
+          setShowSuccess(open);
+          if (!open) setCopyStatus("idle");
+        }}
+      >
+        <DialogContent className="max-h-[calc(100vh-2rem)] max-w-md overflow-y-auto" data-testid="dialog-success">
+          <div className="py-4 text-center sm:py-6">
             <CheckCircle2 className="w-16 h-16 text-green-500 mx-auto mb-4" />
             <DialogTitle className="text-xl font-bold mb-2">Assinatura confirmada!</DialogTitle>
             <p className="text-muted-foreground">Obrigado por apoiar esta causa.</p>
             {contactLinks.length > 0 && (
               <section className="mt-5" data-testid="section-petition-contact-links">
-                <p className="mb-3 text-sm font-semibold text-foreground">Fale com o político</p>
+                <p className="mb-3 text-sm font-semibold text-foreground">Fale com o proponente da petição</p>
                 <div className="flex flex-wrap items-center justify-center gap-2">
                   {contactLinks.map((contact) => (
                     <Button
@@ -457,8 +470,8 @@ export default function PetitionPublic() {
                       type="button"
                       size="icon"
                       variant="outline"
-                      aria-label={`Abrir ${contact.label} do político`}
-                      title={`Abrir ${contact.label} do político`}
+                      aria-label={`Abrir ${contact.label} do proponente da petição`}
+                      title={`Abrir ${contact.label} do proponente da petição`}
                       onClick={() => window.open(contact.url, "_blank", "noopener,noreferrer")}
                       data-testid={`button-contact-${contact.network}`}
                     >
@@ -468,6 +481,43 @@ export default function PetitionPublic() {
                 </div>
               </section>
             )}
+            <section className="mt-5 border-t pt-5" data-testid="section-petition-success-sharing">
+              <p className="mb-3 text-sm font-semibold text-foreground">Compartilhe esta petição</p>
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                {socialShares.map((s) => (
+                  <Button
+                    key={s.name}
+                    type="button"
+                    size="icon"
+                    variant="outline"
+                    aria-label={`Compartilhar petição no ${s.name}`}
+                    title={`Compartilhar no ${s.name}`}
+                    onClick={() => window.open(s.url, "_blank", "width=600,height=400,noopener,noreferrer")}
+                    data-testid={`button-success-share-${s.name.toLowerCase()}`}
+                  >
+                    <s.icon className="h-4 w-4" />
+                  </Button>
+                ))}
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="outline"
+                  aria-label="Copiar link da petição"
+                  title="Copiar link"
+                  onClick={handleCopy}
+                  data-testid="button-success-copy-link"
+                >
+                  <LinkIcon className="h-4 w-4" />
+                </Button>
+              </div>
+              <p className="mt-2 min-h-5 text-xs text-muted-foreground" aria-live="polite">
+                {copyStatus === "copied"
+                  ? "Link copiado"
+                  : copyStatus === "error"
+                    ? "Não foi possível copiar o link"
+                    : ""}
+              </p>
+            </section>
           </div>
         </DialogContent>
       </Dialog>

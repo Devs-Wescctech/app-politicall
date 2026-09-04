@@ -56,6 +56,14 @@ test.describe("critical political office flows", () => {
 
   test("creates a public petition and exposes post-signature contact links", async ({ page }) => {
     await page.addInitScript(() => {
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: {
+          writeText: async (value: string) => {
+            sessionStorage.setItem("e2e-clipboard-value", value);
+          },
+        },
+      });
       Object.defineProperty(window, "open", {
         configurable: true,
         value: (url: string | URL | undefined) => {
@@ -87,7 +95,19 @@ test.describe("critical political office flows", () => {
     await page.getByTestId("input-name").fill("Apoiador E2E Playwright");
     await page.getByTestId("checkbox-terms").click();
     await page.getByTestId("button-sign").click();
-    await expect(page.getByTestId("dialog-success")).toBeVisible();
+    const successDialog = page.getByTestId("dialog-success");
+    await expect(successDialog).toBeVisible();
+    await expect(successDialog.getByText("Fale com o proponente da petição", { exact: true })).toBeVisible();
+    await expect(successDialog.getByText("Compartilhe esta petição", { exact: true })).toBeVisible();
+
+    await page.getByTestId("button-success-share-whatsapp").click();
+    await expect.poll(() => page.evaluate(() => sessionStorage.getItem("e2e-window-open-url")))
+      .toMatch(/^https:\/\/wa\.me\/\?text=/);
+
+    await page.getByTestId("button-success-copy-link").click();
+    await expect(successDialog.getByText("Link copiado", { exact: true })).toBeVisible();
+    await expect.poll(() => page.evaluate(() => sessionStorage.getItem("e2e-clipboard-value")))
+      .toContain("/p/e2e-playwright-petition");
 
     const expectedContacts = [
       ["whatsapp", "https://wa.me/5551999990000"],
