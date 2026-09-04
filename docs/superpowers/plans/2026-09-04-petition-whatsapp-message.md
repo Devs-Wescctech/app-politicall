@@ -32,7 +32,7 @@
 - Changes: `buildPetitionContactLinks(source, context?)` accepts an optional interpolation context.
 - Changes: `petitionContactConfigSchema` validates and normalizes `contactWhatsappMessage`.
 
-- [ ] **Step 1: Write failing phone normalization and formatting tests**
+- [x] **Step 1: Write failing phone normalization and formatting tests**
 
 Add expectations proving `(51) 99999-0000` normalizes to `5551999990000`, a complete international number is preserved, invalid lengths are rejected, and the canonical Brazilian value formats as `+55 (51) 99999-0000`.
 
@@ -43,13 +43,13 @@ expect(formatPetitionWhatsappInput("5551999990000")).toBe("+55 (51) 99999-0000")
 expect(normalizePetitionWhatsapp("123")).toBeNull();
 ```
 
-- [ ] **Step 2: Run the focused test and verify RED**
+- [x] **Step 2: Run the focused test and verify RED**
 
 Run: `npm test -- shared/petition-contact-links.test.ts`
 
 Expected: FAIL because local Brazilian numbers are not prefixed and the formatter does not exist.
 
-- [ ] **Step 3: Implement canonical normalization and display formatting**
+- [x] **Step 3: Implement canonical normalization and display formatting**
 
 Strip non-digits, prefix `55` only for 10/11-digit local Brazilian input, preserve 12-15-digit complete numbers, and format complete Brazilian values for the administrative input.
 
@@ -61,7 +61,7 @@ export function normalizePetitionWhatsapp(value: unknown): string | null {
 }
 ```
 
-- [ ] **Step 4: Write failing message validation/interpolation/link tests**
+- [x] **Step 4: Write failing message validation/interpolation/link tests**
 
 Cover all allowed variables, a missing city, an unknown `{email}` variable, the 1,000-character limit, URL encoding, and no `text` query when the message is empty.
 
@@ -77,17 +77,17 @@ expect(buildPetitionContactLinks({
 })[0]?.url).toContain("?text=Ola%2C%20sou%20Ana%20Maria");
 ```
 
-- [ ] **Step 5: Run the focused test and verify RED**
+- [x] **Step 5: Run the focused test and verify RED**
 
 Run: `npm test -- shared/petition-contact-links.test.ts`
 
 Expected: FAIL because the message field, interpolation function, and encoded query are absent.
 
-- [ ] **Step 6: Implement message schema, interpolation, and link generation**
+- [x] **Step 6: Implement message schema, interpolation, and link generation**
 
 Add `contactWhatsappMessage` to `PetitionContactSource`, validate only the four allowed placeholders, replace them from an explicit context, and append `?text=${encodeURIComponent(message)}` only for a non-empty result.
 
-- [ ] **Step 7: Run focused tests and commit**
+- [x] **Step 7: Run focused tests and commit**
 
 Run: `npm test -- shared/petition-contact-links.test.ts`
 
