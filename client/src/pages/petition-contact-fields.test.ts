@@ -19,4 +19,15 @@ describe("petition contact fields", () => {
     expect(source).toContain('data-testid="input-petition-contact-x"');
     expect(source).toContain('data-testid="input-petition-contact-telegram"');
   });
+
+  it("configures a variable WhatsApp message and formats the contact number", () => {
+    expect(source).toContain('name="contactWhatsappMessage"');
+    expect(source).toContain('data-testid="input-petition-contact-whatsapp-message"');
+    expect(source).toContain("maxLength={1000}");
+    expect(source).toContain("formatPetitionWhatsappInput");
+    expect(source).toContain("{nome}");
+    expect(source).toContain("{cidade}");
+    expect(source).toContain("{peticao}");
+    expect(source).toContain("{link}");
+  });
 });

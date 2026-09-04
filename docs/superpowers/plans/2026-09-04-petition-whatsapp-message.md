@@ -170,7 +170,7 @@ git commit -m "feat: persist petition WhatsApp messages"
 - Consumes: `formatPetitionWhatsappInput` and schema-backed form property `contactWhatsappMessage`.
 - Produces: administrative controls `input-petition-contact-whatsapp` and `input-petition-contact-whatsapp-message`.
 
-- [ ] **Step 1: Write a failing administrative form test**
+- [x] **Step 1: Write a failing administrative form test**
 
 Require the message textarea, 1,000-character limit, variable reference copy, and phone formatter wiring.
 
@@ -182,17 +182,17 @@ expect(source).toContain("{cidade}");
 expect(source).toContain("formatPetitionWhatsappInput");
 ```
 
-- [ ] **Step 2: Run the focused test and verify RED**
+- [x] **Step 2: Run the focused test and verify RED**
 
 Run: `npm test -- client/src/pages/petition-contact-fields.test.ts`
 
 Expected: FAIL because the new control and phone formatter are absent.
 
-- [ ] **Step 3: Implement the message textarea and phone formatting**
+- [x] **Step 3: Implement the message textarea and phone formatting**
 
 Add the message to default/edit form values. Format the phone on input without changing backend canonicalization. Render a full-width textarea beneath the social destination grid with `maxLength={1000}` and concise variable helper text.
 
-- [ ] **Step 4: Run focused tests and commit**
+- [x] **Step 4: Run focused tests and commit**
 
 Run: `npm test -- client/src/pages/petition-contact-fields.test.ts shared/petition-contact-links.test.ts`
 

@@ -14,6 +14,7 @@ import {
   type InsertLinkTreePage,
 } from "@shared/schema";
 import { isPetitionPublicStatus } from "@shared/petition-status";
+import { formatPetitionWhatsappInput } from "@shared/petition-contact-links";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -297,6 +298,7 @@ const petitionDefaults: InsertPetition = {
   primaryColor: "#14b8a6",
   shareText: "",
   contactWhatsapp: "",
+  contactWhatsappMessage: "",
   contactFacebookUrl: "",
   contactXUrl: "",
   contactTelegramUrl: "",
@@ -358,7 +360,8 @@ function PetitionFormView({
           status: petition.status,
           primaryColor: petition.primaryColor ?? "#14b8a6",
           shareText: petition.shareText ?? "",
-          contactWhatsapp: petition.contactWhatsapp ?? "",
+          contactWhatsapp: formatPetitionWhatsappInput(petition.contactWhatsapp),
+          contactWhatsappMessage: petition.contactWhatsappMessage ?? "",
           contactFacebookUrl: petition.contactFacebookUrl ?? "",
           contactXUrl: petition.contactXUrl ?? "",
           contactTelegramUrl: petition.contactTelegramUrl ?? "",
@@ -507,6 +510,7 @@ function PetitionFormView({
                             {...field}
                             type="tel"
                             value={field.value ?? ""}
+                            onChange={(event) => field.onChange(formatPetitionWhatsappInput(event.target.value))}
                             placeholder="+55 (51) 99999-0000"
                             className="pl-9"
                             data-testid="input-petition-contact-whatsapp"
@@ -587,6 +591,31 @@ function PetitionFormView({
                   )}
                 />
               </div>
+
+              <FormField
+                control={form.control}
+                name="contactWhatsappMessage"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Mensagem inicial do WhatsApp</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        {...field}
+                        value={field.value ?? ""}
+                        maxLength={1000}
+                        rows={4}
+                        placeholder="Olá, sou {nome}, de {cidade}. Acabei de assinar a petição {peticao}: {link}"
+                        data-testid="input-petition-contact-whatsapp-message"
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Variáveis disponíveis: <code>{"{nome}"}</code>, <code>{"{cidade}"}</code>,{" "}
+                      <code>{"{peticao}"}</code> e <code>{"{link}"}</code>.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </section>
 
             <FormField
