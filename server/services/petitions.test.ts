@@ -6,6 +6,7 @@ import {
   isPublicPetitionVisible,
   normalizePetitionCollectionConfig,
   normalizePetitionCampaignLogStatus,
+  normalizePublicSignatureInput,
   sanitizePetitionCampaign,
   sanitizePublicPetition,
   validatePublicSignatureRequirements,
@@ -71,6 +72,40 @@ describe("validatePublicSignatureRequirements", () => {
       { requireLocation: true },
       { state: "SP", acceptedTerms: true },
     )).toEqual([]);
+  });
+
+  it("rejects a supplied malformed phone even when it is optional", () => {
+    expect(validatePublicSignatureRequirements(
+      { requirePhone: false },
+      { phone: "123", acceptedTerms: true },
+    )).toContainEqual({ field: "phone", message: "Telefone inválido." });
+  });
+
+  it("rejects an unknown supplied municipality", () => {
+    expect(validatePublicSignatureRequirements(
+      { requireLocation: true },
+      { city: "Cidade inexistente", state: "SC", acceptedTerms: true },
+    )).toContainEqual({ field: "location", message: "Selecione uma cidade válida." });
+  });
+});
+
+describe("normalizePublicSignatureInput", () => {
+  it("normalizes phone and canonicalizes a municipality with its UF", () => {
+    expect(normalizePublicSignatureInput({
+      name: "Pessoa",
+      phone: "+55 (51) 99876-5432",
+      city: "florianopolis",
+      state: "sc",
+    })).toMatchObject({
+      phone: "51998765432",
+      city: "Florianópolis",
+      state: "SC",
+    });
+  });
+
+  it("preserves unknown location text for validation to reject", () => {
+    expect(normalizePublicSignatureInput({ city: "Cidade inexistente", state: "sc" }))
+      .toMatchObject({ city: "Cidade inexistente", state: "SC" });
   });
 });
 

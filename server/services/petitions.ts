@@ -1,4 +1,6 @@
 import { isPetitionPublicStatus } from "@shared/petition-status";
+import { findBrazilianMunicipality } from "@shared/brazilian-municipalities";
+import { isValidBrazilianPhone, normalizeBrazilianPhone } from "@shared/brazilian-phone";
 
 export type PublicPetitionStatus = {
   status?: string | null;
@@ -74,9 +76,13 @@ export function validatePublicSignatureRequirements(
   }
   if (petition.requirePhone && !hasText(input.phone)) {
     issues.push({ field: "phone", message: "Telefone é obrigatório." });
+  } else if (hasText(input.phone) && !isValidBrazilianPhone(input.phone)) {
+    issues.push({ field: "phone", message: "Telefone inválido." });
   }
   if (petition.requireLocation && !hasText(input.city) && !hasText(input.state)) {
     issues.push({ field: "location", message: "Informe cidade ou estado." });
+  } else if (hasText(input.city) && !findBrazilianMunicipality(String(input.city), hasText(input.state) ? String(input.state) : undefined)) {
+    issues.push({ field: "location", message: "Selecione uma cidade válida." });
   }
   if (petition.requireCpf && !hasText(input.cpf)) {
     issues.push({ field: "cpf", message: "CPF é obrigatório." });
@@ -92,6 +98,23 @@ export function validatePublicSignatureRequirements(
   }
 
   return issues;
+}
+
+export function normalizePublicSignatureInput(input: Record<string, unknown>): Record<string, unknown> {
+  const normalized = { ...input };
+  if (hasText(input.phone)) normalized.phone = normalizeBrazilianPhone(input.phone);
+
+  const city = hasText(input.city) ? String(input.city).trim() : "";
+  const state = hasText(input.state) ? String(input.state).trim().toUpperCase() : "";
+  const municipality = city ? findBrazilianMunicipality(city, state || undefined) : null;
+  if (municipality) {
+    normalized.city = municipality.name;
+    normalized.state = municipality.uf;
+  } else {
+    if (city) normalized.city = city;
+    if (state) normalized.state = state;
+  }
+  return normalized;
 }
 
 export function normalizePetitionCollectionConfig<T extends PetitionCollectionConfig>(config: T): T {
