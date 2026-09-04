@@ -78,6 +78,18 @@ describe("petition link preview route", () => {
     );
   });
 
+  it("uses only the safe share version in og:url while keeping the canonical URL clean", async () => {
+    const baseUrl = await start();
+    const response = await fetch(`${baseUrl}/p/bairro?v=mabc123&utm_source=whatsapp`, {
+      headers: { "user-agent": "facebookexternalhit/1.1" },
+    });
+    const html = await response.text();
+
+    expect(html).toContain('<meta property="og:url" content="https://politicall.com.br/p/bairro?v=mabc123" />');
+    expect(html).toContain('<link rel="canonical" href="https://politicall.com.br/p/bairro" />');
+    expect(html).not.toContain("utm_source");
+  });
+
   it("lets normal browsers continue to the SPA without querying storage", async () => {
     const baseUrl = await start();
     const response = await fetch(`${baseUrl}/p/bairro`, {

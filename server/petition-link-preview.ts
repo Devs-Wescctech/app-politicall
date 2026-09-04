@@ -154,6 +154,7 @@ export function buildGenericPetitionPreview(origin: string, slug: string): Petit
 export function injectPetitionPreviewHtml(
   sourceHtml: string,
   preview: PetitionLinkPreview,
+  socialUrl = preview.url,
 ): string {
   if (!/<\/head>/i.test(sourceHtml)) return sourceHtml;
 
@@ -161,7 +162,8 @@ export function injectPetitionPreviewHtml(
   const description = escapeHtml(preview.description);
   const image = escapeHtml(preview.image);
   const imageAlt = escapeHtml(preview.imageAlt);
-  const url = escapeHtml(preview.url);
+  const url = escapeHtml(socialUrl);
+  const canonicalUrl = escapeHtml(preview.url);
   const block = `
     <!-- PETITION_LINK_PREVIEW_START -->
     <meta property="og:type" content="website" />
@@ -176,7 +178,7 @@ export function injectPetitionPreviewHtml(
     <meta name="twitter:title" content="${title}" />
     <meta name="twitter:description" content="${description}" />
     <meta name="twitter:image" content="${image}" />
-    <link rel="canonical" href="${url}" />
+    <link rel="canonical" href="${canonicalUrl}" />
     <!-- PETITION_LINK_PREVIEW_END -->
   `;
 
