@@ -17,6 +17,13 @@ export function isWesccChannelConnected(value: unknown): boolean {
   return String(status ?? "").trim().toUpperCase() === "CONNECTED";
 }
 
+export function isWesccChannelRegistered(value: unknown): boolean {
+  const status = value && typeof value === "object"
+    ? (value as { status?: unknown }).status
+    : value;
+  return String(status ?? "").trim().toUpperCase() === "REGISTERED";
+}
+
 export interface WesccChat {
   id: string;
   number?: string;
