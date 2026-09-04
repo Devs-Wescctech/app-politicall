@@ -133,6 +133,9 @@ export function normalizePetitionCollectionConfig<T extends PetitionCollectionCo
 
 export function sanitizePublicPetition(petition: Record<string, any>) {
   const normalized = normalizePetitionCollectionConfig(petition);
+  const updatedAt = normalized.updatedAt instanceof Date
+    ? normalized.updatedAt.getTime()
+    : Date.parse(String(normalized.updatedAt ?? ""));
 
   return {
     id: normalized.id,
@@ -143,6 +146,7 @@ export function sanitizePublicPetition(petition: Record<string, any>) {
     videoUrl: normalized.videoUrl,
     primaryColor: normalized.primaryColor,
     shareText: normalized.shareText,
+    shareVersion: Number.isFinite(updatedAt) ? updatedAt.toString(36) : null,
     contactWhatsapp: normalized.contactWhatsapp ?? null,
     contactWhatsappMessage: normalized.contactWhatsappMessage ?? null,
     contactFacebookUrl: normalized.contactFacebookUrl ?? null,
