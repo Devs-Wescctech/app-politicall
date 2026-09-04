@@ -54,13 +54,27 @@ test.describe("critical political office flows", () => {
     await expect(page.getByText("E2E Playwright - Iluminação pública", { exact: true })).toBeVisible();
   });
 
-  test("creates a public petition and exposes its public route", async ({ page }) => {
+  test("creates a public petition and exposes post-signature contact links", async ({ page }) => {
+    await page.addInitScript(() => {
+      Object.defineProperty(window, "open", {
+        configurable: true,
+        value: (url: string | URL | undefined) => {
+          sessionStorage.setItem("e2e-window-open-url", String(url ?? ""));
+          return null;
+        },
+      });
+    });
+
     await page.goto("/petitions");
     await page.getByTestId("button-new-petition").click();
     await page.getByTestId("input-petition-title").fill("Petição E2E Playwright");
     await page.getByTestId("input-petition-slug").fill("e2e-playwright-petition");
     await page.getByTestId("input-petition-description").fill("Validação automatizada da jornada pública de petições.");
     await page.getByTestId("input-petition-goal").fill("100");
+    await page.getByTestId("input-petition-contact-whatsapp").fill("+55 (51) 99999-0000");
+    await page.getByTestId("input-petition-contact-facebook").fill("https://facebook.com/politicall-e2e");
+    await page.getByTestId("input-petition-contact-x").fill("https://x.com/politicall_e2e");
+    await page.getByTestId("input-petition-contact-telegram").fill("https://t.me/politicall_e2e");
     await page.getByTestId("select-petition-status").click();
     await page.getByRole("option", { name: /publicad/i }).click();
     await page.getByTestId("button-save-petition").click();
@@ -68,6 +82,37 @@ test.describe("critical political office flows", () => {
     await expect(page.getByText("Petição E2E Playwright", { exact: true })).toBeVisible();
     await page.goto("/p/e2e-playwright-petition");
     await expect(page.getByText("Petição E2E Playwright", { exact: true })).toBeVisible();
+    await expect(page.getByTestId("button-share-whatsapp")).toBeVisible();
+
+    await page.getByTestId("input-name").fill("Apoiador E2E Playwright");
+    await page.getByTestId("checkbox-terms").click();
+    await page.getByTestId("button-sign").click();
+    await expect(page.getByTestId("dialog-success")).toBeVisible();
+
+    const expectedContacts = [
+      ["whatsapp", "https://wa.me/5551999990000"],
+      ["facebook", "https://facebook.com/politicall-e2e"],
+      ["x", "https://x.com/politicall_e2e"],
+      ["telegram", "https://t.me/politicall_e2e"],
+    ] as const;
+    for (const [network, destination] of expectedContacts) {
+      await page.getByTestId(`button-contact-${network}`).click();
+      await expect.poll(() => page.evaluate(() => sessionStorage.getItem("e2e-window-open-url")))
+        .toBe(destination);
+    }
+
+    await page.goto("/petitions");
+    const petitionCard = page.getByTestId(/^card-petition-/).filter({ hasText: "Petição E2E Playwright" });
+    await petitionCard.getByTitle("Editar").click();
+    await page.getByTestId("input-petition-contact-telegram").fill("");
+    await page.getByTestId("button-save-petition").click();
+
+    await page.goto("/p/e2e-playwright-petition");
+    await page.getByTestId("input-name").fill("Segundo Apoiador E2E Playwright");
+    await page.getByTestId("checkbox-terms").click();
+    await page.getByTestId("button-sign").click();
+    await expect(page.getByTestId("button-contact-whatsapp")).toBeVisible();
+    await expect(page.getByTestId("button-contact-telegram")).toHaveCount(0);
   });
 
   test("keeps campaign management out of the Petitions module", async ({ page }) => {

@@ -6,7 +6,7 @@ A suíte Playwright valida as jornadas que não podem regredir antes de uma entr
 - abertura dos módulos principais sem erro HTTP 5xx;
 - criação e pesquisa de eleitor;
 - criação de demanda com categoria e responsável;
-- criação e abertura pública de petição;
+- criação e abertura pública de petição, incluindo contatos pós-assinatura;
 - atendimento assumido em tempo real e horário da mensagem recebido do provedor.
 - criação e edição de linha política, vínculo com aliança, filtro e badge da linha;
 - edição de alianças legadas sem linha política.
@@ -18,6 +18,12 @@ O arquivo `tests/e2e/alliance-lines.spec.ts` cobre a jornada administrativa comp
 O setup e o teardown desse fluxo usam somente o gabinete de desenvolvimento e identificadores E2E fixos. A limpeza remove a aliança pelo nome `Aliado E2E Linha Politica`, o registro legado pelo id `e2e-legacy-alliance-line` e a linha pelo nome `Linha E2E Playwright`; nenhum `DELETE` usa condição ampla sobre registros reais.
 
 O fluxo também verifica ausência de warnings do React e captura a página nas larguras de 375 px e 1440 px, rejeitando overflow horizontal do documento. O resumo por linha pode rolar horizontalmente dentro do próprio componente no viewport móvel.
+
+## Contatos pós-assinatura de petições
+
+O fluxo crítico de petições configura WhatsApp, Facebook, X/Twitter e Telegram, confirma que o compartilhamento continua disponível antes da assinatura e assina a petição. Depois da confirmação, ele valida cada destino aberto por **Fale com o político** e confirma que um canal removido na edição deixa de aparecer.
+
+O teste substitui `window.open` no navegador e inspeciona somente a URL gerada. Nenhum provedor externo é acessado durante a execução local ou na CI.
 
 ## Execução local
 
