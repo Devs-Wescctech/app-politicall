@@ -213,7 +213,7 @@ git commit -m "feat: configure petition WhatsApp messages"
 - Consumes: `buildPetitionContactLinks(petition, context)` from Task 1.
 - Produces: in-memory `PetitionWhatsappMessageContext` based only on name, city, petition title, and canonical public link.
 
-- [ ] **Step 1: Write a failing public-flow test**
+- [x] **Step 1: Write a failing public-flow test**
 
 Require `onSuccess` to capture mutation variables before clearing the form and require contact links to receive name, city, petition title, and public link.
 
@@ -224,17 +224,17 @@ expect(source).toContain("nome: signedContactContext?.name ?? \"\"");
 expect(source).toContain("cidade: signedContactContext?.city ?? \"\"");
 ```
 
-- [ ] **Step 2: Run the focused test and verify RED**
+- [x] **Step 2: Run the focused test and verify RED**
 
 Run: `npm test -- client/src/pages/petition-public-contact-links.test.ts`
 
 Expected: FAIL because signer context is discarded before the dialog builds links.
 
-- [ ] **Step 3: Preserve the minimal successful signature context**
+- [x] **Step 3: Preserve the minimal successful signature context**
 
 Change the mutation success callback to receive submitted variables, retain trimmed `name` and `city`, then clear the full form as before. Pass the retained context, title, and canonical public link to `buildPetitionContactLinks`.
 
-- [ ] **Step 4: Run focused tests and commit**
+- [x] **Step 4: Run focused tests and commit**
 
 Run: `npm test -- client/src/pages/petition-public-contact-links.test.ts shared/petition-contact-links.test.ts`
 
