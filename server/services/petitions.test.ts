@@ -117,6 +117,10 @@ describe("public response sanitizers", () => {
       videoUrl: null,
       primaryColor: "#000000",
       shareText: null,
+      contactWhatsapp: null,
+      contactFacebookUrl: null,
+      contactXUrl: null,
+      contactTelegramUrl: null,
       goal: 100,
       status: "publicada",
       slug: "peticao",
@@ -146,7 +150,36 @@ describe("public response sanitizers", () => {
       title: "Petição",
       slug: "peticao",
       status: "publicada",
+      contactWhatsapp: null,
+      contactFacebookUrl: null,
+      contactXUrl: null,
+      contactTelegramUrl: null,
     });
+  });
+
+  it("publishes configured petition contact destinations", () => {
+    const result = sanitizePublicPetition({
+      id: "petition-contact-1",
+      title: "Petição com contato",
+      description: "Descrição",
+      goal: 100,
+      status: "publicada",
+      slug: "peticao-com-contato",
+      contactWhatsapp: "5551999990000",
+      contactFacebookUrl: "https://facebook.com/politico",
+      contactXUrl: "https://x.com/politico",
+      contactTelegramUrl: "https://t.me/politico",
+      signaturesCount: 7,
+    });
+
+    expect(result).toMatchObject({
+      contactWhatsapp: "5551999990000",
+      contactFacebookUrl: "https://facebook.com/politico",
+      contactXUrl: "https://x.com/politico",
+      contactTelegramUrl: "https://t.me/politico",
+    });
+    expect(result).not.toHaveProperty("accountId");
+    expect(result).not.toHaveProperty("userId");
   });
 
   it("never exposes petition campaign api tokens", () => {

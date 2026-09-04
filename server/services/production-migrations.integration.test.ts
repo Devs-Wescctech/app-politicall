@@ -34,6 +34,7 @@ const migrationNames = [
   "0023_reconcile_schema_contract.sql",
   "0024_remove_empty_stale_baseline_tables.sql",
   "0025_reconcile_remaining_baseline_drift.sql",
+  "0026_petition_contact_social_links.sql",
 ];
 
 function poolOptions(connectionString: string) {

@@ -11,6 +11,10 @@ import { publicApiRequest, queryClient } from "@/lib/queryClient";
 import { getPublicResourceState } from "@/lib/public-resource-state";
 import { calculateGoalProgress } from "@/lib/progress";
 import {
+  buildPetitionContactLinks,
+  type PetitionContactNetwork,
+} from "@shared/petition-contact-links";
+import {
   Loader2, Users, Target, TrendingUp, CheckCircle2, Share2,
   MessageCircle, Facebook, Twitter, Send, Link as LinkIcon, ChevronDown, ChevronUp,
 } from "lucide-react";
@@ -24,6 +28,10 @@ interface PublicPetition {
   videoUrl: string | null;
   primaryColor: string | null;
   shareText: string | null;
+  contactWhatsapp: string | null;
+  contactFacebookUrl: string | null;
+  contactXUrl: string | null;
+  contactTelegramUrl: string | null;
   goal: number;
   status: string;
   slug: string;
@@ -94,6 +102,19 @@ function renderVideo(url: string) {
     );
   }
   return <video src={url} controls className="w-full aspect-video rounded-md border-4 border-white/20 object-cover" data-testid="video-petition" />;
+}
+
+function renderContactIcon(network: PetitionContactNetwork) {
+  switch (network) {
+    case "whatsapp":
+      return <MessageCircle className="h-4 w-4" />;
+    case "facebook":
+      return <Facebook className="h-4 w-4" />;
+    case "x":
+      return <Twitter className="h-4 w-4" />;
+    case "telegram":
+      return <Send className="h-4 w-4" />;
+  }
 }
 
 export default function PetitionPublic() {
@@ -172,6 +193,7 @@ export default function PetitionPublic() {
     { name: "Twitter", icon: Twitter, url: `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}` },
     { name: "Telegram", icon: Send, url: `https://t.me/share/url?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(shareText)}` },
   ];
+  const contactLinks = buildPetitionContactLinks(petition);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(shareUrl).catch(() => {});
@@ -389,7 +411,7 @@ export default function PetitionPublic() {
               </p>
               <div className="flex flex-wrap items-center justify-center gap-2">
                 {socialShares.map((s) => (
-                  <Button key={s.name} type="button" size="icon" variant="outline" onClick={() => window.open(s.url, "_blank", "width=600,height=400")} data-testid={`button-share-${s.name.toLowerCase()}`}>
+                  <Button key={s.name} type="button" size="icon" variant="outline" onClick={() => window.open(s.url, "_blank", "width=600,height=400,noopener,noreferrer")} data-testid={`button-share-${s.name.toLowerCase()}`}>
                     <span className="sr-only">Compartilhar no {s.name}</span>
                     <s.icon className="w-4 h-4" />
                   </Button>
@@ -409,15 +431,28 @@ export default function PetitionPublic() {
           <div className="text-center py-6">
             <CheckCircle2 className="w-16 h-16 text-green-500 mx-auto mb-4" />
             <DialogTitle className="text-xl font-bold mb-2">Assinatura confirmada!</DialogTitle>
-            <p className="text-muted-foreground mb-6">Obrigado por apoiar esta causa. Compartilhe para alcançar mais pessoas.</p>
-            <div className="flex flex-wrap items-center justify-center gap-2">
-              {socialShares.map((s) => (
-                <Button key={s.name} type="button" size="icon" variant="outline" onClick={() => window.open(s.url, "_blank", "width=600,height=400")} data-testid={`button-success-share-${s.name.toLowerCase()}`}>
-                  <span className="sr-only">Compartilhar no {s.name}</span>
-                  <s.icon className="w-4 h-4" />
-                </Button>
-              ))}
-            </div>
+            <p className="text-muted-foreground">Obrigado por apoiar esta causa.</p>
+            {contactLinks.length > 0 && (
+              <section className="mt-5" data-testid="section-petition-contact-links">
+                <p className="mb-3 text-sm font-semibold text-foreground">Fale com o político</p>
+                <div className="flex flex-wrap items-center justify-center gap-2">
+                  {contactLinks.map((contact) => (
+                    <Button
+                      key={contact.network}
+                      type="button"
+                      size="icon"
+                      variant="outline"
+                      aria-label={`Abrir ${contact.label} do político`}
+                      title={`Abrir ${contact.label} do político`}
+                      onClick={() => window.open(contact.url, "_blank", "noopener,noreferrer")}
+                      data-testid={`button-contact-${contact.network}`}
+                    >
+                      {renderContactIcon(contact.network)}
+                    </Button>
+                  ))}
+                </div>
+              </section>
+            )}
           </div>
         </DialogContent>
       </Dialog>

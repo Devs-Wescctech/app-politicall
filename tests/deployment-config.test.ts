@@ -627,6 +627,17 @@ describe("deployment configuration", () => {
     expect(migration).toContain("CREATE INDEX IF NOT EXISTS petitions_account_status_idx");
   });
 
+  it("applies petition contact social links during database bootstrap", async () => {
+    const migrator = await readProjectFile("server/services/production-migrations.ts");
+    const migration = await readProjectFile("migrations/0026_petition_contact_social_links.sql");
+
+    expect(migrator).toContain('"0026_petition_contact_social_links.sql"');
+    expect(migration).toContain("ADD COLUMN IF NOT EXISTS contact_whatsapp text");
+    expect(migration).toContain("ADD COLUMN IF NOT EXISTS contact_facebook_url text");
+    expect(migration).toContain("ADD COLUMN IF NOT EXISTS contact_x_url text");
+    expect(migration).toContain("ADD COLUMN IF NOT EXISTS contact_telegram_url text");
+  });
+
   it("keeps the CI runtime deterministic and pins every action to a reviewed full SHA", async () => {
     const workflow = await readProjectFile(".github/workflows/build.yml");
     const expectedActions = [
