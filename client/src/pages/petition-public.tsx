@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { BrazilianCityAutocomplete } from "@/components/petitions/brazilian-city-autocomplete";
 import { publicApiRequest, queryClient } from "@/lib/queryClient";
 import { getPublicResourceState } from "@/lib/public-resource-state";
 import { calculateGoalProgress } from "@/lib/progress";
@@ -14,6 +15,8 @@ import {
   buildPetitionContactLinks,
   type PetitionContactNetwork,
 } from "@shared/petition-contact-links";
+import { findBrazilianMunicipality } from "@shared/brazilian-municipalities";
+import { formatBrazilianPhone, isValidBrazilianPhone, normalizeBrazilianPhone } from "@shared/brazilian-phone";
 import {
   Loader2, Users, Target, TrendingUp, CheckCircle2, Share2,
   MessageCircle, Facebook, Twitter, Send, Link as LinkIcon, ChevronDown, ChevronUp,
@@ -126,6 +129,8 @@ export default function PetitionPublic() {
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [acceptedLgpd, setAcceptedLgpd] = useState(false);
   const [cpfError, setCpfError] = useState("");
+  const [phoneError, setPhoneError] = useState("");
+  const [cityError, setCityError] = useState("");
   const [formError, setFormError] = useState("");
   const [signedContactContext, setSignedContactContext] = useState<{
     name: string;
@@ -155,6 +160,8 @@ export default function PetitionPublic() {
       queryClient.invalidateQueries({ queryKey: ["/api/public/petitions", slug] });
       setShowSuccess(true);
       setForm({ name: "", email: "", phone: "", city: "", state: "", cpf: "", comment: "" });
+      setPhoneError("");
+      setCityError("");
       setAcceptedTerms(false);
       setAcceptedLgpd(false);
     },
@@ -223,10 +230,17 @@ export default function PetitionPublic() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setFormError("");
+    setPhoneError("");
+    setCityError("");
     if (!form.name.trim()) { setFormError("Por favor, informe seu nome."); return; }
     if (petition.requireEmail && !form.email.trim()) { setFormError("E-mail é obrigatório."); return; }
     if (petition.requirePhone && !form.phone.trim()) { setFormError("Telefone é obrigatório."); return; }
+    if (form.phone.trim() && !isValidBrazilianPhone(form.phone)) { setPhoneError("Telefone inválido."); return; }
     if (petition.requireLocation && !form.city.trim() && !form.state.trim()) { setFormError("Informe sua localidade."); return; }
+    if (petition.collectCity && form.city.trim() && !findBrazilianMunicipality(form.city, form.state || undefined)) {
+      setCityError("Selecione uma cidade válida.");
+      return;
+    }
     if (petition.collectCpf && form.cpf) {
       if (!validateCpf(form.cpf)) { setCpfError("CPF inválido"); return; }
     }
@@ -237,9 +251,9 @@ export default function PetitionPublic() {
 
     const payload: Record<string, unknown> = { name: form.name.trim() };
     if (petition.collectEmail && form.email) payload.email = form.email.trim();
-    if (petition.collectPhone && form.phone) payload.phone = form.phone.trim();
+    if (petition.collectPhone && form.phone) payload.phone = normalizeBrazilianPhone(form.phone);
     if (petition.collectCity && form.city) payload.city = form.city.trim();
-    if (petition.collectState && form.state) payload.state = form.state.trim();
+    if (form.state) payload.state = form.state;
     if (petition.collectCpf && form.cpf) payload.cpf = form.cpf.trim();
     if (petition.collectComment && form.comment) payload.comment = form.comment.trim();
     payload.acceptedTerms = acceptedTerms;
@@ -357,16 +371,47 @@ export default function PetitionPublic() {
                 {petition.collectPhone && (
                   <div className="space-y-2">
                     <Label htmlFor="sign-phone" className={labelClass}>Telefone {petition.requirePhone ? "*" : ""}</Label>
-                    <Input id="sign-phone" className={inputClass} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} data-testid="input-phone" />
+                    <Input
+                      id="sign-phone"
+                      className={inputClass}
+                      value={form.phone}
+                      inputMode="tel"
+                      autoComplete="tel"
+                      maxLength={15}
+                      placeholder="(00) 00000-0000"
+                      aria-invalid={Boolean(phoneError)}
+                      aria-describedby={phoneError ? "sign-phone-error" : undefined}
+                      onChange={(e) => {
+                        setForm({ ...form, phone: formatBrazilianPhone(e.target.value) });
+                        setPhoneError("");
+                      }}
+                      onBlur={() => {
+                        if (form.phone.trim() && !isValidBrazilianPhone(form.phone)) setPhoneError("Telefone inválido.");
+                      }}
+                      data-testid="input-phone"
+                    />
+                    {phoneError && <p id="sign-phone-error" className="text-sm font-medium text-red-600" data-testid="text-phone-error">{phoneError}</p>}
                   </div>
                 )}
 
                 {(petition.collectCity || petition.collectState) && (
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className={petition.collectCity && petition.collectState ? "grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_8rem]" : "grid grid-cols-1 gap-3"}>
                     {petition.collectCity && (
                       <div className="space-y-2">
                         <Label htmlFor="sign-city" className={labelClass}>Cidade {petition.requireLocation ? "*" : ""}</Label>
-                        <Input id="sign-city" className={inputClass} value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} data-testid="input-city" />
+                        <BrazilianCityAutocomplete
+                          value={{ city: form.city, state: form.state }}
+                          onChange={(location) => {
+                            setForm((current) => ({ ...current, city: location.city, state: location.state }));
+                            setCityError("");
+                          }}
+                          onValidityChange={(valid) => {
+                            if (valid) setCityError("");
+                          }}
+                          required={Boolean(petition.requireLocation)}
+                          className={inputClass}
+                        />
+                        {cityError && <p className="text-sm font-medium text-red-600" data-testid="text-city-error">{cityError}</p>}
                       </div>
                     )}
                     {petition.collectState && (
