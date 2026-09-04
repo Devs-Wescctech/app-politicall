@@ -5,7 +5,7 @@ import type { Express, Response } from "express";
 import crypto from "node:crypto";
 import { storage } from "./storage";
 import { authenticateToken, requireAnyPermission, requirePermission, type AuthRequest } from "./auth";
-import { isWesccChannelConnected, mapWesccStatus, normalizeActionCardTemplate, wescctech } from "./services/wescctech";
+import { isWesccChannelConnected, isWesccChannelRegistered, mapWesccStatus, normalizeActionCardTemplate, wescctech } from "./services/wescctech";
 import { assertAttendanceTransition, isFinalAttendanceStatus, statusForSyncedConversation } from "./services/attendance-state";
 import { selectRoutingCandidate } from "./services/attendance-routing";
 import { decryptApiKey, encryptApiKey, isEncryptedDataValue, isMalformedEncryptedDataValue } from "./crypto";
@@ -1069,7 +1069,12 @@ export function registerAttendanceRoutes(app: Express) {
           status = "connected";
         } else {
           const result = await wescctech.getStatus(token);
-          status = isWesccChannelConnected(result) ? "connected" : "error";
+          const registeredWhuCloud = supportsWhuActionCards(conn) && isWesccChannelRegistered(result);
+          if (registeredWhuCloud) {
+            await wescctech.getChannel(token);
+            await wescctech.listChatsLite(token, { typeChat: 2, status: 1, page: 0 });
+          }
+          status = isWesccChannelConnected(result) || registeredWhuCloud ? "connected" : "error";
           if (status === "error") error = `Status remoto: ${result.status}`;
         }
       } catch (err: any) {

@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   publishedEvents: [] as any[],
   getStatus: vi.fn(async () => ({ status: "CONNECTED" })),
   getChannel: vi.fn(async () => ({ type: 1 })),
+  listChatsLite: vi.fn(async () => ({ data: [] })),
   listChats: vi.fn(async () => []),
   findActiveChannelConnectionByPhone: vi.fn(async () => null),
   findActiveChannelConnectionByTokenFingerprint: vi.fn(async () => null),
@@ -47,7 +48,24 @@ vi.mock("./auth", () => ({
 }));
 
 vi.mock("./services/wescctech", () => ({
-  wescctech: { getStatus: mocks.getStatus, getChannel: mocks.getChannel, listChats: mocks.listChats },
+  wescctech: {
+    getStatus: mocks.getStatus,
+    getChannel: mocks.getChannel,
+    listChatsLite: mocks.listChatsLite,
+    listChats: mocks.listChats,
+  },
+  isWesccChannelConnected: (value: unknown) => {
+    const status = value && typeof value === "object"
+      ? (value as { status?: unknown }).status
+      : value;
+    return String(status ?? "").trim().toUpperCase() === "CONNECTED";
+  },
+  isWesccChannelRegistered: (value: unknown) => {
+    const status = value && typeof value === "object"
+      ? (value as { status?: unknown }).status
+      : value;
+    return String(status ?? "").trim().toUpperCase() === "REGISTERED";
+  },
   mapWesccStatus: vi.fn(),
   normalizeActionCardTemplate: vi.fn(),
 }));
@@ -69,6 +87,8 @@ afterEach(async () => {
   mocks.getStatus.mockClear();
   mocks.getChannel.mockReset();
   mocks.getChannel.mockResolvedValue({ type: 1 });
+  mocks.listChatsLite.mockReset();
+  mocks.listChatsLite.mockResolvedValue({ data: [] });
   mocks.listChats.mockReset();
   mocks.listChats.mockResolvedValue([]);
   mocks.findActiveChannelConnectionByPhone.mockReset();
@@ -90,6 +110,141 @@ afterEach(async () => {
 });
 
 describe("attendance connection test route", () => {
+  it("accepts REGISTERED for Cloud via WHU after operational read probes succeed", async () => {
+    process.env.DATA_ENCRYPTION_KEY = Buffer.alloc(32, 15).toString("base64");
+    mocks.connection = {
+      id: "whu-cloud-registered",
+      accountId: "account-review",
+      name: "Cloud via WHU",
+      channel: "whatsapp",
+      provider: "wescctech_cloud",
+      status: "pending",
+      token: encryptApiKey("cloud-token", { table: "channel_connections", field: "token", recordId: "whu-cloud-registered" }),
+      metadata: { apiType: "official", official: true },
+    };
+    mocks.getStatus.mockResolvedValueOnce({ status: "REGISTERED" });
+
+    const app = express();
+    app.use(express.json());
+    registerAttendanceRoutes(app);
+    server = await new Promise<any>((resolve) => {
+      const instance = app.listen(0, "127.0.0.1", () => resolve(instance));
+    });
+
+    const response = await fetch(`http://127.0.0.1:${server.address().port}/api/attendance/connections/whu-cloud-registered/test`, { method: "POST" });
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({ status: "connected", lastError: null });
+    expect(mocks.getChannel).toHaveBeenCalledWith("cloud-token");
+    expect(mocks.listChatsLite).toHaveBeenCalledWith("cloud-token", { typeChat: 2, status: 1, page: 0 });
+    expect(mocks.updateChannelConnection).toHaveBeenCalledWith("whu-cloud-registered", "account-review", expect.objectContaining({
+      status: "connected",
+      lastError: null,
+    }));
+  });
+
+  it("does not accept REGISTERED for a normal WHU connection", async () => {
+    process.env.DATA_ENCRYPTION_KEY = Buffer.alloc(32, 15).toString("base64");
+    mocks.connection = {
+      id: "whu-normal-registered",
+      accountId: "account-review",
+      name: "WHU normal",
+      channel: "whatsapp",
+      provider: "wescctech",
+      status: "pending",
+      token: encryptApiKey("normal-token", { table: "channel_connections", field: "token", recordId: "whu-normal-registered" }),
+      metadata: { apiType: "whu", official: false },
+    };
+    mocks.getStatus.mockResolvedValueOnce({ status: "REGISTERED" });
+
+    const app = express();
+    app.use(express.json());
+    registerAttendanceRoutes(app);
+    server = await new Promise<any>((resolve) => {
+      const instance = app.listen(0, "127.0.0.1", () => resolve(instance));
+    });
+
+    const response = await fetch(`http://127.0.0.1:${server.address().port}/api/attendance/connections/whu-normal-registered/test`, { method: "POST" });
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({ status: "error", lastError: "O provedor informou que o número está desconectado." });
+    expect(mocks.updateChannelConnection).toHaveBeenCalledWith("whu-normal-registered", "account-review", expect.objectContaining({
+      status: "error",
+      lastError: "Status remoto: REGISTERED",
+    }));
+    expect(mocks.getChannel).not.toHaveBeenCalled();
+    expect(mocks.listChatsLite).not.toHaveBeenCalled();
+  });
+
+  it("keeps Cloud via WHU in error when REGISTERED cannot access the chat module", async () => {
+    process.env.DATA_ENCRYPTION_KEY = Buffer.alloc(32, 15).toString("base64");
+    mocks.connection = {
+      id: "whu-cloud-without-module",
+      accountId: "account-review",
+      name: "Cloud sem módulo",
+      channel: "whatsapp",
+      provider: "wescctech_cloud",
+      status: "pending",
+      token: encryptApiKey("limited-token", { table: "channel_connections", field: "token", recordId: "whu-cloud-without-module" }),
+      metadata: { apiType: "official", official: true },
+    };
+    mocks.getStatus.mockResolvedValueOnce({ status: "REGISTERED" });
+    mocks.listChatsLite.mockRejectedValueOnce(new Error('Wescctech 400: {"errorCode":"auth_11"}'));
+
+    const app = express();
+    app.use(express.json());
+    registerAttendanceRoutes(app);
+    server = await new Promise<any>((resolve) => {
+      const instance = app.listen(0, "127.0.0.1", () => resolve(instance));
+    });
+
+    const response = await fetch(`http://127.0.0.1:${server.address().port}/api/attendance/connections/whu-cloud-without-module/test`, { method: "POST" });
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({ status: "error" });
+    expect(body.lastError).toBe("Não foi possível validar a conexão com o provedor.");
+    expect(mocks.updateChannelConnection).toHaveBeenCalledWith("whu-cloud-without-module", "account-review", expect.objectContaining({
+      status: "error",
+      lastError: expect.stringContaining("auth_11"),
+    }));
+  });
+
+  it("keeps an auth_03 token in error", async () => {
+    process.env.DATA_ENCRYPTION_KEY = Buffer.alloc(32, 15).toString("base64");
+    mocks.connection = {
+      id: "whu-missing-channel",
+      accountId: "account-review",
+      name: "Canal removido",
+      channel: "whatsapp",
+      provider: "wescctech",
+      status: "pending",
+      token: encryptApiKey("stale-token", { table: "channel_connections", field: "token", recordId: "whu-missing-channel" }),
+      metadata: { apiType: "whu", official: false },
+    };
+    mocks.getStatus.mockRejectedValueOnce(new Error('Wescctech 400: {"errorCode":"auth_03"}'));
+
+    const app = express();
+    app.use(express.json());
+    registerAttendanceRoutes(app);
+    server = await new Promise<any>((resolve) => {
+      const instance = app.listen(0, "127.0.0.1", () => resolve(instance));
+    });
+
+    const response = await fetch(`http://127.0.0.1:${server.address().port}/api/attendance/connections/whu-missing-channel/test`, { method: "POST" });
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({ status: "error" });
+    expect(body.lastError).toBe("Não foi possível validar a conexão com o provedor.");
+    expect(mocks.updateChannelConnection).toHaveBeenCalledWith("whu-missing-channel", "account-review", expect.objectContaining({
+      status: "error",
+      lastError: expect.stringContaining("auth_03"),
+    }));
+  });
+
   it("requires an explicit tenant-scoped connection when syncing conversations", async () => {
     process.env.DATA_ENCRYPTION_KEY = Buffer.alloc(32, 15).toString("base64");
     mocks.connection = {
