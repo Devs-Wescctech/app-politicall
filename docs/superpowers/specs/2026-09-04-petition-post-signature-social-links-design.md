@@ -1,8 +1,8 @@
 # Redes de contato apos assinatura de peticao
 
-**Data:** 04/09/2026  
-**Base:** `origin/main` no commit `b5aa829`  
-**Escopo:** configuracao por peticao e pagina publica  
+**Data:** 04/09/2026
+**Base:** `origin/main` no commit `b5aa829`
+**Escopo:** configuracao por peticao e pagina publica
 **Estado:** desenho aprovado pelo usuario, aguardando revisao escrita
 
 ## Objetivo
