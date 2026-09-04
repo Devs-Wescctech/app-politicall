@@ -2187,6 +2187,7 @@ export const petitions = pgTable("petitions", {
   primaryColor: text("primary_color").default("#6366f1"),
   shareText: text("share_text"),
   contactWhatsapp: text("contact_whatsapp"),
+  contactWhatsappMessage: text("contact_whatsapp_message"),
   contactFacebookUrl: text("contact_facebook_url"),
   contactXUrl: text("contact_x_url"),
   contactTelegramUrl: text("contact_telegram_url"),

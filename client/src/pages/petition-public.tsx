@@ -29,6 +29,7 @@ interface PublicPetition {
   primaryColor: string | null;
   shareText: string | null;
   contactWhatsapp: string | null;
+  contactWhatsappMessage: string | null;
   contactFacebookUrl: string | null;
   contactXUrl: string | null;
   contactTelegramUrl: string | null;
@@ -125,6 +126,10 @@ export default function PetitionPublic() {
   const [acceptedLgpd, setAcceptedLgpd] = useState(false);
   const [cpfError, setCpfError] = useState("");
   const [formError, setFormError] = useState("");
+  const [signedContactContext, setSignedContactContext] = useState<{
+    name: string;
+    city: string;
+  } | null>(null);
   const [form, setForm] = useState({
     name: "", email: "", phone: "", city: "", state: "", cpf: "", comment: "",
   });
@@ -140,7 +145,11 @@ export default function PetitionPublic() {
       const res = await publicApiRequest("POST", `/api/public/petitions/${slug}/sign`, data);
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (_result, submitted) => {
+      setSignedContactContext({
+        name: String(submitted.name ?? "").trim(),
+        city: String(submitted.city ?? "").trim(),
+      });
       queryClient.invalidateQueries({ queryKey: ["/api/public/petitions", slug] });
       setShowSuccess(true);
       setForm({ name: "", email: "", phone: "", city: "", state: "", cpf: "", comment: "" });
@@ -193,7 +202,12 @@ export default function PetitionPublic() {
     { name: "Twitter", icon: Twitter, url: `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}` },
     { name: "Telegram", icon: Send, url: `https://t.me/share/url?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(shareText)}` },
   ];
-  const contactLinks = buildPetitionContactLinks(petition);
+  const contactLinks = buildPetitionContactLinks(petition, {
+    nome: signedContactContext?.name ?? "",
+    cidade: signedContactContext?.city ?? "",
+    peticao: petition.title,
+    link: shareUrl,
+  });
 
   const handleCopy = () => {
     navigator.clipboard.writeText(shareUrl).catch(() => {});
@@ -223,6 +237,7 @@ export default function PetitionPublic() {
     if (petition.collectComment && form.comment) payload.comment = form.comment.trim();
     payload.acceptedTerms = acceptedTerms;
     if (petition.lgpdText) payload.acceptedLgpd = acceptedLgpd;
+    setSignedContactContext(null);
     signMutation.mutate(payload);
   };
 

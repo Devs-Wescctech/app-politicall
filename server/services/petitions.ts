@@ -121,6 +121,7 @@ export function sanitizePublicPetition(petition: Record<string, any>) {
     primaryColor: normalized.primaryColor,
     shareText: normalized.shareText,
     contactWhatsapp: normalized.contactWhatsapp ?? null,
+    contactWhatsappMessage: normalized.contactWhatsappMessage ?? null,
     contactFacebookUrl: normalized.contactFacebookUrl ?? null,
     contactXUrl: normalized.contactXUrl ?? null,
     contactTelegramUrl: normalized.contactTelegramUrl ?? null,

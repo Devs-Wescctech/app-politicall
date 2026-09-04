@@ -118,6 +118,7 @@ describe("public response sanitizers", () => {
       primaryColor: "#000000",
       shareText: null,
       contactWhatsapp: null,
+      contactWhatsappMessage: null,
       contactFacebookUrl: null,
       contactXUrl: null,
       contactTelegramUrl: null,
@@ -151,6 +152,7 @@ describe("public response sanitizers", () => {
       slug: "peticao",
       status: "publicada",
       contactWhatsapp: null,
+      contactWhatsappMessage: null,
       contactFacebookUrl: null,
       contactXUrl: null,
       contactTelegramUrl: null,
@@ -166,6 +168,7 @@ describe("public response sanitizers", () => {
       status: "publicada",
       slug: "peticao-com-contato",
       contactWhatsapp: "5551999990000",
+      contactWhatsappMessage: "Olá, sou {nome}. Assinei {peticao}: {link}",
       contactFacebookUrl: "https://facebook.com/politico",
       contactXUrl: "https://x.com/politico",
       contactTelegramUrl: "https://t.me/politico",
@@ -174,6 +177,7 @@ describe("public response sanitizers", () => {
 
     expect(result).toMatchObject({
       contactWhatsapp: "5551999990000",
+      contactWhatsappMessage: "Olá, sou {nome}. Assinei {peticao}: {link}",
       contactFacebookUrl: "https://facebook.com/politico",
       contactXUrl: "https://x.com/politico",
       contactTelegramUrl: "https://t.me/politico",

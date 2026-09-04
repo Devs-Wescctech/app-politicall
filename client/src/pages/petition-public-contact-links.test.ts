@@ -13,4 +13,14 @@ describe("public petition contact links", () => {
     expect(source).toContain("noopener,noreferrer");
     expect(source).not.toContain("button-success-share-");
   });
+
+  it("builds WhatsApp contact links from the successful signature context", () => {
+    expect(source).toContain("setSignedContactContext");
+    expect(source).toContain("onSuccess: (_result, submitted)");
+    expect(source).toContain("buildPetitionContactLinks(petition, {");
+    expect(source).toContain('nome: signedContactContext?.name ?? ""');
+    expect(source).toContain('cidade: signedContactContext?.city ?? ""');
+    expect(source).toContain("peticao: petition.title");
+    expect(source).toContain("link: shareUrl");
+  });
 });

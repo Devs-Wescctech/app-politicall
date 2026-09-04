@@ -6,7 +6,8 @@ import { describe, expect, it } from "vitest";
 
 const root = process.cwd();
 const execFileAsync = promisify(execFile);
-const readProjectFile = (name: string) => readFile(path.join(root, name), "utf8");
+const readProjectFile = async (name: string) =>
+  (await readFile(path.join(root, name), "utf8")).replace(/\r\n/g, "\n");
 const syntheticFullCommitSha = "0123456789abcdef0123456789abcdef01234567";
 const syntheticShaTagReference = `ghcr.io/example-org/politicall:sha-${syntheticFullCommitSha}`;
 const syntheticDigestReference = `ghcr.io/example-org/politicall@sha256:${"0".repeat(64)}`;
@@ -636,6 +637,20 @@ describe("deployment configuration", () => {
     expect(migration).toContain("ADD COLUMN IF NOT EXISTS contact_facebook_url text");
     expect(migration).toContain("ADD COLUMN IF NOT EXISTS contact_x_url text");
     expect(migration).toContain("ADD COLUMN IF NOT EXISTS contact_telegram_url text");
+  });
+
+  it("applies the petition WhatsApp message migration during database bootstrap", async () => {
+    const migrator = await readProjectFile("server/services/production-migrations.ts");
+    const unitMigrationRunner = await readProjectFile("server/services/production-migrations.test.ts");
+    const integrationMigrationRunner = await readProjectFile("server/services/production-migrations.integration.test.ts");
+    const migration = await readProjectFile("migrations/0027_petition_whatsapp_message.sql");
+    const schema = await readProjectFile("shared/schema.ts");
+
+    expect(migrator).toContain('"0027_petition_whatsapp_message.sql"');
+    expect(unitMigrationRunner).toContain('"0027_petition_whatsapp_message.sql"');
+    expect(integrationMigrationRunner).toContain('"0027_petition_whatsapp_message.sql"');
+    expect(migration).toContain("ADD COLUMN IF NOT EXISTS contact_whatsapp_message text");
+    expect(schema).toContain('contactWhatsappMessage: text("contact_whatsapp_message")');
   });
 
   it("keeps the CI runtime deterministic and pins every action to a reviewed full SHA", async () => {
