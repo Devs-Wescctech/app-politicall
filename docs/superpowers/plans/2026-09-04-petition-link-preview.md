@@ -11,7 +11,7 @@
 ## Global Constraints
 
 - Do not change the database schema or add a new persistence layer.
-- Only published or completed petitions may expose petition-specific metadata.
+- Published, paused, or completed petitions may expose petition-specific metadata, matching the existing public visibility policy.
 - Use the petition banner first, logo second, and a public Politicall image last.
 - Production must read `dist/public/index.html`; development must read `client/index.html`.
 - Canonical URLs contain only `/p/:slug` and do not retain tracking query parameters.
@@ -101,7 +101,7 @@ Use an Express test server with injected storage and template reader. Verify a W
 
 - [ ] **Step 2: Add visibility and fallback tests**
 
-Prove that a regular browser calls `next()` without storage access; draft, paused, and missing petitions use generic metadata without title/description leakage; a read or storage error calls `next()`; and query parameters do not enter the canonical URL.
+Prove that a regular browser calls `next()` without storage access; draft and missing petitions use generic metadata without title/description leakage; paused petitions retain their public preview; a read or storage error calls `next()`; and query parameters do not enter the canonical URL.
 
 - [ ] **Step 3: Run route tests and verify RED**
 
@@ -195,4 +195,3 @@ If Step 3 required a new production-artifact test, commit it with:
 git add server/petition-link-preview.test.ts
 git commit -m "test: verify production petition preview template"
 ```
-

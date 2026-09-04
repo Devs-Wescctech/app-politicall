@@ -24,6 +24,7 @@ import { createApiRequestLogger } from "./http-logging";
 import { createListenOptions } from "./listen-options";
 import { apiErrorHandler, createRequestSecurity, installApiNotFound } from "./security/request-security";
 import { escapeHtml } from "./html-escape";
+import { createPetitionLinkPreviewHandler } from "./petition-link-preview-route";
 import { requireDataEncryptionKey } from "./crypto";
 import { politicalParties, accounts } from "@shared/schema";
 import { eq } from "drizzle-orm";
@@ -325,82 +326,15 @@ const handlePublicSupportSSR = async (req: Request, res: Response, next: NextFun
 app.get("/apoio/:slug", handlePublicSupportSSR);
 app.get("/apoio/:slug/:volunteerCode", handlePublicSupportSSR);
 
-// SSR Open Graph tags for public petition pages (/p/:slug)
-const handlePetitionSSR = async (req: Request, res: Response, next: NextFunction) => {
-  const userAgent = req.headers['user-agent'] || '';
-  const crawlerPatterns = [
-    'facebookexternalhit', 'Facebot', 'WhatsApp', 'Twitterbot', 'LinkedInBot',
-    'Pinterest', 'Slackbot', 'TelegramBot', 'Discordbot', 'Googlebot', 'bingbot', 'Applebot'
-  ];
-  const isCrawler = crawlerPatterns.some(pattern =>
-    userAgent.toLowerCase().includes(pattern.toLowerCase())
-  );
-  if (!isCrawler) {
-    return next();
-  }
-
-  try {
-    const { slug } = req.params;
-    const petition = await storage.getPetitionBySlug(slug);
-
-    const host = req.headers['x-forwarded-host'] || req.headers.host || 'www.politicall.com.br';
-    const baseUrl = `https://${host}`;
-
-    let ogTitle = "Petição - Politicall";
-    let ogDescription = "Assine esta petição e faça parte dessa mudança!";
-    let ogImage = `${baseUrl}/favicon.png`;
-
-    if (petition) {
-      ogTitle = petition.title;
-      if (petition.description) {
-        ogDescription = petition.description.length > 200
-          ? `${petition.description.slice(0, 200)}...`
-          : petition.description;
-      }
-      const img = petition.bannerUrl || petition.logoUrl;
-      if (img && !img.startsWith('data:')) {
-        ogImage = img.startsWith('http') ? img : `${baseUrl}${img}`;
-      }
-    }
-
-    const indexPath = path.resolve("client", "index.html");
-    let html = fs.readFileSync(indexPath, "utf-8");
-    const safeOgTitle = escapeHtml(ogTitle);
-    const safeOgDescription = escapeHtml(ogDescription);
-    const safeOgImage = escapeHtml(ogImage);
-    const safeOgUrl = escapeHtml(`${baseUrl}${req.originalUrl}`);
-
-    const ogTags = `
-    <!-- Dynamic Open Graph Meta Tags for Petition Page -->
-    <meta property="og:type" content="website" />
-    <meta property="og:url" content="${safeOgUrl}" />
-    <meta property="og:title" content="${safeOgTitle}" />
-    <meta property="og:description" content="${safeOgDescription}" />
-    <meta property="og:image" content="${safeOgImage}" />
-    <meta property="og:site_name" content="Politicall" />
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="${safeOgTitle}" />
-    <meta name="twitter:description" content="${safeOgDescription}" />
-    <meta name="twitter:image" content="${safeOgImage}" />
-    <link rel="icon" type="image/png" href="${safeOgImage}" />
-  `;
-
-    html = html.replace(/<title>.*?<\/title>/, `<title>${safeOgTitle}</title>`);
-    html = html.replace(
-      /<meta name="description" content=".*?" \/>/,
-      `<meta name="description" content="${safeOgDescription}" />`
-    );
-    html = html.replace('</head>', `${ogTags}</head>`);
-
-    res.setHeader("Content-Type", "text/html");
-    return res.send(html);
-  } catch (error) {
-    log(`SSR error for /p/:slug: ${error}`);
-    return next();
-  }
-};
-
-app.get("/p/:slug", handlePetitionSSR);
+app.get("/p/:slug", createPetitionLinkPreviewHandler({
+  getPetitionBySlug: (slug) => storage.getPetitionBySlug(slug),
+  getPetitionSignatureCount: (petitionId) => storage.getPetitionSignatureCount(petitionId),
+  readFile: (filePath, encoding) => fs.promises.readFile(filePath, encoding),
+  environment: process.env.NODE_ENV,
+  runtimeDirectory: import.meta.dirname,
+  publicAppUrl: process.env.PUBLIC_APP_URL,
+  log,
+}));
 
 (async () => {
   await ensureDevDatabaseReady();

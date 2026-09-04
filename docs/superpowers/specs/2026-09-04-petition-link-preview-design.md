@@ -27,7 +27,7 @@ O resumo deve remover marcação HTML e espaços repetidos, preservar texto leg�
 
 ## Visibilidade
 
-Somente petições com visibilidade pública podem gerar prévia individual. Petições inexistentes, em rascunho ou pausadas devem usar a prévia genérica e não expor seus dados. Petições publicadas e concluídas permanecem publicamente visíveis, conforme a regra já usada pela página pública.
+Somente petições com visibilidade pública podem gerar prévia individual. Petições inexistentes ou em rascunho devem usar a prévia genérica e não expor seus dados. Petições publicadas, pausadas e concluídas permanecem publicamente visíveis, conforme a regra já usada pela página pública; uma petição pausada pode ser consultada, mas não recebe novas assinaturas.
 
 ## URLs e imagens
 
