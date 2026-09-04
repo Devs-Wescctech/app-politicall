@@ -293,10 +293,12 @@ git add docs/deployment/portainer-production.md
 git commit -m "docs: document petition WhatsApp messages"
 ```
 
-- [ ] **Step 6: Browser validation**
+- [x] **Step 6: Browser validation**
 
 Start the local application with its configured development environment, open the petition editor, verify the masked number and message field at desktop/mobile widths, then sign a disposable local petition and confirm the WhatsApp URL contains the normalized number and encoded substituted text. Do not publish to production without a separate explicit deployment confirmation.
 
-Local browser validation remains pending because this worktree has no development
-database credentials and Docker Desktop is unavailable. Do not substitute the
-production database for this validation.
+Validated against the production build served locally with isolated browser API
+mocks because this worktree has no development database credentials and Docker
+Desktop is unavailable. The editor field was checked at 1440x900 and 390x844.
+The public signing flow produced `wa.me/5551999990000` and substituted and
+encoded all four supported variables. The production database was not used.
