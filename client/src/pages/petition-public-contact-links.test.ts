@@ -9,9 +9,15 @@ describe("public petition contact links", () => {
     expect(source).toContain("const contactLinks");
     expect(source).toContain("buildPetitionContactLinks");
     expect(source).toContain('data-testid="section-petition-contact-links"');
-    expect(source).toContain("Fale com o político");
+    expect(source).toContain("Fale com o proponente da petição");
+    expect(source).not.toContain("Fale com o político");
     expect(source).toContain("noopener,noreferrer");
-    expect(source).not.toContain("button-success-share-");
+    expect(source).toContain('data-testid="section-petition-success-sharing"');
+    expect(source).toContain('data-testid={`button-success-share-${s.name.toLowerCase()}`}');
+    expect(source).toContain('data-testid="button-success-copy-link"');
+    expect(source).toContain('aria-live="polite"');
+    expect(source).toContain("Link copiado");
+    expect(source).toContain("Não foi possível copiar o link");
   });
 
   it("builds WhatsApp contact links from the successful signature context", () => {
