@@ -253,11 +253,11 @@ git commit -m "feat: personalize petition WhatsApp contact link"
 **Interfaces:**
 - Verifies all interfaces produced by Tasks 1-4.
 
-- [ ] **Step 1: Document migration and rollback behavior**
+- [x] **Step 1: Document migration and rollback behavior**
 
 Document migration `0027`, nullable-column image rollback compatibility, the four allowed placeholders, and the rule that local Brazilian numbers receive `55`.
 
-- [ ] **Step 2: Run static and security checks**
+- [x] **Step 2: Run static and security checks**
 
 Run:
 
@@ -269,13 +269,13 @@ npm run build
 
 Expected: all commands exit successfully.
 
-- [ ] **Step 3: Run the complete automated suite**
+- [x] **Step 3: Run the complete automated suite**
 
 Run: `npm test`
 
 Expected: all repository tests pass; any environment-specific skip must be reported explicitly.
 
-- [ ] **Step 4: Inspect the final diff**
+- [x] **Step 4: Inspect the final diff**
 
 Run:
 
@@ -286,7 +286,7 @@ git status --short
 
 Expected: no whitespace errors and only intentional changes.
 
-- [ ] **Step 5: Commit documentation**
+- [x] **Step 5: Commit documentation**
 
 ```bash
 git add docs/deployment/portainer-production.md
@@ -296,3 +296,7 @@ git commit -m "docs: document petition WhatsApp messages"
 - [ ] **Step 6: Browser validation**
 
 Start the local application with its configured development environment, open the petition editor, verify the masked number and message field at desktop/mobile widths, then sign a disposable local petition and confirm the WhatsApp URL contains the normalized number and encoded substituted text. Do not publish to production without a separate explicit deployment confirmation.
+
+Local browser validation remains pending because this worktree has no development
+database credentials and Docker Desktop is unavailable. Do not substitute the
+production database for this validation.

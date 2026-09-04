@@ -77,6 +77,27 @@ The production migration runner performs an automatic WHU token fingerprint back
 
 The uploads mount is persistent: `${UPLOADS_HOST_PATH}` is mounted at `/app/uploads`. Do not replace it with an anonymous volume or a repository-relative directory.
 
+## Petition WhatsApp Contact Message
+
+Migration `0027_petition_whatsapp_message.sql` adds the nullable
+`petitions.contact_whatsapp_message` column. It is additive and compatible
+with an image rollback that does not know the field; do not drop the column
+during an image-only rollback.
+
+The petition editor keeps the post-signature WhatsApp contact message
+separate from the petition sharing text. Its supported variables are exactly
+`{nome}`, `{cidade}`, `{peticao}`, and `{link}`. Unknown variables and messages
+longer than 1,000 characters are rejected by the API. Brazilian contact
+numbers entered with 10 or 11 digits receive country code `55` before the
+`wa.me` link is generated; already complete 12-15 digit international numbers
+are preserved.
+
+For release smoke testing, create or edit a disposable petition, configure a
+contact number and message, sign it with a non-production test identity, and
+inspect the post-signature WhatsApp URL. It must contain the canonical number
+and an encoded `text` query with no literal `undefined` values. The ordinary
+petition sharing buttons must retain their existing sharing text and behavior.
+
 ## External PostgreSQL
 
 Preferred option: set `APP_NETWORK_NAME` to the stable external network created during preflight, attach the existing PostgreSQL container to it, and configure `PROD_DATABASE_URL` with the database container DNS name. Compose attaches the application to this network but never creates or manages the database service. Restrict database access to the shared network and confirm DNS resolution and TLS settings before the first migration.
