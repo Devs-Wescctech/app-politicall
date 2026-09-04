@@ -23,11 +23,14 @@ describe("public petition sharing controls", () => {
     expect(source).toContain("Não foi possível copiar o link");
   });
 
-  it("credits WESCC Tech at the end of the public petition", () => {
+  it("credits Wescctech discreetly without a separate black bar", () => {
     expect(source).toContain('data-testid="footer-wescc-tech"');
-    expect(source).toContain("Plataforma desenvolvida por WESCC Tech");
+    expect(source).toContain("Plataforma desenvolvida por Wescctech");
     expect(source).toContain('href="https://wescctech.com.br/"');
     expect(source).toContain('target="_blank"');
     expect(source).toContain('rel="noopener noreferrer"');
+    expect(source).toContain('className="relative z-10 px-4 pb-4 text-center"');
+    expect(source).toContain("text-[11px]");
+    expect(source).not.toContain("border-t border-white/15 bg-black/95");
   });
 });
