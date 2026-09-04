@@ -47,10 +47,14 @@ export function createPetitionLinkPreviewHandler(
         dependencies.runtimeDirectory,
       );
       const template = await dependencies.readFile(templatePath, "utf-8");
+      const requestedVersion = typeof req.query.v === "string" ? req.query.v.trim() : "";
+      const socialUrl = /^[a-z0-9_-]{1,64}$/i.test(requestedVersion)
+        ? `${preview.url}?v=${encodeURIComponent(requestedVersion)}`
+        : preview.url;
 
       res.setHeader("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
       res.type("html");
-      return res.send(injectPetitionPreviewHtml(template, preview));
+      return res.send(injectPetitionPreviewHtml(template, preview, socialUrl));
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       dependencies.log(`Petition preview error: ${message}`);
