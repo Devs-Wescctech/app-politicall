@@ -15,6 +15,7 @@ import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { insertAllianceLineSchema, updateAllianceLineSchema } from "./alliance-lines";
+import { petitionContactConfigSchema } from "./petition-contact-links";
 
 // Accounts table - Each account represents a political office/cabinet
 export const accounts = pgTable("accounts", {
@@ -2185,6 +2186,10 @@ export const petitions = pgTable("petitions", {
   videoUrl: text("video_url"),
   primaryColor: text("primary_color").default("#6366f1"),
   shareText: text("share_text"),
+  contactWhatsapp: text("contact_whatsapp"),
+  contactFacebookUrl: text("contact_facebook_url"),
+  contactXUrl: text("contact_x_url"),
+  contactTelegramUrl: text("contact_telegram_url"),
   goal: integer("goal").notNull().default(1),
   status: text("status").notNull().default("rascunho"), // rascunho, publicada, pausada, concluida
   slug: text("slug").notNull().unique(),
@@ -2334,6 +2339,7 @@ export const insertPetitionSchema = createInsertSchema(petitions).omit({
   description: z.string().min(1, "Descrição é obrigatória"),
   slug: z.string().min(3, "Slug deve ter no mínimo 3 caracteres"),
   goal: z.coerce.number().int().min(1, "Meta deve ser maior que zero"),
+  ...petitionContactConfigSchema.shape,
 });
 
 export const insertPetitionSignatureSchema = createInsertSchema(petitionSignatures).omit({
