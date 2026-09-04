@@ -638,6 +638,20 @@ describe("deployment configuration", () => {
     expect(migration).toContain("ADD COLUMN IF NOT EXISTS contact_telegram_url text");
   });
 
+  it("applies the petition WhatsApp message migration during database bootstrap", async () => {
+    const migrator = await readProjectFile("server/services/production-migrations.ts");
+    const unitMigrationRunner = await readProjectFile("server/services/production-migrations.test.ts");
+    const integrationMigrationRunner = await readProjectFile("server/services/production-migrations.integration.test.ts");
+    const migration = await readProjectFile("migrations/0027_petition_whatsapp_message.sql");
+    const schema = await readProjectFile("shared/schema.ts");
+
+    expect(migrator).toContain('"0027_petition_whatsapp_message.sql"');
+    expect(unitMigrationRunner).toContain('"0027_petition_whatsapp_message.sql"');
+    expect(integrationMigrationRunner).toContain('"0027_petition_whatsapp_message.sql"');
+    expect(migration).toContain("ADD COLUMN IF NOT EXISTS contact_whatsapp_message text");
+    expect(schema).toContain('contactWhatsappMessage: text("contact_whatsapp_message")');
+  });
+
   it("keeps the CI runtime deterministic and pins every action to a reviewed full SHA", async () => {
     const workflow = await readProjectFile(".github/workflows/build.yml");
     const expectedActions = [

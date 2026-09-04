@@ -114,7 +114,7 @@ git commit -m "feat: build petition WhatsApp contact messages"
 - Produces database/API property: `contactWhatsappMessage: string | null`.
 - Consumes: `petitionContactConfigSchema.shape.contactWhatsappMessage` from Task 1.
 
-- [ ] **Step 1: Write failing schema, migration registration, and public projection tests**
+- [x] **Step 1: Write failing schema, migration registration, and public projection tests**
 
 Assert that the Drizzle table and insert schema expose `contactWhatsappMessage`, migration `0027_petition_whatsapp_message.sql` is approved by both migration runners, and `sanitizePublicPetition` includes the configured message but excludes unrelated internal fields.
 
@@ -126,13 +126,13 @@ expect(sanitizePublicPetition({
 })).toMatchObject({ contactWhatsappMessage: "Ola, {nome}" });
 ```
 
-- [ ] **Step 2: Run the focused tests and verify RED**
+- [x] **Step 2: Run the focused tests and verify RED**
 
 Run: `npm test -- tests/deployment-config.test.ts server/services/petitions.test.ts server/services/production-migrations.test.ts`
 
 Expected: FAIL because migration `0027` and the schema/public field are absent.
 
-- [ ] **Step 3: Add the nullable column and register migration `0027`**
+- [x] **Step 3: Add the nullable column and register migration `0027`**
 
 Create the idempotent SQL artifact:
 
@@ -143,17 +143,17 @@ ADD COLUMN IF NOT EXISTS contact_whatsapp_message text;
 
 Add `contactWhatsappMessage: text("contact_whatsapp_message")` next to `contactWhatsapp`, include the Zod field through the existing contact schema shape, and add `0027_petition_whatsapp_message.sql` to both explicit migration lists.
 
-- [ ] **Step 4: Expose the public message template safely**
+- [x] **Step 4: Expose the public message template safely**
 
 Add only `contactWhatsappMessage: normalized.contactWhatsappMessage ?? null` to `sanitizePublicPetition`.
 
-- [ ] **Step 5: Run focused and PostgreSQL integration tests**
+- [x] **Step 5: Run focused and PostgreSQL integration tests**
 
 Run: `npm test -- tests/deployment-config.test.ts server/services/petitions.test.ts server/services/production-migrations.test.ts server/services/production-migrations.integration.test.ts`
 
 Expected: PASS; PostgreSQL integration may skip only when `MIGRATION_TEST_DATABASE_URL` is unavailable locally.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add migrations/0027_petition_whatsapp_message.sql shared/schema.ts server/services/production-migrations.ts server/services/production-migrations.test.ts server/services/production-migrations.integration.test.ts server/services/petitions.ts server/services/petitions.test.ts tests/deployment-config.test.ts
