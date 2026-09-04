@@ -186,6 +186,7 @@ describe("public response sanitizers", () => {
       title: "Petição",
       slug: "peticao",
       status: "publicada",
+      shareVersion: "mjw3xmo0",
       contactWhatsapp: null,
       contactWhatsappMessage: null,
       contactFacebookUrl: null,

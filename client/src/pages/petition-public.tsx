@@ -17,6 +17,7 @@ import {
 } from "@shared/petition-contact-links";
 import { findBrazilianMunicipality } from "@shared/brazilian-municipalities";
 import { formatBrazilianPhone, isValidBrazilianPhone, normalizeBrazilianPhone } from "@shared/brazilian-phone";
+import { buildPetitionShareText, buildPetitionShareUrl } from "@shared/petition-sharing";
 import { FaFacebookF, FaTelegram, FaWhatsapp, FaXTwitter } from "react-icons/fa6";
 import {
   Loader2, Users, Target, TrendingUp, CheckCircle2, Share2,
@@ -32,6 +33,7 @@ interface PublicPetition {
   videoUrl: string | null;
   primaryColor: string | null;
   shareText: string | null;
+  shareVersion: string | null;
   contactWhatsapp: string | null;
   contactWhatsappMessage: string | null;
   contactFacebookUrl: string | null;
@@ -205,10 +207,8 @@ export default function PetitionPublic() {
 
   const primaryColor = petition.primaryColor || "#14b8a6";
   const progress = calculateGoalProgress(petition.signaturesCount, petition.goal);
-  const shareUrl = `${window.location.origin}/p/${petition.slug}`;
-  const shareText = petition.shareText
-    ? petition.shareText.replace("{link}", shareUrl)
-    : `Acabei de assinar "${petition.title}". Junte-se a mim! ${shareUrl}`;
+  const shareUrl = buildPetitionShareUrl(window.location.origin, petition.slug, petition.shareVersion);
+  const shareText = buildPetitionShareText(petition.shareText, petition.title, shareUrl);
   const labelClass = "text-sm font-semibold text-slate-700";
   const inputClass = "border-slate-300 bg-white text-slate-950 shadow-sm placeholder:text-slate-400 focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-0";
   const checkboxClass = "mt-0.5 border-slate-400 bg-white data-[state=checked]:text-white";
