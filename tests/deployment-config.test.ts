@@ -6,7 +6,8 @@ import { describe, expect, it } from "vitest";
 
 const root = process.cwd();
 const execFileAsync = promisify(execFile);
-const readProjectFile = (name: string) => readFile(path.join(root, name), "utf8");
+const readProjectFile = async (name: string) =>
+  (await readFile(path.join(root, name), "utf8")).replace(/\r\n/g, "\n");
 const syntheticFullCommitSha = "0123456789abcdef0123456789abcdef01234567";
 const syntheticShaTagReference = `ghcr.io/example-org/politicall:sha-${syntheticFullCommitSha}`;
 const syntheticDigestReference = `ghcr.io/example-org/politicall@sha256:${"0".repeat(64)}`;
