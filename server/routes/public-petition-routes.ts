@@ -9,6 +9,7 @@ import {
   isPublicPetitionOpenForSignature,
   isPublicPetitionVisible,
   sanitizePublicPetition,
+  normalizePublicSignatureInput,
   validatePublicSignatureRequirements,
 } from "../services/petitions";
 
@@ -85,7 +86,8 @@ export function registerPublicPetitionRoutes(app: Express) {
         return res.status(400).json({ error: "Esta petição não está mais recebendo assinaturas." });
       }
 
-      const requirementIssues = validatePublicSignatureRequirements(petition, req.body ?? {});
+      const normalizedInput = normalizePublicSignatureInput(req.body ?? {});
+      const requirementIssues = validatePublicSignatureRequirements(petition, normalizedInput);
       if (requirementIssues.length > 0) {
         return res.status(400).json({
           error: "Campos obrigatórios não preenchidos",
@@ -93,7 +95,7 @@ export function registerPublicPetitionRoutes(app: Express) {
         });
       }
 
-      const validated = insertPetitionSignatureSchema.omit({ petitionId: true }).parse(req.body);
+      const validated = insertPetitionSignatureSchema.omit({ petitionId: true }).parse(normalizedInput);
       const email = validated.email && validated.email.trim() !== "" ? validated.email.trim().toLowerCase() : null;
       const cpf = validated.cpf && validated.cpf.replace(/\D/g, "") !== "" ? validated.cpf.replace(/\D/g, "") : null;
 
