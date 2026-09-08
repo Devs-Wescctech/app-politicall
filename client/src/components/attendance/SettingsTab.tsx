@@ -144,6 +144,7 @@ function ConnectionsSection() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/attendance/connections"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/attendance/connections/available"] });
       setOpen(false);
       toast({ title: editConn ? "Conexão atualizada" : "Conexão criada" });
     },
@@ -165,6 +166,7 @@ function ConnectionsSection() {
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/attendance/connections"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/attendance/connections/available"] });
       toast({ title: variables.status === "disabled" ? "Conexão desativada" : "Conexão reativada", description: variables.status === "pending" ? "Teste a conexão para confirmar a disponibilidade." : undefined });
     },
     onError: (e: any) => toast({ title: "Não foi possível alterar a conexão", description: connectionErrorMessage(e), variant: "destructive" }),
@@ -175,7 +177,8 @@ function ConnectionsSection() {
     mutationFn: async (id: string) => {
       setTestingIds(current => new Set(current).add(id));
       try {
-        return await apiRequest("POST", `/api/attendance/connections/${id}/test`, {});
+        const response = await apiRequest("POST", `/api/attendance/connections/${id}/test`, {});
+        return response.json();
       } finally {
         setTestingIds(current => {
           const next = new Set(current);
@@ -186,6 +189,7 @@ function ConnectionsSection() {
     },
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/attendance/connections"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/attendance/connections/available"] });
       toast({ title: data.status === "connected" ? "Conexão OK" : "Falha na conexão", description: data.lastError ?? undefined });
     },
     onError: (e: any) => toast({ title: "Erro no teste", description: connectionErrorMessage(e), variant: "destructive" }),

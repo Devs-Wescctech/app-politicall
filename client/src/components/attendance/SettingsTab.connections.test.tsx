@@ -67,6 +67,10 @@ afterEach(() => {
 });
 
 describe("attendance connection manager", () => {
+  const responseWithJson = (value: unknown) => ({
+    json: vi.fn().mockResolvedValue(value),
+  });
+
   it("uses only the backend-provided webhook setup value", async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
@@ -103,10 +107,13 @@ describe("attendance connection manager", () => {
     await waitFor(() => expect((secondButton as HTMLButtonElement).disabled).toBe(true));
     expect((firstButton as HTMLButtonElement).disabled).toBe(true);
 
-    resolveTest({ ...first, status: "connected" });
+    resolveTest(responseWithJson({ ...first, status: "connected" }));
     await waitFor(() => expect((firstButton as HTMLButtonElement).disabled).toBe(false));
+    await waitFor(() => expect(mocks.toast).toHaveBeenCalledWith(expect.objectContaining({ title: "Conexão OK" })));
+    expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ["/api/attendance/connections"] });
+    expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ["/api/attendance/connections/available"] });
     expect((secondButton as HTMLButtonElement).disabled).toBe(true);
-    resolveSecondTest({ ...second, status: "connected" });
+    resolveSecondTest(responseWithJson({ ...second, status: "connected" }));
     await waitFor(() => expect((secondButton as HTMLButtonElement).disabled).toBe(false));
   });
 
