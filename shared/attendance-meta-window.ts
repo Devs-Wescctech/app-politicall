@@ -37,6 +37,7 @@ function explicitOfficial(value: ChannelRecord | null | undefined): boolean {
   const channel = String(value?.channel ?? "").toLowerCase();
   const metadata = record(value?.metadata);
   const providerOrChannelIsOfficial = provider.includes("official") || provider.includes("meta_cloud") ||
+    provider === "wescctech_cloud" ||
     channel.includes("official") || channel.includes("oficial") || channel.includes("cloud");
   if (providerOrChannelIsOfficial) return true;
 

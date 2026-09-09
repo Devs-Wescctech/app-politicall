@@ -12,6 +12,20 @@ describe("isOfficialAttendanceChannel", () => {
     expect(isOfficialAttendanceChannel({ connection: { provider: "meta_cloud" } })).toBe(true);
   });
 
+  it("keeps an explicitly selected WHU Cloud provider available despite stale channel metadata", () => {
+    const connection = {
+      provider: "wescctech_cloud",
+      channel: "whatsapp",
+      metadata: {
+        channelType: 4,
+        apiType: "official",
+        official: true,
+      },
+    };
+    expect(isOfficialAttendanceChannel({ connection })).toBe(true);
+    expect(supportsWhuActionCards(connection)).toBe(true);
+  });
+
   it("recognizes official connection metadata", () => {
     expect(isOfficialAttendanceChannel({ connection: { provider: "wescctech", metadata: { apiType: "official" } } })).toBe(true);
   });
